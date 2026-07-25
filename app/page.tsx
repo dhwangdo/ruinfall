@@ -153,7 +153,6 @@ const REGION_COUNT = 7;
 const ROCK_BARRIER_HEIGHT = 5;
 const DUNGEON_MIN_X = -80;
 const DUNGEON_MAX_X = 80;
-const VISIBLE_REGION_RADIUS = 14;
 const SAFE_AREA_START_X = 60;
 const SAFE_AREA_ENTRY_X = SAFE_AREA_START_X + 1;
 const SAFE_AREA_HEAL_X = SAFE_AREA_START_X + 2;
@@ -185,6 +184,11 @@ function getStackOffset(cardCount: number) {
 
 function mapRoomKey(position: MapPosition) {
   return `${position.x}:${position.y}`;
+}
+
+function parseMapRoomKey(roomKey: string): MapPosition {
+  const [x, y] = roomKey.split(":").map(Number);
+  return { x, y };
 }
 
 function seededRoll(position: MapPosition, seed: number, salt = 0) {
@@ -297,7 +301,7 @@ function getRoomType(position: MapPosition, seed: number): RoomType {
       ) return "portal";
       const roll = seededRoll(position, seed);
       if (roll < 0.05) return "shop";
-      return roll < 0.4 ? "combat" : "empty";
+      return roll < 0.05 + 0.95 / 3 ? "combat" : "empty";
     }
     for (let regionIndex = 0; regionIndex < REGION_COUNT - 1; regionIndex += 1) {
       const barrierStart = regionStartY(regionIndex) + regionHeight(regionIndex);
@@ -2240,30 +2244,22 @@ export default function Home() {
     const mapHeight = MAP_PADDING * 2
       + MAP_RENDER_ROWS * MAP_ROOM_HEIGHT
       + (MAP_RENDER_ROWS - 1) * MAP_CELL_GAP;
-    const visibleMinX = Math.max(DUNGEON_MIN_X, mapPosition.x - VISIBLE_REGION_RADIUS);
-    const visibleMaxX = Math.min(DUNGEON_MAX_X, mapPosition.x + VISIBLE_REGION_RADIUS);
     const mapCellMap = new Map<string, MapPosition>();
-    for (let y = -ROCK_BARRIER_HEIGHT; y < 0; y += 1) {
-      for (let x = visibleMinX; x <= visibleMaxX; x += 1) {
-        const position = { x, y };
-        mapCellMap.set(mapRoomKey(position), position);
-      }
-    }
-    for (let y = 0; y < MAP_ROWS; y += 1) {
-      for (let x = visibleMinX; x <= visibleMaxX; x += 1) {
-        const position = { x, y };
-        mapCellMap.set(mapRoomKey(position), position);
-      }
-    }
-    for (let regionIndex = 0; regionIndex < REGION_COUNT; regionIndex += 1) {
-      const centerY = safeAreaCenterY(regionIndex);
-      for (let y = centerY - 1; y <= centerY + 1; y += 1) {
-        for (let x = SAFE_AREA_START_X; x <= SAFE_AREA_PORTAL_X + 1; x += 1) {
-          const position = { x, y };
-          mapCellMap.set(mapRoomKey(position), position);
+    visitedRooms.forEach((visitedRoomKey) => {
+      const visitedPosition = parseMapRoomKey(visitedRoomKey);
+      for (let offsetY = -1; offsetY <= 1; offsetY += 1) {
+        for (let offsetX = -1; offsetX <= 1; offsetX += 1) {
+          const position = {
+            x: visitedPosition.x + offsetX,
+            y: visitedPosition.y + offsetY,
+          };
+          const roomType = getRoomType(position, mapSeed);
+          if (roomType !== "void") {
+            mapCellMap.set(mapRoomKey(position), position);
+          }
         }
       }
-    }
+    });
     const mapCells = Array.from(mapCellMap.values());
 
     return (
@@ -2386,12 +2382,16 @@ export default function Home() {
                 const walkable = isWalkableRoom(roomType);
                 const adjacent = distance === 1 && walkable;
                 const reachable = !current && safeRoomRoutes.has(roomKey);
+                const fixedRoom = roomType === "shop"
+                  || roomType === "portal"
+                  || roomType === "heal"
+                  || roomType === "safePortal";
                 const hasItems = (roomDrops[roomKey]?.length ?? 0) > 0
                   || (roomConsumableDrops[roomKey]?.length ?? 0) > 0
                   || (roomDeckDrops[roomKey]?.length ?? 0) > 0;
                 const roomState = roomType === "rock" || roomType === "void"
                   ? roomType
-                  : !visited
+                  : !visited && !fixedRoom
                     ? "unknown"
                     : roomType === "combat" && !cleared
                       ? "combat"
@@ -2404,8 +2404,8 @@ export default function Home() {
                     ? "단단한 바위"
                     : roomType === "void"
                       ? "먼 공간"
-                  : !visited
-                    ? "미지의 방"
+                  : !visited && !fixedRoom
+                    ? "알 수 없는 방"
                     : roomType === "combat" && !cleared
                         ? "전투 방"
                         : roomType === "shop"
@@ -2443,19 +2443,23 @@ export default function Home() {
                       if (adjacent) moveOnMap(position.x - mapPosition.x, position.y - mapPosition.y);
                     }}
                   >
-                    {visited && roomType === "combat" && !cleared
+                    {!visited && !fixedRoom && roomType !== "rock"
+                      ? <span aria-hidden="true">?</span>
+                      : visited && roomType === "combat" && !cleared
                         ? <span>전투</span>
-                        : visited && roomType === "shop"
+                        : roomType === "shop"
                           ? <span>상점</span>
-                          : visited && roomType === "portal"
+                          : roomType === "portal"
                             ? <span>PORTAL</span>
-                            : visited && roomType === "heal"
+                            : roomType === "heal"
                               ? <span>회복</span>
-                              : visited && roomType === "safePortal"
+                              : roomType === "safePortal"
                                 ? <span>다음 지역</span>
                         : null}
                     {roomType === "rock" && <span className="rock-label">단단한 돌</span>}
-                    {position.x === visibleMinX
+                    {position.x === Math.min(...mapCells
+                      .filter((cell) => cell.y === position.y)
+                      .map((cell) => cell.x))
                       && getDungeonRegionIndex(position) !== null
                       && position.y === regionStartY(getDungeonRegionIndex(position)!)
                       && <span className="map-region-label">{getDungeonRegionIndex(position)! + 1}지역</span>}
