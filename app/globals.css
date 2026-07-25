@@ -93,11 +93,19 @@ h1 { margin: 0; font-size: 25px; font-weight: 600; }
   box-shadow: 0 3px 10px rgba(35, 36, 31, .22);
 }
 
-.room-floor-notice {
+.room-action-notices {
   position: absolute;
   z-index: 7;
   right: 16px;
   bottom: 16px;
+  display: flex;
+  flex-direction: column;
+  align-items: end;
+  gap: 8px;
+}
+
+.room-floor-notice {
+  position: relative;
   display: grid;
   grid-template-columns: auto auto;
   gap: 2px 10px;
@@ -116,6 +124,8 @@ h1 { margin: 0; font-size: 25px; font-weight: 600; }
 .room-floor-notice strong { grid-row: 2; font-size: 13px; }
 .room-floor-notice small { grid-column: 2; grid-row: 1 / 3; align-self: center; color: #615e56; font: 10px Arial, sans-serif; }
 .room-floor-notice:hover { background: white; }
+.room-action-notice.is-shop { border-color: #91733d; }
+.room-action-notice.is-portal { border-color: #76569b; }
 
 .map-toolbar {
   position: relative;
@@ -138,7 +148,7 @@ h1 { margin: 0; font-size: 25px; font-weight: 600; }
 .legend-empty { background: #deddd8; }
 .legend-combat { background: #5d6060; }
 .legend-shop { background: #9a7c43; }
-.legend-portal { background: #596b9c; }
+.legend-portal { background: #775b98; }
 .legend-rock { background: #323231; }
 .legend-cleared { background: #909493; }
 .legend-unknown { background: #141616; }
@@ -222,10 +232,10 @@ h1 { margin: 0; font-size: 25px; font-weight: 600; }
 }
 .map-room.is-portal,
 .map-room.is-safePortal {
-  border-color: #303e68;
-  color: #edf2ff;
-  background: #596b9c;
-  box-shadow: inset 0 0 18px rgba(190,211,255,.25), 0 3px 5px rgba(0,0,0,.24);
+  border-color: #48335f;
+  color: #f7efff;
+  background: #775b98;
+  box-shadow: inset 0 0 18px rgba(224,198,255,.26), 0 3px 5px rgba(0,0,0,.24);
 }
 .map-room.is-heal {
   border-color: #356044;

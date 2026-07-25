@@ -1019,8 +1019,7 @@ export default function Home() {
       return;
     }
     if (roomType === "shop") {
-      openShop(roomKey, regionNumber);
-      setMapMessage(`${regionNumber}지역 상점입니다.`);
+      setMapMessage(`${regionNumber}지역 상점입니다. 우측 하단에서 상점에 들어갈 수 있습니다.`);
       return;
     }
     if (roomType === "heal") {
@@ -1029,11 +1028,11 @@ export default function Home() {
       return;
     }
     if (roomType === "portal") {
-      setMapMessage("안전 지역으로 가려면 상단의 ‘포탈 이용’을 누르세요.");
+      setMapMessage("우측 하단의 ‘포탈 이용하기’를 눌러 안전 지역으로 이동할 수 있습니다.");
       return;
     }
     if (roomType === "safePortal") {
-      setMapMessage("다음 지역으로 가려면 상단의 ‘포탈 이용’을 누르세요.");
+      setMapMessage("우측 하단의 ‘포탈 이용하기’를 눌러 다음 지역으로 이동할 수 있습니다.");
     }
   };
 
@@ -1046,7 +1045,6 @@ export default function Home() {
       visitSafeArea(regionIndex);
       setMapPosition(destination);
       setMapMessage(`${regionIndex + 1}지역의 안전 지역에 도착했습니다.`);
-      openShop(mapRoomKey(destination), regionIndex + 1);
       focusMapOn(destination);
       return;
     }
@@ -2231,9 +2229,14 @@ export default function Home() {
 
   if (screen === "map") {
     const currentRoomKey = mapRoomKey(mapPosition);
+    const currentRoomType = getResolvedRoomType(
+      mapPosition,
+      mapSeed,
+      resolvedMysteryRooms,
+    );
     const inSafeArea = isSafeAreaPosition(mapPosition);
     const canEditDeck = inSafeArea
-      || getResolvedRoomType(mapPosition, mapSeed, resolvedMysteryRooms) !== "combat"
+      || currentRoomType !== "combat"
       || clearedCombats.has(currentRoomKey);
     const viewedDeck = ownedDecks.find((deck) => deck.id === deckViewerDeckId) ?? activeDeck;
     const rarityOrder: Record<CardRarity, number> = { rare: 0, special: 1, basic: 2 };
@@ -2337,27 +2340,6 @@ export default function Home() {
               <span className="deck-stack-icon" aria-hidden="true" />
               <span>덱 보기</span>
             </button>
-            {getResolvedRoomType(mapPosition, mapSeed, resolvedMysteryRooms) === "shop" && (
-              <button
-                type="button"
-                className="shop-trigger"
-                onClick={() => openShop(currentRoomKey, getRegionNumber(mapPosition))}
-              >
-                <span aria-hidden="true">G</span>
-                <strong>상점 열기</strong>
-              </button>
-            )}
-            {(getResolvedRoomType(mapPosition, mapSeed, resolvedMysteryRooms) === "portal"
-              || getResolvedRoomType(mapPosition, mapSeed, resolvedMysteryRooms) === "safePortal") && (
-              <button
-                type="button"
-                className="portal-trigger"
-                onClick={useCurrentPortal}
-              >
-                <span aria-hidden="true">P</span>
-                <strong>포탈 이용</strong>
-              </button>
-            )}
             {canEditDeck && (
               <button
                 type="button"
@@ -2500,11 +2482,11 @@ export default function Home() {
                         : roomType === "shop"
                           ? <span>상점</span>
                           : roomType === "portal"
-                            ? <span>PORTAL</span>
+                            ? <span>포탈</span>
                             : roomType === "heal"
                               ? <span>회복</span>
                               : roomType === "safePortal"
-                                ? <span>다음 지역</span>
+                                ? <span>포탈</span>
                         : null}
                     {roomType === "rock" && <span className="rock-label">단단한 돌</span>}
                     {hasItems && <span className="room-item-indicator" aria-label="아이템 있음" />}
@@ -2522,17 +2504,41 @@ export default function Home() {
             </div>
             <div className="map-depth-fade" aria-hidden="true" />
           </div>
-          {(currentFloorCards.length > 0 || currentFloorConsumables.length > 0 || currentFloorDecks.length > 0) && canEditDeck && (
-            <button
-              type="button"
-              className="room-floor-notice"
-              onClick={() => openDeckEditor("방 바닥에 떨어진 카드와 덱을 확인할 수 있습니다.")}
-            >
-              <span>방 바닥</span>
-              <strong>카드 {currentFloorCards.length}장 · 소모품 {currentFloorConsumables.length}개 · 덱 {currentFloorDecks.length}개</strong>
-              <small>눌러서 확인</small>
-            </button>
-          )}
+          <div className="room-action-notices">
+            {currentRoomType === "shop" && (
+              <button
+                type="button"
+                className="room-floor-notice room-action-notice is-shop"
+                onClick={() => openShop(currentRoomKey, getRegionNumber(mapPosition))}
+              >
+                <span>상점</span>
+                <strong>상점 들어가기</strong>
+                <small>열기</small>
+              </button>
+            )}
+            {(currentRoomType === "portal" || currentRoomType === "safePortal") && (
+              <button
+                type="button"
+                className="room-floor-notice room-action-notice is-portal"
+                onClick={useCurrentPortal}
+              >
+                <span>포탈</span>
+                <strong>포탈 이용하기</strong>
+                <small>이동</small>
+              </button>
+            )}
+            {(currentFloorCards.length > 0 || currentFloorConsumables.length > 0 || currentFloorDecks.length > 0) && canEditDeck && (
+              <button
+                type="button"
+                className="room-floor-notice"
+                onClick={() => openDeckEditor("방 바닥에 떨어진 물건을 확인할 수 있습니다.")}
+              >
+                <span>방 바닥</span>
+                <strong>떨어진 물건 확인하기</strong>
+                <small>열기</small>
+              </button>
+            )}
+          </div>
         </section>
 
         {shopOpen && (
