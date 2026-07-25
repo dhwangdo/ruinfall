@@ -37,6 +37,7 @@ type MapPosition = { x: number; y: number };
 type RoomType =
   | "void"
   | "rock"
+  | "mystery"
   | "empty"
   | "combat"
   | "shop"
@@ -56,6 +57,7 @@ type Consumable = {
 };
 type ConsumableArea = "inventory" | "floor";
 type RewardDropType = "card" | "consumable" | "deck";
+type MysteryResolution = "empty" | "combat";
 type ShopOffer = {
   id: string;
   price: number;
@@ -151,6 +153,9 @@ const MAX_OWNED_DECKS = 3;
 const STARTER_DECK_CAPACITY = 20;
 const REGION_COUNT = 7;
 const ROCK_BARRIER_HEIGHT = 5;
+const SHOP_NODE_CHANCE = 0.05;
+const PORTAL_NODE_CHANCE = 0.1;
+const FIXED_COMBAT_NODE_CHANCE = 0.15;
 const DUNGEON_MIN_X = -80;
 const DUNGEON_MAX_X = 80;
 const SAFE_AREA_START_X = 60;
@@ -261,7 +266,8 @@ function isPortalColumn(x: number, regionIndex: number, seed: number) {
     { length: DUNGEON_MAX_X - DUNGEON_MIN_X + 1 },
     (_, index) => DUNGEON_MIN_X + index,
   )
-    .filter((column) => seededRoll({ x: column, y: bottomY }, seed, regionIndex + 101) < 0.1);
+    .filter((column) =>
+      seededRoll({ x: column, y: bottomY }, seed, regionIndex + 101) < PORTAL_NODE_CHANCE);
   if (candidates.length > 0) return candidates.includes(x);
   const fallback = DUNGEON_MIN_X + Math.floor(
     seededRoll({ x: regionIndex, y: bottomY }, seed, 911)
@@ -300,9 +306,15 @@ function getRoomType(position: MapPosition, seed: number): RoomType {
         localY === regionHeight(regionIndex) - 1
         && isPortalColumn(position.x, regionIndex, seed)
       ) return "portal";
+      const portalEligible = localY === regionHeight(regionIndex) - 1;
+      const availableChance = portalEligible ? 1 - PORTAL_NODE_CHANCE : 1;
       const roll = seededRoll(position, seed);
-      if (roll < 0.05) return "shop";
-      return roll < 0.05 + 0.95 / 3 ? "combat" : "empty";
+      if (roll < SHOP_NODE_CHANCE / availableChance) return "shop";
+      if (
+        roll
+        < (SHOP_NODE_CHANCE + FIXED_COMBAT_NODE_CHANCE) / availableChance
+      ) return "combat";
+      return "mystery";
     }
     for (let regionIndex = 0; regionIndex < REGION_COUNT - 1; regionIndex += 1) {
       const barrierStart = regionStartY(regionIndex) + regionHeight(regionIndex);
@@ -317,6 +329,16 @@ function getRoomType(position: MapPosition, seed: number): RoomType {
 
 function isWalkableRoom(type: RoomType) {
   return type !== "rock" && type !== "void";
+}
+
+function getResolvedRoomType(
+  position: MapPosition,
+  seed: number,
+  mysteryRooms: Record<string, MysteryResolution>,
+): RoomType {
+  const generatedType = getRoomType(position, seed);
+  if (generatedType !== "mystery") return generatedType;
+  return mysteryRooms[mapRoomKey(position)] ?? "mystery";
 }
 
 function getRegionNumber(position: MapPosition) {
@@ -337,6 +359,7 @@ function buildSafeRoomRoutes(
   start: MapPosition,
   visitedRooms: Set<string>,
   clearedCombats: Set<string>,
+  mysteryRooms: Record<string, MysteryResolution>,
   seed: number,
 ) {
   const startKey = mapRoomKey(start);
@@ -354,7 +377,7 @@ function buildSafeRoomRoutes(
       ) continue;
       const nextKey = mapRoomKey(next);
       if (previous.has(nextKey) || !visitedRooms.has(nextKey)) continue;
-      const type = getRoomType(next, seed);
+      const type = getResolvedRoomType(next, seed, mysteryRooms);
       const safe = isWalkableRoom(type) && (type !== "combat" || clearedCombats.has(nextKey));
       if (!safe) continue;
       previous.set(nextKey, mapRoomKey(current));
@@ -696,6 +719,9 @@ export default function Home() {
   const [visitedRooms, setVisitedRooms] = useState<Set<string>>(
     () => new Set([mapRoomKey(MAP_START)]),
   );
+  const [resolvedMysteryRooms, setResolvedMysteryRooms] = useState<
+    Record<string, MysteryResolution>
+  >({});
   const [clearedCombats, setClearedCombats] = useState<Set<string>>(() => new Set());
   const [activeBattleRoom, setActiveBattleRoom] = useState<string | null>(null);
   const [mapPan, setMapPan] = useState({ x: 0, y: 0 });
@@ -957,7 +983,16 @@ export default function Home() {
 
   const activateMapRoom = (position: MapPosition) => {
     const roomKey = mapRoomKey(position);
-    const roomType = getRoomType(position, mapSeed);
+    const generatedType = getRoomType(position, mapSeed);
+    const mysteryResolution = resolvedMysteryRooms[roomKey]
+      ?? (seededRoll(position, mapSeed, 1777) < 1 / 3 ? "combat" : "empty");
+    const roomType = generatedType === "mystery" ? mysteryResolution : generatedType;
+    if (generatedType === "mystery" && !resolvedMysteryRooms[roomKey]) {
+      setResolvedMysteryRooms((current) => ({
+        ...current,
+        [roomKey]: mysteryResolution,
+      }));
+    }
     const regionNumber = getRegionNumber(position);
     if (roomType === "combat" && !clearedCombats.has(roomKey)) {
       setActiveBattleRoom(roomKey);
@@ -984,7 +1019,7 @@ export default function Home() {
   };
 
   const useCurrentPortal = () => {
-    const roomType = getRoomType(mapPosition, mapSeed);
+    const roomType = getResolvedRoomType(mapPosition, mapSeed, resolvedMysteryRooms);
     if (roomType === "portal") {
       const regionIndex = getDungeonRegionIndex(mapPosition);
       if (regionIndex === null) return;
@@ -1105,6 +1140,7 @@ export default function Home() {
     setMapPosition(MAP_START);
     setMapMessage("1지역 탐험을 시작합니다.");
     setVisitedRooms(new Set([mapRoomKey(MAP_START)]));
+    setResolvedMysteryRooms({});
     setClearedCombats(new Set());
     setActiveBattleRoom(null);
     setOwnedDecks([starterDeck]);
@@ -2178,7 +2214,7 @@ export default function Home() {
     const currentRoomKey = mapRoomKey(mapPosition);
     const inSafeArea = isSafeAreaPosition(mapPosition);
     const canEditDeck = inSafeArea
-      || getRoomType(mapPosition, mapSeed) !== "combat"
+      || getResolvedRoomType(mapPosition, mapSeed, resolvedMysteryRooms) !== "combat"
       || clearedCombats.has(currentRoomKey);
     const viewedDeck = ownedDecks.find((deck) => deck.id === deckViewerDeckId) ?? activeDeck;
     const rarityOrder: Record<CardRarity, number> = { rare: 0, special: 1, basic: 2 };
@@ -2215,7 +2251,13 @@ export default function Home() {
       else groups.set(groupKey, { card, cardIds: [card.id] });
       return groups;
     }, new Map<string, { card: Card; cardIds: number[] }>()).values());
-    const safeRoomRoutes = buildSafeRoomRoutes(mapPosition, visitedRooms, clearedCombats, mapSeed);
+    const safeRoomRoutes = buildSafeRoomRoutes(
+      mapPosition,
+      visitedRooms,
+      clearedCombats,
+      resolvedMysteryRooms,
+      mapSeed,
+    );
     const floorGroups = Array.from(currentFloorCards.reduce((groups, card) => {
       const groupKey = `${card.effect}:${card.damageType}:${card.name}`;
       const current = groups.get(groupKey);
@@ -2276,7 +2318,7 @@ export default function Home() {
               <span className="deck-stack-icon" aria-hidden="true" />
               <span>덱 보기</span>
             </button>
-            {getRoomType(mapPosition, mapSeed) === "shop" && (
+            {getResolvedRoomType(mapPosition, mapSeed, resolvedMysteryRooms) === "shop" && (
               <button
                 type="button"
                 className="shop-trigger"
@@ -2286,8 +2328,8 @@ export default function Home() {
                 <strong>상점 열기</strong>
               </button>
             )}
-            {(getRoomType(mapPosition, mapSeed) === "portal"
-              || getRoomType(mapPosition, mapSeed) === "safePortal") && (
+            {(getResolvedRoomType(mapPosition, mapSeed, resolvedMysteryRooms) === "portal"
+              || getResolvedRoomType(mapPosition, mapSeed, resolvedMysteryRooms) === "safePortal") && (
               <button
                 type="button"
                 className="portal-trigger"
@@ -2363,22 +2405,24 @@ export default function Home() {
                 const roomKey = mapRoomKey(position);
                 const visited = visitedRooms.has(roomKey);
                 const cleared = clearedCombats.has(roomKey);
-                const roomType = getRoomType(position, mapSeed);
+                const generatedType = getRoomType(position, mapSeed);
+                const roomType = getResolvedRoomType(
+                  position,
+                  mapSeed,
+                  resolvedMysteryRooms,
+                );
                 const current = position.x === mapPosition.x && position.y === mapPosition.y;
                 const distance = Math.abs(position.x - mapPosition.x) + Math.abs(position.y - mapPosition.y);
                 const walkable = isWalkableRoom(roomType);
                 const adjacent = distance === 1 && walkable;
                 const reachable = !current && safeRoomRoutes.has(roomKey);
-                const fixedRoom = roomType === "shop"
-                  || roomType === "portal"
-                  || roomType === "heal"
-                  || roomType === "safePortal";
+                const mysteryRoom = generatedType === "mystery";
                 const hasItems = (roomDrops[roomKey]?.length ?? 0) > 0
                   || (roomConsumableDrops[roomKey]?.length ?? 0) > 0
                   || (roomDeckDrops[roomKey]?.length ?? 0) > 0;
                 const roomState = roomType === "rock" || roomType === "void"
                   ? roomType
-                  : !visited && !fixedRoom
+                  : !visited && mysteryRoom
                     ? "unknown"
                     : roomType === "combat" && !cleared
                       ? "combat"
@@ -2391,7 +2435,7 @@ export default function Home() {
                     ? "단단한 바위"
                     : roomType === "void"
                       ? "먼 공간"
-                  : !visited && !fixedRoom
+                  : !visited && mysteryRoom
                     ? "알 수 없는 방"
                     : roomType === "combat" && !cleared
                         ? "전투 방"
@@ -2430,9 +2474,9 @@ export default function Home() {
                       if (adjacent) moveOnMap(position.x - mapPosition.x, position.y - mapPosition.y);
                     }}
                   >
-                    {!visited && !fixedRoom && roomType !== "rock"
+                    {!visited && mysteryRoom
                       ? <span aria-hidden="true">?</span>
-                      : visited && roomType === "combat" && !cleared
+                      : roomType === "combat" && !cleared
                         ? <span>전투</span>
                         : roomType === "shop"
                           ? <span>상점</span>
