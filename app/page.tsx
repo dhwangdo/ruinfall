@@ -155,7 +155,8 @@ const REGION_COUNT = 7;
 const ROCK_BARRIER_HEIGHT = 5;
 const SHOP_NODE_CHANCE = 0.05;
 const PORTAL_NODE_CHANCE = 0.1;
-const FIXED_COMBAT_NODE_CHANCE = 0.15;
+const FIXED_COMBAT_NODE_CHANCE = 0.2;
+const FIXED_EMPTY_NODE_CHANCE = 0.1;
 const DUNGEON_MIN_X = -80;
 const DUNGEON_MAX_X = 80;
 const SAFE_AREA_START_X = 60;
@@ -314,6 +315,14 @@ function getRoomType(position: MapPosition, seed: number): RoomType {
         roll
         < (SHOP_NODE_CHANCE + FIXED_COMBAT_NODE_CHANCE) / availableChance
       ) return "combat";
+      if (
+        roll
+        < (
+          SHOP_NODE_CHANCE
+          + FIXED_COMBAT_NODE_CHANCE
+          + FIXED_EMPTY_NODE_CHANCE
+        ) / availableChance
+      ) return "empty";
       return "mystery";
     }
     for (let regionIndex = 0; regionIndex < REGION_COUNT - 1; regionIndex += 1) {
