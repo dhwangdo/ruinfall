@@ -1,43 +1,33 @@
 # 카드 파일 전투
 
-솔리테어식 파일 조작과 덱빌딩 전투를 결합한 웹게임 프로토타입입니다.
-브라우저에서 카드 드래그, 파일 간 묶음 이동, 별 자원, 적 록온과 각성
-패턴을 플레이할 수 있습니다.
+솔리테어식 파일 조작, 덱빌딩 전투, 그리드 지도 탐험을 결합한 웹게임 프로토타입입니다.
 
-## 필요 환경
-
-- Node.js `>=22.13.0`
+- 공개 게임: https://dhwangdo.github.io/solitaire-deckbattle-prototype/
+- 현재 상태와 다음 작업: [`docs/HANDOFF.md`](docs/HANDOFF.md)
+- 구현된 게임 규칙: [`docs/GAME_DESIGN.md`](docs/GAME_DESIGN.md)
+- Python 사용자를 위한 코드 설명: [`docs/CODE_GUIDE.md`](docs/CODE_GUIDE.md)
 
 ## 로컬 실행
+
+Node.js `22.13.0` 이상이 필요합니다.
 
 ```bash
 npm install
 npm run dev
 ```
 
-`http://localhost:3000`은 실행 중인 PC에서만 사용할 수 있습니다.
+브라우저에서 `http://localhost:3000`을 엽니다. 이 주소는 개발 서버를 실행 중인 컴퓨터에서 사용하는 로컬 주소입니다.
 
-## 배포 전 확인
+## 검사
 
 ```bash
+npm run lint
 npm test
+$env:GITHUB_ACTIONS='true'; npm run build:pages
 ```
 
-- `npm test`: 프로덕션 빌드와 서버 렌더링 검사
-- `dist/server/index.js`: 배포용 서버 엔트리
-- `.openai/hosting.json`: Sites 호스팅 설정
-- 현재 버전은 데이터베이스나 외부 저장소 없이 동작합니다.
+- `npm run lint`: TypeScript와 React 코드 정적 검사
+- `npm test`: 프로덕션 빌드와 첫 화면 서버 렌더링 검사
+- `npm run build:pages`: GitHub Pages용 정적 사이트 생성
 
-## 다른 사람에게 공유
-
-인터넷에서 공유하려면 호스팅 서비스에 배포해 공개 URL을 발급받아야
-합니다. 같은 네트워크에서만 시험할 때는 개발 서버를 외부 접속 가능하게
-실행한 뒤 PC의 내부 IP 주소를 사용할 수 있지만, 일반 테스트에는 배포된
-URL을 권장합니다.
-
-## 명령어
-
-- `npm run dev`: 로컬 개발 서버 실행
-- `npm run build`: 배포용 빌드 생성
-- `npm test`: 프로덕션 빌드와 렌더링 테스트
-- `npm run db:generate`: 데이터베이스 사용 시 마이그레이션 생성
+현재 게임은 데이터베이스나 외부 저장소를 사용하지 않으므로 브라우저를 새로고침하면 진행 상태가 초기화됩니다.
