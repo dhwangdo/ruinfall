@@ -2593,15 +2593,6 @@ export default function Home() {
                     ? "안전 지역에서는 덱의 카드를 인벤토리나 바닥으로 자유롭게 꺼낼 수 있습니다."
                     : "바닥·인벤토리에서 시작한 카드는 자유롭게 오갈 수 있습니다. 원래 덱 카드는 휴지통으로만 옮길 수 있습니다."}</span>
                 </div>
-                <div className="deck-editor-header-actions">
-                  <button type="button" className="cancel" onClick={cancelDeckEditor}>취소</button>
-                  <button
-                    type="button"
-                    className="confirm"
-                    onClick={confirmDeckEditor}
-                    disabled={inventoryItemCount > INVENTORY_CAPACITY}
-                  >편집 확인</button>
-                </div>
               </header>
 
               <div className="deck-editor-columns">
@@ -2982,6 +2973,15 @@ export default function Home() {
 
               <footer className="deck-editor-footer">
                 <span role="status" aria-live="polite">{deckEditorMessage}</span>
+                <div className="deck-editor-footer-actions">
+                  <button type="button" className="cancel" onClick={cancelDeckEditor}>취소</button>
+                  <button
+                    type="button"
+                    className="confirm"
+                    onClick={confirmDeckEditor}
+                    disabled={inventoryItemCount > INVENTORY_CAPACITY}
+                  >편집 확인</button>
+                </div>
               </footer>
               </section>
               {hoveredDeckCard && (

@@ -515,13 +515,13 @@ h1 { margin: 0; font-size: 25px; font-weight: 600; }
 .deck-editor-header h2 { margin: 0; font-size: 25px; font-weight: 600; }
 .deck-editor-header span { display: block; margin-top: 5px; color: #6f716d; font: 11px Arial, sans-serif; }
 
-.deck-editor-header-actions {
+.deck-editor-footer-actions {
   display: flex;
   flex: none;
   gap: 8px;
 }
 
-.deck-editor-header-actions button {
+.deck-editor-footer-actions button {
   min-width: 78px;
   padding: 9px 14px;
   border: 1px solid transparent;
@@ -532,11 +532,11 @@ h1 { margin: 0; font-size: 25px; font-weight: 600; }
   font-weight: 800;
 }
 
-.deck-editor-header-actions .cancel { border-color: #7c2926; background: #ad3f38; }
-.deck-editor-header-actions .confirm { border-color: #265b39; background: #34794c; }
-.deck-editor-header-actions button:not(:disabled):hover { filter: brightness(1.08); }
-.deck-editor-header-actions button:focus-visible { outline: 3px solid #315f88; outline-offset: 2px; }
-.deck-editor-header-actions button:disabled { cursor: not-allowed; filter: grayscale(.7); opacity: .42; }
+.deck-editor-footer-actions .cancel { border-color: #7c2926; background: #ad3f38; }
+.deck-editor-footer-actions .confirm { border-color: #265b39; background: #34794c; }
+.deck-editor-footer-actions button:not(:disabled):hover { filter: brightness(1.08); }
+.deck-editor-footer-actions button:focus-visible { outline: 3px solid #315f88; outline-offset: 2px; }
+.deck-editor-footer-actions button:disabled { cursor: not-allowed; filter: grayscale(.7); opacity: .42; }
 
 .deck-editor-columns {
   position: relative;
@@ -2052,8 +2052,9 @@ h1 { margin: 0; font-size: 25px; font-weight: 600; }
   .deck-editor-panel { height: 100%; }
   .deck-editor-header { flex-wrap: wrap; gap: 10px; padding: 12px; }
   .deck-editor-header span { max-width: 270px; }
-  .deck-editor-header-actions { width: 100%; }
-  .deck-editor-header-actions button { flex: 1; }
+  .deck-editor-footer { flex-wrap: wrap; }
+  .deck-editor-footer-actions { width: 100%; }
+  .deck-editor-footer-actions button { flex: 1; }
   .deck-editor-columns { grid-template-columns: 1fr; overflow: auto; }
   .deck-editor-deck-body { grid-template-columns: minmax(0, 1fr) 142px; }
   .deck-card-preview-floating { top: auto; right: 12px; bottom: 12px; left: auto; }
