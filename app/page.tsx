@@ -206,6 +206,12 @@ function seededRoll(position: MapPosition, seed: number, salt = 0) {
   return ((hash ^ (hash >>> 16)) >>> 0) / 4294967296;
 }
 
+function createRandomMapSeed() {
+  const randomValue = new Uint32Array(1);
+  globalThis.crypto.getRandomValues(randomValue);
+  return (randomValue[0] ^ Date.now()) >>> 0;
+}
+
 function regionStartY(regionIndex: number) {
   return (regionIndex * (regionIndex + 1) / 2) * 10
     + regionIndex * ROCK_BARRIER_HEIGHT;
@@ -951,7 +957,11 @@ export default function Home() {
   };
 
   useEffect(() => {
+    const seedTimer = window.setTimeout(() => {
+      setMapSeed(createRandomMapSeed());
+    }, 0);
     return () => {
+      window.clearTimeout(seedTimer);
       clearBattleTimers();
       if (mapTravelTimerRef.current !== null) window.clearTimeout(mapTravelTimerRef.current);
     };
@@ -1142,7 +1152,7 @@ export default function Home() {
   const startNewRun = () => {
     clearBattleTimers();
     clearMapTravel();
-    const nextSeed = mapSeed + 1;
+    const nextSeed = createRandomMapSeed();
     const starterDeck = createStarterDeck();
     setRunPlayerHp(MAX_PLAYER_HP);
     setMapSeed(nextSeed);
