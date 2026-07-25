@@ -34,7 +34,15 @@ type CardEffect =
 type Phase = "drawing" | "playing" | "discarding" | "enemy-turn";
 type Screen = "map" | "battle";
 type MapPosition = { x: number; y: number };
-type RoomType = "empty" | "combat" | "shop";
+type RoomType =
+  | "void"
+  | "rock"
+  | "empty"
+  | "combat"
+  | "shop"
+  | "portal"
+  | "heal"
+  | "safePortal";
 type DeckEditorArea = "deck" | "inventory" | "floor" | "trash";
 type DeckSortMode = "cost" | "rarity";
 type DeckCase = { id: string; name: string; capacity: number; cards: Card[] };
@@ -138,13 +146,24 @@ type DamagePopup = {
 
 const MAX_PLAYER_HP = 20;
 const STARTING_DECK_SIZE = 15;
-const INVENTORY_CAPACITY = 8;
+const INVENTORY_CAPACITY = 20;
 const MAX_OWNED_DECKS = 3;
 const STARTER_DECK_CAPACITY = 20;
-const SHOP_ROOM_CHANCE = 0.05;
-const COMBAT_ROOM_CHANCE = 0.35;
-const MAP_COLUMNS = 15;
-const MAP_ROWS = 60;
+const REGION_COUNT = 7;
+const REGION_WIDTH = 15;
+const ROCK_BARRIER_HEIGHT = 5;
+const DUNGEON_START_X = 0;
+const SAFE_AREA_START_X = 21;
+const SAFE_AREA_ENTRY_X = SAFE_AREA_START_X + 1;
+const SAFE_AREA_HEAL_X = SAFE_AREA_START_X + 2;
+const SAFE_AREA_PORTAL_X = SAFE_AREA_START_X + 3;
+const MAP_COLUMNS = 27;
+const MAP_ROWS = (REGION_COUNT * (REGION_COUNT + 1) / 2) * 10
+  + (REGION_COUNT - 1) * ROCK_BARRIER_HEIGHT;
+const MAP_WORLD_MARGIN_X = 5;
+const MAP_WORLD_MARGIN_Y = 5;
+const MAP_RENDER_COLUMNS = MAP_COLUMNS + MAP_WORLD_MARGIN_X * 2;
+const MAP_RENDER_ROWS = MAP_ROWS + MAP_WORLD_MARGIN_Y * 2;
 const MAP_ROOM_WIDTH = 204;
 const MAP_ROOM_HEIGHT = 136;
 const MAP_CELL_GAP = 20;
@@ -152,7 +171,7 @@ const MAP_PADDING = 42;
 const MAP_MIN_ZOOM = 0.45;
 const MAP_MAX_ZOOM = 1.35;
 const MAP_ZOOM_STEP = 0.1;
-const MAP_START: MapPosition = { x: Math.floor(MAP_COLUMNS / 2), y: 0 };
+const MAP_START: MapPosition = { x: Math.floor(REGION_WIDTH / 2), y: 0 };
 const CARD_HEIGHT = 144;
 const PILE_HEIGHT = 226;
 const DEFAULT_STACK_OFFSET = 18;
@@ -167,15 +186,132 @@ function mapRoomKey(position: MapPosition) {
   return `${position.x}:${position.y}`;
 }
 
-function getRoomType(position: MapPosition, seed: number): RoomType {
-  if (position.x === MAP_START.x && position.y === MAP_START.y) return "empty";
-  let hash = Math.imul(position.x + 17, 374761393)
+function seededRoll(position: MapPosition, seed: number, salt = 0) {
+  let hash = Math.imul(position.x + 17 + salt, 374761393)
     ^ Math.imul(position.y + 29, 668265263)
     ^ Math.imul(seed + 11, 1442695041);
   hash = Math.imul(hash ^ (hash >>> 13), 1274126177);
-  const roll = ((hash ^ (hash >>> 16)) >>> 0) / 4294967296;
-  if (roll < SHOP_ROOM_CHANCE) return "shop";
-  return roll < SHOP_ROOM_CHANCE + COMBAT_ROOM_CHANCE ? "combat" : "empty";
+  return ((hash ^ (hash >>> 16)) >>> 0) / 4294967296;
+}
+
+function regionStartY(regionIndex: number) {
+  return (regionIndex * (regionIndex + 1) / 2) * 10
+    + regionIndex * ROCK_BARRIER_HEIGHT;
+}
+
+function regionHeight(regionIndex: number) {
+  return (regionIndex + 1) * 10;
+}
+
+function getDungeonRegionIndex(position: MapPosition) {
+  if (
+    position.x < DUNGEON_START_X
+    || position.x >= DUNGEON_START_X + REGION_WIDTH
+    || position.y < 0
+  ) return null;
+  for (let regionIndex = 0; regionIndex < REGION_COUNT; regionIndex += 1) {
+    const startY = regionStartY(regionIndex);
+    if (position.y >= startY && position.y < startY + regionHeight(regionIndex)) {
+      return regionIndex;
+    }
+  }
+  return null;
+}
+
+function safeAreaCenterY(regionIndex: number) {
+  return regionStartY(regionIndex) + Math.floor(regionHeight(regionIndex) / 2);
+}
+
+function getSafeAreaRegionIndex(position: MapPosition) {
+  for (let regionIndex = 0; regionIndex < REGION_COUNT; regionIndex += 1) {
+    const centerY = safeAreaCenterY(regionIndex);
+    if (
+      position.y === centerY
+      && position.x >= SAFE_AREA_ENTRY_X
+      && position.x <= SAFE_AREA_PORTAL_X
+    ) return regionIndex;
+  }
+  return null;
+}
+
+function isSafeAreaPosition(position: MapPosition) {
+  return getSafeAreaRegionIndex(position) !== null;
+}
+
+function safeAreaEntry(regionIndex: number): MapPosition {
+  return { x: SAFE_AREA_ENTRY_X, y: safeAreaCenterY(regionIndex) };
+}
+
+function nextRegionEntry(regionIndex: number): MapPosition {
+  return {
+    x: Math.floor(REGION_WIDTH / 2),
+    y: regionStartY(Math.min(REGION_COUNT - 1, regionIndex + 1)),
+  };
+}
+
+function isPortalColumn(x: number, regionIndex: number, seed: number) {
+  const bottomY = regionStartY(regionIndex) + regionHeight(regionIndex) - 1;
+  const candidates = Array.from({ length: REGION_WIDTH }, (_, column) => column)
+    .filter((column) => seededRoll({ x: column, y: bottomY }, seed, regionIndex + 101) < 0.1);
+  if (candidates.length > 0) return candidates.includes(x);
+  const fallback = Math.floor(seededRoll({ x: regionIndex, y: bottomY }, seed, 911) * REGION_WIDTH);
+  return x === fallback;
+}
+
+function getRoomType(position: MapPosition, seed: number): RoomType {
+  if (position.x === MAP_START.x && position.y === MAP_START.y) return "empty";
+  const safeRegion = getSafeAreaRegionIndex(position);
+  if (safeRegion !== null) {
+    if (position.x === SAFE_AREA_ENTRY_X) return "shop";
+    if (position.x === SAFE_AREA_HEAL_X) return "heal";
+    return "safePortal";
+  }
+  for (let regionIndex = 0; regionIndex < REGION_COUNT; regionIndex += 1) {
+    const centerY = safeAreaCenterY(regionIndex);
+    const inSafeWall =
+      position.x >= SAFE_AREA_START_X
+      && position.x <= SAFE_AREA_PORTAL_X + 1
+      && position.y >= centerY - 1
+      && position.y <= centerY + 1;
+    if (inSafeWall) return "rock";
+  }
+  if (
+    position.x >= DUNGEON_START_X
+    && position.x < DUNGEON_START_X + REGION_WIDTH
+  ) {
+    if (position.y >= -ROCK_BARRIER_HEIGHT && position.y < 0) return "rock";
+    const regionIndex = getDungeonRegionIndex(position);
+    if (regionIndex !== null) {
+      const localY = position.y - regionStartY(regionIndex);
+      if (localY === 0 && position.x === Math.floor(REGION_WIDTH / 2)) return "empty";
+      if (
+        localY === regionHeight(regionIndex) - 1
+        && isPortalColumn(position.x, regionIndex, seed)
+      ) return "portal";
+      const roll = seededRoll(position, seed);
+      if (roll < 0.05) return "shop";
+      return roll < 0.4 ? "combat" : "empty";
+    }
+    for (let regionIndex = 0; regionIndex < REGION_COUNT - 1; regionIndex += 1) {
+      const barrierStart = regionStartY(regionIndex) + regionHeight(regionIndex);
+      if (
+        position.y >= barrierStart
+        && position.y < barrierStart + ROCK_BARRIER_HEIGHT
+      ) return "rock";
+    }
+  }
+  return "void";
+}
+
+function isWalkableRoom(type: RoomType) {
+  return type !== "rock" && type !== "void";
+}
+
+function getRegionNumber(position: MapPosition) {
+  const dungeonRegion = getDungeonRegionIndex(position);
+  if (dungeonRegion !== null) return dungeonRegion + 1;
+  const safeRegion = getSafeAreaRegionIndex(position);
+  return (safeRegion ?? 0) + 1;
 }
 
 const MAP_DIRECTIONS = [
@@ -201,7 +337,8 @@ function buildSafeRoomRoutes(
       if (next.x < 0 || next.x >= MAP_COLUMNS || next.y < 0 || next.y >= MAP_ROWS) continue;
       const nextKey = mapRoomKey(next);
       if (previous.has(nextKey) || !visitedRooms.has(nextKey)) continue;
-      const safe = getRoomType(next, seed) !== "combat" || clearedCombats.has(nextKey);
+      const type = getRoomType(next, seed);
+      const safe = isWalkableRoom(type) && (type !== "combat" || clearedCombats.has(nextKey));
       if (!safe) continue;
       previous.set(nextKey, mapRoomKey(current));
       queue.push(next);
@@ -334,30 +471,31 @@ function createStarterDeck(): DeckCase {
   return { id: "starter", name: "시작 덱 케이스", capacity: STARTER_DECK_CAPACITY, cards: createDeck() };
 }
 
-function deckTierForDepth(depth: number) {
-  return Math.max(0, Math.floor((depth - 1) / 5));
+function rollDeckTier(regionNumber: number) {
+  const roll = Math.random();
+  const offset = roll < 0.25 ? -1 : roll < 0.75 ? 0 : roll < 0.95 ? 1 : 2;
+  return Math.max(0, regionNumber - 1 + offset);
 }
 
-function createRandomDeck(depth: number, startId: number): DeckCase {
-  const tier = deckTierForDepth(depth);
+function createRandomDeck(regionNumber: number, startId: number): DeckCase {
+  const tier = rollDeckTier(regionNumber);
   const capacity = 20 + tier * 5;
   const cards: Card[] = [];
   let nextId = startId;
   for (let slot = 0; slot < capacity; slot += 1) {
     const roll = Math.random();
     let pool: CardBlueprint[] | null = null;
-    if (roll < 0.3) pool = null;
-    else if (roll < 0.6) pool = BASIC_CARD_POOL;
-    else if (roll < 0.9) pool = SPECIAL_CARD_POOL;
-    else if (roll < 0.95) pool = RARE_CARD_POOL;
-    else pool = null;
+    if (roll < 0.5) pool = null;
+    else if (roll < 0.75) pool = BASIC_CARD_POOL;
+    else if (roll < 0.95) pool = SPECIAL_CARD_POOL;
+    else pool = RARE_CARD_POOL;
     if (!pool) continue;
     const blueprint = pool[Math.floor(Math.random() * pool.length)];
     cards.push({ ...blueprint, id: nextId, revealed: false });
     nextId += 1;
   }
   return {
-    id: `found-${depth}-${startId}-${Math.random().toString(36).slice(2, 8)}`,
+    id: `found-r${regionNumber}-${startId}-${Math.random().toString(36).slice(2, 8)}`,
     name: "발견한 덱 케이스",
     capacity,
     cards,
@@ -381,14 +519,14 @@ function createConsumable(type: ConsumableType, id: string): Consumable {
 }
 
 function createBattleReward(
-  depth: number,
+  regionNumber: number,
   nextCardId: number,
   dropType: RewardDropType,
   consumableId: string,
 ) {
-  const gold = 1 + Math.floor(Math.random() * depth);
+  const gold = 1 + Math.floor(Math.random() * Math.max(1, regionNumber));
   if (dropType === "deck") {
-    return { gold, card: null, consumable: null, deck: createRandomDeck(depth, nextCardId) };
+    return { gold, card: null, consumable: null, deck: createRandomDeck(regionNumber, nextCardId) };
   }
   if (dropType === "card") {
     return { gold, card: createBattleRewardCard(nextCardId), consumable: null, deck: null };
@@ -546,6 +684,7 @@ export default function Home() {
   const [mapPan, setMapPan] = useState({ x: 0, y: 0 });
   const [mapZoom, setMapZoom] = useState(1);
   const [mapTraveling, setMapTraveling] = useState(false);
+  const [mapMessage, setMapMessage] = useState("1지역 탐험을 시작합니다.");
   const [ownedDecks, setOwnedDecks] = useState<DeckCase[]>(() => [createStarterDeck()]);
   const [activeDeckId, setActiveDeckId] = useState("starter");
   const [inventoryCards, setInventoryCards] = useState<Card[]>([]);
@@ -768,12 +907,101 @@ export default function Home() {
   const centerMapOn = (position: MapPosition) => {
     const viewport = mapViewportRef.current;
     if (!viewport) return;
-    const roomCenterX = MAP_PADDING + position.x * (MAP_ROOM_WIDTH + MAP_CELL_GAP) + MAP_ROOM_WIDTH / 2;
-    const roomCenterY = MAP_PADDING + position.y * (MAP_ROOM_HEIGHT + MAP_CELL_GAP) + MAP_ROOM_HEIGHT / 2;
+    const roomCenterX = MAP_PADDING
+      + (position.x + MAP_WORLD_MARGIN_X) * (MAP_ROOM_WIDTH + MAP_CELL_GAP)
+      + MAP_ROOM_WIDTH / 2;
+    const roomCenterY = MAP_PADDING
+      + (position.y + MAP_WORLD_MARGIN_Y) * (MAP_ROOM_HEIGHT + MAP_CELL_GAP)
+      + MAP_ROOM_HEIGHT / 2;
     setMapPan({
       x: viewport.clientWidth / 2 - roomCenterX * mapZoom,
       y: viewport.clientHeight / 2 - roomCenterY * mapZoom,
     });
+  };
+
+  const clampMapPanToPlayer = (
+    pan: { x: number; y: number },
+    zoom = mapZoom,
+  ) => {
+    const viewport = mapViewportRef.current;
+    if (!viewport) return pan;
+    const playerX = MAP_PADDING
+      + (mapPosition.x + MAP_WORLD_MARGIN_X) * (MAP_ROOM_WIDTH + MAP_CELL_GAP)
+      + MAP_ROOM_WIDTH / 2;
+    const playerY = MAP_PADDING
+      + (mapPosition.y + MAP_WORLD_MARGIN_Y) * (MAP_ROOM_HEIGHT + MAP_CELL_GAP)
+      + MAP_ROOM_HEIGHT / 2;
+    const centeredX = viewport.clientWidth / 2 - playerX * zoom;
+    const centeredY = viewport.clientHeight / 2 - playerY * zoom;
+    const maxXDrift = viewport.clientWidth * 0.7;
+    const maxYDrift = viewport.clientHeight * 0.7;
+    return {
+      x: Math.min(centeredX + maxXDrift, Math.max(centeredX - maxXDrift, pan.x)),
+      y: Math.min(centeredY + maxYDrift, Math.max(centeredY - maxYDrift, pan.y)),
+    };
+  };
+
+  const focusMapOn = (position: MapPosition) => {
+    window.requestAnimationFrame(() => centerMapOn(position));
+  };
+
+  const visitSafeArea = (regionIndex: number) => {
+    const centerY = safeAreaCenterY(regionIndex);
+    const safePositions = [
+      { x: SAFE_AREA_ENTRY_X, y: centerY },
+      { x: SAFE_AREA_HEAL_X, y: centerY },
+      { x: SAFE_AREA_PORTAL_X, y: centerY },
+    ];
+    setVisitedRooms((current) => {
+      const next = new Set(current);
+      safePositions.forEach((position) => next.add(mapRoomKey(position)));
+      return next;
+    });
+  };
+
+  const activateMapRoom = (position: MapPosition) => {
+    const roomKey = mapRoomKey(position);
+    const roomType = getRoomType(position, mapSeed);
+    const regionNumber = getRegionNumber(position);
+    if (roomType === "combat" && !clearedCombats.has(roomKey)) {
+      setActiveBattleRoom(roomKey);
+      startBattle(runPlayerHp);
+      return;
+    }
+    if (roomType === "shop") {
+      openShop(roomKey, regionNumber);
+      setMapMessage(`${regionNumber}지역 상점입니다.`);
+      return;
+    }
+    if (roomType === "heal") {
+      setRunPlayerHp(MAX_PLAYER_HP);
+      setMapMessage("안전 지역에서 생명력을 전부 회복했습니다.");
+      return;
+    }
+    if (roomType === "portal") {
+      const regionIndex = getDungeonRegionIndex(position);
+      if (regionIndex === null) return;
+      const destination = safeAreaEntry(regionIndex);
+      visitSafeArea(regionIndex);
+      setMapPosition(destination);
+      setMapMessage(`${regionIndex + 1}지역의 안전 지역에 도착했습니다.`);
+      openShop(mapRoomKey(destination), regionIndex + 1);
+      focusMapOn(destination);
+      return;
+    }
+    if (roomType === "safePortal") {
+      const regionIndex = getSafeAreaRegionIndex(position);
+      if (regionIndex === null) return;
+      if (regionIndex >= REGION_COUNT - 1) {
+        setMapMessage("7지역의 끝입니다. 현재 프로토타입의 모든 지역을 탐험했습니다.");
+        return;
+      }
+      const destination = nextRegionEntry(regionIndex);
+      setVisitedRooms((current) => new Set(current).add(mapRoomKey(destination)));
+      setMapPosition(destination);
+      setMapMessage(`${regionIndex + 2}지역에 진입했습니다.`);
+      focusMapOn(destination);
+    }
   };
 
   const moveOnMap = (deltaX: number, deltaY: number) => {
@@ -789,17 +1017,12 @@ export default function Home() {
       || nextPosition.y >= MAP_ROWS
     ) return;
 
+    const roomType = getRoomType(nextPosition, mapSeed);
+    if (!isWalkableRoom(roomType)) return;
     const roomKey = mapRoomKey(nextPosition);
     setMapPosition(nextPosition);
     setVisitedRooms((current) => new Set(current).add(roomKey));
-
-    const roomType = getRoomType(nextPosition, mapSeed);
-    if (roomType === "combat" && !clearedCombats.has(roomKey)) {
-      setActiveBattleRoom(roomKey);
-      startBattle(runPlayerHp);
-    } else if (roomType === "shop") {
-      openShop(roomKey, nextPosition.y + 1);
-    }
+    activateMapRoom(nextPosition);
   };
 
   const travelSafePath = (path: MapPosition[]) => {
@@ -809,6 +1032,10 @@ export default function Home() {
     const advance = () => {
       const nextPosition = path[stepIndex];
       setMapPosition(nextPosition);
+      if (getRoomType(nextPosition, mapSeed) === "heal") {
+        setRunPlayerHp(MAX_PLAYER_HP);
+        setMapMessage("안전 지역을 지나며 생명력을 전부 회복했습니다.");
+      }
       stepIndex += 1;
       if (stepIndex < path.length) {
         mapTravelTimerRef.current = window.setTimeout(advance, 300);
@@ -817,9 +1044,7 @@ export default function Home() {
           mapTravelTimerRef.current = null;
           setMapTraveling(false);
           const destination = path.at(-1)!;
-          if (getRoomType(destination, mapSeed) === "shop") {
-            openShop(mapRoomKey(destination), destination.y + 1);
-          }
+          activateMapRoom(destination);
         }, 300);
       }
     };
@@ -854,6 +1079,7 @@ export default function Home() {
     setBattleRewardDeck(null);
     setBattleRewardGold(0);
     setActiveBattleRoom(null);
+    setMapMessage(`${getRegionNumber(mapPosition)}지역의 전투를 끝냈습니다.`);
     setScreen("map");
   };
 
@@ -865,6 +1091,7 @@ export default function Home() {
     setRunPlayerHp(MAX_PLAYER_HP);
     setMapSeed(nextSeed);
     setMapPosition(MAP_START);
+    setMapMessage("1지역 탐험을 시작합니다.");
     setVisitedRooms(new Set([mapRoomKey(MAP_START)]));
     setClearedCombats(new Set());
     setActiveBattleRoom(null);
@@ -942,8 +1169,12 @@ export default function Home() {
   };
 
   const moveDeckCardToInventory = (cardId: number) => {
-    if (originalDeckIdForCard(cardId)) {
+    if (originalDeckIdForCard(cardId) && !isSafeAreaPosition(mapPosition)) {
       setDeckEditorMessage("편집 시작 때 덱에 있던 카드는 휴지통으로만 옮길 수 있습니다.");
+      return;
+    }
+    if (deckCards.length <= 1) {
+      setDeckEditorMessage("덱에는 반드시 카드가 1장 이상 있어야 합니다.");
       return;
     }
     const card = deckCards.find((item) => item.id === cardId);
@@ -954,8 +1185,12 @@ export default function Home() {
   };
 
   const moveDeckCardToFloor = (cardId: number) => {
-    if (originalDeckIdForCard(cardId)) {
+    if (originalDeckIdForCard(cardId) && !isSafeAreaPosition(mapPosition)) {
       setDeckEditorMessage("편집 시작 때 덱에 있던 카드는 휴지통으로만 옮길 수 있습니다.");
+      return;
+    }
+    if (deckCards.length <= 1) {
+      setDeckEditorMessage("덱에는 반드시 카드가 1장 이상 있어야 합니다.");
       return;
     }
     const card = deckCards.find((item) => item.id === cardId);
@@ -1303,7 +1538,10 @@ export default function Home() {
     const moved = drag.moved || Math.hypot(offsetX, offsetY) > 6;
     mapDragRef.current = { ...drag, moved };
     mapWasDraggedRef.current = moved;
-    setMapPan({ x: drag.originX + offsetX, y: drag.originY + offsetY });
+    setMapPan(clampMapPanToPlayer({
+      x: drag.originX + offsetX,
+      y: drag.originY + offsetY,
+    }));
   };
 
   const finishMapDrag = () => {
@@ -1327,10 +1565,10 @@ export default function Home() {
     const pointerY = event.clientY - bounds.top;
     const mapX = (pointerX - mapPan.x) / mapZoom;
     const mapY = (pointerY - mapPan.y) / mapZoom;
-    setMapPan({
+    setMapPan(clampMapPanToPlayer({
       x: pointerX - mapX * nextZoom,
       y: pointerY - mapY * nextZoom,
-    });
+    }, nextZoom));
     setMapZoom(nextZoom);
   };
 
@@ -1413,11 +1651,11 @@ export default function Home() {
         ? { ...enemy, hp: Math.max(0, enemy.hp - damage) }
         : enemy);
       if (enemiesAfterAttack.every((enemy) => enemy.hp === 0)) {
-        const depth = mapPosition.y + 1;
+        const regionNumber = getRegionNumber(mapPosition);
         const dropType = takeRewardDropType();
         const consumableId = `consumable-${nextConsumableIdRef.current}`;
         nextConsumableIdRef.current += 1;
-        const reward = createBattleReward(depth, nextCardIdRef.current, dropType, consumableId);
+        const reward = createBattleReward(regionNumber, nextCardIdRef.current, dropType, consumableId);
         if (reward.card) nextCardIdRef.current += 1;
         if (reward.deck?.cards.length) {
           nextCardIdRef.current = Math.max(
@@ -1926,7 +2164,10 @@ export default function Home() {
 
   if (screen === "map") {
     const currentRoomKey = mapRoomKey(mapPosition);
-    const canEditDeck = getRoomType(mapPosition, mapSeed) !== "combat" || clearedCombats.has(currentRoomKey);
+    const inSafeArea = isSafeAreaPosition(mapPosition);
+    const canEditDeck = inSafeArea
+      || getRoomType(mapPosition, mapSeed) !== "combat"
+      || clearedCombats.has(currentRoomKey);
     const viewedDeck = ownedDecks.find((deck) => deck.id === deckViewerDeckId) ?? activeDeck;
     const rarityOrder: Record<CardRarity, number> = { rare: 0, special: 1, basic: 2 };
     const deckGroups = Array.from(deckCards.reduce((groups, card) => {
@@ -1971,8 +2212,27 @@ export default function Home() {
       return groups;
     }, new Map<string, { card: Card; cardIds: number[] }>()).values()).sort((left, right) =>
       left.card.cost - right.card.cost || left.card.name.localeCompare(right.card.name, "ko"));
-    const mapWidth = MAP_PADDING * 2 + MAP_COLUMNS * MAP_ROOM_WIDTH + (MAP_COLUMNS - 1) * MAP_CELL_GAP;
-    const mapHeight = MAP_PADDING * 2 + MAP_ROWS * MAP_ROOM_HEIGHT + (MAP_ROWS - 1) * MAP_CELL_GAP;
+    const mapWidth = MAP_PADDING * 2
+      + MAP_RENDER_COLUMNS * MAP_ROOM_WIDTH
+      + (MAP_RENDER_COLUMNS - 1) * MAP_CELL_GAP;
+    const mapHeight = MAP_PADDING * 2
+      + MAP_RENDER_ROWS * MAP_ROOM_HEIGHT
+      + (MAP_RENDER_ROWS - 1) * MAP_CELL_GAP;
+    const mapCells: MapPosition[] = [];
+    for (let y = -ROCK_BARRIER_HEIGHT; y < 0; y += 1) {
+      for (let x = 0; x < REGION_WIDTH; x += 1) mapCells.push({ x, y });
+    }
+    for (let y = 0; y < MAP_ROWS; y += 1) {
+      for (let x = 0; x < REGION_WIDTH; x += 1) mapCells.push({ x, y });
+    }
+    for (let regionIndex = 0; regionIndex < REGION_COUNT; regionIndex += 1) {
+      const centerY = safeAreaCenterY(regionIndex);
+      for (let y = centerY - 1; y <= centerY + 1; y += 1) {
+        for (let x = SAFE_AREA_START_X; x <= SAFE_AREA_PORTAL_X + 1; x += 1) {
+          mapCells.push({ x, y });
+        }
+      }
+    }
 
     return (
       <main className="game-shell map-shell">
@@ -2006,7 +2266,7 @@ export default function Home() {
               <button
                 type="button"
                 className="shop-trigger"
-                onClick={() => openShop(currentRoomKey, mapPosition.y + 1)}
+                onClick={() => openShop(currentRoomKey, getRegionNumber(mapPosition))}
               >
                 <span aria-hidden="true">G</span>
                 <strong>상점 열기</strong>
@@ -2016,7 +2276,9 @@ export default function Home() {
               <button
                 type="button"
                 className="deck-editor-trigger"
-                onClick={() => openDeckEditor("좌클릭: 바닥 → 인벤토리 → 덱. 원래 덱 카드는 우클릭하거나 드래그하여 휴지통으로 옮깁니다.")}
+                onClick={() => openDeckEditor(inSafeArea
+                  ? "안전 지역입니다. 덱 카드를 우클릭하거나 드래그해 인벤토리로 자유롭게 꺼낼 수 있습니다."
+                  : "좌클릭: 바닥 → 인벤토리 → 덱. 원래 덱 카드는 우클릭하거나 드래그하여 휴지통으로 옮깁니다.")}
                 aria-label={`덱 편집, 현재 ${deckCards.length}장`}
               >
                 <span className="deck-stack-icon" aria-hidden="true" />
@@ -2033,10 +2295,12 @@ export default function Home() {
               <span><i className="legend-empty" />방</span>
               <span><i className="legend-combat" />전투</span>
               <span><i className="legend-shop" />상점</span>
+              <span><i className="legend-portal" />포탈</span>
+              <span><i className="legend-rock" />단단한 바위</span>
               <span><i className="legend-unknown" />미방문</span>
             </div>
             <div className="map-toolbar-actions">
-              <span className="map-help">인접한 방을 클릭해 이동 · 드래그로 탐색 · 휠로 확대/축소</span>
+              <span className="map-help">{mapMessage}</span>
               <span className="map-zoom-value" aria-label={`지도 배율 ${Math.round(mapZoom * 100)}퍼센트`}>
                 {Math.round(mapZoom * 100)}%
               </span>
@@ -2063,48 +2327,64 @@ export default function Home() {
                 height: mapHeight,
                 padding: MAP_PADDING,
                 gap: MAP_CELL_GAP,
-                gridTemplateColumns: `repeat(${MAP_COLUMNS}, ${MAP_ROOM_WIDTH}px)`,
+                gridTemplateColumns: `repeat(${MAP_RENDER_COLUMNS}, ${MAP_ROOM_WIDTH}px)`,
                 gridAutoRows: `${MAP_ROOM_HEIGHT}px`,
                 transform: `translate3d(${mapPan.x}px, ${mapPan.y}px, 0) scale(${mapZoom})`,
                 transformOrigin: "0 0",
               }}
             >
-              {Array.from({ length: MAP_COLUMNS * MAP_ROWS }, (_, index) => {
-                const position = { x: index % MAP_COLUMNS, y: Math.floor(index / MAP_COLUMNS) };
+              {mapCells.map((position) => {
                 const roomKey = mapRoomKey(position);
                 const visited = visitedRooms.has(roomKey);
                 const cleared = clearedCombats.has(roomKey);
                 const roomType = getRoomType(position, mapSeed);
                 const current = position.x === mapPosition.x && position.y === mapPosition.y;
                 const distance = Math.abs(position.x - mapPosition.x) + Math.abs(position.y - mapPosition.y);
-                const adjacent = distance === 1;
+                const walkable = isWalkableRoom(roomType);
+                const adjacent = distance === 1 && walkable;
                 const reachable = !current && safeRoomRoutes.has(roomKey);
                 const hasItems = (roomDrops[roomKey]?.length ?? 0) > 0
                   || (roomConsumableDrops[roomKey]?.length ?? 0) > 0
                   || (roomDeckDrops[roomKey]?.length ?? 0) > 0;
-                const roomState = !visited
-                  ? "unknown"
-                  : roomType === "combat" && !cleared
-                    ? "combat"
-                    : roomType === "shop"
-                      ? "shop"
-                    : "empty";
+                const roomState = roomType === "rock" || roomType === "void"
+                  ? roomType
+                  : !visited
+                    ? "unknown"
+                    : roomType === "combat" && !cleared
+                      ? "combat"
+                      : roomType === "combat"
+                        ? "empty"
+                      : roomType;
                 const roomLabel = current
                   ? "현재 위치"
+                  : roomType === "rock"
+                    ? "단단한 바위"
+                    : roomType === "void"
+                      ? "먼 공간"
                   : !visited
                     ? "미지의 방"
                     : roomType === "combat" && !cleared
                         ? "전투 방"
                         : roomType === "shop"
                           ? "상점"
+                          : roomType === "portal"
+                            ? "안전 지역 포탈"
+                            : roomType === "heal"
+                              ? "회복 노드"
+                              : roomType === "safePortal"
+                                ? "다음 지역 포탈"
                         : "방";
                 return (
                   <button
                     type="button"
                     className={`map-room is-${roomState} ${current ? "is-current" : ""} ${adjacent ? "is-adjacent" : ""} ${reachable ? "is-reachable" : ""}`}
                     key={roomKey}
+                    style={{
+                      gridColumn: position.x + MAP_WORLD_MARGIN_X + 1,
+                      gridRow: position.y + MAP_WORLD_MARGIN_Y + 1,
+                    }}
                     tabIndex={adjacent || reachable ? 0 : -1}
-                    aria-disabled={mapTraveling || (!adjacent && !reachable)}
+                    aria-disabled={!walkable || mapTraveling || (!adjacent && !reachable)}
                     aria-label={`${roomLabel}, 좌표 ${position.x + 1}, 깊이 ${position.y}`}
                     onClick={() => {
                       if (mapWasDraggedRef.current) {
@@ -2120,11 +2400,22 @@ export default function Home() {
                       if (adjacent) moveOnMap(position.x - mapPosition.x, position.y - mapPosition.y);
                     }}
                   >
-                    {!current && visited && roomType === "combat" && !cleared
+                    {visited && roomType === "combat" && !cleared
                         ? <span>전투</span>
                         : visited && roomType === "shop"
                           ? <span>상점</span>
+                          : visited && roomType === "portal"
+                            ? <span>PORTAL</span>
+                            : visited && roomType === "heal"
+                              ? <span>회복</span>
+                              : visited && roomType === "safePortal"
+                                ? <span>다음 지역</span>
                         : null}
+                    {roomType === "rock" && <span className="rock-mark" aria-hidden="true" />}
+                    {position.x === 0
+                      && getDungeonRegionIndex(position) !== null
+                      && position.y === regionStartY(getDungeonRegionIndex(position)!)
+                      && <span className="map-region-label">{getDungeonRegionIndex(position)! + 1}지역</span>}
                     {hasItems && <span className="room-item-indicator" aria-label="아이템 있음" />}
                   </button>
                 );
@@ -2132,8 +2423,8 @@ export default function Home() {
               <span
                 className="map-player map-player-marker"
                 style={{
-                  left: MAP_PADDING + mapPosition.x * (MAP_ROOM_WIDTH + MAP_CELL_GAP) + MAP_ROOM_WIDTH / 2,
-                  top: MAP_PADDING + mapPosition.y * (MAP_ROOM_HEIGHT + MAP_CELL_GAP) + MAP_ROOM_HEIGHT / 2,
+                  left: MAP_PADDING + (mapPosition.x + MAP_WORLD_MARGIN_X) * (MAP_ROOM_WIDTH + MAP_CELL_GAP) + MAP_ROOM_WIDTH / 2,
+                  top: MAP_PADDING + (mapPosition.y + MAP_WORLD_MARGIN_Y) * (MAP_ROOM_HEIGHT + MAP_CELL_GAP) + MAP_ROOM_HEIGHT / 2,
                 }}
                 aria-hidden="true"
               >P</span>
@@ -2207,7 +2498,9 @@ export default function Home() {
                 <div>
                   <p>LOADOUT</p>
                   <h2 id="deck-editor-title">덱 편집</h2>
-                  <span>바닥·인벤토리에서 시작한 카드는 자유롭게 오갈 수 있습니다. 원래 덱 카드는 휴지통으로만 옮길 수 있으며, 편집 확인 전에는 원래 덱으로 복구할 수 있습니다.</span>
+                  <span>{inSafeArea
+                    ? "안전 지역에서는 덱의 카드를 인벤토리나 바닥으로 자유롭게 꺼낼 수 있습니다."
+                    : "바닥·인벤토리에서 시작한 카드는 자유롭게 오갈 수 있습니다. 원래 덱 카드는 휴지통으로만 옮길 수 있습니다."}</span>
                 </div>
                 <div className="deck-editor-header-actions">
                   <button type="button" className="cancel" onClick={cancelDeckEditor}>취소</button>
@@ -2234,7 +2527,7 @@ export default function Home() {
                     const source = drag?.source;
                     const temporaryDeckCard = source === "deck"
                       && drag
-                      && !originalDeckIdForCard(drag.cardId);
+                      && (inSafeArea || !originalDeckIdForCard(drag.cardId));
                     if (source !== "floor" && !temporaryDeckCard) return;
                     event.preventDefault();
                     event.dataTransfer.dropEffect = "move";
@@ -2393,11 +2686,13 @@ export default function Home() {
                             }}
                             onContextMenu={(event) => {
                               event.preventDefault();
-                              if (isTemporary) moveDeckCardToInventory(cardId);
+                              if (isTemporary || inSafeArea) moveDeckCardToInventory(cardId);
                               else moveDeckCardToTrash(cardId);
                             }}
                             aria-label={pendingExtractionTicketId
                               ? `${card.name} ${cardIds.length}장, 클릭하면 한 장 추출`
+                              : inSafeArea
+                                ? `${card.name} ${cardIds.length}장, 우클릭하면 한 장을 인벤토리로 이동`
                               : isTemporary
                               ? `${card.name} ${cardIds.length}장, 편집 중 추가됨. 우클릭하면 한 장을 인벤토리로 이동`
                               : `${card.name} ${cardIds.length}장, 우클릭하면 한 장을 휴지통으로 이동`}
@@ -2518,7 +2813,7 @@ export default function Home() {
                       const source = drag?.source;
                       const temporaryDeckCard = source === "deck"
                         && drag
-                        && !originalDeckIdForCard(drag.cardId);
+                        && (inSafeArea || !originalDeckIdForCard(drag.cardId));
                       if (source !== "inventory" && !temporaryDeckCard) return;
                       event.preventDefault();
                       event.dataTransfer.dropEffect = "move";

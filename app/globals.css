@@ -138,6 +138,8 @@ h1 { margin: 0; font-size: 25px; font-weight: 600; }
 .legend-empty { background: #deddd8; }
 .legend-combat { background: #5d6060; }
 .legend-shop { background: #9a7c43; }
+.legend-portal { background: #596b9c; }
+.legend-rock { background: #323231; }
 .legend-cleared { background: #909493; }
 .legend-unknown { background: #141616; }
 
@@ -220,6 +222,54 @@ h1 { margin: 0; font-size: 25px; font-weight: 600; }
   color: #fff7dc;
   background: #8b7041;
   box-shadow: inset 0 0 0 1px rgba(255,239,184,.28), 0 3px 5px rgba(0,0,0,.24);
+}
+.map-room.is-portal,
+.map-room.is-safePortal {
+  border-color: #303e68;
+  color: #edf2ff;
+  background: #596b9c;
+  box-shadow: inset 0 0 18px rgba(190,211,255,.25), 0 3px 5px rgba(0,0,0,.24);
+}
+.map-room.is-heal {
+  border-color: #356044;
+  color: #effff3;
+  background: #658a6e;
+}
+.map-room.is-rock {
+  border-color: #1e1f1f;
+  color: #676966;
+  background:
+    linear-gradient(135deg, transparent 48%, rgba(255,255,255,.045) 49%, rgba(255,255,255,.045) 52%, transparent 53%),
+    #303231;
+  background-size: 22px 22px;
+  box-shadow: inset 0 0 18px rgba(0,0,0,.58);
+}
+.map-room.is-void {
+  border-color: transparent;
+  color: transparent;
+  background: transparent;
+  box-shadow: none;
+}
+.rock-mark {
+  display: block;
+  width: 42px;
+  height: 29px;
+  border: 3px solid #1d1e1d;
+  border-radius: 48% 52% 34% 39%;
+  background: #4a4c49;
+  box-shadow: inset 8px 5px 0 rgba(255,255,255,.05);
+}
+.map-region-label {
+  position: absolute;
+  z-index: 3;
+  top: 8px;
+  left: 9px;
+  padding: 3px 7px;
+  border: 1px solid rgba(255,255,255,.5);
+  border-radius: 2px;
+  color: #272722;
+  background: rgba(241,238,221,.9);
+  font: 800 10px Arial, sans-serif;
 }
 .map-room.is-cleared { border-color: #5b5f5e; color: white; background: #909493; }
 .map-room.is-adjacent,
