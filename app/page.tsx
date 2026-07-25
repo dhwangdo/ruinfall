@@ -150,14 +150,15 @@ const INVENTORY_CAPACITY = 20;
 const MAX_OWNED_DECKS = 3;
 const STARTER_DECK_CAPACITY = 20;
 const REGION_COUNT = 7;
-const REGION_WIDTH = 15;
 const ROCK_BARRIER_HEIGHT = 5;
-const DUNGEON_START_X = 0;
-const SAFE_AREA_START_X = 21;
+const DUNGEON_MIN_X = -80;
+const DUNGEON_MAX_X = 80;
+const VISIBLE_REGION_RADIUS = 14;
+const SAFE_AREA_START_X = 60;
 const SAFE_AREA_ENTRY_X = SAFE_AREA_START_X + 1;
 const SAFE_AREA_HEAL_X = SAFE_AREA_START_X + 2;
 const SAFE_AREA_PORTAL_X = SAFE_AREA_START_X + 3;
-const MAP_COLUMNS = 27;
+const MAP_COLUMNS = DUNGEON_MAX_X - DUNGEON_MIN_X + 1;
 const MAP_ROWS = (REGION_COUNT * (REGION_COUNT + 1) / 2) * 10
   + (REGION_COUNT - 1) * ROCK_BARRIER_HEIGHT;
 const MAP_WORLD_MARGIN_X = 5;
@@ -171,7 +172,7 @@ const MAP_PADDING = 42;
 const MAP_MIN_ZOOM = 0.45;
 const MAP_MAX_ZOOM = 1.35;
 const MAP_ZOOM_STEP = 0.1;
-const MAP_START: MapPosition = { x: Math.floor(REGION_WIDTH / 2), y: 0 };
+const MAP_START: MapPosition = { x: 0, y: 0 };
 const CARD_HEIGHT = 144;
 const PILE_HEIGHT = 226;
 const DEFAULT_STACK_OFFSET = 18;
@@ -205,8 +206,8 @@ function regionHeight(regionIndex: number) {
 
 function getDungeonRegionIndex(position: MapPosition) {
   if (
-    position.x < DUNGEON_START_X
-    || position.x >= DUNGEON_START_X + REGION_WIDTH
+    position.x < DUNGEON_MIN_X
+    || position.x > DUNGEON_MAX_X
     || position.y < 0
   ) return null;
   for (let regionIndex = 0; regionIndex < REGION_COUNT; regionIndex += 1) {
@@ -244,17 +245,23 @@ function safeAreaEntry(regionIndex: number): MapPosition {
 
 function nextRegionEntry(regionIndex: number): MapPosition {
   return {
-    x: Math.floor(REGION_WIDTH / 2),
+    x: 0,
     y: regionStartY(Math.min(REGION_COUNT - 1, regionIndex + 1)),
   };
 }
 
 function isPortalColumn(x: number, regionIndex: number, seed: number) {
   const bottomY = regionStartY(regionIndex) + regionHeight(regionIndex) - 1;
-  const candidates = Array.from({ length: REGION_WIDTH }, (_, column) => column)
+  const candidates = Array.from(
+    { length: DUNGEON_MAX_X - DUNGEON_MIN_X + 1 },
+    (_, index) => DUNGEON_MIN_X + index,
+  )
     .filter((column) => seededRoll({ x: column, y: bottomY }, seed, regionIndex + 101) < 0.1);
   if (candidates.length > 0) return candidates.includes(x);
-  const fallback = Math.floor(seededRoll({ x: regionIndex, y: bottomY }, seed, 911) * REGION_WIDTH);
+  const fallback = DUNGEON_MIN_X + Math.floor(
+    seededRoll({ x: regionIndex, y: bottomY }, seed, 911)
+      * (DUNGEON_MAX_X - DUNGEON_MIN_X + 1),
+  );
   return x === fallback;
 }
 
@@ -276,14 +283,14 @@ function getRoomType(position: MapPosition, seed: number): RoomType {
     if (inSafeWall) return "rock";
   }
   if (
-    position.x >= DUNGEON_START_X
-    && position.x < DUNGEON_START_X + REGION_WIDTH
+    position.x >= DUNGEON_MIN_X
+    && position.x <= DUNGEON_MAX_X
   ) {
     if (position.y >= -ROCK_BARRIER_HEIGHT && position.y < 0) return "rock";
     const regionIndex = getDungeonRegionIndex(position);
     if (regionIndex !== null) {
       const localY = position.y - regionStartY(regionIndex);
-      if (localY === 0 && position.x === Math.floor(REGION_WIDTH / 2)) return "empty";
+      if (localY === 0 && position.x === 0) return "empty";
       if (
         localY === regionHeight(regionIndex) - 1
         && isPortalColumn(position.x, regionIndex, seed)
@@ -334,7 +341,12 @@ function buildSafeRoomRoutes(
     const current = queue[index];
     for (const direction of MAP_DIRECTIONS) {
       const next = { x: current.x + direction.x, y: current.y + direction.y };
-      if (next.x < 0 || next.x >= MAP_COLUMNS || next.y < 0 || next.y >= MAP_ROWS) continue;
+      if (
+        next.x < DUNGEON_MIN_X
+        || next.x > DUNGEON_MAX_X
+        || next.y < 0
+        || next.y >= MAP_ROWS
+      ) continue;
       const nextKey = mapRoomKey(next);
       if (previous.has(nextKey) || !visitedRooms.has(nextKey)) continue;
       const type = getRoomType(next, seed);
@@ -908,7 +920,7 @@ export default function Home() {
     const viewport = mapViewportRef.current;
     if (!viewport) return;
     const roomCenterX = MAP_PADDING
-      + (position.x + MAP_WORLD_MARGIN_X) * (MAP_ROOM_WIDTH + MAP_CELL_GAP)
+      + (position.x - DUNGEON_MIN_X + MAP_WORLD_MARGIN_X) * (MAP_ROOM_WIDTH + MAP_CELL_GAP)
       + MAP_ROOM_WIDTH / 2;
     const roomCenterY = MAP_PADDING
       + (position.y + MAP_WORLD_MARGIN_Y) * (MAP_ROOM_HEIGHT + MAP_CELL_GAP)
@@ -926,7 +938,7 @@ export default function Home() {
     const viewport = mapViewportRef.current;
     if (!viewport) return pan;
     const playerX = MAP_PADDING
-      + (mapPosition.x + MAP_WORLD_MARGIN_X) * (MAP_ROOM_WIDTH + MAP_CELL_GAP)
+      + (mapPosition.x - DUNGEON_MIN_X + MAP_WORLD_MARGIN_X) * (MAP_ROOM_WIDTH + MAP_CELL_GAP)
       + MAP_ROOM_WIDTH / 2;
     const playerY = MAP_PADDING
       + (mapPosition.y + MAP_WORLD_MARGIN_Y) * (MAP_ROOM_HEIGHT + MAP_CELL_GAP)
@@ -979,7 +991,18 @@ export default function Home() {
       return;
     }
     if (roomType === "portal") {
-      const regionIndex = getDungeonRegionIndex(position);
+      setMapMessage("안전 지역으로 가려면 상단의 ‘포탈 이용’을 누르세요.");
+      return;
+    }
+    if (roomType === "safePortal") {
+      setMapMessage("다음 지역으로 가려면 상단의 ‘포탈 이용’을 누르세요.");
+    }
+  };
+
+  const useCurrentPortal = () => {
+    const roomType = getRoomType(mapPosition, mapSeed);
+    if (roomType === "portal") {
+      const regionIndex = getDungeonRegionIndex(mapPosition);
       if (regionIndex === null) return;
       const destination = safeAreaEntry(regionIndex);
       visitSafeArea(regionIndex);
@@ -989,19 +1012,18 @@ export default function Home() {
       focusMapOn(destination);
       return;
     }
-    if (roomType === "safePortal") {
-      const regionIndex = getSafeAreaRegionIndex(position);
-      if (regionIndex === null) return;
-      if (regionIndex >= REGION_COUNT - 1) {
-        setMapMessage("7지역의 끝입니다. 현재 프로토타입의 모든 지역을 탐험했습니다.");
-        return;
-      }
-      const destination = nextRegionEntry(regionIndex);
-      setVisitedRooms((current) => new Set(current).add(mapRoomKey(destination)));
-      setMapPosition(destination);
-      setMapMessage(`${regionIndex + 2}지역에 진입했습니다.`);
-      focusMapOn(destination);
+    if (roomType !== "safePortal") return;
+    const regionIndex = getSafeAreaRegionIndex(mapPosition);
+    if (regionIndex === null) return;
+    if (regionIndex >= REGION_COUNT - 1) {
+      setMapMessage("7지역의 끝입니다. 현재 프로토타입의 모든 지역을 탐험했습니다.");
+      return;
     }
+    const destination = nextRegionEntry(regionIndex);
+    setVisitedRooms((current) => new Set(current).add(mapRoomKey(destination)));
+    setMapPosition(destination);
+    setMapMessage(`${regionIndex + 2}지역에 진입했습니다.`);
+    focusMapOn(destination);
   };
 
   const moveOnMap = (deltaX: number, deltaY: number) => {
@@ -1011,8 +1033,8 @@ export default function Home() {
       y: mapPosition.y + deltaY,
     };
     if (
-      nextPosition.x < 0
-      || nextPosition.x >= MAP_COLUMNS
+      nextPosition.x < DUNGEON_MIN_X
+      || nextPosition.x > DUNGEON_MAX_X
       || nextPosition.y < 0
       || nextPosition.y >= MAP_ROWS
     ) return;
@@ -2218,21 +2240,31 @@ export default function Home() {
     const mapHeight = MAP_PADDING * 2
       + MAP_RENDER_ROWS * MAP_ROOM_HEIGHT
       + (MAP_RENDER_ROWS - 1) * MAP_CELL_GAP;
-    const mapCells: MapPosition[] = [];
+    const visibleMinX = Math.max(DUNGEON_MIN_X, mapPosition.x - VISIBLE_REGION_RADIUS);
+    const visibleMaxX = Math.min(DUNGEON_MAX_X, mapPosition.x + VISIBLE_REGION_RADIUS);
+    const mapCellMap = new Map<string, MapPosition>();
     for (let y = -ROCK_BARRIER_HEIGHT; y < 0; y += 1) {
-      for (let x = 0; x < REGION_WIDTH; x += 1) mapCells.push({ x, y });
+      for (let x = visibleMinX; x <= visibleMaxX; x += 1) {
+        const position = { x, y };
+        mapCellMap.set(mapRoomKey(position), position);
+      }
     }
     for (let y = 0; y < MAP_ROWS; y += 1) {
-      for (let x = 0; x < REGION_WIDTH; x += 1) mapCells.push({ x, y });
+      for (let x = visibleMinX; x <= visibleMaxX; x += 1) {
+        const position = { x, y };
+        mapCellMap.set(mapRoomKey(position), position);
+      }
     }
     for (let regionIndex = 0; regionIndex < REGION_COUNT; regionIndex += 1) {
       const centerY = safeAreaCenterY(regionIndex);
       for (let y = centerY - 1; y <= centerY + 1; y += 1) {
         for (let x = SAFE_AREA_START_X; x <= SAFE_AREA_PORTAL_X + 1; x += 1) {
-          mapCells.push({ x, y });
+          const position = { x, y };
+          mapCellMap.set(mapRoomKey(position), position);
         }
       }
     }
+    const mapCells = Array.from(mapCellMap.values());
 
     return (
       <main className="game-shell map-shell">
@@ -2270,6 +2302,17 @@ export default function Home() {
               >
                 <span aria-hidden="true">G</span>
                 <strong>상점 열기</strong>
+              </button>
+            )}
+            {(getRoomType(mapPosition, mapSeed) === "portal"
+              || getRoomType(mapPosition, mapSeed) === "safePortal") && (
+              <button
+                type="button"
+                className="portal-trigger"
+                onClick={useCurrentPortal}
+              >
+                <span aria-hidden="true">P</span>
+                <strong>포탈 이용</strong>
               </button>
             )}
             {canEditDeck && (
@@ -2380,7 +2423,7 @@ export default function Home() {
                     className={`map-room is-${roomState} ${current ? "is-current" : ""} ${adjacent ? "is-adjacent" : ""} ${reachable ? "is-reachable" : ""}`}
                     key={roomKey}
                     style={{
-                      gridColumn: position.x + MAP_WORLD_MARGIN_X + 1,
+                      gridColumn: position.x - DUNGEON_MIN_X + MAP_WORLD_MARGIN_X + 1,
                       gridRow: position.y + MAP_WORLD_MARGIN_Y + 1,
                     }}
                     tabIndex={adjacent || reachable ? 0 : -1}
@@ -2411,8 +2454,8 @@ export default function Home() {
                               : visited && roomType === "safePortal"
                                 ? <span>다음 지역</span>
                         : null}
-                    {roomType === "rock" && <span className="rock-mark" aria-hidden="true" />}
-                    {position.x === 0
+                    {roomType === "rock" && <span className="rock-label">단단한 돌</span>}
+                    {position.x === visibleMinX
                       && getDungeonRegionIndex(position) !== null
                       && position.y === regionStartY(getDungeonRegionIndex(position)!)
                       && <span className="map-region-label">{getDungeonRegionIndex(position)! + 1}지역</span>}
@@ -2423,7 +2466,7 @@ export default function Home() {
               <span
                 className="map-player map-player-marker"
                 style={{
-                  left: MAP_PADDING + (mapPosition.x + MAP_WORLD_MARGIN_X) * (MAP_ROOM_WIDTH + MAP_CELL_GAP) + MAP_ROOM_WIDTH / 2,
+                  left: MAP_PADDING + (mapPosition.x - DUNGEON_MIN_X + MAP_WORLD_MARGIN_X) * (MAP_ROOM_WIDTH + MAP_CELL_GAP) + MAP_ROOM_WIDTH / 2,
                   top: MAP_PADDING + (mapPosition.y + MAP_WORLD_MARGIN_Y) * (MAP_ROOM_HEIGHT + MAP_CELL_GAP) + MAP_ROOM_HEIGHT / 2,
                 }}
                 aria-hidden="true"
