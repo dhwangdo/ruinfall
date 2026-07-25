@@ -248,18 +248,6 @@ h1 { margin: 0; font-size: 25px; font-weight: 600; }
   box-shadow: none;
 }
 .rock-label { color: #c0c2bd; font-weight: 800; text-shadow: 0 1px 2px #111; }
-.map-region-label {
-  position: absolute;
-  z-index: 3;
-  top: 8px;
-  left: 9px;
-  padding: 3px 7px;
-  border: 1px solid rgba(255,255,255,.5);
-  border-radius: 2px;
-  color: #272722;
-  background: rgba(241,238,221,.9);
-  font: 800 15px Arial, sans-serif;
-}
 .map-room.is-cleared { border-color: #5b5f5e; color: white; background: #909493; }
 .map-room.is-adjacent,
 .map-room.is-reachable { cursor: pointer; box-shadow: 0 0 0 3px #d8d8d2, 0 4px 12px rgba(0,0,0,.42); }

@@ -2457,12 +2457,6 @@ export default function Home() {
                                 ? <span>다음 지역</span>
                         : null}
                     {roomType === "rock" && <span className="rock-label">단단한 돌</span>}
-                    {position.x === Math.min(...mapCells
-                      .filter((cell) => cell.y === position.y)
-                      .map((cell) => cell.x))
-                      && getDungeonRegionIndex(position) !== null
-                      && position.y === regionStartY(getDungeonRegionIndex(position)!)
-                      && <span className="map-region-label">{getDungeonRegionIndex(position)! + 1}지역</span>}
                     {hasItems && <span className="room-item-indicator" aria-label="아이템 있음" />}
                   </button>
                 );
