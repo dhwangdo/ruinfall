@@ -515,6 +515,7 @@ h1 { margin: 0; font-size: 25px; font-weight: 600; }
   display: flex;
   flex: none;
   gap: 8px;
+  margin-left: auto;
 }
 
 .deck-editor-footer-actions button {
@@ -1224,7 +1225,7 @@ h1 { margin: 0; font-size: 25px; font-weight: 600; }
 .deck-editor-footer {
   display: flex;
   align-items: center;
-  justify-content: space-between;
+  justify-content: flex-end;
   gap: 14px;
   min-height: 54px;
   padding: 10px 16px;
@@ -1277,11 +1278,6 @@ h1 { margin: 0; font-size: 25px; font-weight: 600; }
   border-color: #f1d36e;
   background: rgba(241, 211, 110, .1);
   box-shadow: 0 0 0 2px rgba(34, 46, 37, .6), 0 0 18px rgba(241, 211, 110, .42);
-}
-.enemy-unit.is-awakened {
-  border-color: #d789ff;
-  background: rgba(122,65,158,.18);
-  box-shadow: 0 0 18px rgba(194,112,239,.38);
 }
 .enemy-unit.is-defeated { cursor: default; }
 
@@ -1502,19 +1498,6 @@ h1 { margin: 0; font-size: 25px; font-weight: 600; }
 .healthbar i { display: block; height: 100%; background: #b34a42; transition: width .2s ease; }
 .healthbar span { position: absolute; inset: 0; display: grid; place-items: center; color: white; font: 800 16px Arial, sans-serif; text-shadow: 0 1px 2px #000, 0 0 3px #000; }
 .enemy-health { width: 220px; }
-.enemy-passion {
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  gap: 1px;
-  min-height: 20px;
-  margin-top: -4px;
-  font: 15px/1 Arial, sans-serif;
-}
-.enemy-passion span { display: inline-block; }
-.enemy-passion.is-awakened span { animation: passion-flare .55s ease-in-out infinite alternate; }
-@keyframes passion-flare { to { transform: translateY(-2px) scale(1.18); filter: drop-shadow(0 0 4px #ffb02e); } }
-
 .pile-zone {
   min-height: 275px;
   padding: 12px 22px 10px;

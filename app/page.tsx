@@ -101,10 +101,7 @@ type EnemyState = {
   hp: number;
   maxHp: number;
   pattern: EnemyAttack[];
-  awakenedAttack: EnemyAttack;
   intentIndex: number;
-  passion: number;
-  awakened: boolean;
   variant: "beast" | "goblin";
 };
 
@@ -436,10 +433,7 @@ function createEnemies(): EnemyState[] {
         { type: "physical", value: 8 },
         { type: "magic", value: 5 },
       ],
-      awakenedAttack: { type: "physical", value: 13 },
       intentIndex: 0,
-      passion: 0,
-      awakened: false,
       variant: "beast",
     },
     {
@@ -452,10 +446,7 @@ function createEnemies(): EnemyState[] {
         { type: "physical", value: 7 },
         { type: "magic", value: 9 },
       ],
-      awakenedAttack: { type: "magic", value: 12 },
       intentIndex: 0,
-      passion: 0,
-      awakened: false,
       variant: "goblin",
     },
   ];
@@ -2107,7 +2098,7 @@ export default function Home() {
 
       for (const enemy of livingEnemies) {
         if (remainingHp === 0) break;
-        const attack = enemy.awakened ? enemy.awakenedAttack : enemy.pattern[enemy.intentIndex];
+        const attack = enemy.pattern[enemy.intentIndex];
         const matchingBlock = attack.type === "physical" ? remainingPhysicalBlock : remainingMagicBlock;
         const blocked = game.invulnerable ? 0 : Math.min(attack.value, matchingBlock);
         const damage = game.invulnerable ? 0 : (attack.value - blocked) * game.damageTakenMultiplier;
@@ -2126,14 +2117,8 @@ export default function Home() {
 
       const nextEnemies = game.enemies.map((enemy) => {
         if (enemy.hp === 0 || !steps.some((step) => step.enemy.id === enemy.id)) return enemy;
-        if (enemy.awakened) {
-          return { ...enemy, passion: 0, awakened: false };
-        }
-        const nextPassion = Math.min(3, enemy.passion + 1);
         return {
           ...enemy,
-          passion: nextPassion,
-          awakened: nextPassion === 3,
           intentIndex: (enemy.intentIndex + 1) % enemy.pattern.length,
         };
       });
@@ -2176,7 +2161,7 @@ export default function Home() {
         setDamagePopup(null);
         setAttackingEnemyId(null);
         const attackHistory = steps.map((step) =>
-          `${step.enemy.name}${step.enemy.awakened ? " 각성" : ""}: ${ATTACK_LABEL[step.attack.type]} ${step.attack.value} · ${step.damage} 피해`);
+          `${step.enemy.name}: ${ATTACK_LABEL[step.attack.type]} ${step.attack.value} · ${step.damage} 피해`);
 
         if (remainingHp === 0) {
           setGame({
@@ -3048,11 +3033,11 @@ export default function Home() {
           <div className="enemies-row">
             {game.enemies.map((enemy) => {
               const defeated = enemy.hp === 0;
-              const intent = enemy.awakened ? enemy.awakenedAttack : enemy.pattern[enemy.intentIndex];
+              const intent = enemy.pattern[enemy.intentIndex];
               return (
                 <button
                   type="button"
-                  className={`enemy-unit ${enemy.variant} ${defeated ? "is-defeated" : ""} ${enemy.awakened ? "is-awakened" : ""} ${lockedEnemyId === enemy.id ? "is-locked" : ""} ${attackingEnemyId === enemy.id ? "is-attacking" : ""}`}
+                  className={`enemy-unit ${enemy.variant} ${defeated ? "is-defeated" : ""} ${lockedEnemyId === enemy.id ? "is-locked" : ""} ${attackingEnemyId === enemy.id ? "is-attacking" : ""}`}
                   data-drop-target={defeated ? undefined : `enemy:${enemy.id}`}
                   key={enemy.id}
                   onClick={() => toggleLock(enemy)}
@@ -3063,7 +3048,7 @@ export default function Home() {
                   {lockedEnemyId === enemy.id && <span className="lock-badge">LOCK ON</span>}
                   {!defeated && <div className="drop-prompt attack-prompt">이 적을 공격</div>}
                   <div className={`intent ${defeated ? "is-defeated" : intent.type}`}>
-                    <span>{defeated ? "상태" : enemy.awakened ? "각성 공격" : "다음 행동"}</span>
+                    <span>{defeated ? "상태" : "다음 행동"}</span>
                     {defeated ? (
                       <strong>격파</strong>
                     ) : (
@@ -3081,14 +3066,6 @@ export default function Home() {
                     <div className="monster-horns"><i /><i /></div>
                     <div className="monster-face"><b /><b /><span /></div>
                   </div>
-                  {!defeated && (
-                    <div
-                      className={`enemy-passion ${enemy.awakened ? "is-awakened" : ""}`}
-                      aria-label={enemy.awakened ? "열정이 가득 차 각성함" : `열정 ${enemy.passion}개`}
-                    >
-                      {Array.from({ length: enemy.passion }, (_, index) => <span key={index}>🔥</span>)}
-                    </div>
-                  )}
                   <div className="unit-stats enemy-stats">
                     <strong>{enemy.name}</strong>
                     <div className="healthbar enemy-health">
