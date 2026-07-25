@@ -171,6 +171,7 @@ const MAP_PADDING = 42;
 const MAP_MIN_ZOOM = 0.45;
 const MAP_MAX_ZOOM = 1.35;
 const MAP_ZOOM_STEP = 0.1;
+const MAP_TRAVEL_SQRT_MS = 140;
 const MAP_START: MapPosition = { x: 0, y: 0 };
 const CARD_HEIGHT = 144;
 const PILE_HEIGHT = 226;
@@ -700,6 +701,7 @@ export default function Home() {
   const [mapPan, setMapPan] = useState({ x: 0, y: 0 });
   const [mapZoom, setMapZoom] = useState(1);
   const [mapTraveling, setMapTraveling] = useState(false);
+  const [mapTravelStepMs, setMapTravelStepMs] = useState(MAP_TRAVEL_SQRT_MS);
   const [mapMessage, setMapMessage] = useState("1지역 탐험을 시작합니다.");
   const [ownedDecks, setOwnedDecks] = useState<DeckCase[]>(() => [createStarterDeck()]);
   const [activeDeckId, setActiveDeckId] = useState("starter");
@@ -1031,6 +1033,12 @@ export default function Home() {
 
   const travelSafePath = (path: MapPosition[]) => {
     if (screen !== "map" || mapTraveling || path.length < 2) return;
+    const travelSteps = path.length - 1;
+    const stepDuration = Math.max(
+      8,
+      Math.round(MAP_TRAVEL_SQRT_MS / Math.sqrt(travelSteps)),
+    );
+    setMapTravelStepMs(stepDuration);
     setMapTraveling(true);
     let stepIndex = 1;
     const advance = () => {
@@ -1042,14 +1050,14 @@ export default function Home() {
       }
       stepIndex += 1;
       if (stepIndex < path.length) {
-        mapTravelTimerRef.current = window.setTimeout(advance, 300);
+        mapTravelTimerRef.current = window.setTimeout(advance, stepDuration);
       } else {
         mapTravelTimerRef.current = window.setTimeout(() => {
           mapTravelTimerRef.current = null;
           setMapTraveling(false);
           const destination = path.at(-1)!;
           activateMapRoom(destination);
-        }, 300);
+        }, stepDuration);
       }
     };
     advance();
@@ -2348,7 +2356,8 @@ export default function Home() {
                 gridAutoRows: `${MAP_ROOM_HEIGHT}px`,
                 transform: `translate3d(${mapPan.x}px, ${mapPan.y}px, 0) scale(${mapZoom})`,
                 transformOrigin: "0 0",
-              }}
+                "--map-travel-step": `${mapTravelStepMs}ms`,
+              } as CSSProperties}
             >
               {mapCells.map((position) => {
                 const roomKey = mapRoomKey(position);

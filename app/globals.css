@@ -187,7 +187,7 @@ h1 { margin: 0; font-size: 25px; font-weight: 600; }
   will-change: transform;
 }
 
-.map-canvas.is-traveling { transition: transform .3s ease; }
+.map-canvas.is-traveling { transition: transform var(--map-travel-step, 140ms) linear; }
 
 .map-room {
   position: relative;
@@ -303,7 +303,9 @@ h1 { margin: 0; font-size: 25px; font-weight: 600; }
   position: absolute;
   z-index: 12;
   transform: translate(-50%, -50%);
-  transition: left .3s ease, top .3s ease;
+  transition:
+    left var(--map-travel-step, 140ms) linear,
+    top var(--map-travel-step, 140ms) linear;
   pointer-events: none;
 }
 
