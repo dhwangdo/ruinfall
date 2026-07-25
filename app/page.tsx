@@ -935,28 +935,6 @@ export default function Home() {
     });
   };
 
-  const clampMapPanToPlayer = (
-    pan: { x: number; y: number },
-    zoom = mapZoom,
-  ) => {
-    const viewport = mapViewportRef.current;
-    if (!viewport) return pan;
-    const playerX = MAP_PADDING
-      + (mapPosition.x - DUNGEON_MIN_X + MAP_WORLD_MARGIN_X) * (MAP_ROOM_WIDTH + MAP_CELL_GAP)
-      + MAP_ROOM_WIDTH / 2;
-    const playerY = MAP_PADDING
-      + (mapPosition.y + MAP_WORLD_MARGIN_Y) * (MAP_ROOM_HEIGHT + MAP_CELL_GAP)
-      + MAP_ROOM_HEIGHT / 2;
-    const centeredX = viewport.clientWidth / 2 - playerX * zoom;
-    const centeredY = viewport.clientHeight / 2 - playerY * zoom;
-    const maxXDrift = viewport.clientWidth * 0.7;
-    const maxYDrift = viewport.clientHeight * 0.7;
-    return {
-      x: Math.min(centeredX + maxXDrift, Math.max(centeredX - maxXDrift, pan.x)),
-      y: Math.min(centeredY + maxYDrift, Math.max(centeredY - maxYDrift, pan.y)),
-    };
-  };
-
   const focusMapOn = (position: MapPosition) => {
     window.requestAnimationFrame(() => centerMapOn(position));
   };
@@ -1564,10 +1542,10 @@ export default function Home() {
     const moved = drag.moved || Math.hypot(offsetX, offsetY) > 6;
     mapDragRef.current = { ...drag, moved };
     mapWasDraggedRef.current = moved;
-    setMapPan(clampMapPanToPlayer({
+    setMapPan({
       x: drag.originX + offsetX,
       y: drag.originY + offsetY,
-    }));
+    });
   };
 
   const finishMapDrag = () => {
@@ -1591,10 +1569,10 @@ export default function Home() {
     const pointerY = event.clientY - bounds.top;
     const mapX = (pointerX - mapPan.x) / mapZoom;
     const mapY = (pointerY - mapPan.y) / mapZoom;
-    setMapPan(clampMapPanToPlayer({
+    setMapPan({
       x: pointerX - mapX * nextZoom,
       y: pointerY - mapY * nextZoom,
-    }, nextZoom));
+    });
     setMapZoom(nextZoom);
   };
 
