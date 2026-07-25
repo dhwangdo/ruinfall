@@ -141,20 +141,7 @@ h1 { margin: 0; font-size: 25px; font-weight: 600; }
   font: 10px Arial, sans-serif;
 }
 
-.map-legend { display: flex; flex-wrap: wrap; gap: 12px; }
-.map-legend span { display: flex; align-items: center; gap: 5px; }
-.map-legend i { width: 14px; height: 14px; border: 1px solid rgba(255,255,255,.45); border-radius: 2px; }
-.legend-current { background: #e6c85f; }
-.legend-empty { background: #deddd8; }
-.legend-combat { background: #5d6060; }
-.legend-shop { background: #9a7c43; }
-.legend-portal { background: #775b98; }
-.legend-rock { background: #323231; }
-.legend-cleared { background: #909493; }
-.legend-unknown { background: #141616; }
-
 .map-toolbar-actions { display: flex; align-items: center; gap: 10px; }
-.map-help { color: rgba(255,255,255,.68); white-space: nowrap; }
 .map-zoom-value {
   flex: none;
   min-width: 38px;
@@ -523,7 +510,6 @@ h1 { margin: 0; font-size: 25px; font-weight: 600; }
 
 .deck-editor-header p { margin: 0 0 3px; color: #77736a; font: 9px Arial, sans-serif; letter-spacing: .15em; }
 .deck-editor-header h2 { margin: 0; font-size: 25px; font-weight: 600; }
-.deck-editor-header span { display: block; margin-top: 5px; color: #6f716d; font: 11px Arial, sans-serif; }
 
 .deck-editor-footer-actions {
   display: flex;
@@ -608,7 +594,7 @@ h1 { margin: 0; font-size: 25px; font-weight: 600; }
 .owned-deck-tabs button:active { cursor: grabbing; }
 .owned-deck-tabs button:hover { border-color: #4b4a46; }
 .owned-deck-tabs button.is-active { border-color: #275f42; color: #1f5137; background: #d3e2d7; box-shadow: inset 0 0 0 1px #4e8966; }
-.owned-deck-tabs button strong { font-size: 11px; }
+.owned-deck-tabs button strong { font-size: 13px; }
 .owned-deck-tabs button span { font-weight: 700; }
 .owned-deck-tabs .empty-deck-slot { border-style: dashed; color: #8b887f; background: rgba(255,255,255,.18); }
 .owned-deck-tabs .empty-deck-slot.is-deck-drop-target {
@@ -1054,7 +1040,6 @@ h1 { margin: 0; font-size: 25px; font-weight: 600; }
 .deck-editor-floor-heading > div { display: flex; align-items: baseline; gap: 8px; }
 .deck-editor-floor-heading strong { font-size: 13px; }
 .deck-editor-floor-heading span { color: #66645e; font-size: 11px; }
-.deck-editor-floor-heading small { color: #706e67; font-size: 10px; }
 .deck-editor-floor-layout {
   min-height: 148px;
   height: 100%;
@@ -1108,7 +1093,7 @@ h1 { margin: 0; font-size: 25px; font-weight: 600; }
 .deck-viewer-panel > header {
   display: flex;
   align-items: center;
-  justify-content: space-between;
+  justify-content: flex-end;
   padding: 15px 18px;
   border-bottom: 1px solid #aaa69b;
   background: #f7f5ef;
@@ -1248,7 +1233,6 @@ h1 { margin: 0; font-size: 25px; font-weight: 600; }
   font: 11px Arial, sans-serif;
 }
 
-.deck-editor-footer span { color: #555750; }
 
 .battlefield {
   position: relative;
@@ -2050,8 +2034,6 @@ h1 { margin: 0; font-size: 25px; font-weight: 600; }
   .shop-header-status { width: 100%; justify-content: space-between; }
   .shop-stock { grid-template-columns: repeat(2, minmax(125px, 1fr)); }
   .map-toolbar { align-items: start; }
-  .map-legend { gap: 6px 9px; max-width: 250px; }
-  .map-help { display: none; }
   .map-viewport { height: calc(100vh - 188px); min-height: 480px; }
   .deck-editor-trigger,
   .deck-viewer-trigger { grid-template-columns: 28px; padding-inline: 8px; }

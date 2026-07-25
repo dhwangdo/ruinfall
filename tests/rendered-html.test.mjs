@@ -24,12 +24,11 @@ test("server-renders the exploration map", async () => {
   assert.match(html, /아래로 이어지는 방/);
   assert.match(html, /class="map-viewport"/);
   assert.match(html, /현재 위치로/);
-  assert.match(html, /1지역 탐험을 시작합니다/);
   assert.match(html, /단단한 바위/);
-  assert.match(html, /포탈/);
   assert.match(html, /aria-hidden="true">\?<\/span>/);
   assert.equal((html.match(/class="map-room /g) ?? []).length, 9);
   assert.match(html, /덱 편집/);
   assert.match(html, /aria-label="탐험 지도"/);
+  assert.doesNotMatch(html, /지도 범례|1지역 탐험을 시작합니다/);
   assert.doesNotMatch(html, /codex-preview|react-loading-skeleton/);
 });

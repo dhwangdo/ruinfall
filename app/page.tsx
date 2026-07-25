@@ -743,7 +743,7 @@ export default function Home() {
   const [mapZoom, setMapZoom] = useState(1);
   const [mapTraveling, setMapTraveling] = useState(false);
   const [mapTravelStepMs, setMapTravelStepMs] = useState(MAP_TRAVEL_SQRT_MS);
-  const [mapMessage, setMapMessage] = useState("1지역 탐험을 시작합니다.");
+  const [, setMapMessage] = useState("1지역 탐험을 시작합니다.");
   const [ownedDecks, setOwnedDecks] = useState<DeckCase[]>(() => [createStarterDeck()]);
   const [activeDeckId, setActiveDeckId] = useState("starter");
   const [inventoryCards, setInventoryCards] = useState<Card[]>([]);
@@ -773,7 +773,7 @@ export default function Home() {
   const deckCaseDragRef = useRef<{ deckId: string; source: "floor" | "owned" } | null>(null);
   const [deckCaseDropSlot, setDeckCaseDropSlot] = useState<number | null>(null);
   const [deckSortMode, setDeckSortMode] = useState<DeckSortMode>("cost");
-  const [deckEditorMessage, setDeckEditorMessage] = useState("바닥 카드는 좌클릭으로 인벤토리와 덱으로 옮길 수 있습니다. 원래 덱 카드는 휴지통에서만 제거합니다.");
+  const [, setDeckEditorMessage] = useState("바닥 카드는 좌클릭으로 인벤토리와 덱으로 옮길 수 있습니다. 원래 덱 카드는 휴지통에서만 제거합니다.");
   const [deckEditorSnapshot, setDeckEditorSnapshot] = useState<DeckEditorSnapshot | null>(null);
   const [pendingRemovedCards, setPendingRemovedCards] = useState<PendingRemovedCard[]>([]);
   const [hoveredDeckCard, setHoveredDeckCard] = useState<Card | null>(null);
@@ -2358,17 +2358,7 @@ export default function Home() {
 
         <section className="map-board" aria-label="탐험 지도">
           <div className="map-toolbar">
-            <div className="map-legend" aria-label="지도 범례">
-              <span><i className="legend-current" />현재 위치</span>
-              <span><i className="legend-empty" />방</span>
-              <span><i className="legend-combat" />전투</span>
-              <span><i className="legend-shop" />상점</span>
-              <span><i className="legend-portal" />포탈</span>
-              <span><i className="legend-rock" />단단한 바위</span>
-              <span><i className="legend-unknown" />미방문</span>
-            </div>
             <div className="map-toolbar-actions">
-              <span className="map-help">{mapMessage}</span>
               <span className="map-zoom-value" aria-label={`지도 배율 ${Math.round(mapZoom * 100)}퍼센트`}>
                 {Math.round(mapZoom * 100)}%
               </span>
@@ -2595,9 +2585,6 @@ export default function Home() {
                 <div>
                   <p>LOADOUT</p>
                   <h2 id="deck-editor-title">덱 편집</h2>
-                  <span>{inSafeArea
-                    ? "안전 지역에서는 덱의 카드를 인벤토리나 바닥으로 자유롭게 꺼낼 수 있습니다."
-                    : "바닥·인벤토리에서 시작한 카드는 자유롭게 오갈 수 있습니다. 원래 덱 카드는 휴지통으로만 옮길 수 있습니다."}</span>
                 </div>
               </header>
 
@@ -2723,8 +2710,7 @@ export default function Home() {
                         }}
                         aria-label={`${index + 1}번째 덱, ${deck.cards.length}/${deck.capacity}. 좌클릭 선택, 우클릭 바닥에 놓기`}
                       >
-                        <strong>덱 {index + 1}</strong>
-                        <span>{deck.cards.length} / {deck.capacity}</span>
+                        <strong>덱 {index + 1} <span>({deck.cards.length}/{deck.capacity})</span></strong>
                       </button>
                     ))}
                     {Array.from({ length: MAX_OWNED_DECKS - ownedDecks.length }, (_, index) => (
@@ -2877,7 +2863,6 @@ export default function Home() {
                 </div>
                 <div className="deck-editor-floor-heading">
                   <div><strong>방 바닥</strong><span>카드 {currentFloorCards.length}장 · 소모품 {currentFloorConsumables.length}개 · 덱 {currentFloorDecks.length}개</span></div>
-                  <small>카드와 소모품을 좌클릭하면 인벤토리로, 인벤토리 물품을 우클릭하면 바닥으로 이동합니다.</small>
                 </div>
                 <div className="deck-editor-floor-layout">
                   <div
@@ -2978,7 +2963,6 @@ export default function Home() {
               </section>
 
               <footer className="deck-editor-footer">
-                <span role="status" aria-live="polite">{deckEditorMessage}</span>
                 <div className="deck-editor-footer-actions">
                   <button type="button" className="cancel" onClick={cancelDeckEditor}>취소</button>
                   <button
