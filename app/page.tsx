@@ -10,6 +10,28 @@ import {
   type PointerEvent as ReactPointerEvent,
   type WheelEvent as ReactWheelEvent,
 } from "react";
+import {
+  actionSummary,
+  applyPlayerAttack,
+  chooseNextIntent,
+  createSewerEncounter,
+  createSewerEncounterByIndex,
+  getSewerEncounterLabel,
+  SEWER_ENCOUNTER_COUNT,
+  type EnemyAction,
+  type EnemyState,
+} from "./game/enemies";
+import {
+  advanceMapEnemies,
+  awarenessSymbol,
+  chebyshevDistance,
+  EIGHT_DIRECTIONS,
+  isInPlayerVision,
+  MAP_PLAYER_VISION_HORIZONTAL_RADIUS,
+  MAP_PLAYER_VISION_VERTICAL_RADIUS,
+  createMapEnemyWorld,
+  type MapEnemyWorld,
+} from "./game/mapEnemies";
 
 type CardKind = "strike" | "defend" | "skill";
 type DamageType = "physical" | "magic";
@@ -23,6 +45,8 @@ type CardEffect =
   | "battlePlan"
   | "prepare"
   | "sweep"
+  | "drawEachPile"
+  | "focus"
   | "rulerCompass"
   | "berserk"
   | "transcend"
@@ -37,9 +61,7 @@ type MapPosition = { x: number; y: number };
 type RoomType =
   | "void"
   | "rock"
-  | "mystery"
   | "empty"
-  | "combat"
   | "shop"
   | "portal"
   | "heal"
@@ -48,7 +70,7 @@ type DeckEditorArea = "deck" | "inventory" | "floor" | "trash";
 type DeckSortMode = "cost" | "rarity";
 type DeckCase = { id: string; name: string; capacity: number; cards: Card[] };
 type PendingRemovedCard = { card: Card; deckId: string };
-type ConsumableType = "extractTicket" | "swiftTicket";
+type ConsumableType = "extractTicket" | "swiftTicket" | "paintTicket";
 type Consumable = {
   id: string;
   type: ConsumableType;
@@ -56,8 +78,6 @@ type Consumable = {
   description: string;
 };
 type ConsumableArea = "inventory" | "floor";
-type RewardDropType = "card" | "consumable" | "deck";
-type MysteryResolution = "empty" | "combat";
 type ShopOffer = {
   id: string;
   price: number;
@@ -77,6 +97,7 @@ type Card = {
   draw: number;
   damageType: DamageType;
   revealed: boolean;
+  colored?: boolean;
 };
 
 type DeckEditorSnapshot = {
@@ -88,21 +109,6 @@ type DeckEditorSnapshot = {
   floorCards: Card[];
   floorConsumables: Consumable[];
   floorDecks: DeckCase[];
-};
-
-type EnemyAttack = {
-  type: DamageType;
-  value: number;
-};
-
-type EnemyState = {
-  id: string;
-  name: string;
-  hp: number;
-  maxHp: number;
-  pattern: EnemyAttack[];
-  intentIndex: number;
-  variant: "beast" | "goblin";
 };
 
 type GameState = {
@@ -143,17 +149,27 @@ type DamagePopup = {
   text: string;
 };
 
-const MAX_PLAYER_HP = 20;
-const STARTING_DECK_SIZE = 15;
+const MAX_PLAYER_HP = 30;
+const STARTING_DECK_SIZE = 16;
 const INVENTORY_CAPACITY = 20;
 const MAX_OWNED_DECKS = 3;
 const STARTER_DECK_CAPACITY = 20;
 const REGION_COUNT = 7;
+const REGION_NAMES = [
+  "하수구",
+  "이름 미정 지역",
+  "이름 미정 지역",
+  "이름 미정 지역",
+  "이름 미정 지역",
+  "이름 미정 지역",
+  "이름 미정 지역",
+] as const;
 const ROCK_BARRIER_HEIGHT = 5;
-const SHOP_NODE_CHANCE = 0.02;
-const PORTAL_NODE_CHANCE = 0.1;
-const FIXED_COMBAT_NODE_CHANCE = 0.2;
-const FIXED_EMPTY_NODE_CHANCE = 0.1;
+const SHOP_NODE_CHANCE = 0.005;
+const PORTAL_NODE_CHANCE = 0.05;
+const ROCK_CLUSTER_CHANCE = 0.03;
+const ROCK_CLUSTER_EDGE_CHANCE = 0.05;
+const FLOOR_CARD_DROP_CHANCE = 0.01;
 const DUNGEON_MIN_X = -80;
 const DUNGEON_MAX_X = 80;
 const SAFE_AREA_START_X = 60;
@@ -174,7 +190,9 @@ const MAP_PADDING = 42;
 const MAP_MIN_ZOOM = 0.45;
 const MAP_MAX_ZOOM = 1.35;
 const MAP_ZOOM_STEP = 0.1;
-const MAP_TRAVEL_SQRT_MS = 140;
+const MAP_TRAVEL_STEP_MS = 140;
+const MAP_COLLISION_OVERLAP_MS = 280;
+const MAP_BATTLE_FLASH_MS = 1000;
 const MAP_START: MapPosition = { x: 0, y: 0 };
 const CARD_HEIGHT = 144;
 const PILE_HEIGHT = 226;
@@ -280,6 +298,50 @@ function isPortalColumn(x: number, regionIndex: number, seed: number) {
   return x === fallback;
 }
 
+function isNormalDungeonFloor(position: MapPosition, seed: number) {
+  const regionIndex = getDungeonRegionIndex(position);
+  if (regionIndex === null || chebyshevDistance(position, MAP_START) <= 1) return false;
+  const localY = position.y - regionStartY(regionIndex);
+  if (localY === 0 && position.x === 0) return false;
+  if (localY === regionHeight(regionIndex) - 1 && isPortalColumn(position.x, regionIndex, seed)) {
+    return false;
+  }
+  const portalEligible = localY === regionHeight(regionIndex) - 1;
+  const availableChance = portalEligible ? 1 - PORTAL_NODE_CHANCE : 1;
+  return seededRoll(position, seed) >= SHOP_NODE_CHANCE / availableChance;
+}
+
+function isRockClusterCell(position: MapPosition, seed: number) {
+  for (let anchorY = position.y - 1; anchorY <= position.y + 1; anchorY += 1) {
+    for (let anchorX = position.x - 1; anchorX <= position.x + 1; anchorX += 1) {
+      const anchor = { x: anchorX, y: anchorY };
+      const regionIndex = getDungeonRegionIndex(anchor);
+      if (regionIndex === null) continue;
+      const localY = anchor.y - regionStartY(regionIndex);
+      const nearRegionEdge = localY < regionHeight(regionIndex) / 3
+        || localY >= regionHeight(regionIndex) * 2 / 3;
+      const chance = nearRegionEdge ? ROCK_CLUSTER_EDGE_CHANCE : ROCK_CLUSTER_CHANCE;
+      if (seededRoll(anchor, seed, 7101) >= chance) continue;
+
+      const neighborOffsets = EIGHT_DIRECTIONS
+        .map((offset) => ({ ...offset }))
+        .sort((left, right) =>
+          seededRoll({ x: anchor.x + left.x, y: anchor.y + left.y }, seed, 7103)
+          - seededRoll({ x: anchor.x + right.x, y: anchor.y + right.y }, seed, 7103));
+      const clusterSize = 1 + Math.floor(seededRoll(anchor, seed, 7102) * 7);
+      const clusterCells = [anchor, ...neighborOffsets.slice(0, clusterSize - 1).map((offset) => ({
+        x: anchor.x + offset.x,
+        y: anchor.y + offset.y,
+      }))];
+      const containsPosition = clusterCells.some((cell) =>
+        cell.x === position.x && cell.y === position.y);
+      if (!containsPosition) continue;
+      if (clusterCells.every((cell) => isNormalDungeonFloor(cell, seed))) return true;
+    }
+  }
+  return false;
+}
+
 function getRoomType(position: MapPosition, seed: number): RoomType {
   if (position.x === MAP_START.x && position.y === MAP_START.y) return "empty";
   const safeRegion = getSafeAreaRegionIndex(position);
@@ -291,8 +353,8 @@ function getRoomType(position: MapPosition, seed: number): RoomType {
   for (let regionIndex = 0; regionIndex < REGION_COUNT; regionIndex += 1) {
     const centerY = safeAreaCenterY(regionIndex);
     const inSafeWall =
-      position.x >= SAFE_AREA_START_X
-      && position.x <= SAFE_AREA_PORTAL_X + 1
+      position.x >= SAFE_AREA_START_X - 1
+      && position.x <= SAFE_AREA_PORTAL_X + 2
       && position.y >= centerY - 1
       && position.y <= centerY + 1;
     if (inSafeWall) return "rock";
@@ -314,19 +376,8 @@ function getRoomType(position: MapPosition, seed: number): RoomType {
       const availableChance = portalEligible ? 1 - PORTAL_NODE_CHANCE : 1;
       const roll = seededRoll(position, seed);
       if (roll < SHOP_NODE_CHANCE / availableChance) return "shop";
-      if (
-        roll
-        < (SHOP_NODE_CHANCE + FIXED_COMBAT_NODE_CHANCE) / availableChance
-      ) return "combat";
-      if (
-        roll
-        < (
-          SHOP_NODE_CHANCE
-          + FIXED_COMBAT_NODE_CHANCE
-          + FIXED_EMPTY_NODE_CHANCE
-        ) / availableChance
-      ) return "empty";
-      return "mystery";
+      if (isRockClusterCell(position, seed)) return "rock";
+      return "empty";
     }
     for (let regionIndex = 0; regionIndex < REGION_COUNT - 1; regionIndex += 1) {
       const barrierStart = regionStartY(regionIndex) + regionHeight(regionIndex);
@@ -343,35 +394,64 @@ function isWalkableRoom(type: RoomType) {
   return type !== "rock" && type !== "void";
 }
 
-function getResolvedRoomType(
-  position: MapPosition,
-  seed: number,
-  mysteryRooms: Record<string, MysteryResolution>,
-): RoomType {
-  const generatedType = getRoomType(position, seed);
-  if (generatedType !== "mystery") return generatedType;
-  return mysteryRooms[mapRoomKey(position)] ?? "mystery";
+function visibleMapRoomKeys(center: MapPosition, seed: number) {
+  const keys = new Set<string>();
+  for (let offsetY = -MAP_PLAYER_VISION_VERTICAL_RADIUS; offsetY <= MAP_PLAYER_VISION_VERTICAL_RADIUS; offsetY += 1) {
+    for (let offsetX = -MAP_PLAYER_VISION_HORIZONTAL_RADIUS; offsetX <= MAP_PLAYER_VISION_HORIZONTAL_RADIUS; offsetX += 1) {
+      const position = { x: center.x + offsetX, y: center.y + offsetY };
+      if (getRoomType(position, seed) !== "void") keys.add(mapRoomKey(position));
+    }
+  }
+  return keys;
 }
 
-function getRegionNumber(position: MapPosition) {
-  const dungeonRegion = getDungeonRegionIndex(position);
-  if (dungeonRegion !== null) return dungeonRegion + 1;
-  const safeRegion = getSafeAreaRegionIndex(position);
-  return (safeRegion ?? 0) + 1;
+function isMapEnemySpawnCell(position: MapPosition, seed: number) {
+  return chebyshevDistance(position, MAP_START) > 1
+    && getDungeonRegionIndex(position) !== null
+    && getRoomType(position, seed) === "empty";
 }
 
-const MAP_DIRECTIONS = [
-  { x: 1, y: 0 },
-  { x: -1, y: 0 },
-  { x: 0, y: 1 },
-  { x: 0, y: -1 },
-];
+function createPreGeneratedMapEnemyWorld(seed: number) {
+  const spawnCells: MapPosition[] = [];
+  for (let y = 0; y < MAP_ROWS; y += 1) {
+    for (let x = DUNGEON_MIN_X; x <= DUNGEON_MAX_X; x += 1) {
+      const position = { x, y };
+      if (isMapEnemySpawnCell(position, seed)) spawnCells.push(position);
+    }
+  }
+  return createMapEnemyWorld(spawnCells, seed, SEWER_ENCOUNTER_COUNT);
+}
 
-function buildSafeRoomRoutes(
+function createPreGeneratedMapFloorDrops(seed: number) {
+  const cards: Record<string, Card[]> = {};
+  const consumables: Record<string, Consumable[]> = {};
+  let cardIndex = 0;
+  for (let y = 0; y < MAP_ROWS; y += 1) {
+    for (let x = DUNGEON_MIN_X; x <= DUNGEON_MAX_X; x += 1) {
+      const position = { x, y };
+      if (getRoomType(position, seed) !== "empty") continue;
+      if (seededRoll(position, seed, 7201) >= FLOOR_CARD_DROP_CHANCE) continue;
+      const roomKey = mapRoomKey(position);
+      if (seededRoll(position, seed, 7202) < 0.3) {
+        const weightedPool = [...SPECIAL_CARD_POOL, ...RARE_CARD_POOL, ...RARE_CARD_POOL];
+        const blueprint = weightedPool[Math.floor(seededRoll(position, seed, 7203) * weightedPool.length)];
+        cards[roomKey] = [{ ...blueprint, id: 100_000 + cardIndex, revealed: false }];
+        cardIndex += 1;
+      } else {
+        const ticketRoll = seededRoll(position, seed, 7203);
+        const type: ConsumableType = ticketRoll < 1 / 3
+          ? "extractTicket"
+          : ticketRoll < 2 / 3 ? "swiftTicket" : "paintTicket";
+        consumables[roomKey] = [createConsumable(type, `map-ticket-${position.x}-${position.y}`)];
+      }
+    }
+  }
+  return { cards, consumables };
+}
+
+function buildKnownRoomRoutes(
   start: MapPosition,
-  visitedRooms: Set<string>,
-  clearedCombats: Set<string>,
-  mysteryRooms: Record<string, MysteryResolution>,
+  knownRooms: Set<string>,
   seed: number,
 ) {
   const startKey = mapRoomKey(start);
@@ -379,19 +459,11 @@ function buildSafeRoomRoutes(
   const queue = [start];
   for (let index = 0; index < queue.length; index += 1) {
     const current = queue[index];
-    for (const direction of MAP_DIRECTIONS) {
+    for (const direction of EIGHT_DIRECTIONS) {
       const next = { x: current.x + direction.x, y: current.y + direction.y };
-      if (
-        next.x < DUNGEON_MIN_X
-        || next.x > DUNGEON_MAX_X
-        || next.y < 0
-        || next.y >= MAP_ROWS
-      ) continue;
       const nextKey = mapRoomKey(next);
-      if (previous.has(nextKey) || !visitedRooms.has(nextKey)) continue;
-      const type = getResolvedRoomType(next, seed, mysteryRooms);
-      const safe = isWalkableRoom(type) && (type !== "combat" || clearedCombats.has(nextKey));
-      if (!safe) continue;
+      if (previous.has(nextKey) || !knownRooms.has(nextKey)) continue;
+      if (!isWalkableRoom(getRoomType(next, seed))) continue;
       previous.set(nextKey, mapRoomKey(current));
       queue.push(next);
     }
@@ -405,11 +477,17 @@ function routeToRoom(target: MapPosition, routes: Map<string, string | null>) {
   const reversed: MapPosition[] = [];
   let cursor: string | null = targetKey;
   while (cursor) {
-    const [x, y] = cursor.split(":").map(Number);
-    reversed.push({ x, y });
+    reversed.push(parseMapRoomKey(cursor));
     cursor = routes.get(cursor) ?? null;
   }
   return reversed.reverse();
+}
+
+function getRegionNumber(position: MapPosition) {
+  const dungeonRegion = getDungeonRegionIndex(position);
+  if (dungeonRegion !== null) return dungeonRegion + 1;
+  const safeRegion = getSafeAreaRegionIndex(position);
+  return (safeRegion ?? 0) + 1;
 }
 
 const ATTACK_LABEL: Record<DamageType, string> = {
@@ -421,35 +499,11 @@ const DEFENSE_LABEL: Record<DamageType, string> = {
   magic: "마법 방어",
 };
 
-function createEnemies(): EnemyState[] {
-  return [
-    {
-      id: "beast",
-      name: "훈련용 괴수",
-      hp: 1,
-      maxHp: 1,
-      pattern: [
-        { type: "physical", value: 6 },
-        { type: "physical", value: 8 },
-        { type: "magic", value: 5 },
-      ],
-      intentIndex: 0,
-      variant: "beast",
-    },
-    {
-      id: "goblin",
-      name: "숲 고블린",
-      hp: 1,
-      maxHp: 1,
-      pattern: [
-        { type: "magic", value: 5 },
-        { type: "physical", value: 7 },
-        { type: "magic", value: 9 },
-      ],
-      intentIndex: 0,
-      variant: "goblin",
-    },
-  ];
+function getRegionName(position: MapPosition) {
+  const dungeonRegion = getDungeonRegionIndex(position);
+  if (dungeonRegion !== null) return REGION_NAMES[dungeonRegion];
+  const safeRegion = getSafeAreaRegionIndex(position);
+  return REGION_NAMES[safeRegion ?? 0];
 }
 
 type CardBlueprint = Omit<Card, "id" | "revealed">;
@@ -465,13 +519,16 @@ const SPECIAL_CARD_POOL: CardBlueprint[] = [
   { kind: "defend", effect: "deflect", rarity: "special", name: "흘려보내기", cost: 1, value: 5, draw: 1, damageType: "physical" },
   { kind: "skill", effect: "battlePlan", rarity: "special", name: "전투 설계", cost: 1, value: 0, draw: 0, damageType: "physical" },
   { kind: "skill", effect: "prepare", rarity: "special", name: "예비", cost: 0, value: 0, draw: 1, damageType: "physical" },
-  { kind: "skill", effect: "sweep", rarity: "special", name: "걷어내기", cost: 1, value: 0, draw: 0, damageType: "physical" },
+  { kind: "skill", effect: "sweep", rarity: "special", name: "뽑아내기", cost: 1, value: 0, draw: 0, damageType: "physical" },
+  { kind: "skill", effect: "drawEachPile", rarity: "special", name: "걷어내기", cost: 1, value: 0, draw: 0, damageType: "physical" },
   { kind: "strike", effect: "rulerCompass", rarity: "special", name: "자와 컴퍼스", cost: 1, value: 6, draw: 0, damageType: "physical" },
   { kind: "skill", effect: "berserk", rarity: "special", name: "광폭화", cost: 0, value: 0, draw: 0, damageType: "physical" },
   { kind: "defend", effect: "iceShield", rarity: "special", name: "얼음 방패", cost: 1, value: 8, draw: 0, damageType: "magic" },
   { kind: "strike", effect: "ironWave", rarity: "special", name: "철의 파동", cost: 1, value: 5, draw: 0, damageType: "physical" },
   { kind: "strike", effect: "waterWave", rarity: "special", name: "물의 파동", cost: 1, value: 5, draw: 0, damageType: "magic" },
   { kind: "strike", effect: "ironRampage", rarity: "special", name: "무쇠 난동", cost: 2, value: 8, draw: 0, damageType: "physical" },
+  { kind: "strike", effect: "strike", rarity: "special", name: "몽둥이질", cost: 3, value: 30, draw: 0, damageType: "physical" },
+  { kind: "skill", effect: "focus", rarity: "special", name: "집중", cost: 0, value: 0, draw: 0, damageType: "physical" },
 ];
 
 const RARE_CARD_POOL: CardBlueprint[] = [
@@ -500,12 +557,9 @@ function createDeck(): Card[] {
     blueprint: CardBlueprint,
   ) => Array.from({ length: count }, () => ({ ...blueprint }));
   const blueprints: CardBlueprint[] = [
-    ...make(5, BASIC_CARD_POOL[0]),
-    ...make(5, BASIC_CARD_POOL[1]),
-    ...Array.from(
-      { length: 5 },
-      () => SPECIAL_CARD_POOL[Math.floor(Math.random() * SPECIAL_CARD_POOL.length)],
-    ),
+    ...make(8, BASIC_CARD_POOL[0]),
+    ...make(6, BASIC_CARD_POOL[1]),
+    ...make(2, BASIC_CARD_POOL[2]),
   ];
   if (blueprints.length !== STARTING_DECK_SIZE) {
     throw new Error(`Starting deck must contain ${STARTING_DECK_SIZE} cards.`);
@@ -556,7 +610,14 @@ function createConsumable(type: ConsumableType, id: string): Consumable {
         name: "추출 티켓",
         description: "덱의 카드 1장을 추출하여 인벤토리로 되돌립니다.",
       }
-    : {
+    : type === "paintTicket"
+      ? {
+        id,
+        type,
+        name: "색칠 티켓",
+        description: "덱의 카드 1장을 색칠합니다.",
+      }
+      : {
         id,
         type,
         name: "신속 티켓",
@@ -567,18 +628,20 @@ function createConsumable(type: ConsumableType, id: string): Consumable {
 function createBattleReward(
   regionNumber: number,
   nextCardId: number,
-  dropType: RewardDropType,
-  consumableId: string,
+  deckDropChance: number,
 ) {
   const gold = 1 + Math.floor(Math.random() * Math.max(1, regionNumber));
-  if (dropType === "deck") {
-    return { gold, card: null, consumable: null, deck: createRandomDeck(regionNumber, nextCardId) };
-  }
-  if (dropType === "card") {
-    return { gold, card: createBattleRewardCard(nextCardId), consumable: null, deck: null };
-  }
-  const type: ConsumableType = Math.random() < 0.5 ? "extractTicket" : "swiftTicket";
-  return { gold, card: null, consumable: createConsumable(type, consumableId), deck: null };
+  const decks = Math.random() < deckDropChance
+    ? [createRandomDeck(regionNumber, nextCardId)]
+    : [];
+  return {
+    gold,
+    cards: decks.length > 0 ? [] : [createBattleRewardCard(nextCardId), createBattleRewardCard(nextCardId + 1)],
+    decks,
+    consumableType: Math.random() < 0.5
+      ? (["extractTicket", "swiftTicket", "paintTicket"] as const)[Math.floor(Math.random() * 3)]
+      : null,
+  };
 }
 
 function shuffle<T>(items: T[]): T[] {
@@ -588,30 +651,6 @@ function shuffle<T>(items: T[]): T[] {
     [result[index], result[target]] = [result[target], result[index]];
   }
   return result;
-}
-
-function takeBalancedRewardDrop(debt: Record<RewardDropType, number>): RewardDropType {
-  const targetShare: Record<RewardDropType, number> = {
-    card: 1 / 2,
-    consumable: 1 / 3,
-    deck: 1 / 6,
-  };
-  const types: RewardDropType[] = ["card", "consumable", "deck"];
-  types.forEach((type) => {
-    debt[type] += targetShare[type];
-  });
-  const adjustedWeights = types.map((type) => ({
-    type,
-    weight: targetShare[type] * Math.exp(debt[type] * 0.12),
-  }));
-  const totalWeight = adjustedWeights.reduce((total, entry) => total + entry.weight, 0);
-  let roll = Math.random() * totalWeight;
-  const selected = adjustedWeights.find((entry) => {
-    roll -= entry.weight;
-    return roll <= 0;
-  })?.type ?? "card";
-  debt[selected] -= 1;
-  return selected;
 }
 
 function buildPiles(cards: Card[]): Card[][] {
@@ -637,7 +676,10 @@ function drawFromPiles(piles: Card[][]) {
   return { piles: nextPiles, hand };
 }
 
-function waitingState(playerHp = MAX_PLAYER_HP): GameState {
+function waitingState(
+  playerHp = MAX_PLAYER_HP,
+  enemies: EnemyState[] = createSewerEncounter(),
+): GameState {
   return {
     piles: [],
     hand: [],
@@ -656,16 +698,20 @@ function waitingState(playerHp = MAX_PLAYER_HP): GameState {
     damageTakenMultiplier: 1,
     invulnerable: false,
     doubleNextAttack: false,
-    enemies: createEnemies(),
+    enemies,
     status: "playing",
     message: "카드를 준비하고 있습니다.",
     history: [],
   };
 }
 
-function dealtState(playerHp = MAX_PLAYER_HP, deck = createDeck()): GameState {
+function dealtState(
+  playerHp = MAX_PLAYER_HP,
+  deck = createDeck(),
+  enemies: EnemyState[] = createSewerEncounter(),
+): GameState {
   return {
-    ...waitingState(playerHp),
+    ...waitingState(playerHp, enemies),
     piles: buildPiles(shuffle(deck.map((card) => ({ ...card, revealed: false })))),
     message: "파일 배치 완료 — 맨 위 카드를 가져옵니다.",
   };
@@ -688,8 +734,12 @@ function CardFace({ card }: { card: Card }) {
         return <span>★★★를 얻습니다</span>;
       case "prepare":
         return <span>1장 뽑고<br />1장 버립니다</span>;
+      case "focus":
+        return <span>에너지 1 획득<br />카드 1장 버림</span>;
       case "sweep":
         return <span>파일 하나를 전부<br />손으로 가져옵니다</span>;
+      case "drawEachPile":
+        return <span>모든 파일에서<br />1장씩 뽑습니다</span>;
       case "rulerCompass":
         return <><span className="effect-type damage">피해 {card.value}</span><span>★를 얻습니다</span></>;
       case "berserk":
@@ -711,7 +761,7 @@ function CardFace({ card }: { card: Card }) {
   return (
     <>
       <span className="card-cost">{card.cost}</span>
-      <strong className={`card-name rarity-${card.rarity} ${card.name.length >= 6 ? "is-long" : ""}`}>{card.name}</strong>
+      <strong className={`card-name rarity-${card.rarity} ${card.colored ? "is-painted" : ""} ${card.name.length >= 6 ? "is-long" : ""}`}>{card.name}</strong>
       <span className="card-effect">{effectText}</span>
     </>
   );
@@ -722,19 +772,23 @@ export default function Home() {
   const [runPlayerHp, setRunPlayerHp] = useState(MAX_PLAYER_HP);
   const [mapSeed, setMapSeed] = useState(1);
   const [mapPosition, setMapPosition] = useState<MapPosition>(MAP_START);
-  const [visitedRooms, setVisitedRooms] = useState<Set<string>>(
+  const [seenRooms, setSeenRooms] = useState<Set<string>>(
     () => new Set([mapRoomKey(MAP_START)]),
   );
-  const [resolvedMysteryRooms, setResolvedMysteryRooms] = useState<
-    Record<string, MysteryResolution>
-  >({});
-  const [clearedCombats, setClearedCombats] = useState<Set<string>>(() => new Set());
+  const [mapEnemyWorld, setMapEnemyWorld] = useState<MapEnemyWorld>(() => ({
+    enemies: [],
+  }));
+  const [activeMapEnemyIds, setActiveMapEnemyIds] = useState<string[]>([]);
   const [activeBattleRoom, setActiveBattleRoom] = useState<string | null>(null);
   const [mapPan, setMapPan] = useState({ x: 0, y: 0 });
   const [mapZoom, setMapZoom] = useState(1);
   const [mapTraveling, setMapTraveling] = useState(false);
-  const [mapTravelStepMs, setMapTravelStepMs] = useState(MAP_TRAVEL_SQRT_MS);
-  const [, setMapMessage] = useState("1지역 탐험을 시작합니다.");
+  const [mapTravelStepMs, setMapTravelStepMs] = useState(MAP_TRAVEL_STEP_MS);
+  const [mapCollisionEnemyIds, setMapCollisionEnemyIds] = useState<string[]>([]);
+  const [mapBattleFlash, setMapBattleFlash] = useState(false);
+  const [debugMode, setDebugMode] = useState(false);
+  const [mapMessage, setMapMessage] = useState("");
+  const [mapMessageNonce, setMapMessageNonce] = useState(0);
   const [ownedDecks, setOwnedDecks] = useState<DeckCase[]>(() => [createStarterDeck()]);
   const [activeDeckId, setActiveDeckId] = useState("starter");
   const [inventoryCards, setInventoryCards] = useState<Card[]>([]);
@@ -748,8 +802,8 @@ export default function Home() {
   const [shopMessage, setShopMessage] = useState("필요한 물건을 골라보세요.");
   const [gold, setGold] = useState(0);
   const [battleRewards, setBattleRewards] = useState<Card[]>([]);
-  const [battleRewardConsumable, setBattleRewardConsumable] = useState<Consumable | null>(null);
-  const [battleRewardDeck, setBattleRewardDeck] = useState<DeckCase | null>(null);
+  const [battleRewardDecks, setBattleRewardDecks] = useState<DeckCase[]>([]);
+  const [battleRewardConsumables, setBattleRewardConsumables] = useState<Consumable[]>([]);
   const [battleRewardGold, setBattleRewardGold] = useState(0);
   const [deckEditorOpen, setDeckEditorOpen] = useState(false);
   const [deckViewerOpen, setDeckViewerOpen] = useState(false);
@@ -760,6 +814,7 @@ export default function Home() {
   const [consumableDrag, setConsumableDrag] = useState<{ id: string; source: ConsumableArea } | null>(null);
   const consumableDragRef = useRef<{ id: string; source: ConsumableArea } | null>(null);
   const [pendingExtractionTicketId, setPendingExtractionTicketId] = useState<string | null>(null);
+  const [pendingPaintTicketId, setPendingPaintTicketId] = useState<string | null>(null);
   const [deckCaseDrag, setDeckCaseDrag] = useState<{ deckId: string; source: "floor" | "owned" } | null>(null);
   const deckCaseDragRef = useRef<{ deckId: string; source: "floor" | "owned" } | null>(null);
   const [deckCaseDropSlot, setDeckCaseDropSlot] = useState<number | null>(null);
@@ -774,15 +829,22 @@ export default function Home() {
   const [lockedEnemyId, setLockedEnemyId] = useState<string | null>(null);
   const [attackingEnemyId, setAttackingEnemyId] = useState<string | null>(null);
   const [damagePopup, setDamagePopup] = useState<DamagePopup | null>(null);
-  const rewardDropDebtRef = useRef<Record<RewardDropType, number>>({
-    card: 0,
-    consumable: 0,
-    deck: 0,
-  });
   const nextCardIdRef = useRef(STARTING_DECK_SIZE);
   const nextConsumableIdRef = useRef(1);
+  const deckDropChanceRef = useRef(0.25);
   const activeDeck = ownedDecks.find((deck) => deck.id === activeDeckId) ?? ownedDecks[0];
   const deckCards = activeDeck?.cards ?? [];
+  const showMapMessage = (message: string) => {
+    setMapMessage(message);
+    setMapMessageNonce((current) => current + 1);
+  };
+  const toggleDebugMode = () => {
+    if (debugMode) {
+      setDebugMode(false);
+      return;
+    }
+    if (window.prompt("디버그 비밀번호") === "6384") setDebugMode(true);
+  };
   const updateActiveDeckCards = (updater: Card[] | ((cards: Card[]) => Card[])) => {
     setOwnedDecks((current) => current.map((deck) => {
       if (deck.id !== activeDeckId) return deck;
@@ -797,9 +859,17 @@ export default function Home() {
     nextConsumableIdRef.current += 1;
     return createConsumable(type, id);
   };
-
-  const takeRewardDropType = () => {
-    return takeBalancedRewardDrop(rewardDropDebtRef.current);
+  const grantBattleReward = (regionNumber: number) => {
+    const reward = createBattleReward(regionNumber, nextCardIdRef.current, deckDropChanceRef.current);
+    const generatedCardCount = reward.cards.length + reward.decks.reduce((total, deck) => total + deck.cards.length, 0);
+    nextCardIdRef.current += generatedCardCount;
+    deckDropChanceRef.current = reward.decks.length > 0
+      ? 0.25
+      : Math.min(1, deckDropChanceRef.current + 0.05);
+    setBattleRewardGold(reward.gold);
+    setBattleRewards(reward.cards);
+    setBattleRewardDecks(reward.decks);
+    setBattleRewardConsumables(reward.consumableType ? [nextConsumable(reward.consumableType)] : []);
   };
 
   const createShopStock = (depth: number): ShopOffer[] => {
@@ -816,11 +886,14 @@ export default function Home() {
       };
     };
     const consumables = Array.from({ length: 2 }, (_, slot) => {
-      const type: ConsumableType = Math.random() < 0.5 ? "extractTicket" : "swiftTicket";
+      const ticketRoll = Math.random();
+      const type: ConsumableType = ticketRoll < 1 / 3
+        ? "extractTicket"
+        : ticketRoll < 2 / 3 ? "swiftTicket" : "paintTicket";
       const consumable = nextConsumable(type);
       return {
         id: `shop-item-${depth}-${slot}-${consumable.id}`,
-        price: type === "extractTicket" ? 5 : 3,
+        price: type === "extractTicket" ? 5 : type === "paintTicket" ? 4 : 3,
         consumable,
         sold: false,
       };
@@ -925,10 +998,20 @@ export default function Home() {
       window.clearTimeout(mapTravelTimerRef.current);
       mapTravelTimerRef.current = null;
     }
+    setMapCollisionEnemyIds([]);
+    setMapBattleFlash(false);
     setMapTraveling(false);
   };
 
-  const startBattle = (playerHp = runPlayerHp) => {
+  const rememberPlayerVision = (position: MapPosition, seed = mapSeed) => {
+    const visibleKeys = visibleMapRoomKeys(position, seed);
+    setSeenRooms((current) => new Set([...current, ...visibleKeys]));
+  };
+
+  const startBattle = (
+    encounterIndexes: number[],
+    playerHp = runPlayerHp,
+  ) => {
     clearBattleTimers();
     clearMapTravel();
     setDeckEditorOpen(false);
@@ -938,18 +1021,28 @@ export default function Home() {
     setAttackingEnemyId(null);
     setDamagePopup(null);
     setBattleRewards([]);
-    setBattleRewardConsumable(null);
-    setBattleRewardDeck(null);
+    setBattleRewardDecks([]);
+    setBattleRewardConsumables([]);
     setBattleRewardGold(0);
     setPhase("drawing");
-    setGame(dealtState(playerHp, deckCards));
+    setGame(dealtState(
+      playerHp,
+      deckCards,
+      encounterIndexes.flatMap((encounterIndex) => createSewerEncounterByIndex(encounterIndex)),
+    ));
     setScreen("battle");
     later(drawCards, 360);
   };
 
   useEffect(() => {
     const seedTimer = window.setTimeout(() => {
-      setMapSeed(createRandomMapSeed());
+      const nextSeed = createRandomMapSeed();
+      setMapSeed(nextSeed);
+      setMapEnemyWorld(createPreGeneratedMapEnemyWorld(nextSeed));
+      const floorDrops = createPreGeneratedMapFloorDrops(nextSeed);
+      setRoomDrops(floorDrops.cards);
+      setRoomConsumableDrops(floorDrops.consumables);
+      setSeenRooms(visibleMapRoomKeys(MAP_START, nextSeed));
     }, 0);
     return () => {
       window.clearTimeout(seedTimer);
@@ -957,6 +1050,12 @@ export default function Home() {
       if (mapTravelTimerRef.current !== null) window.clearTimeout(mapTravelTimerRef.current);
     };
   }, []);
+
+  useEffect(() => {
+    if (!mapMessage) return;
+    const messageTimer = window.setTimeout(() => setMapMessage(""), 1300);
+    return () => window.clearTimeout(messageTimer);
+  }, [mapMessage, mapMessageNonce]);
 
   const centerMapOn = (position: MapPosition) => {
     const viewport = mapViewportRef.current;
@@ -977,130 +1076,160 @@ export default function Home() {
     window.requestAnimationFrame(() => centerMapOn(position));
   };
 
-  const visitSafeArea = (regionIndex: number) => {
-    const centerY = safeAreaCenterY(regionIndex);
-    const safePositions = [
-      { x: SAFE_AREA_ENTRY_X, y: centerY },
-      { x: SAFE_AREA_HEAL_X, y: centerY },
-      { x: SAFE_AREA_PORTAL_X, y: centerY },
-    ];
-    setVisitedRooms((current) => {
-      const next = new Set(current);
-      safePositions.forEach((position) => next.add(mapRoomKey(position)));
-      return next;
-    });
-  };
-
-  const activateMapRoom = (position: MapPosition) => {
-    const roomKey = mapRoomKey(position);
-    const generatedType = getRoomType(position, mapSeed);
-    const mysteryResolution = resolvedMysteryRooms[roomKey]
-      ?? (seededRoll(position, mapSeed, 1777) < 1 / 3 ? "combat" : "empty");
-    const roomType = generatedType === "mystery" ? mysteryResolution : generatedType;
-    if (generatedType === "mystery" && !resolvedMysteryRooms[roomKey]) {
-      setResolvedMysteryRooms((current) => ({
-        ...current,
-        [roomKey]: mysteryResolution,
-      }));
-    }
-    const regionNumber = getRegionNumber(position);
-    if (roomType === "combat" && !clearedCombats.has(roomKey)) {
-      setActiveBattleRoom(roomKey);
-      startBattle(runPlayerHp);
-      return;
-    }
-    if (roomType === "shop") {
-      setMapMessage(`${regionNumber}지역 상점입니다. 우측 하단에서 상점에 들어갈 수 있습니다.`);
-      return;
-    }
+  const activateRoomFeature = (position: MapPosition) => {
+    const roomType = getRoomType(position, mapSeed);
     if (roomType === "heal") {
       setRunPlayerHp(MAX_PLAYER_HP);
-      setMapMessage("안전 지역에서 생명력을 전부 회복했습니다.");
-      return;
-    }
-    if (roomType === "portal") {
-      setMapMessage("우측 하단의 ‘포탈 이용하기’를 눌러 안전 지역으로 이동할 수 있습니다.");
-      return;
-    }
-    if (roomType === "safePortal") {
-      setMapMessage("우측 하단의 ‘포탈 이용하기’를 눌러 다음 지역으로 이동할 수 있습니다.");
     }
   };
 
   const useCurrentPortal = () => {
-    const roomType = getResolvedRoomType(mapPosition, mapSeed, resolvedMysteryRooms);
+    const roomType = getRoomType(mapPosition, mapSeed);
     if (roomType === "portal") {
       const regionIndex = getDungeonRegionIndex(mapPosition);
       if (regionIndex === null) return;
       const destination = safeAreaEntry(regionIndex);
-      visitSafeArea(regionIndex);
       setMapPosition(destination);
-      setMapMessage(`${regionIndex + 1}지역의 안전 지역에 도착했습니다.`);
+      rememberPlayerVision(destination);
       focusMapOn(destination);
       return;
     }
     if (roomType !== "safePortal") return;
     const regionIndex = getSafeAreaRegionIndex(mapPosition);
     if (regionIndex === null) return;
-    if (regionIndex >= REGION_COUNT - 1) {
-      setMapMessage("7지역의 끝입니다. 현재 프로토타입의 모든 지역을 탐험했습니다.");
-      return;
-    }
+    if (regionIndex >= REGION_COUNT - 1) return;
     const destination = nextRegionEntry(regionIndex);
-    setVisitedRooms((current) => new Set(current).add(mapRoomKey(destination)));
     setMapPosition(destination);
-    setMapMessage(`${regionIndex + 2}지역에 진입했습니다.`);
+    rememberPlayerVision(destination);
     focusMapOn(destination);
+  };
+
+  const resolveMapStep = (
+    currentPosition: MapPosition,
+    nextPosition: MapPosition,
+    world: MapEnemyWorld,
+  ) => {
+    const roomKey = mapRoomKey(nextPosition);
+    const playerCollisions = world.enemies.filter((enemy) =>
+      mapRoomKey(enemy.position) === roomKey);
+    if (playerCollisions.length > 0) {
+      return { world, collisionEnemies: playerCollisions };
+    }
+
+    const enemyTurn = advanceMapEnemies(
+      world.enemies,
+      currentPosition,
+      nextPosition,
+      (position) => isWalkableRoom(getRoomType(position, mapSeed)),
+    );
+    const nextWorld = {
+      ...world,
+      enemies: enemyTurn.enemies,
+    };
+    const collisionEnemies = enemyTurn.enemies.filter((enemy) =>
+      enemyTurn.collisionEnemyIds.includes(enemy.id));
+    return { world: nextWorld, collisionEnemies };
+  };
+
+  const beginMapEnemyBattle = (enemies: { id: string; encounterIndex: number }[], roomKey: string) => {
+    setActiveMapEnemyIds(enemies.map((enemy) => enemy.id));
+    setActiveBattleRoom(roomKey);
+    startBattle(enemies.map((enemy) => enemy.encounterIndex), runPlayerHp);
+  };
+
+  const animateMapCollision = (enemies: { id: string; encounterIndex: number }[], roomKey: string) => {
+    setMapCollisionEnemyIds(enemies.map((enemy) => enemy.id));
+    setMapTraveling(true);
+    mapTravelTimerRef.current = window.setTimeout(() => {
+      setMapBattleFlash(true);
+      mapTravelTimerRef.current = window.setTimeout(() => {
+        mapTravelTimerRef.current = null;
+        setMapBattleFlash(false);
+        setMapCollisionEnemyIds([]);
+        beginMapEnemyBattle(enemies, roomKey);
+      }, MAP_BATTLE_FLASH_MS);
+    }, MAP_COLLISION_OVERLAP_MS);
   };
 
   const moveOnMap = (deltaX: number, deltaY: number) => {
     if (screen !== "map" || mapTraveling) return;
+    if (Math.max(Math.abs(deltaX), Math.abs(deltaY)) !== 1) return;
     const nextPosition = {
       x: mapPosition.x + deltaX,
       y: mapPosition.y + deltaY,
     };
-    if (
-      nextPosition.x < DUNGEON_MIN_X
-      || nextPosition.x > DUNGEON_MAX_X
-      || nextPosition.y < 0
-      || nextPosition.y >= MAP_ROWS
-    ) return;
-
-    const roomType = getRoomType(nextPosition, mapSeed);
-    if (!isWalkableRoom(roomType)) return;
+    if (!isWalkableRoom(getRoomType(nextPosition, mapSeed))) return;
     const roomKey = mapRoomKey(nextPosition);
+    const result = resolveMapStep(mapPosition, nextPosition, mapEnemyWorld);
     setMapPosition(nextPosition);
-    setVisitedRooms((current) => new Set(current).add(roomKey));
-    activateMapRoom(nextPosition);
+    rememberPlayerVision(nextPosition);
+    setMapEnemyWorld(result.world);
+    if (result.collisionEnemies.length > 0) {
+      animateMapCollision(result.collisionEnemies, roomKey);
+      return;
+    }
+    activateRoomFeature(nextPosition);
+  };
+
+  const spendMapTurn = () => {
+    if (screen !== "map" || mapTraveling) return;
+    const roomKey = mapRoomKey(mapPosition);
+    const result = resolveMapStep(mapPosition, mapPosition, mapEnemyWorld);
+    setMapEnemyWorld(result.world);
+    if (result.collisionEnemies.length > 0) {
+      animateMapCollision(result.collisionEnemies, roomKey);
+      return;
+    }
+  };
+
+  const waitOnMap = () => {
+    spendMapTurn();
   };
 
   const travelSafePath = (path: MapPosition[]) => {
     if (screen !== "map" || mapTraveling || path.length < 2) return;
-    const travelSteps = path.length - 1;
-    const stepDuration = Math.max(
-      8,
-      Math.round(MAP_TRAVEL_SQRT_MS / Math.sqrt(travelSteps)),
-    );
+    if (mapEnemyWorld.enemies.some((enemy) =>
+      isInPlayerVision(enemy.position, mapPosition))) {
+      showMapMessage("적이 시야 안에 있습니다! (빠른 이동 불가)");
+      return;
+    }
+
+    const stepDuration = Math.max(70, Math.round(MAP_TRAVEL_STEP_MS / Math.sqrt(path.length - 1)));
     setMapTravelStepMs(stepDuration);
     setMapTraveling(true);
+    let currentPosition = mapPosition;
+    let currentWorld = mapEnemyWorld;
     let stepIndex = 1;
     const advance = () => {
       const nextPosition = path[stepIndex];
+      const roomKey = mapRoomKey(nextPosition);
+      const result = resolveMapStep(currentPosition, nextPosition, currentWorld);
+      currentPosition = nextPosition;
+      currentWorld = result.world;
       setMapPosition(nextPosition);
-      if (getRoomType(nextPosition, mapSeed) === "heal") {
-        setRunPlayerHp(MAX_PLAYER_HP);
-        setMapMessage("안전 지역을 지나며 생명력을 전부 회복했습니다.");
+      rememberPlayerVision(nextPosition);
+      setMapEnemyWorld(result.world);
+
+      if (result.collisionEnemies.length > 0) {
+        mapTravelTimerRef.current = null;
+        animateMapCollision(result.collisionEnemies, roomKey);
+        return;
       }
+      if (result.world.enemies.some((enemy) =>
+        isInPlayerVision(enemy.position, nextPosition))) {
+        mapTravelTimerRef.current = null;
+        setMapTraveling(false);
+        showMapMessage("적을 발견해 빠른 이동이 중지 되었습니다.");
+        return;
+      }
+
       stepIndex += 1;
       if (stepIndex < path.length) {
         mapTravelTimerRef.current = window.setTimeout(advance, stepDuration);
       } else {
-        mapTravelTimerRef.current = window.setTimeout(() => {
-          mapTravelTimerRef.current = null;
-          setMapTraveling(false);
-          const destination = path.at(-1)!;
-          activateMapRoom(destination);
-        }, stepDuration);
+        mapTravelTimerRef.current = null;
+        setMapTraveling(false);
+        activateRoomFeature(nextPosition);
       }
     };
     advance();
@@ -1109,32 +1238,34 @@ export default function Home() {
   const returnToMap = () => {
     if (activeBattleRoom) {
       const landingDrops = [...(roomDrops[activeBattleRoom] ?? []), ...battleRewards];
-      setClearedCombats((current) => new Set(current).add(activeBattleRoom));
       setRoomDrops((current) => ({
         ...current,
         [activeBattleRoom]: landingDrops,
       }));
-      if (battleRewardConsumable) {
-        setRoomConsumableDrops((current) => ({
-          ...current,
-          [activeBattleRoom]: [...(current[activeBattleRoom] ?? []), battleRewardConsumable],
-        }));
-      }
-      if (battleRewardDeck) {
-        setRoomDeckDrops((current) => ({
-          ...current,
-          [activeBattleRoom]: [...(current[activeBattleRoom] ?? []), battleRewardDeck],
-        }));
-      }
       setGold((current) => current + battleRewardGold);
     }
-    setRunPlayerHp(game.playerHp);
+    if (activeMapEnemyIds.length > 0) {
+      setMapEnemyWorld((current) => ({
+        ...current,
+        enemies: current.enemies.filter((enemy) => !activeMapEnemyIds.includes(enemy.id)),
+      }));
+      if (battleRewardDecks.length > 0) setRoomDeckDrops((current) => ({
+        ...current,
+        [activeBattleRoom]: [...(current[activeBattleRoom] ?? []), ...battleRewardDecks],
+      }));
+      if (battleRewardConsumables.length > 0) setRoomConsumableDrops((current) => ({
+        ...current,
+        [activeBattleRoom]: [...(current[activeBattleRoom] ?? []), ...battleRewardConsumables],
+      }));
+    }
+    const roomType = getRoomType(mapPosition, mapSeed);
+    setRunPlayerHp(roomType === "heal" ? MAX_PLAYER_HP : game.playerHp);
     setBattleRewards([]);
-    setBattleRewardConsumable(null);
-    setBattleRewardDeck(null);
+    setBattleRewardDecks([]);
+    setBattleRewardConsumables([]);
     setBattleRewardGold(0);
+    setActiveMapEnemyIds([]);
     setActiveBattleRoom(null);
-    setMapMessage(`${getRegionNumber(mapPosition)}지역의 전투를 끝냈습니다.`);
     setScreen("map");
   };
 
@@ -1146,33 +1277,34 @@ export default function Home() {
     setRunPlayerHp(MAX_PLAYER_HP);
     setMapSeed(nextSeed);
     setMapPosition(MAP_START);
-    setMapMessage("1지역 탐험을 시작합니다.");
-    setVisitedRooms(new Set([mapRoomKey(MAP_START)]));
-    setResolvedMysteryRooms({});
-    setClearedCombats(new Set());
+    setMapMessage("");
+    setSeenRooms(visibleMapRoomKeys(MAP_START, nextSeed));
+    setMapEnemyWorld(createPreGeneratedMapEnemyWorld(nextSeed));
+    setActiveMapEnemyIds([]);
     setActiveBattleRoom(null);
     setOwnedDecks([starterDeck]);
     setActiveDeckId(starterDeck.id);
     setInventoryCards([]);
     setInventoryConsumables([]);
-    setRoomDrops({});
-    setRoomConsumableDrops({});
+    const floorDrops = createPreGeneratedMapFloorDrops(nextSeed);
+    setRoomDrops(floorDrops.cards);
+    setRoomConsumableDrops(floorDrops.consumables);
     setRoomDeckDrops({});
     setRoomShops({});
     setShopOpen(false);
     setActiveShopRoom(null);
     setGold(0);
     setBattleRewards([]);
-    setBattleRewardConsumable(null);
-    setBattleRewardDeck(null);
+    setBattleRewardDecks([]);
+    setBattleRewardConsumables([]);
     setBattleRewardGold(0);
+    deckDropChanceRef.current = 0.25;
     setDeckEditorOpen(false);
     setDeckViewerOpen(false);
     setDeckEditorSnapshot(null);
     setPendingRemovedCards([]);
     setHoveredDeckCard(null);
     setPendingExtractionTicketId(null);
-    rewardDropDebtRef.current = { card: 0, consumable: 0, deck: 0 };
     nextCardIdRef.current = STARTING_DECK_SIZE;
     nextConsumableIdRef.current = 1;
     setGame(waitingState());
@@ -1365,11 +1497,20 @@ export default function Home() {
   };
 
   const selectExtractionTicket = (consumable: Consumable) => {
+    if (consumable.type === "paintTicket") {
+      setPendingPaintTicketId((current) => current === consumable.id ? null : consumable.id);
+      setPendingExtractionTicketId(null);
+      setDeckEditorMessage(
+        pendingPaintTicketId === consumable.id ? "색칠을 취소했습니다." : "색칠할 덱 카드 1장을 클릭하세요.",
+      );
+      return;
+    }
     if (consumable.type !== "extractTicket") {
       setDeckEditorMessage("신속 티켓은 전투 중에 사용할 수 있습니다.");
       return;
     }
     setPendingExtractionTicketId((current) => current === consumable.id ? null : consumable.id);
+    setPendingPaintTicketId(null);
     setDeckEditorMessage(
       pendingExtractionTicketId === consumable.id
         ? "추출을 취소했습니다."
@@ -1429,6 +1570,52 @@ export default function Home() {
     }));
     setOwnedDecks((current) => [...current, deck]);
     setDeckEditorMessage(`${deck.name}을(를) 주웠습니다. 보유 덱 ${ownedDecks.length + 1} / ${MAX_OWNED_DECKS}`);
+  };
+
+  const paintDeckCard = (cardId: number) => {
+    if (!pendingPaintTicketId) return;
+    const card = deckCards.find((item) => item.id === cardId);
+    if (!card) return;
+    setInventoryConsumables((current) => current.filter((item) => item.id !== pendingPaintTicketId));
+    updateActiveDeckCards((current) => current.map((item) => item.id === cardId ? { ...item, colored: true } : item));
+    setPendingPaintTicketId(null);
+    setDeckEditorMessage(`${card.name}을(를) 색칠했습니다.`);
+  };
+
+  const quickPickUpFloorItems = () => {
+    const roomKey = mapRoomKey(mapPosition);
+    const floorCards = roomDrops[roomKey] ?? [];
+    const floorConsumables = roomConsumableDrops[roomKey] ?? [];
+    const floorDecks = roomDeckDrops[roomKey] ?? [];
+    const freeItemSlots = Math.max(0, INVENTORY_CAPACITY - inventoryItemCount);
+    const pickedCards = floorCards.slice(0, freeItemSlots);
+    const pickedConsumables = floorConsumables.slice(0, freeItemSlots - pickedCards.length);
+    const pickedDecks = floorDecks.slice(0, Math.max(0, MAX_OWNED_DECKS - ownedDecks.length));
+    if (pickedCards.length > 0) {
+      setRoomDrops((current) => ({
+        ...current,
+        [roomKey]: (current[roomKey] ?? []).filter((card) => !pickedCards.some((item) => item.id === card.id)),
+      }));
+      setInventoryCards((current) => [...current, ...pickedCards]);
+    }
+    if (pickedConsumables.length > 0) {
+      setRoomConsumableDrops((current) => ({
+        ...current,
+        [roomKey]: (current[roomKey] ?? []).filter((item) => !pickedConsumables.some((picked) => picked.id === item.id)),
+      }));
+      setInventoryConsumables((current) => [...current, ...pickedConsumables]);
+    }
+    if (pickedDecks.length > 0) {
+      setRoomDeckDrops((current) => ({
+        ...current,
+        [roomKey]: (current[roomKey] ?? []).filter((deck) => !pickedDecks.some((picked) => picked.id === deck.id)),
+      }));
+      setOwnedDecks((current) => [...current, ...pickedDecks]);
+    }
+    const pickedCount = pickedCards.length + pickedConsumables.length + pickedDecks.length;
+    if (pickedCount > 0) {
+      spendMapTurn();
+    }
   };
 
   const dropOwnedDeck = (deckId: string) => {
@@ -1516,6 +1703,7 @@ export default function Home() {
     finishDeckEditorDrag();
     finishConsumableDrag();
     setPendingExtractionTicketId(null);
+    setPendingPaintTicketId(null);
     setPendingRemovedCards([]);
     setHoveredDeckCard(null);
     setDeckEditorSnapshot({
@@ -1541,9 +1729,11 @@ export default function Home() {
     setPendingRemovedCards([]);
     setHoveredDeckCard(null);
     setPendingExtractionTicketId(null);
+    setPendingPaintTicketId(null);
     finishConsumableDrag();
     finishDeckEditorDrag();
     setDeckEditorOpen(false);
+    spendMapTurn();
   };
 
   const cancelDeckEditor = () => {
@@ -1569,6 +1759,7 @@ export default function Home() {
     setPendingRemovedCards([]);
     setHoveredDeckCard(null);
     setPendingExtractionTicketId(null);
+    setPendingPaintTicketId(null);
     finishConsumableDrag();
     finishDeckEditorDrag();
     setDeckEditorOpen(false);
@@ -1688,6 +1879,27 @@ export default function Home() {
     }
   }, [game.enemies, lockedEnemyId]);
 
+  const defeatEnemiesForDebug = () => {
+    if (!debugMode || game.status !== "playing") return;
+    clearBattleTimers();
+    const regionNumber = getRegionNumber(mapPosition);
+    grantBattleReward(regionNumber);
+    setLockedEnemyId(null);
+    setPhase("playing");
+    setGame((current) => current.status !== "playing"
+      ? current
+      : {
+          ...current,
+          enemies: current.enemies.map((enemy) => ({ ...enemy, hp: 0 })),
+          pendingDraws: 0,
+          pendingDiscards: 0,
+          pendingSweep: false,
+          status: "won",
+          message: "디버그 모드: 적을 즉시 처치했습니다.",
+          history: ["디버그: 적 즉시 처치", ...current.history].slice(0, 5),
+        });
+  };
+
   const playCard = (card: Card, targetEnemyId?: string) => {
     const isRewardAttack = card.kind === "strike";
     const isRewardAttackAll = card.effect === "ironRampage";
@@ -1702,27 +1914,13 @@ export default function Home() {
       && (isRewardAttackAll || Boolean(rewardTarget && rewardTarget.hp > 0));
     if (canResolveRewardAttack) {
       const repetitions = game.doubleNextAttack ? 2 : 1;
-      const damage = (card.value + game.strength) * repetitions;
+      const damage = card.value + game.strength;
       const enemiesAfterAttack = game.enemies.map((enemy) => isRewardAttackAll || enemy.id === targetEnemyId
-        ? { ...enemy, hp: Math.max(0, enemy.hp - damage) }
+        ? applyPlayerAttack(enemy, damage, repetitions)
         : enemy);
       if (enemiesAfterAttack.every((enemy) => enemy.hp === 0)) {
         const regionNumber = getRegionNumber(mapPosition);
-        const dropType = takeRewardDropType();
-        const consumableId = `consumable-${nextConsumableIdRef.current}`;
-        nextConsumableIdRef.current += 1;
-        const reward = createBattleReward(regionNumber, nextCardIdRef.current, dropType, consumableId);
-        if (reward.card) nextCardIdRef.current += 1;
-        if (reward.deck?.cards.length) {
-          nextCardIdRef.current = Math.max(
-            nextCardIdRef.current,
-            ...reward.deck.cards.map((ownedCard) => ownedCard.id + 1),
-          );
-        }
-        setBattleRewardGold(reward.gold);
-        setBattleRewardDeck(reward.deck);
-        setBattleRewardConsumable(reward.consumable);
-        setBattleRewards(reward.card ? [reward.card] : []);
+        grantBattleReward(regionNumber);
       }
     }
 
@@ -1743,10 +1941,11 @@ export default function Home() {
       const targetEnemy = current.enemies.find((enemy) => enemy.id === targetEnemyId);
       if (card.kind === "strike" && !isIronRampage && (!targetEnemy || targetEnemy.hp === 0)) return current;
       const repetitions = card.kind === "strike" && current.doubleNextAttack ? 2 : 1;
-      const damage = card.kind === "strike" ? (card.value + current.strength) * repetitions : 0;
+      const damagePerHit = card.kind === "strike" ? card.value + current.strength : 0;
+      const damage = damagePerHit * repetitions;
       const nextEnemies = card.kind === "strike"
         ? current.enemies.map((enemy) => isIronRampage || enemy.id === targetEnemyId
-          ? { ...enemy, hp: Math.max(0, enemy.hp - damage) }
+          ? applyPlayerAttack(enemy, damagePerHit, repetitions)
           : enemy)
         : current.enemies;
       const blockGained = card.kind === "defend"
@@ -1765,9 +1964,14 @@ export default function Home() {
         : current.playerMagicBlock;
       const won = nextEnemies.every((enemy) => enemy.hp === 0);
       const canDraw = current.piles.some((pile) => pile.length > 0);
+      const drawEachPileResult = card.effect === "drawEachPile"
+        ? drawFromPiles(current.piles)
+        : null;
       const drawsAdded = !won && canDraw ? card.draw * repetitions : 0;
       const remainingHand = current.hand.filter((item) => item.id !== card.id);
-      const pendingDiscards = card.effect === "prepare" && (canDraw || remainingHand.length > 0) ? 1 : 0;
+      const pendingDiscards = card.effect === "prepare"
+        ? (canDraw || remainingHand.length > 0 ? 1 : 0)
+        : card.effect === "focus" && remainingHand.length > 0 ? 1 : 0;
       const pendingSweep = card.effect === "sweep" && canDraw;
       const action = (() => {
         if (isIronRampage) return `적 전체에게 피해 ${damage} · 방어 ${blockGained}${repetitions > 1 ? " (2회 발동)" : ""}`;
@@ -1777,7 +1981,9 @@ export default function Home() {
         if (card.effect === "steelHeart") return "이번 턴 방어와 마법 방어 획득량 3배";
         if (card.effect === "battlePlan") return "★ 3개 획득";
         if (card.effect === "prepare") return canDraw ? "드로우할 파일을 선택하세요." : "버릴 카드를 선택하세요.";
+        if (card.effect === "focus") return "에너지 1 획득 · 버릴 카드를 선택하세요.";
         if (card.effect === "sweep") return canDraw ? "가져올 파일을 선택하세요." : "가져올 카드가 없습니다.";
+        if (card.effect === "drawEachPile") return `모든 파일에서 ${drawEachPileResult?.hand.length ?? 0}장 뽑음`;
         if (card.effect === "berserk") return "에너지 2 획득 · 이번 턴 받는 피해 2배";
         if (card.effect === "transcend") return "이번 턴 피해 면역 · 힘 5 획득";
         if (card.effect === "rapidFire") return "다음 공격 카드가 2회 발동";
@@ -1790,10 +1996,10 @@ export default function Home() {
         : "";
       return {
         ...current,
-        hand: remainingHand,
+        hand: [...remainingHand, ...(drawEachPileResult?.hand ?? [])],
         discard: [...current.discard, card],
-        piles: current.piles,
-        energy: current.energy - card.cost + (card.effect === "berserk" ? 2 : 0),
+        piles: drawEachPileResult?.piles ?? current.piles,
+        energy: current.energy - card.cost + (card.effect === "berserk" ? 2 : card.effect === "focus" ? 1 : 0),
         stars: current.stars + (
           card.effect === "battlePlan"
             ? 3
@@ -1819,7 +2025,7 @@ export default function Home() {
             ? false
             : current.doubleNextAttack,
         status: won ? "won" : current.status,
-        message: won ? "승리! 모든 적을 쓰러뜨렸습니다." : `${action}${card.effect === "prepare" ? "" : drawMessage}`,
+        message: won ? "승리! 모든 적을 쓰러뜨렸습니다." : `${action}${card.effect === "prepare" || card.effect === "focus" ? "" : drawMessage}`,
         history: [action, ...current.history].slice(0, 5),
       };
     });
@@ -2089,37 +2295,69 @@ export default function Home() {
       let remainingHp = game.playerHp;
       const steps: Array<{
         enemy: EnemyState;
-        attack: EnemyAttack;
+        action: EnemyAction;
+        attack: EnemyAction["attacks"][number] | null;
         damage: number;
         hpAfter: number;
         physicalBlockAfter: number;
         magicBlockAfter: number;
       }> = [];
+      const actedEnemyIds = new Set<string>();
 
       for (const enemy of livingEnemies) {
         if (remainingHp === 0) break;
-        const attack = enemy.pattern[enemy.intentIndex];
-        const matchingBlock = attack.type === "physical" ? remainingPhysicalBlock : remainingMagicBlock;
-        const blocked = game.invulnerable ? 0 : Math.min(attack.value, matchingBlock);
-        const damage = game.invulnerable ? 0 : (attack.value - blocked) * game.damageTakenMultiplier;
-        if (!game.invulnerable && attack.type === "physical") remainingPhysicalBlock -= blocked;
-        else if (!game.invulnerable) remainingMagicBlock -= blocked;
-        remainingHp = Math.max(0, remainingHp - damage);
-        steps.push({
-          enemy,
-          attack,
-          damage,
-          hpAfter: remainingHp,
-          physicalBlockAfter: remainingPhysicalBlock,
-          magicBlockAfter: remainingMagicBlock,
-        });
+        const action = enemy.actions[enemy.intentIndex];
+        actedEnemyIds.add(enemy.id);
+        for (const attack of action.attacks) {
+          const resolvedAttack = enemy.nextAttackMagic
+            ? { ...attack, type: "magic" as const }
+            : attack;
+          const attackValue = attack.value + enemy.strength;
+          for (let hit = 0; hit < (attack.hits ?? 1); hit += 1) {
+            if (remainingHp === 0) break;
+            const matchingBlock = resolvedAttack.type === "physical" ? remainingPhysicalBlock : remainingMagicBlock;
+            const blocked = game.invulnerable ? 0 : Math.min(attackValue, matchingBlock);
+            const damage = game.invulnerable
+              ? 0
+              : (attackValue - blocked) * game.damageTakenMultiplier;
+            if (!game.invulnerable && resolvedAttack.type === "physical") remainingPhysicalBlock -= blocked;
+            else if (!game.invulnerable) remainingMagicBlock -= blocked;
+            remainingHp = Math.max(0, remainingHp - damage);
+            steps.push({
+              enemy,
+              action,
+              attack: resolvedAttack,
+              damage,
+              hpAfter: remainingHp,
+              physicalBlockAfter: remainingPhysicalBlock,
+              magicBlockAfter: remainingMagicBlock,
+            });
+          }
+        }
+        if (action.strengthGain) {
+          steps.push({
+            enemy,
+            action,
+            attack: null,
+            damage: 0,
+            hpAfter: remainingHp,
+            physicalBlockAfter: remainingPhysicalBlock,
+            magicBlockAfter: remainingMagicBlock,
+          });
+        }
       }
 
       const nextEnemies = game.enemies.map((enemy) => {
-        if (enemy.hp === 0 || !steps.some((step) => step.enemy.id === enemy.id)) return enemy;
+        if (enemy.hp === 0 || !actedEnemyIds.has(enemy.id)) return enemy;
+        const action = enemy.actions[enemy.intentIndex];
         return {
           ...enemy,
-          intentIndex: (enemy.intentIndex + 1) % enemy.pattern.length,
+          strength: enemy.strength + (action.strengthGain ?? 0),
+          intentIndex: chooseNextIntent(enemy.actions, enemy.intentIndex),
+          quicknessReady: enemy.variant === "snake",
+          nextAttackMagic: action.nextAttackMagic
+            ? true
+            : enemy.nextAttackMagic && action.attacks.length === 0,
         };
       });
 
@@ -2142,16 +2380,20 @@ export default function Home() {
         later(() => {
           setDamagePopup({
             key: `${step.enemy.id}-${Date.now()}`,
-            text: step.damage > 0 ? `-${step.damage}` : "막음",
+            text: step.attack
+              ? step.damage > 0 ? `-${step.damage}` : "막음"
+              : `힘 +${step.action.strengthGain ?? 0}`,
           });
           setGame((current) => ({
             ...current,
             playerHp: step.hpAfter,
             playerPhysicalBlock: step.physicalBlockAfter,
             playerMagicBlock: step.magicBlockAfter,
-            message: step.damage > 0
-              ? `${step.enemy.name}의 ${ATTACK_LABEL[step.attack.type]} — ${step.damage} 피해`
-              : `${step.enemy.name}의 ${ATTACK_LABEL[step.attack.type]}을 막았습니다.`,
+            message: step.attack
+              ? step.damage > 0
+                ? `${step.enemy.name}의 ${ATTACK_LABEL[step.attack.type]} — ${step.damage} 피해`
+                : `${step.enemy.name}의 ${ATTACK_LABEL[step.attack.type]}을 막았습니다.`
+              : `${step.enemy.name}이 힘 ${step.action.strengthGain ?? 0}을 얻었습니다.`,
           }));
         }, base + hitAt);
         later(() => setAttackingEnemyId(null), base + clearAt);
@@ -2160,8 +2402,16 @@ export default function Home() {
       later(() => {
         setDamagePopup(null);
         setAttackingEnemyId(null);
-        const attackHistory = steps.map((step) =>
-          `${step.enemy.name}: ${ATTACK_LABEL[step.attack.type]} ${step.attack.value} · ${step.damage} 피해`);
+        const attackHistory = livingEnemies
+          .filter((enemy) => actedEnemyIds.has(enemy.id))
+          .map((enemy) => {
+            const action = enemy.actions[enemy.intentIndex];
+            return `${enemy.name}: ${actionSummary(
+              action,
+              enemy.strength,
+              enemy.nextAttackMagic,
+            )}`;
+          });
 
         if (remainingHp === 0) {
           setGame({
@@ -2214,15 +2464,9 @@ export default function Home() {
 
   if (screen === "map") {
     const currentRoomKey = mapRoomKey(mapPosition);
-    const currentRoomType = getResolvedRoomType(
-      mapPosition,
-      mapSeed,
-      resolvedMysteryRooms,
-    );
+    const currentRoomType = getRoomType(mapPosition, mapSeed);
     const inSafeArea = isSafeAreaPosition(mapPosition);
-    const canEditDeck = inSafeArea
-      || currentRoomType !== "combat"
-      || clearedCombats.has(currentRoomKey);
+    const canEditDeck = true;
     const viewedDeck = ownedDecks.find((deck) => deck.id === deckViewerDeckId) ?? activeDeck;
     const rarityOrder: Record<CardRarity, number> = { rare: 0, special: 1, basic: 2 };
     const deckGroups = Array.from(deckCards.reduce((groups, card) => {
@@ -2250,7 +2494,16 @@ export default function Home() {
     const currentFloorCards = roomDrops[currentRoomKey] ?? [];
     const currentFloorConsumables = roomConsumableDrops[currentRoomKey] ?? [];
     const currentFloorDecks = roomDeckDrops[currentRoomKey] ?? [];
+    const floorItemNames = [
+      ...currentFloorCards.map((card) => card.name),
+      ...currentFloorConsumables.map((consumable) => consumable.name),
+      ...currentFloorDecks.map((deck) => deck.name),
+    ];
+    const quickPickUpLabel = floorItemNames.length === 1
+      ? `${floorItemNames[0]} 줍기`
+      : `떨어진 물건 ${floorItemNames.length}개 줍기`;
     const activeShopOffers = activeShopRoom ? roomShops[activeShopRoom] ?? [] : [];
+    const knownRoomRoutes = buildKnownRoomRoutes(mapPosition, seenRooms, mapSeed);
     const pendingRemovedGroups = Array.from(pendingRemovedCards.reduce((groups, { card }) => {
       const groupKey = `${card.effect}:${card.damageType}:${card.name}`;
       const current = groups.get(groupKey);
@@ -2258,13 +2511,6 @@ export default function Home() {
       else groups.set(groupKey, { card, cardIds: [card.id] });
       return groups;
     }, new Map<string, { card: Card; cardIds: number[] }>()).values());
-    const safeRoomRoutes = buildSafeRoomRoutes(
-      mapPosition,
-      visitedRooms,
-      clearedCombats,
-      resolvedMysteryRooms,
-      mapSeed,
-    );
     const floorGroups = Array.from(currentFloorCards.reduce((groups, card) => {
       const groupKey = `${card.effect}:${card.damageType}:${card.name}`;
       const current = groups.get(groupKey);
@@ -2279,38 +2525,74 @@ export default function Home() {
     const mapHeight = MAP_PADDING * 2
       + MAP_RENDER_ROWS * MAP_ROOM_HEIGHT
       + (MAP_RENDER_ROWS - 1) * MAP_CELL_GAP;
+    const debugViewportWidth = mapViewportRef.current?.clientWidth ?? 1200;
+    const debugViewportHeight = mapViewportRef.current?.clientHeight ?? 620;
+    const mapStrideX = MAP_ROOM_WIDTH + MAP_CELL_GAP;
+    const mapStrideY = MAP_ROOM_HEIGHT + MAP_CELL_GAP;
+    const debugMinX = Math.max(
+      DUNGEON_MIN_X,
+      DUNGEON_MIN_X - MAP_WORLD_MARGIN_X
+        + Math.floor((-mapPan.x / mapZoom - MAP_PADDING) / mapStrideX) - 2,
+    );
+    const debugMaxX = Math.min(
+      DUNGEON_MAX_X,
+      DUNGEON_MIN_X - MAP_WORLD_MARGIN_X
+        + Math.ceil(((debugViewportWidth - mapPan.x) / mapZoom - MAP_PADDING) / mapStrideX) + 2,
+    );
+    const debugMinY = Math.max(
+      0,
+      Math.floor((-mapPan.y / mapZoom - MAP_PADDING) / mapStrideY) - MAP_WORLD_MARGIN_Y - 2,
+    );
+    const debugMaxY = Math.min(
+      MAP_ROWS - 1,
+      Math.ceil(((debugViewportHeight - mapPan.y) / mapZoom - MAP_PADDING) / mapStrideY)
+        - MAP_WORLD_MARGIN_Y + 2,
+    );
     const mapCellMap = new Map<string, MapPosition>();
-    visitedRooms.forEach((visitedRoomKey) => {
-      const visitedPosition = parseMapRoomKey(visitedRoomKey);
-      for (let offsetY = -1; offsetY <= 1; offsetY += 1) {
-        for (let offsetX = -1; offsetX <= 1; offsetX += 1) {
-          const position = {
-            x: visitedPosition.x + offsetX,
-            y: visitedPosition.y + offsetY,
-          };
-          const roomType = getRoomType(position, mapSeed);
-          if (roomType !== "void") {
+    seenRooms.forEach((seenRoomKey) => {
+      const position = parseMapRoomKey(seenRoomKey);
+      mapCellMap.set(seenRoomKey, position);
+    });
+    for (let offsetY = -MAP_PLAYER_VISION_VERTICAL_RADIUS; offsetY <= MAP_PLAYER_VISION_VERTICAL_RADIUS; offsetY += 1) {
+      for (let offsetX = -MAP_PLAYER_VISION_HORIZONTAL_RADIUS; offsetX <= MAP_PLAYER_VISION_HORIZONTAL_RADIUS; offsetX += 1) {
+        const position = {
+          x: mapPosition.x + offsetX,
+          y: mapPosition.y + offsetY,
+        };
+        if (getRoomType(position, mapSeed) !== "void") {
+          mapCellMap.set(mapRoomKey(position), position);
+        }
+      }
+    }
+    if (debugMode) {
+      for (let y = debugMinY; y <= debugMaxY; y += 1) {
+        for (let x = debugMinX; x <= debugMaxX; x += 1) {
+          const position = { x, y };
+          if (getRoomType(position, mapSeed) !== "void") {
             mapCellMap.set(mapRoomKey(position), position);
           }
         }
       }
-    });
+    }
     const mapCells = Array.from(mapCellMap.values());
+    const renderedMapCellKeys = new Set(mapCells.map(mapRoomKey));
+    const visibleMapEnemies = debugMode
+      ? mapEnemyWorld.enemies.filter((enemy) => renderedMapCellKeys.has(mapRoomKey(enemy.position)))
+      : mapEnemyWorld.enemies.filter((enemy) => isInPlayerVision(enemy.position, mapPosition));
 
     return (
       <main className="game-shell map-shell">
         <header className="topbar map-topbar">
           <div>
-            <p className="eyebrow">THE DESCENT · EXPLORATION MAP</p>
-            <h1>아래로 이어지는 방</h1>
+            <h1>{getRegionName(mapPosition)}</h1>
           </div>
           <div className="map-top-actions">
             <div className="map-run-stats">
               <div className="map-health" aria-label={`체력 ${runPlayerHp} 중 ${MAX_PLAYER_HP}`}>
-                <span>HP</span><strong>{runPlayerHp} / {MAX_PLAYER_HP}</strong>
+                <strong>❤️ {runPlayerHp} / {MAX_PLAYER_HP}</strong>
               </div>
               <div className="map-gold" aria-label={`골드 ${gold}`}>
-                <strong>{gold}G</strong>
+                <strong>🪙 {gold}</strong>
               </div>
             </div>
             <button
@@ -2324,6 +2606,23 @@ export default function Home() {
             >
               <span className="deck-stack-icon" aria-hidden="true" />
               <span>덱 보기</span>
+            </button>
+            <button
+              type="button"
+              className="map-wait-trigger"
+              onClick={waitOnMap}
+              disabled={mapTraveling}
+              aria-label="한 턴 쉬기: 현재 칸에 머물며 적만 행동하게 합니다"
+            >
+              한 턴 쉼
+            </button>
+            <button
+              type="button"
+              className={`debug-toggle ${debugMode ? "is-active" : ""}`}
+              onClick={toggleDebugMode}
+              aria-pressed={debugMode}
+            >
+              디버그 {debugMode ? "ON" : "OFF"}
             </button>
             {canEditDeck && (
               <button
@@ -2379,55 +2678,38 @@ export default function Home() {
             >
               {mapCells.map((position) => {
                 const roomKey = mapRoomKey(position);
-                const visited = visitedRooms.has(roomKey);
-                const cleared = clearedCombats.has(roomKey);
-                const generatedType = getRoomType(position, mapSeed);
-                const roomType = getResolvedRoomType(
-                  position,
-                  mapSeed,
-                  resolvedMysteryRooms,
-                );
+                const roomType = getRoomType(position, mapSeed);
                 const current = position.x === mapPosition.x && position.y === mapPosition.y;
-                const distance = Math.abs(position.x - mapPosition.x) + Math.abs(position.y - mapPosition.y);
+                const inVision = debugMode || isInPlayerVision(position, mapPosition);
+                const distance = chebyshevDistance(position, mapPosition);
                 const walkable = isWalkableRoom(roomType);
                 const adjacent = distance === 1 && walkable;
-                const reachable = !current && safeRoomRoutes.has(roomKey);
-                const mysteryRoom = generatedType === "mystery";
+                const reachable = !current && knownRoomRoutes.has(roomKey);
                 const hasItems = (roomDrops[roomKey]?.length ?? 0) > 0
                   || (roomConsumableDrops[roomKey]?.length ?? 0) > 0
                   || (roomDeckDrops[roomKey]?.length ?? 0) > 0;
                 const roomState = roomType === "rock" || roomType === "void"
                   ? roomType
-                  : !visited && mysteryRoom
-                    ? "unknown"
-                    : roomType === "combat" && !cleared
-                      ? "combat"
-                      : roomType === "combat"
-                        ? "empty"
-                      : roomType;
+                  : roomType;
                 const roomLabel = current
                   ? "현재 위치"
                   : roomType === "rock"
                     ? "단단한 바위"
                     : roomType === "void"
                       ? "먼 공간"
-                  : !visited && mysteryRoom
-                    ? "알 수 없는 방"
-                    : roomType === "combat" && !cleared
-                        ? "전투 방"
-                        : roomType === "shop"
-                          ? "상점"
-                          : roomType === "portal"
-                            ? "안전 지역 포탈"
-                            : roomType === "heal"
-                              ? "회복 노드"
-                              : roomType === "safePortal"
-                                ? "다음 지역 포탈"
+                      : roomType === "shop"
+                        ? "상점"
+                        : roomType === "portal"
+                          ? "안전 지역 포탈"
+                          : roomType === "heal"
+                            ? "회복 노드"
+                            : roomType === "safePortal"
+                              ? "다음 지역 포탈"
                         : "방";
                 return (
                   <button
                     type="button"
-                    className={`map-room is-${roomState} ${current ? "is-current" : ""} ${adjacent ? "is-adjacent" : ""} ${reachable ? "is-reachable" : ""}`}
+                    className={`map-room is-${roomState} ${current ? "is-current" : ""} ${inVision ? "is-in-vision" : "is-out-of-vision"} ${adjacent ? "is-adjacent" : ""} ${reachable ? "is-reachable" : ""}`}
                     key={roomKey}
                     style={{
                       gridColumn: position.x - DUNGEON_MIN_X + MAP_WORLD_MARGIN_X + 1,
@@ -2442,19 +2724,19 @@ export default function Home() {
                         return;
                       }
                       if (mapTraveling) return;
-                      const safePath = routeToRoom(position, safeRoomRoutes);
+                      setMapMessage("");
+                      if (adjacent) {
+                        moveOnMap(position.x - mapPosition.x, position.y - mapPosition.y);
+                        return;
+                      }
+                      const safePath = routeToRoom(position, knownRoomRoutes);
                       if (safePath && safePath.length > 1) {
                         travelSafePath(safePath);
                         return;
                       }
-                      if (adjacent) moveOnMap(position.x - mapPosition.x, position.y - mapPosition.y);
                     }}
                   >
-                    {!visited && mysteryRoom
-                      ? <span aria-hidden="true">?</span>
-                      : roomType === "combat" && !cleared
-                        ? <span>전투</span>
-                        : roomType === "shop"
+                    {roomType === "shop"
                           ? <span>상점</span>
                           : roomType === "portal"
                             ? <span>포탈</span>
@@ -2468,6 +2750,31 @@ export default function Home() {
                   </button>
                 );
               })}
+              {visibleMapEnemies.map((enemy) => (
+                <span
+                  className={`map-enemy is-${enemy.awareness} ${mapCollisionEnemyIds.includes(enemy.id) ? "is-colliding" : ""}`}
+                  key={enemy.id}
+                  style={{
+                    left: MAP_PADDING + (enemy.position.x - DUNGEON_MIN_X + MAP_WORLD_MARGIN_X) * (MAP_ROOM_WIDTH + MAP_CELL_GAP) + MAP_ROOM_WIDTH / 2,
+                    top: MAP_PADDING + (enemy.position.y + MAP_WORLD_MARGIN_Y) * (MAP_ROOM_HEIGHT + MAP_CELL_GAP) + MAP_ROOM_HEIGHT / 2,
+                  }}
+                  title={`${getSewerEncounterLabel(enemy.encounterIndex)} · ${awarenessSymbol(enemy.awareness)}`}
+                  aria-label={`${getSewerEncounterLabel(enemy.encounterIndex)}, 상태 ${awarenessSymbol(enemy.awareness)}`}
+                >
+                  <strong>{awarenessSymbol(enemy.awareness)}</strong>
+                  <small>{getSewerEncounterLabel(enemy.encounterIndex)}</small>
+                </span>
+              ))}
+              {mapBattleFlash && (
+                <span
+                  className="map-battle-flash"
+                  style={{
+                    left: MAP_PADDING + (mapPosition.x - DUNGEON_MIN_X + MAP_WORLD_MARGIN_X) * (MAP_ROOM_WIDTH + MAP_CELL_GAP) + MAP_ROOM_WIDTH / 2,
+                    top: MAP_PADDING + (mapPosition.y + MAP_WORLD_MARGIN_Y) * (MAP_ROOM_HEIGHT + MAP_CELL_GAP) + MAP_ROOM_HEIGHT / 2,
+                  }}
+                  aria-live="assertive"
+                >전투!</span>
+              )}
               <span
                 className="map-player map-player-marker"
                 style={{
@@ -2480,6 +2787,7 @@ export default function Home() {
             <div className="map-depth-fade" aria-hidden="true" />
           </div>
           <div className="room-action-notices">
+            {mapMessage && <p key={mapMessageNonce} className="map-message" role="status" aria-live="polite">{mapMessage}</p>}
             {currentRoomType === "shop" && (
               <button
                 type="button"
@@ -2506,11 +2814,11 @@ export default function Home() {
               <button
                 type="button"
                 className="room-floor-notice"
-                onClick={() => openDeckEditor("방 바닥에 떨어진 물건을 확인할 수 있습니다.")}
+                onClick={quickPickUpFloorItems}
               >
                 <span>방 바닥</span>
-                <strong>떨어진 물건 확인하기</strong>
-                <small>열기</small>
+                <strong>{quickPickUpLabel}</strong>
+                <small>줍기</small>
               </button>
             )}
           </div>
@@ -2611,7 +2919,7 @@ export default function Home() {
                     {inventoryConsumables.map((consumable) => (
                       <button
                         type="button"
-                        className={`consumable-ticket inventory-ticket ${consumable.type} ${pendingExtractionTicketId === consumable.id ? "is-selected" : ""}`}
+                        className={`consumable-ticket inventory-ticket ${consumable.type} ${pendingExtractionTicketId === consumable.id || pendingPaintTicketId === consumable.id ? "is-selected" : ""}`}
                         key={consumable.id}
                         draggable
                         onDragStart={(event) => beginConsumableDrag(event, consumable.id, "inventory")}
@@ -2742,6 +3050,7 @@ export default function Home() {
                             onBlur={() => setHoveredDeckCard(null)}
                             onClick={() => {
                               if (pendingExtractionTicketId) extractDeckCard(cardId);
+                              else if (pendingPaintTicketId) paintDeckCard(cardId);
                             }}
                             onContextMenu={(event) => {
                               event.preventDefault();
@@ -2750,6 +3059,8 @@ export default function Home() {
                             }}
                             aria-label={pendingExtractionTicketId
                               ? `${card.name} ${cardIds.length}장, 클릭하면 한 장 추출`
+                              : pendingPaintTicketId
+                                ? `${card.name} ${cardIds.length}장, 클릭하면 한 장 색칠`
                               : inSafeArea
                                 ? `${card.name} ${cardIds.length}장, 우클릭하면 한 장을 인벤토리로 이동`
                               : isTemporary
@@ -3023,6 +3334,11 @@ export default function Home() {
         <div className="turn-badge" aria-label={`현재 ${game.turn}턴`}>
           <span>TURN</span><strong>{game.turn}</strong>
         </div>
+        {debugMode && game.status === "playing" && (
+          <button type="button" className="debug-defeat-trigger" onClick={defeatEnemiesForDebug}>
+            적 즉시 처치
+          </button>
+        )}
       </header>
 
       <section
@@ -3030,10 +3346,13 @@ export default function Home() {
         aria-label="전투 화면"
       >
         <div className="enemy-zone">
-          <div className="enemies-row">
+          <div className={`enemies-row ${game.enemies.length > 2 ? "is-crowded" : ""}`}>
             {game.enemies.map((enemy) => {
               const defeated = enemy.hp === 0;
-              const intent = enemy.pattern[enemy.intentIndex];
+              const intent = enemy.actions[enemy.intentIndex];
+              const intentType = enemy.nextAttackMagic
+                ? "magic"
+                : intent.attacks[0]?.type ?? "buff";
               return (
                 <button
                   type="button"
@@ -3047,19 +3366,19 @@ export default function Home() {
                 >
                   {lockedEnemyId === enemy.id && <span className="lock-badge">LOCK ON</span>}
                   {!defeated && <div className="drop-prompt attack-prompt">이 적을 공격</div>}
-                  <div className={`intent ${defeated ? "is-defeated" : intent.type}`}>
+                  <div className={`intent intent-card ${defeated ? "is-defeated" : intentType}`}>
                     <span>{defeated ? "상태" : "다음 행동"}</span>
                     {defeated ? (
                       <strong>격파</strong>
                     ) : (
-                      <div
-                        className={`attack-symbol ${intent.type}`}
-                        aria-label={`${ATTACK_LABEL[intent.type]} ${intent.value}`}
-                      >
-                        <div className="intent-symbol-core"><strong>{intent.value}</strong></div>
-                        <i className="intent-symbol-detail" />
-                        <i className="intent-symbol-handle" />
-                      </div>
+                      <>
+                        <strong>{intent.name}</strong>
+                        <small>{actionSummary(
+                          intent,
+                          enemy.strength,
+                          enemy.nextAttackMagic,
+                        )}</small>
+                      </>
                     )}
                   </div>
                   <div className="monster" aria-label={enemy.name}>
@@ -3071,6 +3390,13 @@ export default function Home() {
                     <div className="healthbar enemy-health">
                       <i style={{ width: `${(enemy.hp / enemy.maxHp) * 100}%` }} />
                       <span>{enemy.hp} / {enemy.maxHp}</span>
+                    </div>
+                    <div className="enemy-effects">
+                      {enemy.strength > 0 && <span>힘 {enemy.strength}</span>}
+                      {enemy.sturdyThreshold > 0 && <span>단단함 ≤{enemy.sturdyThreshold}</span>}
+                      {enemy.quicknessReady && <span>재빠름 준비</span>}
+                      {enemy.nextAttackMagic && <span>다음 공격 마법</span>}
+                      {enemy.trait && <small>{enemy.trait}</small>}
                     </div>
                   </div>
                 </button>
@@ -3130,7 +3456,7 @@ export default function Home() {
                       onPointerUp={faceUp ? finishDrag : undefined}
                       onPointerCancel={faceUp ? cancelDrag : undefined}
                     >
-                      {faceUp ? <CardFace card={card} /> : <span className="card-back-pattern" />}
+                      {faceUp ? <CardFace card={card} /> : <span className={`card-back-pattern ${card.colored ? "is-painted" : ""}`} />}
                     </div>
                   );
                 })}
@@ -3277,22 +3603,9 @@ export default function Home() {
                         <CardFace card={card} />
                       </div>
                     ))}
-                    {battleRewardConsumable && (
-                      <div className={`consumable-ticket battle-reward-consumable ${battleRewardConsumable.type}`}>
-                        <span className="ticket-mark" aria-hidden="true">T</span>
-                        <strong>{battleRewardConsumable.name}</strong>
-                        <small>{battleRewardConsumable.description}</small>
-                      </div>
-                    )}
-                    {battleRewardDeck && (
-                      <div className="battle-reward-deck">
-                        <span className="floor-deck-icon" aria-hidden="true" />
-                        <strong>{battleRewardDeck.name}</strong>
-                        <span>카드 {battleRewardDeck.cards.length}장</span>
-                        <span>용량 {battleRewardDeck.capacity}칸</span>
-                      </div>
-                    )}
                   </div>
+                  {battleRewardDecks.map((deck) => <div className="battle-gold-reward" key={deck.id}>덱 케이스: {deck.cards.length}장</div>)}
+                  {battleRewardConsumables.map((item) => <div className="battle-gold-reward" key={item.id}>{item.name}</div>)}
                 </div>
               )}
               <button
