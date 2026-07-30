@@ -95,6 +95,7 @@ export function advanceMapEnemies(
   playerPosition: GridPosition,
   isWalkable: (position: GridPosition) => boolean,
   random: () => number = Math.random,
+  frozenEnemyIds: ReadonlySet<string> = new Set(),
 ) {
   const nextEnemies = enemies.map((enemy) => ({
     ...enemy,
@@ -106,6 +107,12 @@ export function advanceMapEnemies(
   const collisionEnemyIds: string[] = [];
 
   for (const enemy of nextEnemies) {
+    if (frozenEnemyIds.has(enemy.id)) {
+      if (positionKey(enemy.position) === positionKey(playerPosition)) {
+        collisionEnemyIds.push(enemy.id);
+      }
+      continue;
+    }
     if (chebyshevDistance(enemy.position, activeCenter) > MAP_ENEMY_ACTIVE_RADIUS) continue;
 
     const distanceAtStart = chebyshevDistance(enemy.position, playerPosition);

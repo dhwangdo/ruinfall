@@ -47,6 +47,7 @@ type CardEffect =
   | "sweep"
   | "drawEachPile"
   | "focus"
+  | "adrenaline"
   | "rulerCompass"
   | "berserk"
   | "transcend"
@@ -68,7 +69,15 @@ type RoomType =
   | "safePortal";
 type DeckEditorArea = "deck" | "inventory" | "floor" | "trash";
 type DeckSortMode = "cost" | "rarity";
-type DeckCase = { id: string; name: string; capacity: number; cards: Card[] };
+type DeckEdition = "clever" | "roomy" | "lively" | "fantastic" | "transparent";
+type DeckCase = {
+  id: string;
+  name: string;
+  capacity: number;
+  cards: Card[];
+  editions: DeckEdition[];
+  editionColors: Partial<Record<DeckEdition, string>>;
+};
 type PendingRemovedCard = { card: Card; deckId: string };
 type ConsumableType = "extractTicket" | "swiftTicket" | "paintTicket";
 type Consumable = {
@@ -129,6 +138,7 @@ type GameState = {
   damageTakenMultiplier: number;
   invulnerable: boolean;
   doubleNextAttack: boolean;
+  deckEditions: DeckEdition[];
   enemies: EnemyState[];
   status: "playing" | "won" | "lost";
   message: string;
@@ -151,7 +161,7 @@ type DamagePopup = {
 
 const MAX_PLAYER_HP = 30;
 const STARTING_DECK_SIZE = 16;
-const INVENTORY_CAPACITY = 20;
+const INVENTORY_CAPACITY = 12;
 const MAX_OWNED_DECKS = 3;
 const STARTER_DECK_CAPACITY = 20;
 const REGION_COUNT = 7;
@@ -187,12 +197,14 @@ const MAP_ROOM_WIDTH = 204;
 const MAP_ROOM_HEIGHT = 136;
 const MAP_CELL_GAP = 20;
 const MAP_PADDING = 42;
-const MAP_MIN_ZOOM = 0.45;
-const MAP_MAX_ZOOM = 1.35;
-const MAP_ZOOM_STEP = 0.1;
+// The former 60% view is the comfortable baseline, so present it as 100%.
+const MAP_DEFAULT_ZOOM = 0.6;
+const MAP_MIN_ZOOM = 0.3;
+const MAP_MAX_ZOOM = 0.9;
+const MAP_ZOOM_STEP = 0.06;
 const MAP_TRAVEL_STEP_MS = 140;
 const MAP_COLLISION_OVERLAP_MS = 280;
-const MAP_BATTLE_FLASH_MS = 1000;
+const MAP_BATTLE_FLASH_MS = 600;
 const MAP_START: MapPosition = { x: 0, y: 0 };
 const CARD_HEIGHT = 144;
 const PILE_HEIGHT = 226;
@@ -532,7 +544,7 @@ const SPECIAL_CARD_POOL: CardBlueprint[] = [
 ];
 
 const RARE_CARD_POOL: CardBlueprint[] = [
-  { kind: "skill", effect: "steelHeart", rarity: "rare", name: "강철심장", cost: 1, value: 0, draw: 0, damageType: "physical" },
+  { kind: "skill", effect: "steelHeart", rarity: "rare", name: "강철심장", cost: 0, value: 0, draw: 0, damageType: "physical" },
   { kind: "skill", effect: "transcend", rarity: "rare", name: "초월", cost: 4, value: 0, draw: 0, damageType: "physical" },
   { kind: "skill", effect: "rapidFire", rarity: "rare", name: "연사", cost: 1, value: 0, draw: 0, damageType: "physical" },
 ];
@@ -567,19 +579,85 @@ function createDeck(): Card[] {
   return blueprints.map((card, id) => ({ ...card, id, revealed: false }));
 }
 
+function createAdrenalineCard(): Card {
+  return {
+    id: -1,
+    kind: "skill",
+    effect: "adrenaline",
+    rarity: "rare",
+    name: "아드레날린",
+    cost: 0,
+    value: 0,
+    draw: 1,
+    damageType: "physical",
+    revealed: true,
+  };
+}
+
+function createDeckName() {
+  const alphabet = "ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789";
+  return Array.from({ length: 4 }, () => alphabet[Math.floor(Math.random() * alphabet.length)]).join("");
+}
+
+const DECK_EDITION_INFO: Record<DeckEdition, { name: string; description: string }> = {
+  clever: { name: "똑똑한", description: "전투 시작 시 ★를 추가로 2개 얻습니다." },
+  roomy: { name: "널널한", description: "전투 시작 시 빈 파일을 추가로 하나 가집니다." },
+  lively: { name: "활발한", description: "전투 시작 시 아드레날린 카드를 손에 넣습니다." },
+  fantastic: { name: "환상적인", description: "파일을 4장씩 쌓고, 덱 최대 장수가 10% 줄어듭니다." },
+  transparent: { name: "투명한", description: "파일 생성 시 첫 번째 파일의 카드를 모두 앞면으로 놓습니다." },
+};
+const EDITION_COLORS = ["#c63f3f", "#ba741d", "#4378c7", "#7650ae", "#21825f", "#bd3f7a"];
+
+function rollDeckEditions(): DeckEdition[] {
+  const remaining = Object.keys(DECK_EDITION_INFO) as DeckEdition[];
+  const editions: DeckEdition[] = [];
+  let chance = 0.7;
+  while (remaining.length > 0 && Math.random() < chance) {
+    const index = Math.floor(Math.random() * remaining.length);
+    editions.push(remaining.splice(index, 1)[0]);
+    chance -= 0.2;
+  }
+  return editions;
+}
+
+function createEditionColors(editions: DeckEdition[]) {
+  return Object.fromEntries(editions.map((edition) => [
+    edition,
+    EDITION_COLORS[Math.floor(Math.random() * EDITION_COLORS.length)],
+  ])) as Partial<Record<DeckEdition, string>>;
+}
+
+function DeckName({ deck, showEditions = true }: { deck: DeckCase; showEditions?: boolean }) {
+  return (
+    <span className="deck-name-with-editions">
+      {showEditions && deck.editions.map((edition) => (
+        <span
+          className="deck-edition-name"
+          key={edition}
+          style={{ color: deck.editionColors[edition] }}
+        >
+          {DECK_EDITION_INFO[edition].name}
+          <span className="deck-edition-tooltip" role="tooltip">
+            <b>{DECK_EDITION_INFO[edition].name}</b> — {DECK_EDITION_INFO[edition].description}
+          </span>{" "}
+        </span>
+      ))}덱 {deck.name}
+    </span>
+  );
+}
+
 function createStarterDeck(): DeckCase {
-  return { id: "starter", name: "시작 덱 케이스", capacity: STARTER_DECK_CAPACITY, cards: createDeck() };
+  return { id: "starter", name: createDeckName(), capacity: STARTER_DECK_CAPACITY, cards: createDeck(), editions: [], editionColors: {} };
 }
 
 function rollDeckTier(regionNumber: number) {
-  const roll = Math.random();
-  const offset = roll < 0.25 ? -1 : roll < 0.75 ? 0 : roll < 0.95 ? 1 : 2;
-  return Math.max(0, regionNumber - 1 + offset);
+  return regionNumber;
 }
 
 function createRandomDeck(regionNumber: number, startId: number): DeckCase {
   const tier = rollDeckTier(regionNumber);
-  const capacity = 20 + tier * 5;
+  const editions = rollDeckEditions();
+  const capacity = Math.round((20 + tier * 5) * (editions.includes("fantastic") ? 0.9 : 1));
   const cards: Card[] = [];
   let nextId = startId;
   for (let slot = 0; slot < capacity; slot += 1) {
@@ -596,9 +674,11 @@ function createRandomDeck(regionNumber: number, startId: number): DeckCase {
   }
   return {
     id: `found-r${regionNumber}-${startId}-${Math.random().toString(36).slice(2, 8)}`,
-    name: "발견한 덱 케이스",
+    name: createDeckName(),
     capacity,
     cards,
+    editions,
+    editionColors: createEditionColors(editions),
   };
 }
 
@@ -636,7 +716,7 @@ function createBattleReward(
     : [];
   return {
     gold,
-    cards: decks.length > 0 ? [] : [createBattleRewardCard(nextCardId), createBattleRewardCard(nextCardId + 1)],
+    cards: decks.length > 0 ? [] : [createBattleRewardCard(nextCardId)],
     decks,
     consumableType: Math.random() < 0.5
       ? (["extractTicket", "swiftTicket", "paintTicket"] as const)[Math.floor(Math.random() * 3)]
@@ -653,14 +733,24 @@ function shuffle<T>(items: T[]): T[] {
   return result;
 }
 
-function buildPiles(cards: Card[]): Card[][] {
+function buildPiles(
+  cards: Card[],
+  cardsPerPile = 5,
+  firstPileFaceUp = false,
+  extraEmptyPiles = 0,
+): Card[][] {
   const piles: Card[][] = [];
-  for (let index = 0; index < cards.length; index += 5) {
-    const pile = cards.slice(index, index + 5).map((card) => ({ ...card, revealed: false }));
+  for (let index = 0; index < cards.length; index += cardsPerPile) {
+    const pile = cards.slice(index, index + cardsPerPile).map((card) => ({ ...card, revealed: firstPileFaceUp && index === 0 }));
     if (pile.length > 0) pile[pile.length - 1].revealed = true;
     piles.push(pile);
   }
+  for (let index = 0; index < extraEmptyPiles; index += 1) piles.push([]);
   return piles;
+}
+
+function prepareDeckForPiles(deck: Card[]) {
+  return shuffle(deck.map((card) => ({ ...card, revealed: false })));
 }
 
 function drawFromPiles(piles: Card[][]) {
@@ -674,6 +764,16 @@ function drawFromPiles(piles: Card[][]) {
     }
   });
   return { piles: nextPiles, hand };
+}
+
+function drawOneFromPiles(piles: Card[][]) {
+  const nextPiles = piles.map((pile) => [...pile]);
+  const pile = nextPiles.find((candidate) => candidate.length > 0);
+  if (!pile) return { piles: nextPiles, hand: [] as Card[] };
+  const card = pile.pop();
+  if (!card) return { piles: nextPiles, hand: [] as Card[] };
+  if (pile.length > 0) pile[pile.length - 1] = { ...pile[pile.length - 1], revealed: true };
+  return { piles: nextPiles, hand: [{ ...card, revealed: true }] };
 }
 
 function waitingState(
@@ -698,6 +798,7 @@ function waitingState(
     damageTakenMultiplier: 1,
     invulnerable: false,
     doubleNextAttack: false,
+    deckEditions: [],
     enemies,
     status: "playing",
     message: "카드를 준비하고 있습니다.",
@@ -709,10 +810,21 @@ function dealtState(
   playerHp = MAX_PLAYER_HP,
   deck = createDeck(),
   enemies: EnemyState[] = createSewerEncounter(),
+  deckEditions: DeckEdition[] = [],
 ): GameState {
+  const preparedDeck = prepareDeckForPiles(deck);
+  const initialPiles = buildPiles(
+    preparedDeck,
+    deckEditions.includes("fantastic") ? 4 : 5,
+    deckEditions.includes("transparent"),
+    deckEditions.includes("roomy") ? 1 : 0,
+  );
   return {
     ...waitingState(playerHp, enemies),
-    piles: buildPiles(shuffle(deck.map((card) => ({ ...card, revealed: false })))),
+    piles: initialPiles,
+    hand: deckEditions.includes("lively") ? [createAdrenalineCard()] : [],
+    stars: deckEditions.includes("clever") ? 4 : 2,
+    deckEditions,
     message: "파일 배치 완료 — 맨 위 카드를 가져옵니다.",
   };
 }
@@ -729,13 +841,15 @@ function CardFace({ card }: { card: Card }) {
       case "deflect":
         return <><span className="effect-type physical">방어 {card.value}</span><span>1 드로우</span></>;
       case "steelHeart":
-        return <span>이번 턴 동안 얻는<br /><span className="effect-type physical">방어</span>/<span className="effect-type magic">마법 방어</span> 3배</span>;
+        return <span>이번 턴 동안 얻는<br /><span className="effect-type physical">방어</span>/<span className="effect-type magic">마법 방어</span> 2배</span>;
       case "battlePlan":
         return <span>★★★를 얻습니다</span>;
       case "prepare":
         return <span>1장 뽑고<br />1장 버립니다</span>;
       case "focus":
         return <span>에너지 1 획득<br />카드 1장 버림</span>;
+      case "adrenaline":
+        return <span>에너지 1 획득<br />1 드로우</span>;
       case "sweep":
         return <span>파일 하나를 전부<br />손으로 가져옵니다</span>;
       case "drawEachPile":
@@ -781,7 +895,7 @@ export default function Home() {
   const [activeMapEnemyIds, setActiveMapEnemyIds] = useState<string[]>([]);
   const [activeBattleRoom, setActiveBattleRoom] = useState<string | null>(null);
   const [mapPan, setMapPan] = useState({ x: 0, y: 0 });
-  const [mapZoom, setMapZoom] = useState(1);
+  const [mapZoom, setMapZoom] = useState(MAP_DEFAULT_ZOOM);
   const [mapTraveling, setMapTraveling] = useState(false);
   const [mapTravelStepMs, setMapTravelStepMs] = useState(MAP_TRAVEL_STEP_MS);
   const [mapCollisionEnemyIds, setMapCollisionEnemyIds] = useState<string[]>([]);
@@ -806,6 +920,7 @@ export default function Home() {
   const [battleRewardConsumables, setBattleRewardConsumables] = useState<Consumable[]>([]);
   const [battleRewardGold, setBattleRewardGold] = useState(0);
   const [deckEditorOpen, setDeckEditorOpen] = useState(false);
+  const [deckEditorDeckId, setDeckEditorDeckId] = useState("");
   const [deckViewerOpen, setDeckViewerOpen] = useState(false);
   const [deckViewerDeckId, setDeckViewerDeckId] = useState("");
   const [deckEditorDrag, setDeckEditorDrag] = useState<{ cardId: number; source: DeckEditorArea } | null>(null);
@@ -832,8 +947,10 @@ export default function Home() {
   const nextCardIdRef = useRef(STARTING_DECK_SIZE);
   const nextConsumableIdRef = useRef(1);
   const deckDropChanceRef = useRef(0.25);
-  const activeDeck = ownedDecks.find((deck) => deck.id === activeDeckId) ?? ownedDecks[0];
+  const activeDeck = ownedDecks[0];
   const deckCards = activeDeck?.cards ?? [];
+  const editingDeck = ownedDecks.find((deck) => deck.id === deckEditorDeckId) ?? activeDeck;
+  const editingDeckCards = editingDeck?.cards ?? [];
   const showMapMessage = (message: string) => {
     setMapMessage(message);
     setMapMessageNonce((current) => current + 1);
@@ -847,7 +964,7 @@ export default function Home() {
   };
   const updateActiveDeckCards = (updater: Card[] | ((cards: Card[]) => Card[])) => {
     setOwnedDecks((current) => current.map((deck) => {
-      if (deck.id !== activeDeckId) return deck;
+      if (deck.id !== activeDeck?.id) return deck;
       const cards = typeof updater === "function" ? updater(deck.cards) : updater;
       return { ...deck, cards };
     }));
@@ -859,13 +976,20 @@ export default function Home() {
     nextConsumableIdRef.current += 1;
     return createConsumable(type, id);
   };
+  const updateEditingDeckCards = (updater: Card[] | ((cards: Card[]) => Card[])) => {
+    setOwnedDecks((current) => current.map((deck) => {
+      if (deck.id !== editingDeck?.id) return deck;
+      const cards = typeof updater === "function" ? updater(deck.cards) : updater;
+      return { ...deck, cards };
+    }));
+  };
   const grantBattleReward = (regionNumber: number) => {
     const reward = createBattleReward(regionNumber, nextCardIdRef.current, deckDropChanceRef.current);
     const generatedCardCount = reward.cards.length + reward.decks.reduce((total, deck) => total + deck.cards.length, 0);
     nextCardIdRef.current += generatedCardCount;
     deckDropChanceRef.current = reward.decks.length > 0
       ? 0.25
-      : Math.min(1, deckDropChanceRef.current + 0.05);
+      : Math.min(1, deckDropChanceRef.current + 0.1);
     setBattleRewardGold(reward.gold);
     setBattleRewards(reward.cards);
     setBattleRewardDecks(reward.decks);
@@ -925,7 +1049,7 @@ export default function Home() {
       return;
     }
     if (gold < offer.price) {
-      setShopMessage(`${offer.price - gold}G가 부족합니다.`);
+      setShopMessage(`🪙 ${offer.price - gold}이 부족합니다.`);
       return;
     }
     setGold((current) => current - offer.price);
@@ -944,6 +1068,10 @@ export default function Home() {
   const timersRef = useRef<number[]>([]);
   const mapViewportRef = useRef<HTMLDivElement | null>(null);
   const mapTravelTimerRef = useRef<number | null>(null);
+  const mapMovementKeysRef = useRef(new Set<string>());
+  const mapMovementTimerRef = useRef<number | null>(null);
+  const numpadMovementKeysRef = useRef(new Set<string>());
+  const numpadMovementTimerRef = useRef<number | null>(null);
   const mapDragRef = useRef<{
     startX: number;
     startY: number;
@@ -972,7 +1100,7 @@ export default function Home() {
       return {
         ...current,
         piles: draw.piles,
-        hand: draw.hand,
+        hand: [...current.hand, ...draw.hand],
         energy: 3,
         pendingDraws: 0,
         pendingDiscards: 0,
@@ -1029,6 +1157,7 @@ export default function Home() {
       playerHp,
       deckCards,
       encounterIndexes.flatMap((encounterIndex) => createSewerEncounterByIndex(encounterIndex)),
+      activeDeck?.editions ?? [],
     ));
     setScreen("battle");
     later(drawCards, 360);
@@ -1110,24 +1239,30 @@ export default function Home() {
     world: MapEnemyWorld,
   ) => {
     const roomKey = mapRoomKey(nextPosition);
-    const playerCollisions = world.enemies.filter((enemy) =>
-      mapRoomKey(enemy.position) === roomKey);
-    if (playerCollisions.length > 0) {
-      return { world, collisionEnemies: playerCollisions };
-    }
+    // A player stepping onto an enemy still starts a battle, but never cancels
+    // the rest of the enemy phase.  Remember that contact before everyone acts.
+    const playerCollisionIds = new Set(world.enemies
+      .filter((enemy) => mapRoomKey(enemy.position) === roomKey)
+      .map((enemy) => enemy.id));
 
     const enemyTurn = advanceMapEnemies(
       world.enemies,
       currentPosition,
       nextPosition,
       (position) => isWalkableRoom(getRoomType(position, mapSeed)),
+      Math.random,
+      playerCollisionIds,
     );
     const nextWorld = {
       ...world,
       enemies: enemyTurn.enemies,
     };
+    const collisionEnemyIds = new Set([
+      ...playerCollisionIds,
+      ...enemyTurn.collisionEnemyIds,
+    ]);
     const collisionEnemies = enemyTurn.enemies.filter((enemy) =>
-      enemyTurn.collisionEnemyIds.includes(enemy.id));
+      collisionEnemyIds.has(enemy.id));
     return { world: nextWorld, collisionEnemies };
   };
 
@@ -1329,13 +1464,13 @@ export default function Home() {
       setDeckEditorMessage("편집 중 덱에 넣은 카드는 휴지통이 아니라 인벤토리나 바닥으로 돌릴 수 있습니다.");
       return;
     }
-    if (deckCards.length <= 1) {
+    if (editingDeckCards.length <= 1) {
       setDeckEditorMessage("덱에는 반드시 카드가 1장 이상 있어야 합니다.");
       return;
     }
-    const card = deckCards.find((item) => item.id === cardId);
+    const card = editingDeckCards.find((item) => item.id === cardId);
     if (!card || !activeDeck) return;
-    updateActiveDeckCards((current) => current.filter((item) => item.id !== cardId));
+    updateEditingDeckCards((current) => current.filter((item) => item.id !== cardId));
     setPendingRemovedCards((current) => [...current, { card, deckId: originalDeckId }]);
     setHoveredDeckCard(null);
     setDeckEditorMessage(`${card.name}을(를) 휴지통에 넣었습니다. 편집 확인 시 영구 제거됩니다.`);
@@ -1362,13 +1497,13 @@ export default function Home() {
       setDeckEditorMessage("편집 시작 때 덱에 있던 카드는 휴지통으로만 옮길 수 있습니다.");
       return;
     }
-    if (deckCards.length <= 1) {
+    if (editingDeckCards.length <= 1) {
       setDeckEditorMessage("덱에는 반드시 카드가 1장 이상 있어야 합니다.");
       return;
     }
-    const card = deckCards.find((item) => item.id === cardId);
+    const card = editingDeckCards.find((item) => item.id === cardId);
     if (!card) return;
-    updateActiveDeckCards((current) => current.filter((item) => item.id !== cardId));
+    updateEditingDeckCards((current) => current.filter((item) => item.id !== cardId));
     setInventoryCards((current) => [...current, card]);
     setDeckEditorMessage(`${card.name}을(를) 인벤토리로 돌렸습니다.`);
   };
@@ -1378,14 +1513,14 @@ export default function Home() {
       setDeckEditorMessage("편집 시작 때 덱에 있던 카드는 휴지통으로만 옮길 수 있습니다.");
       return;
     }
-    if (deckCards.length <= 1) {
+    if (editingDeckCards.length <= 1) {
       setDeckEditorMessage("덱에는 반드시 카드가 1장 이상 있어야 합니다.");
       return;
     }
-    const card = deckCards.find((item) => item.id === cardId);
+    const card = editingDeckCards.find((item) => item.id === cardId);
     if (!card) return;
     const roomKey = mapRoomKey(mapPosition);
-    updateActiveDeckCards((current) => current.filter((item) => item.id !== cardId));
+    updateEditingDeckCards((current) => current.filter((item) => item.id !== cardId));
     setRoomDrops((current) => ({
       ...current,
       [roomKey]: [...(current[roomKey] ?? []), card],
@@ -1394,14 +1529,14 @@ export default function Home() {
   };
 
   const moveInventoryCardToDeck = (cardId: number) => {
-    if (!activeDeck || deckCards.length >= activeDeck.capacity) {
+    if (!editingDeck || editingDeckCards.length >= editingDeck.capacity) {
       setDeckEditorMessage(`${activeDeck?.name ?? "현재 덱"}에는 더 이상 카드를 넣을 수 없습니다.`);
       return;
     }
     const card = inventoryCards.find((item) => item.id === cardId);
     if (!card) return;
     setInventoryCards((current) => current.filter((item) => item.id !== cardId));
-    updateActiveDeckCards((current) => [...current, card]);
+    updateEditingDeckCards((current) => [...current, card]);
     setDeckEditorMessage(`${card.name}을(를) 덱에 넣었습니다.`);
   };
 
@@ -1430,7 +1565,7 @@ export default function Home() {
   };
 
   const moveFloorCardToDeck = (cardId: number) => {
-    if (!activeDeck || deckCards.length >= activeDeck.capacity) {
+    if (!editingDeck || editingDeckCards.length >= editingDeck.capacity) {
       setDeckEditorMessage(`${activeDeck?.name ?? "현재 덱"}에는 더 이상 카드를 넣을 수 없습니다.`);
       return;
     }
@@ -1441,7 +1576,7 @@ export default function Home() {
       ...current,
       [roomKey]: (current[roomKey] ?? []).filter((item) => item.id !== cardId),
     }));
-    updateActiveDeckCards((current) => [...current, card]);
+    updateEditingDeckCards((current) => [...current, card]);
     setDeckEditorMessage(`${card.name}을(를) 바닥에서 덱에 넣었습니다.`);
   };
 
@@ -1521,15 +1656,15 @@ export default function Home() {
 
   const extractDeckCard = (cardId: number) => {
     if (!pendingExtractionTicketId) return;
-    if (deckCards.length <= 1) {
+    if (editingDeckCards.length <= 1) {
       setDeckEditorMessage("덱에는 반드시 카드가 1장 이상 있어야 합니다.");
       return;
     }
-    const card = deckCards.find((item) => item.id === cardId);
+    const card = editingDeckCards.find((item) => item.id === cardId);
     if (!card) return;
     setInventoryConsumables((current) =>
       current.filter((item) => item.id !== pendingExtractionTicketId));
-    updateActiveDeckCards((current) => current.filter((item) => item.id !== cardId));
+    updateEditingDeckCards((current) => current.filter((item) => item.id !== cardId));
     setInventoryCards((current) => [...current, card]);
     setPendingExtractionTicketId(null);
     setDeckEditorMessage(`${card.name}을(를) 추출하여 인벤토리로 되돌렸습니다.`);
@@ -1573,12 +1708,14 @@ export default function Home() {
     setDeckEditorMessage(`${deck.name}을(를) 주웠습니다. 보유 덱 ${ownedDecks.length + 1} / ${MAX_OWNED_DECKS}`);
   };
 
-  const paintDeckCard = (cardId: number) => {
-    if (!pendingPaintTicketId) return;
-    const card = deckCards.find((item) => item.id === cardId);
+  const paintDeckCard = (cardId: number, ticketId = pendingPaintTicketId) => {
+    if (!ticketId) return;
+    const card = editingDeckCards.find((item) => item.id === cardId);
     if (!card) return;
-    setInventoryConsumables((current) => current.filter((item) => item.id !== pendingPaintTicketId));
-    updateActiveDeckCards((current) => current.map((item) => item.id === cardId ? { ...item, colored: true } : item));
+    const ticket = inventoryConsumables.find((item) => item.id === ticketId && item.type === "paintTicket");
+    if (!ticket) return;
+    setInventoryConsumables((current) => current.filter((item) => item.id !== ticketId));
+    updateEditingDeckCards((current) => current.map((item) => item.id === cardId ? { ...item, colored: true } : item));
     setPendingPaintTicketId(null);
     setDeckEditorMessage(`${card.name}을(를) 색칠했습니다.`);
   };
@@ -1699,6 +1836,19 @@ export default function Home() {
     setDeckCaseDropSlot(null);
   };
 
+  const swapOwnedDecks = (draggedDeckId: string, targetDeckId: string) => {
+    if (draggedDeckId === targetDeckId) return;
+    setOwnedDecks((current) => {
+      const draggedIndex = current.findIndex((deck) => deck.id === draggedDeckId);
+      const targetIndex = current.findIndex((deck) => deck.id === targetDeckId);
+      if (draggedIndex < 0 || targetIndex < 0) return current;
+      const next = [...current];
+      [next[draggedIndex], next[targetIndex]] = [next[targetIndex], next[draggedIndex]];
+      return next;
+    });
+    setDeckEditorMessage("덱 순서를 바꿨습니다.");
+  };
+
   const openDeckEditor = (message: string) => {
     const roomKey = mapRoomKey(mapPosition);
     finishDeckEditorDrag();
@@ -1707,6 +1857,7 @@ export default function Home() {
     setPendingPaintTicketId(null);
     setPendingRemovedCards([]);
     setHoveredDeckCard(null);
+    setDeckEditorDeckId(activeDeck?.id ?? "");
     setDeckEditorSnapshot({
       roomKey,
       decks: ownedDecks.map((deck) => ({ ...deck, cards: [...deck.cards] })),
@@ -1765,6 +1916,117 @@ export default function Home() {
     finishDeckEditorDrag();
     setDeckEditorOpen(false);
   };
+
+  useEffect(() => {
+    const handleKeyboard = (event: KeyboardEvent) => {
+      const target = event.target as HTMLElement | null;
+      if (target?.closest("input, textarea, select, [contenteditable='true']")) return;
+
+      if (deckEditorOpen && (event.key === "Escape" || event.key.toLowerCase() === "i")) {
+        event.preventDefault();
+        cancelDeckEditor();
+        return;
+      }
+
+      if (event.key === "Escape") {
+        if (deckViewerOpen) {
+          event.preventDefault();
+          setDeckViewerOpen(false);
+        } else if (shopOpen) {
+          event.preventDefault();
+          setShopOpen(false);
+        }
+        return;
+      }
+
+      if (screen !== "map" || mapTraveling || deckEditorOpen || deckViewerOpen) return;
+      if (event.key.toLowerCase() === "i") {
+        event.preventDefault();
+        openDeckEditor("덱 편집");
+        return;
+      }
+      if (event.key.toLowerCase() === "g") {
+        event.preventDefault();
+        quickPickUpFloorItems();
+        return;
+      }
+      if (event.key === "5" || event.code === "Numpad5") {
+        event.preventDefault();
+        waitOnMap();
+        return;
+      }
+
+      const keyboardMoves: Record<string, [number, number]> = {
+        KeyW: [0, -1], ArrowUp: [0, -1],
+        KeyA: [-1, 0], ArrowLeft: [-1, 0],
+        KeyS: [0, 1], ArrowDown: [0, 1],
+        KeyD: [1, 0], ArrowRight: [1, 0],
+      };
+      const keyboardMove = keyboardMoves[event.code];
+      if (keyboardMove) {
+        event.preventDefault();
+        mapMovementKeysRef.current.add(event.code);
+        if (mapMovementTimerRef.current === null) {
+          mapMovementTimerRef.current = window.setTimeout(() => {
+            mapMovementTimerRef.current = null;
+            const heldMove = [...mapMovementKeysRef.current]
+              .map((code) => keyboardMoves[code])
+              .reduce<[number, number]>((total, move) => [total[0] + move[0], total[1] + move[1]], [0, 0]);
+            const deltaX = Math.sign(heldMove[0]);
+            const deltaY = Math.sign(heldMove[1]);
+            if (deltaX !== 0 || deltaY !== 0) moveOnMap(deltaX, deltaY);
+          }, 45);
+        }
+        return;
+      }
+
+      const numpadMoves: Record<string, [number, number]> = {
+        Numpad7: [-1, -1], Numpad8: [0, -1], Numpad9: [1, -1],
+        Numpad4: [-1, 0], Numpad6: [1, 0],
+        Numpad1: [-1, 1], Numpad2: [0, 1], Numpad3: [1, 1],
+      };
+      const move = numpadMoves[event.code];
+      if (!move) return;
+      event.preventDefault();
+      numpadMovementKeysRef.current.add(event.code);
+      if (numpadMovementTimerRef.current === null) {
+        numpadMovementTimerRef.current = window.setTimeout(() => {
+          numpadMovementTimerRef.current = null;
+          const pressedKeys = [...numpadMovementKeysRef.current];
+          // The numpad is for one explicit direction at a time: never chain
+          // simultaneous presses into two map turns.
+          if (pressedKeys.length !== 1) return;
+          const pressedMove = numpadMoves[pressedKeys[0]];
+          if (pressedMove) moveOnMap(...pressedMove);
+        }, 45);
+      }
+    };
+
+    const releaseKeyboardMove = (event: KeyboardEvent) => {
+      mapMovementKeysRef.current.delete(event.code);
+      numpadMovementKeysRef.current.delete(event.code);
+    };
+
+    window.addEventListener("keydown", handleKeyboard);
+    window.addEventListener("keyup", releaseKeyboardMove);
+    return () => {
+      window.removeEventListener("keydown", handleKeyboard);
+      window.removeEventListener("keyup", releaseKeyboardMove);
+      if (mapMovementTimerRef.current !== null) {
+        window.clearTimeout(mapMovementTimerRef.current);
+        mapMovementTimerRef.current = null;
+      }
+      if (numpadMovementTimerRef.current !== null) {
+        window.clearTimeout(numpadMovementTimerRef.current);
+        numpadMovementTimerRef.current = null;
+      }
+      mapMovementKeysRef.current.clear();
+      numpadMovementKeysRef.current.clear();
+    };
+  }, [
+    cancelDeckEditor, deckEditorOpen, deckViewerOpen, mapTraveling,
+    moveOnMap, openDeckEditor, quickPickUpFloorItems, screen, shopOpen, waitOnMap,
+  ]);
 
   const beginMapDrag = (event: ReactPointerEvent<HTMLDivElement>) => {
     if (event.button !== 0 || mapTraveling) return;
@@ -1979,10 +2241,11 @@ export default function Home() {
         if (isWave) return `${targetEnemy?.name}에게 피해 ${damage} · ${DEFENSE_LABEL[card.damageType]} ${blockGained}${repetitions > 1 ? " (2회 발동)" : ""}`;
         if (card.kind === "strike") return `${targetEnemy?.name}에게 피해 ${damage}${repetitions > 1 ? " (2회 발동)" : ""}`;
         if (card.kind === "defend") return `${DEFENSE_LABEL[card.damageType]} ${blockGained} 획득`;
-        if (card.effect === "steelHeart") return "이번 턴 방어와 마법 방어 획득량 3배";
+        if (card.effect === "steelHeart") return "이번 턴 방어와 마법 방어 획득량 2배";
         if (card.effect === "battlePlan") return "★ 3개 획득";
         if (card.effect === "prepare") return canDraw ? "드로우할 파일을 선택하세요." : "버릴 카드를 선택하세요.";
         if (card.effect === "focus") return "에너지 1 획득 · 버릴 카드를 선택하세요.";
+        if (card.effect === "adrenaline") return "에너지 1 획득 · 드로우할 파일을 선택하세요.";
         if (card.effect === "sweep") return canDraw ? "가져올 파일을 선택하세요." : "가져올 카드가 없습니다.";
         if (card.effect === "drawEachPile") return `모든 파일에서 ${drawEachPileResult?.hand.length ?? 0}장 뽑음`;
         if (card.effect === "berserk") return "에너지 2 획득 · 이번 턴 받는 피해 2배";
@@ -2000,7 +2263,7 @@ export default function Home() {
         hand: [...remainingHand, ...(drawEachPileResult?.hand ?? [])],
         discard: [...current.discard, card],
         piles: drawEachPileResult?.piles ?? current.piles,
-        energy: current.energy - card.cost + (card.effect === "berserk" ? 2 : card.effect === "focus" ? 1 : 0),
+        energy: current.energy - card.cost + (card.effect === "berserk" ? 2 : card.effect === "focus" || card.effect === "adrenaline" ? 1 : 0),
         stars: current.stars + (
           card.effect === "battlePlan"
             ? 3
@@ -2017,7 +2280,7 @@ export default function Home() {
         playerPhysicalBlock: nextPhysicalBlock,
         playerMagicBlock: nextMagicBlock,
         strength: current.strength + (card.effect === "transcend" ? 5 : 0),
-        defenseMultiplier: card.effect === "steelHeart" ? 3 : current.defenseMultiplier,
+        defenseMultiplier: card.effect === "steelHeart" ? 2 : current.defenseMultiplier,
         damageTakenMultiplier: card.effect === "berserk" ? 2 : current.damageTakenMultiplier,
         invulnerable: card.effect === "transcend" || current.invulnerable,
         doubleNextAttack: card.effect === "rapidFire"
@@ -2030,6 +2293,16 @@ export default function Home() {
         history: [action, ...current.history].slice(0, 5),
       };
     });
+  };
+
+  const playHandCardOnDoubleClick = (card: Card) => {
+    // During a forced discard, the ordinary click is the card-selection input.
+    if (game.pendingDiscards > 0) return;
+    const targetEnemy = card.kind === "strike"
+      ? game.enemies.find((enemy) => enemy.id === lockedEnemyId && enemy.hp > 0)
+        ?? game.enemies.find((enemy) => enemy.hp > 0)
+      : undefined;
+    playCard(card, targetEnemy?.id);
   };
 
   const drawSelectedPile = (pileIndex: number) => {
@@ -2432,7 +2705,14 @@ export default function Home() {
         }
 
         const allPilesEmpty = game.piles.every((pile) => pile.length === 0);
-        const sourcePiles = allPilesEmpty ? buildPiles(shuffle(discarded)) : game.piles;
+        const sourcePiles = allPilesEmpty
+          ? buildPiles(
+            prepareDeckForPiles(discarded),
+            game.deckEditions.includes("fantastic") ? 4 : 5,
+            game.deckEditions.includes("transparent"),
+            game.deckEditions.includes("roomy") ? 1 : 0,
+          )
+          : game.piles;
         setGame({
           ...game,
           piles: sourcePiles,
@@ -2456,6 +2736,18 @@ export default function Home() {
     }, discardDelay);
   };
 
+  useEffect(() => {
+    const endTurnWithKey = (event: KeyboardEvent) => {
+      const target = event.target as HTMLElement | null;
+      if (target?.closest("input, textarea, select, [contenteditable='true']")) return;
+      if (screen !== "battle" || event.key.toLowerCase() !== "e") return;
+      event.preventDefault();
+      endTurn();
+    };
+    window.addEventListener("keydown", endTurnWithKey);
+    return () => window.removeEventListener("keydown", endTurnWithKey);
+  }, [endTurn, screen]);
+
   const controlsLocked =
     phase !== "playing" ||
     game.status !== "playing" ||
@@ -2470,8 +2762,8 @@ export default function Home() {
     const canEditDeck = true;
     const viewedDeck = ownedDecks.find((deck) => deck.id === deckViewerDeckId) ?? activeDeck;
     const rarityOrder: Record<CardRarity, number> = { rare: 0, special: 1, basic: 2 };
-    const deckGroups = Array.from(deckCards.reduce((groups, card) => {
-      const groupKey = `${card.effect}:${card.damageType}:${card.name}`;
+    const deckGroups = Array.from(editingDeckCards.reduce((groups, card) => {
+      const groupKey = `${card.effect}:${card.damageType}:${card.name}:${card.colored ? "painted" : "plain"}`;
       const current = groups.get(groupKey);
       if (current) current.cardIds.push(card.id);
       else groups.set(groupKey, { card, cardIds: [card.id] });
@@ -2495,6 +2787,21 @@ export default function Home() {
     const currentFloorCards = roomDrops[currentRoomKey] ?? [];
     const currentFloorConsumables = roomConsumableDrops[currentRoomKey] ?? [];
     const currentFloorDecks = roomDeckDrops[currentRoomKey] ?? [];
+    const deckEditorHasChanges = deckEditorSnapshot !== null && JSON.stringify({
+      decks: deckEditorSnapshot.decks,
+      inventory: deckEditorSnapshot.inventory,
+      consumables: deckEditorSnapshot.consumables,
+      floorCards: deckEditorSnapshot.floorCards,
+      floorConsumables: deckEditorSnapshot.floorConsumables,
+      floorDecks: deckEditorSnapshot.floorDecks,
+    }) !== JSON.stringify({
+      decks: ownedDecks,
+      inventory: inventoryCards,
+      consumables: inventoryConsumables,
+      floorCards: currentFloorCards,
+      floorConsumables: currentFloorConsumables,
+      floorDecks: currentFloorDecks,
+    });
     const floorItemNames = [
       ...currentFloorCards.map((card) => card.name),
       ...currentFloorConsumables.map((consumable) => consumable.name),
@@ -2600,7 +2907,7 @@ export default function Home() {
               type="button"
               className="deck-viewer-trigger"
               onClick={() => {
-                setDeckViewerDeckId(activeDeckId);
+                setDeckViewerDeckId(activeDeck?.id ?? "");
                 setDeckViewerOpen(true);
               }}
               aria-label={`덱 보기, 현재 ${deckCards.length}장`}
@@ -2644,8 +2951,8 @@ export default function Home() {
         <section className="map-board" aria-label="탐험 지도">
           <div className="map-toolbar">
             <div className="map-toolbar-actions">
-              <span className="map-zoom-value" aria-label={`지도 배율 ${Math.round(mapZoom * 100)}퍼센트`}>
-                {Math.round(mapZoom * 100)}%
+              <span className="map-zoom-value" aria-label={`지도 배율 ${Math.round((mapZoom / MAP_DEFAULT_ZOOM) * 100)}퍼센트`}>
+                {Math.round((mapZoom / MAP_DEFAULT_ZOOM) * 100)}%
               </span>
               <button type="button" className="recenter-map" onClick={() => centerMapOn(mapPosition)}>
                 현재 위치로
@@ -2792,12 +3099,10 @@ export default function Home() {
             {currentRoomType === "shop" && (
               <button
                 type="button"
-                className="room-floor-notice room-action-notice is-shop"
+                className="room-floor-notice room-action-notice is-shop simple-room-action-notice"
                 onClick={() => openShop(currentRoomKey, getRegionNumber(mapPosition))}
               >
-                <span>상점</span>
                 <strong>상점 들어가기</strong>
-                <small>열기</small>
               </button>
             )}
             {(currentRoomType === "portal" || currentRoomType === "safePortal") && (
@@ -2814,12 +3119,10 @@ export default function Home() {
             {(currentFloorCards.length > 0 || currentFloorConsumables.length > 0 || currentFloorDecks.length > 0) && canEditDeck && (
               <button
                 type="button"
-                className="room-floor-notice"
+                className="room-floor-notice quick-pickup-notice"
                 onClick={quickPickUpFloorItems}
               >
-                <span>방 바닥</span>
                 <strong>{quickPickUpLabel}</strong>
-                <small>줍기</small>
               </button>
             )}
           </div>
@@ -2830,15 +3133,10 @@ export default function Home() {
             <section className="shop-panel">
               <header>
                 <div>
-                  <p>TRAVELING MERCHANT</p>
                   <h2 id="shop-title">여행 상점</h2>
-                  <span>카드와 소모품은 같은 인벤토리 공간을 사용합니다.</span>
                 </div>
                 <div className="shop-header-status">
-                  <strong>{gold}G</strong>
-                  <span className={inventoryItemCount >= INVENTORY_CAPACITY ? "is-full" : ""}>
-                    인벤토리 {inventoryItemCount} / {INVENTORY_CAPACITY}
-                  </span>
+                  <strong>🪙 {gold}</strong>
                   <button type="button" onClick={() => setShopOpen(false)}>나가기</button>
                 </div>
               </header>
@@ -2862,11 +3160,10 @@ export default function Home() {
                         <small>{offer.consumable.description}</small>
                       </div>
                     ) : null}
-                    <span className="shop-price">{offer.sold ? "판매 완료" : `${offer.price}G`}</span>
+                    <span className="shop-price">{offer.sold ? "판매 완료" : `🪙 ${offer.price}`}</span>
                   </button>
                 ))}
               </div>
-              <footer>{shopMessage}</footer>
             </section>
           </div>
         )}
@@ -2967,7 +3264,7 @@ export default function Home() {
                     const source = (deckEditorDragRef.current ?? deckEditorDrag)?.source;
                     const restoringTrash = source === "trash";
                     const addingCard = source === "inventory" || source === "floor";
-                    if (!restoringTrash && (!addingCard || !activeDeck || deckCards.length >= activeDeck.capacity)) {
+                    if (!restoringTrash && (!addingCard || !editingDeck || editingDeckCards.length >= editingDeck.capacity)) {
                       event.dataTransfer.dropEffect = "none";
                       setDeckEditorDropTarget(null);
                       return;
@@ -2979,37 +3276,58 @@ export default function Home() {
                   onDrop={(event) => dropDeckEditorCard(event, "deck")}
                 >
                   <div className="deck-editor-column-title">
-                    <h3>{activeDeck?.name ?? "덱 없음"}</h3>
-                    <strong className={activeDeck && deckCards.length >= activeDeck.capacity ? "is-full" : ""}>
-                      {deckCards.length} / {activeDeck?.capacity ?? 0}
+                    <h3>
+                      {editingDeck ? <DeckName deck={editingDeck} /> : "덱 없음"}
+                      <em className={editingDeck?.id === activeDeck?.id ? "is-battle-deck" : "is-reserve-deck"}>
+                        {editingDeck?.id === activeDeck?.id ? "[이 덱을 전투에 사용]" : "[예비 덱]"}
+                      </em>
+                    </h3>
+                    <strong className={editingDeck && editingDeckCards.length >= editingDeck.capacity ? "is-full" : ""}>
+                      {editingDeckCards.length} / {editingDeck?.capacity ?? 0}
                     </strong>
                   </div>
                   <div className="owned-deck-tabs" aria-label="보유 덱">
                     {ownedDecks.map((deck, index) => (
                       <button
                         type="button"
-                        className={deck.id === activeDeckId ? "is-active" : ""}
+                        className={`${deck.id === editingDeck?.id ? "is-active" : ""} ${deckCaseDropSlot === index ? "is-deck-drop-target" : ""}`}
                         key={deck.id}
                         draggable
                         onDragStart={(event) => beginDeckCaseDrag(event, deck.id, "owned")}
                         onDragEnd={finishDeckCaseDrag}
+                        onDragOver={(event) => {
+                          const drag = deckCaseDragRef.current ?? deckCaseDrag;
+                          if (drag?.source !== "owned" || drag.deckId === deck.id) return;
+                          event.preventDefault();
+                          event.stopPropagation();
+                          event.dataTransfer.dropEffect = "move";
+                          setDeckCaseDropSlot(index);
+                        }}
+                        onDragLeave={() => setDeckCaseDropSlot((current) => current === index ? null : current)}
+                        onDrop={(event) => {
+                          event.preventDefault();
+                          event.stopPropagation();
+                          const drag = deckCaseDragRef.current ?? deckCaseDrag;
+                          if (drag?.source === "owned") swapOwnedDecks(drag.deckId, deck.id);
+                          finishDeckCaseDrag();
+                        }}
                         onClick={() => {
-                          setActiveDeckId(deck.id);
                           setHoveredDeckCard(null);
-                          setDeckEditorMessage(`${deck.name}을(를) 전투 덱으로 선택했습니다.`);
+                          setDeckEditorDeckId(deck.id);
+                          setDeckEditorMessage("전투에는 맨 왼쪽 덱을 사용합니다. 덱을 드래그해 순서를 바꾸세요.");
                         }}
                         onContextMenu={(event) => {
                           event.preventDefault();
                           dropOwnedDeck(deck.id);
                         }}
-                        aria-label={`${index + 1}번째 덱, ${deck.cards.length}/${deck.capacity}. 좌클릭 선택, 우클릭 바닥에 놓기`}
+                        aria-label={`덱 ${deck.name}, ${deck.cards.length}/${deck.capacity}.${index === 0 ? " 이 덱을 전투에 사용." : " 드래그해 전투 덱 순서를 바꿀 수 있습니다."} 우클릭 바닥에 놓기`}
                       >
-                        <strong>덱 {index + 1} <span>({deck.cards.length}/{deck.capacity})</span></strong>
+                        <strong><DeckName deck={deck} showEditions={false} /> <span>({deck.cards.length}/{deck.capacity})</span></strong>
                       </button>
                     ))}
                     {Array.from({ length: MAX_OWNED_DECKS - ownedDecks.length }, (_, index) => (
                       <div
-                        className={`empty-deck-slot ${deckCaseDropSlot === index ? "is-deck-drop-target" : ""}`}
+                        className={`empty-deck-slot ${deckCaseDrag?.source === "floor" && deckCaseDropSlot === index ? "is-deck-drop-target" : ""}`}
                         key={`empty-deck-${index}`}
                         onDragOver={(event) => {
                           const drag = deckCaseDragRef.current ?? deckCaseDrag;
@@ -3040,11 +3358,30 @@ export default function Home() {
                         return (
                           <button
                             type="button"
-                            className={`deck-list-entry rarity-${card.rarity} ${isTemporary ? "is-temporary" : ""}`}
+                            className={`deck-list-entry rarity-${card.rarity} ${card.colored ? "is-painted" : ""} ${isTemporary ? "is-temporary" : ""}`}
                             key={`${card.effect}:${card.damageType}:${card.name}`}
                             draggable
                             onDragStart={(event) => beginDeckEditorDrag(event, cardId, "deck")}
                             onDragEnd={finishDeckEditorDrag}
+                            onDragOver={(event) => {
+                              const ticketDrag = consumableDragRef.current ?? consumableDrag;
+                              if (ticketDrag?.source !== "inventory") return;
+                              const ticket = inventoryConsumables.find((item) => item.id === ticketDrag.id);
+                              if (ticket?.type !== "paintTicket") return;
+                              event.preventDefault();
+                              event.stopPropagation();
+                              event.dataTransfer.dropEffect = "move";
+                            }}
+                            onDrop={(event) => {
+                              const ticketDrag = consumableDragRef.current ?? consumableDrag;
+                              if (ticketDrag?.source !== "inventory") return;
+                              const ticket = inventoryConsumables.find((item) => item.id === ticketDrag.id);
+                              if (ticket?.type !== "paintTicket") return;
+                              event.preventDefault();
+                              event.stopPropagation();
+                              paintDeckCard(cardId, ticketDrag.id);
+                              finishConsumableDrag();
+                            }}
                             onMouseEnter={() => setHoveredDeckCard(card)}
                             onMouseLeave={() => setHoveredDeckCard(null)}
                             onFocus={() => setHoveredDeckCard(card)}
@@ -3071,6 +3408,7 @@ export default function Home() {
                             <span className="deck-list-cost">{card.cost}</span>
                             <strong>
                               {card.name}
+                              {card.colored && <em className="deck-card-painted">색칠</em>}
                               {isTemporary && <em className="deck-card-new">NEW!</em>}
                             </strong>
                             <span className="deck-list-count">x{cardIds.length}</span>
@@ -3217,7 +3555,7 @@ export default function Home() {
                         aria-label={`${deck.name}, 카드 ${deck.cards.length}장, 용량 ${deck.capacity}. 누르면 줍기`}
                       >
                         <span className="floor-deck-icon" aria-hidden="true" />
-                        <strong>{deck.name}</strong>
+                        <strong><DeckName deck={deck} /></strong>
                         <span>{deck.cards.length} / {deck.capacity}</span>
                         <small>눌러서 줍기</small>
                       </button>
@@ -3264,7 +3602,7 @@ export default function Home() {
                   <button type="button" className="cancel" onClick={cancelDeckEditor}>취소</button>
                   <button
                     type="button"
-                    className="confirm"
+                    className={`confirm ${deckEditorHasChanges ? "" : "is-hidden"}`}
                     onClick={confirmDeckEditor}
                     disabled={inventoryItemCount > INVENTORY_CAPACITY}
                   >편집 확인</button>
@@ -3301,7 +3639,7 @@ export default function Home() {
                     key={`viewer-tab-${deck.id}`}
                     onClick={() => setDeckViewerDeckId(deck.id)}
                   >
-                    <strong>덱 {index + 1}</strong>
+                    <strong><DeckName deck={deck} /></strong>
                     <span>{deck.cards.length} / {deck.capacity}</span>
                   </button>
                 ))}
@@ -3348,7 +3686,7 @@ export default function Home() {
       >
         <div className="enemy-zone">
           <div className={`enemies-row ${game.enemies.length > 2 ? "is-crowded" : ""}`}>
-            {game.enemies.map((enemy) => {
+            {game.enemies.filter((enemy) => enemy.hp > 0).map((enemy) => {
               const defeated = enemy.hp === 0;
               const intent = enemy.actions[enemy.intentIndex];
               const intentType = enemy.nextAttackMagic
@@ -3368,18 +3706,15 @@ export default function Home() {
                   {lockedEnemyId === enemy.id && <span className="lock-badge">LOCK ON</span>}
                   {!defeated && <div className="drop-prompt attack-prompt">이 적을 공격</div>}
                   <div className={`intent intent-card ${defeated ? "is-defeated" : intentType}`}>
-                    <span>{defeated ? "상태" : "다음 행동"}</span>
+                    <span>{defeated ? "상태" : "패턴"}</span>
                     {defeated ? (
                       <strong>격파</strong>
                     ) : (
-                      <>
-                        <strong>{intent.name}</strong>
-                        <small>{actionSummary(
+                      <small>{actionSummary(
                           intent,
                           enemy.strength,
                           enemy.nextAttackMagic,
                         )}</small>
-                      </>
                     )}
                   </div>
                   <div className="monster" aria-label={enemy.name}>
@@ -3465,6 +3800,15 @@ export default function Home() {
               );
             })}
           </div>
+          {game.stars > 0 && (
+            <div
+              className="solitaire-resource pile-resource"
+              aria-label={`솔리테어 행동 자원 ${game.stars}개 남음`}
+              title="솔리테어 행동 자원"
+            >
+              {Array.from({ length: game.stars }, (_, slot) => <span key={slot}>★</span>)}
+            </div>
+          )}
         </div>
 
         <div className="center-drop-zone" data-drop-target="defend">
@@ -3489,13 +3833,6 @@ export default function Home() {
               <strong>{game.playerMagicBlock}</strong>
             </div>
           </div>
-          <div className="combat-buffs" aria-label="현재 강화 효과">
-            <span>힘 {game.strength}</span>
-            {game.defenseMultiplier > 1 && <span>방어 ×{game.defenseMultiplier}</span>}
-            {game.damageTakenMultiplier > 1 && <span>받는 피해 ×{game.damageTakenMultiplier}</span>}
-            {game.invulnerable && <span>피해 면역</span>}
-            {game.doubleNextAttack && <span>다음 공격 2회</span>}
-          </div>
           <div className="status-strip" role="status" aria-live="polite">{game.message}</div>
         </div>
 
@@ -3512,6 +3849,13 @@ export default function Home() {
               <div className="healthbar player-health">
                 <i style={{ width: `${(game.playerHp / MAX_PLAYER_HP) * 100}%` }} />
                 <span>{game.playerHp} / {MAX_PLAYER_HP}</span>
+              </div>
+              <div className="combat-buffs" aria-label="현재 강화 효과">
+                <span>힘 {game.strength}</span>
+                {game.defenseMultiplier > 1 && <span>방어 ×{game.defenseMultiplier}</span>}
+                {game.damageTakenMultiplier > 1 && <span>받는 피해 ×{game.damageTakenMultiplier}</span>}
+                {game.invulnerable && <span>피해 면역</span>}
+                {game.doubleNextAttack && <span>다음 공격 2회</span>}
               </div>
               {inventoryConsumables.length > 0 && (
                 <div className="battle-consumables" aria-label="보유 소모품">
@@ -3546,12 +3890,17 @@ export default function Home() {
                   if (element) handCardRefs.current.set(card.id, element);
                   else handCardRefs.current.delete(card.id);
                 }}
-                style={{ "--card-index": index } as CSSProperties}
+                style={{
+                  "--card-index": index,
+                  "--fan-angle": `${(index - (game.hand.length - 1) / 2) * 3.5}deg`,
+                  "--fan-y": `${Math.abs(index - (game.hand.length - 1) / 2) * 5}px`,
+                } as CSSProperties}
                 onPointerDown={(event) => beginDrag(event, card, { type: "hand" })}
                 onPointerMove={moveDrag}
                 onPointerUp={finishDrag}
                 onPointerCancel={cancelDrag}
                 onClick={() => game.pendingDiscards > 0 && discardSelectedCard(card.id)}
+                onDoubleClick={() => playHandCardOnDoubleClick(card)}
                 disabled={controlsLocked && game.pendingDiscards === 0}
                 aria-label={`${card.name}, 에너지 ${card.cost}`}
               >
@@ -3564,15 +3913,6 @@ export default function Home() {
           </div>
 
           <div className="controls">
-            {game.stars > 0 && (
-              <div
-                className="solitaire-resource"
-                aria-label={`솔리테어 행동 자원 ${game.stars}개 남음`}
-                title="솔리테어 행동 자원"
-              >
-                {Array.from({ length: game.stars }, (_, slot) => <span key={slot}>★</span>)}
-              </div>
-            )}
             <div className="energy-orb" aria-label={`에너지 ${game.energy} 중 3`}>
               <span>{game.energy}</span><small>/ 3</small>
             </div>
@@ -3604,9 +3944,21 @@ export default function Home() {
                         <CardFace card={card} />
                       </div>
                     ))}
+                    {battleRewardDecks.map((deck) => (
+                      <div className="battle-reward-deck" key={deck.id}>
+                        <span className="floor-deck-icon" aria-hidden="true" />
+                        <strong><DeckName deck={deck} /></strong>
+                        <span>{deck.cards.length} / {deck.capacity}</span>
+                      </div>
+                    ))}
+                    {battleRewardConsumables.map((item) => (
+                      <div className={`battle-reward-consumable consumable-ticket ${item.type}`} key={item.id}>
+                        <span className="ticket-mark" aria-hidden="true">T</span>
+                        <strong>{item.name}</strong>
+                        <small>{item.description}</small>
+                      </div>
+                    ))}
                   </div>
-                  {battleRewardDecks.map((deck) => <div className="battle-gold-reward" key={deck.id}>덱 케이스: {deck.cards.length}장</div>)}
-                  {battleRewardConsumables.map((item) => <div className="battle-gold-reward" key={item.id}>{item.name}</div>)}
                 </div>
               )}
               <button
@@ -3642,10 +3994,6 @@ export default function Home() {
         )}
       </section>
 
-      <aside className="combat-log" aria-label="최근 전투 기록">
-        <strong>전투 기록</strong>
-        {game.history.map((entry, index) => <span key={`${entry}-${index}`}>{entry}</span>)}
-      </aside>
     </main>
   );
 }

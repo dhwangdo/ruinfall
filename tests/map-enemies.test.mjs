@@ -145,6 +145,25 @@ test("an enemy moving onto the player reports a collision", () => {
   assert.deepEqual(result.collisionEnemyIds, ["hunter"]);
 });
 
+test("an enemy already collided with by the player stays in place for this enemy phase", () => {
+  const enemy = {
+    id: "occupied-room",
+    position: { x: 1, y: 1 },
+    encounterIndex: 0,
+    awareness: "awake",
+  };
+  const result = advanceMapEnemies(
+    [enemy],
+    { x: 0, y: 0 },
+    { x: 1, y: 1 },
+    alwaysWalkable,
+    () => 0,
+    new Set(["occupied-room"]),
+  );
+  assert.deepEqual(result.enemies[0].position, { x: 1, y: 1 });
+  assert.deepEqual(result.collisionEnemyIds, ["occupied-room"]);
+});
+
 test("multiple enemies can move onto the player in the same turn", () => {
   const enemies = [
     { id: "first", position: { x: 0, y: 0 }, encounterIndex: 0, awareness: "alerted" },
