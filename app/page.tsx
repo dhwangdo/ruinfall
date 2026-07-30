@@ -1236,26 +1236,27 @@ export default function Home() {
   };
 
   const returnToMap = () => {
-    if (activeBattleRoom) {
-      const landingDrops = [...(roomDrops[activeBattleRoom] ?? []), ...battleRewards];
+    const battleRoom = activeBattleRoom;
+    if (battleRoom) {
+      const landingDrops = [...(roomDrops[battleRoom] ?? []), ...battleRewards];
       setRoomDrops((current) => ({
         ...current,
-        [activeBattleRoom]: landingDrops,
+        [battleRoom]: landingDrops,
       }));
       setGold((current) => current + battleRewardGold);
     }
-    if (activeMapEnemyIds.length > 0) {
+    if (activeMapEnemyIds.length > 0 && battleRoom) {
       setMapEnemyWorld((current) => ({
         ...current,
         enemies: current.enemies.filter((enemy) => !activeMapEnemyIds.includes(enemy.id)),
       }));
       if (battleRewardDecks.length > 0) setRoomDeckDrops((current) => ({
         ...current,
-        [activeBattleRoom]: [...(current[activeBattleRoom] ?? []), ...battleRewardDecks],
+        [battleRoom]: [...(current[battleRoom] ?? []), ...battleRewardDecks],
       }));
       if (battleRewardConsumables.length > 0) setRoomConsumableDrops((current) => ({
         ...current,
-        [activeBattleRoom]: [...(current[activeBattleRoom] ?? []), ...battleRewardConsumables],
+        [battleRoom]: [...(current[battleRoom] ?? []), ...battleRewardConsumables],
       }));
     }
     const roomType = getRoomType(mapPosition, mapSeed);
