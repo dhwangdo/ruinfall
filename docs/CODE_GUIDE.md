@@ -34,9 +34,10 @@ while True:
 ### `type`: 데이터의 모양
 
 ```ts
-type EnemyAttack = {
-  type: DamageType;
-  value: number;
+type EnemyAction = {
+  name: string;
+  attacks: EnemyHit[];
+  strengthGain?: number;
 };
 ```
 
@@ -44,9 +45,10 @@ Python의 `dataclass` 또는 타입이 붙은 딕셔너리와 비슷하다.
 
 ```python
 @dataclass
-class EnemyAttack:
-    type: DamageType
-    value: int
+class EnemyAction:
+    name: str
+    attacks: list
+    strength_gain: int | None = None
 ```
 
 TypeScript의 타입은 프로그램을 실행할 때 사라진다. 코드를 쓰는 동안 잘못된 값을 미리 잡는 도구다.
@@ -123,9 +125,13 @@ setGame((current) => ({ ...current, energy: 2 }));
 | 파일 | 역할 |
 |---|---|
 | `app/page.tsx` | 지도, 전투, 카드, 덱 편집, 상점 등 거의 모든 게임 로직과 화면 |
+| `app/game/enemies.ts` | 적 목록, 전투 조합, 다음 행동 선택, 특수 방어 규칙 |
+| `app/game/mapEnemies.ts` | 오버맵 적 생성, 상태 변화, L∞ 거리, 8방향 이동 |
 | `app/globals.css` | 카드 크기, 색, 배치, 애니메이션, 지도와 팝업 디자인 |
 | `app/layout.tsx` | 문서 제목과 전체 HTML 틀 |
 | `tests/rendered-html.test.mjs` | 첫 화면이 서버에서 정상 렌더링되는지 검사 |
+| `tests/enemies.test.mjs` | 적 체력, 단단함, 재빠름 같은 전투 규칙 검사 |
+| `tests/map-enemies.test.mjs` | 9×9 활성화, 상태 변화, 추적과 충돌 검사 |
 | `package.json` | 설치할 라이브러리와 실행 명령 |
 | `next.config.ts` | GitHub Pages 경로와 정적 빌드 설정 |
 | `.github/workflows/deploy-pages.yml` | GitHub에 push했을 때 자동 배포하는 절차 |
@@ -144,12 +150,13 @@ setGame((current) => ({ ...current, energy: 2 }));
 
 1. 맨 위의 `type` 선언을 읽어 게임 데이터 모양을 파악한다.
 2. `BASIC_CARD_POOL`, `SPECIAL_CARD_POOL`, `RARE_CARD_POOL`에서 카드 목록을 본다.
-3. `createEnemies()`에서 현재 적을 본다.
-4. `createDeck()`과 `createRandomDeck()`에서 시작 덱과 드랍 덱 규칙을 본다.
-5. `Home()` 안의 `useState` 목록에서 저장되는 상태를 본다.
-6. `playCard()`에서 카드 효과가 실제로 어떻게 적용되는지 본다.
-7. `endTurn()`에서 적 공격과 다음 턴 준비를 본다.
-8. 마지막의 `return (...)`에서 지도/전투 UI를 본다.
+3. `app/game/enemies.ts`에서 현재 적과 행동 목록을 본다.
+4. `app/game/mapEnemies.ts`에서 지도 위 적의 상태와 이동 규칙을 본다.
+5. `createDeck()`과 `createRandomDeck()`에서 시작 덱과 드랍 덱 규칙을 본다.
+6. `Home()` 안의 `useState` 목록에서 저장되는 상태를 본다.
+7. `moveOnMap()`에서 플레이어 이동, 적 이동, 충돌 순서를 본다.
+8. `playCard()`와 `endTurn()`에서 전투 계산을 본다.
+9. 마지막의 `return (...)`에서 지도/전투 UI를 본다.
 
 VS Code 검색에서 함수 이름이나 카드 이름을 검색하면 빠르다.
 
@@ -215,7 +222,7 @@ npm test
 $env:GITHUB_ACTIONS='true'; npm run build:pages
 ```
 
-Python의 `pytest`처럼 `npm test`가 테스트 명령이다. 다만 현재 테스트는 게임 규칙 전체가 아니라 첫 화면 렌더링이 망가지지 않았는지를 주로 확인한다.
+Python의 `pytest`처럼 `npm test`가 테스트 명령이다. 현재는 첫 화면 렌더링 외에도 전투 적과 오버맵 적의 핵심 규칙을 검사한다.
 
 ## 9. Git과 GitHub의 역할
 
@@ -260,7 +267,8 @@ app/
     cards.ts       카드 데이터
     enemies.ts     적 데이터와 생성 규칙
     combat.ts      피해·방어·턴 계산
-    map.ts         지도 생성과 경로 찾기
+    mapEnemies.ts  지도 위 적의 상태와 이동
+    map.ts         지도 칸 생성과 포탈 규칙
   components/
     Card.tsx
     BattleView.tsx
