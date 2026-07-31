@@ -7,6 +7,7 @@ export type MapEnemy = {
   position: GridPosition;
   encounterIndex: number;
   awareness: MapEnemyAwareness;
+  damageTaken?: number;
 };
 
 export type MapEnemyWorld = {
@@ -37,11 +38,15 @@ export function chebyshevDistance(left: GridPosition, right: GridPosition) {
   return Math.max(Math.abs(left.x - right.x), Math.abs(left.y - right.y));
 }
 
-export function isInPlayerVision(position: GridPosition, playerPosition: GridPosition) {
+export function isInPlayerVision(
+  position: GridPosition,
+  playerPosition: GridPosition,
+  horizontalRadius = MAP_PLAYER_VISION_HORIZONTAL_RADIUS,
+  verticalRadius = MAP_PLAYER_VISION_VERTICAL_RADIUS,
+) {
   const offsetX = Math.abs(position.x - playerPosition.x);
   const offsetY = Math.abs(position.y - playerPosition.y);
-  return offsetX <= MAP_PLAYER_VISION_HORIZONTAL_RADIUS
-    && offsetY <= MAP_PLAYER_VISION_VERTICAL_RADIUS;
+  return offsetX <= horizontalRadius && offsetY <= verticalRadius;
 }
 
 function seededCellRoll(position: GridPosition, seed: number, salt: number) {
@@ -96,6 +101,7 @@ export function advanceMapEnemies(
   isWalkable: (position: GridPosition) => boolean,
   random: () => number = Math.random,
   frozenEnemyIds: ReadonlySet<string> = new Set(),
+  detectionMultiplier = 1,
 ) {
   const nextEnemies = enemies.map((enemy) => ({
     ...enemy,
@@ -119,7 +125,7 @@ export function advanceMapEnemies(
     const nextAwareness = awarenessAfterDetection(
       enemy.awareness,
       distanceAtStart,
-      random,
+      () => random() / detectionMultiplier,
     );
     if (nextAwareness !== enemy.awareness) {
       enemy.awareness = nextAwareness;

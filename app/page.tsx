@@ -32,6 +32,12 @@ import {
   createMapEnemyWorld,
   type MapEnemyWorld,
 } from "./game/mapEnemies";
+import {
+  advanceBombs,
+  applyBombDamage,
+  positionsInSquare,
+  type MapBomb,
+} from "./game/mapEffects";
 
 type CardKind = "strike" | "defend" | "skill";
 type DamageType = "physical" | "magic";
@@ -63,13 +69,24 @@ type RoomType =
   | "void"
   | "rock"
   | "empty"
+  | "blessing"
   | "shop"
   | "portal"
   | "heal"
   | "safePortal";
 type DeckEditorArea = "deck" | "inventory" | "floor" | "trash";
 type DeckSortMode = "cost" | "rarity";
-type DeckEdition = "clever" | "roomy" | "lively" | "fantastic" | "transparent";
+type BlessingId = "vision" | "lightStep" | "sleight" | "sturdy" | "greed" | "bag" | "athlete" | "luck" | "deckSize" | "ninja";
+type DeckEdition =
+  | "clever"
+  | "roomy"
+  | "lively"
+  | "fantastic"
+  | "transparent"
+  | "golden"
+  | "rampaging"
+  | "greedy"
+  | "frugal";
 type DeckCase = {
   id: string;
   name: string;
@@ -79,12 +96,34 @@ type DeckCase = {
   editionColors: Partial<Record<DeckEdition, string>>;
 };
 type PendingRemovedCard = { card: Card; deckId: string };
-type ConsumableType = "extractTicket" | "swiftTicket" | "paintTicket";
+type ConsumableType =
+  | "extractTicket"
+  | "swiftTicket"
+  | "paintTicket"
+  | "teleportTicket"
+  | "bombTicket"
+  | "cloneTicket";
+const CONSUMABLE_TYPES: ConsumableType[] = [
+  "extractTicket",
+  "swiftTicket",
+  "paintTicket",
+  "teleportTicket",
+  "bombTicket",
+  "cloneTicket",
+];
+
+function consumableTypeFromRoll(roll: number) {
+  return CONSUMABLE_TYPES[Math.min(
+    CONSUMABLE_TYPES.length - 1,
+    Math.floor(roll * CONSUMABLE_TYPES.length),
+  )];
+}
 type Consumable = {
   id: string;
   type: ConsumableType;
   name: string;
   description: string;
+  armedMovesRemaining?: number;
 };
 type ConsumableArea = "inventory" | "floor";
 type ShopOffer = {
@@ -163,6 +202,18 @@ const MAX_PLAYER_HP = 30;
 const STARTING_DECK_SIZE = 16;
 const INVENTORY_CAPACITY = 12;
 const MAX_OWNED_DECKS = 3;
+const BLESSING_INFO: Record<BlessingId, { name: string; description: string }> = {
+  vision: { name: "시야 확장", description: "시야가 5×5가 됩니다." },
+  lightStep: { name: "가벼운 걸음", description: "적의 인식 확률이 절반이 됩니다." },
+  sleight: { name: "손재주", description: "줍기와 덱 편집이 턴을 소모하지 않습니다." },
+  sturdy: { name: "튼튼함", description: "최대 체력이 20 증가합니다." },
+  greed: { name: "탐욕스러움", description: "골드 획득량이 2배가 됩니다." },
+  bag: { name: "가방 업그레이드", description: "인벤토리 +12칸, 덱 슬롯 +1" },
+  athlete: { name: "운동선수", description: "30턴마다 이동 1회가 턴을 소모하지 않습니다." },
+  luck: { name: "행운", description: "덱·티켓·에디션 확률 +10%p" },
+  deckSize: { name: "덱 크기 +5", description: "모든 덱 최대 장수 +5" },
+  ninja: { name: "닌자", description: "잠든 적과 전투 시 아드레날린 1장을 얻습니다." },
+};
 const STARTER_DECK_CAPACITY = 20;
 const REGION_COUNT = 7;
 const REGION_NAMES = [
@@ -270,11 +321,12 @@ function safeAreaCenterY(regionIndex: number) {
 function getSafeAreaRegionIndex(position: MapPosition) {
   for (let regionIndex = 0; regionIndex < REGION_COUNT; regionIndex += 1) {
     const centerY = safeAreaCenterY(regionIndex);
-    if (
-      position.y === centerY
+    const isCenterRow = position.y === centerY
       && position.x >= SAFE_AREA_ENTRY_X
-      && position.x <= SAFE_AREA_PORTAL_X
-    ) return regionIndex;
+      && position.x <= SAFE_AREA_PORTAL_X;
+    const isVerticalArm = position.x === SAFE_AREA_HEAL_X
+      && Math.abs(position.y - centerY) === 1;
+    if (isCenterRow || isVerticalArm) return regionIndex;
   }
   return null;
 }
@@ -358,17 +410,23 @@ function getRoomType(position: MapPosition, seed: number): RoomType {
   if (position.x === MAP_START.x && position.y === MAP_START.y) return "empty";
   const safeRegion = getSafeAreaRegionIndex(position);
   if (safeRegion !== null) {
-    if (position.x === SAFE_AREA_ENTRY_X) return "shop";
+    if (position.y !== safeAreaCenterY(safeRegion)) return "empty";
+    if (position.x === SAFE_AREA_ENTRY_X) return "blessing";
     if (position.x === SAFE_AREA_HEAL_X) return "heal";
     return "safePortal";
   }
   for (let regionIndex = 0; regionIndex < REGION_COUNT; regionIndex += 1) {
     const centerY = safeAreaCenterY(regionIndex);
-    const inSafeWall =
+    const originalSafeWall =
       position.x >= SAFE_AREA_START_X - 1
       && position.x <= SAFE_AREA_PORTAL_X + 2
       && position.y >= centerY - 1
       && position.y <= centerY + 1;
+    const addedTopBottomWall =
+      position.x >= SAFE_AREA_ENTRY_X - 1
+      && position.x <= SAFE_AREA_PORTAL_X + 1
+      && Math.abs(position.y - centerY) === 2;
+    const inSafeWall = originalSafeWall || addedTopBottomWall;
     if (inSafeWall) return "rock";
   }
   if (
@@ -406,9 +464,9 @@ function isWalkableRoom(type: RoomType) {
   return type !== "rock" && type !== "void";
 }
 
-function visibleMapRoomKeys(center: MapPosition, seed: number) {
+function visibleMapRoomKeys(center: MapPosition, seed: number, verticalRadius = MAP_PLAYER_VISION_VERTICAL_RADIUS) {
   const keys = new Set<string>();
-  for (let offsetY = -MAP_PLAYER_VISION_VERTICAL_RADIUS; offsetY <= MAP_PLAYER_VISION_VERTICAL_RADIUS; offsetY += 1) {
+  for (let offsetY = -verticalRadius; offsetY <= verticalRadius; offsetY += 1) {
     for (let offsetX = -MAP_PLAYER_VISION_HORIZONTAL_RADIUS; offsetX <= MAP_PLAYER_VISION_HORIZONTAL_RADIUS; offsetX += 1) {
       const position = { x: center.x + offsetX, y: center.y + offsetY };
       if (getRoomType(position, seed) !== "void") keys.add(mapRoomKey(position));
@@ -451,9 +509,7 @@ function createPreGeneratedMapFloorDrops(seed: number) {
         cardIndex += 1;
       } else {
         const ticketRoll = seededRoll(position, seed, 7203);
-        const type: ConsumableType = ticketRoll < 1 / 3
-          ? "extractTicket"
-          : ticketRoll < 2 / 3 ? "swiftTicket" : "paintTicket";
+        const type = consumableTypeFromRoll(ticketRoll);
         consumables[roomKey] = [createConsumable(type, `map-ticket-${position.x}-${position.y}`)];
       }
     }
@@ -465,6 +521,7 @@ function buildKnownRoomRoutes(
   start: MapPosition,
   knownRooms: Set<string>,
   seed: number,
+  roomTypeAt: (position: MapPosition) => RoomType = (position) => getRoomType(position, seed),
 ) {
   const startKey = mapRoomKey(start);
   const previous = new Map<string, string | null>([[startKey, null]]);
@@ -475,7 +532,7 @@ function buildKnownRoomRoutes(
       const next = { x: current.x + direction.x, y: current.y + direction.y };
       const nextKey = mapRoomKey(next);
       if (previous.has(nextKey) || !knownRooms.has(nextKey)) continue;
-      if (!isWalkableRoom(getRoomType(next, seed))) continue;
+      if (!isWalkableRoom(roomTypeAt(next))) continue;
       previous.set(nextKey, mapRoomKey(current));
       queue.push(next);
     }
@@ -605,13 +662,17 @@ const DECK_EDITION_INFO: Record<DeckEdition, { name: string; description: string
   lively: { name: "활발한", description: "전투 시작 시 아드레날린 카드를 손에 넣습니다." },
   fantastic: { name: "환상적인", description: "파일을 4장씩 쌓고, 덱 최대 장수가 10% 줄어듭니다." },
   transparent: { name: "투명한", description: "파일 생성 시 첫 번째 파일의 카드를 모두 앞면으로 놓습니다." },
+  golden: { name: "황금의", description: "모든 희귀 카드를 앞면으로 놓습니다." },
+  rampaging: { name: "폭주하는", description: "턴 시작 에너지가 1 증가하고, 덱 최대 장수가 20% 줄어듭니다." },
+  greedy: { name: "탐욕스러운", description: "전투 보상으로 얻는 골드가 3배가 됩니다." },
+  frugal: { name: "알뜰한", description: "턴 종료 시 남은 에너지를 ★로 전환합니다." },
 };
 const EDITION_COLORS = ["#c63f3f", "#ba741d", "#4378c7", "#7650ae", "#21825f", "#bd3f7a"];
 
-function rollDeckEditions(): DeckEdition[] {
+function rollDeckEditions(initialChance = 0.7): DeckEdition[] {
   const remaining = Object.keys(DECK_EDITION_INFO) as DeckEdition[];
   const editions: DeckEdition[] = [];
-  let chance = 0.7;
+  let chance = initialChance;
   while (remaining.length > 0 && Math.random() < chance) {
     const index = Math.floor(Math.random() * remaining.length);
     editions.push(remaining.splice(index, 1)[0]);
@@ -654,10 +715,12 @@ function rollDeckTier(regionNumber: number) {
   return regionNumber;
 }
 
-function createRandomDeck(regionNumber: number, startId: number): DeckCase {
+function createRandomDeck(regionNumber: number, startId: number, editionBonus = 0, capacityBonus = 0): DeckCase {
   const tier = rollDeckTier(regionNumber);
-  const editions = rollDeckEditions();
-  const capacity = Math.round((20 + tier * 5) * (editions.includes("fantastic") ? 0.9 : 1));
+  const editions = rollDeckEditions(Math.min(1, 0.7 + editionBonus));
+  const capacityReduction = (editions.includes("fantastic") ? 0.1 : 0)
+    + (editions.includes("rampaging") ? 0.2 : 0);
+  const capacity = Math.round((20 + tier * 5) * (1 - capacityReduction)) + capacityBonus;
   const cards: Card[] = [];
   let nextId = startId;
   for (let slot = 0; slot < capacity; slot += 1) {
@@ -683,6 +746,30 @@ function createRandomDeck(regionNumber: number, startId: number): DeckCase {
 }
 
 function createConsumable(type: ConsumableType, id: string): Consumable {
+  if (type === "teleportTicket") {
+    return {
+      id,
+      type,
+      name: "순간이동 티켓",
+      description: "주변 9×9 범위의 안전한 무작위 칸으로 이동합니다.",
+    };
+  }
+  if (type === "bombTicket") {
+    return {
+      id,
+      type,
+      name: "폭탄 티켓",
+      description: "점화한 뒤 바닥에 내려놓으면 3번 이동 후 폭발합니다.",
+    };
+  }
+  if (type === "cloneTicket") {
+    return {
+      id,
+      type,
+      name: "복제 티켓",
+      description: "카드나 티켓 하나를 복제합니다.",
+    };
+  }
   return type === "extractTicket"
     ? {
         id,
@@ -709,17 +796,20 @@ function createBattleReward(
   regionNumber: number,
   nextCardId: number,
   deckDropChance: number,
+  ticketBonus = 0,
+  editionBonus = 0,
+  capacityBonus = 0,
 ) {
   const gold = 1 + Math.floor(Math.random() * Math.max(1, regionNumber));
   const decks = Math.random() < deckDropChance
-    ? [createRandomDeck(regionNumber, nextCardId)]
+    ? [createRandomDeck(regionNumber, nextCardId, editionBonus, capacityBonus)]
     : [];
   return {
     gold,
     cards: decks.length > 0 ? [] : [createBattleRewardCard(nextCardId)],
     decks,
-    consumableType: Math.random() < 0.5
-      ? (["extractTicket", "swiftTicket", "paintTicket"] as const)[Math.floor(Math.random() * 3)]
+    consumableType: Math.random() < Math.min(1, 0.5 + ticketBonus)
+      ? consumableTypeFromRoll(Math.random())
       : null,
   };
 }
@@ -738,10 +828,14 @@ function buildPiles(
   cardsPerPile = 5,
   firstPileFaceUp = false,
   extraEmptyPiles = 0,
+  rareCardsFaceUp = false,
 ): Card[][] {
   const piles: Card[][] = [];
   for (let index = 0; index < cards.length; index += cardsPerPile) {
-    const pile = cards.slice(index, index + cardsPerPile).map((card) => ({ ...card, revealed: firstPileFaceUp && index === 0 }));
+    const pile = cards.slice(index, index + cardsPerPile).map((card) => ({
+      ...card,
+      revealed: (firstPileFaceUp && index === 0) || (rareCardsFaceUp && card.rarity === "rare"),
+    }));
     if (pile.length > 0) pile[pile.length - 1].revealed = true;
     piles.push(pile);
   }
@@ -818,11 +912,13 @@ function dealtState(
     deckEditions.includes("fantastic") ? 4 : 5,
     deckEditions.includes("transparent"),
     deckEditions.includes("roomy") ? 1 : 0,
+    deckEditions.includes("golden"),
   );
   return {
     ...waitingState(playerHp, enemies),
     piles: initialPiles,
     hand: deckEditions.includes("lively") ? [createAdrenalineCard()] : [],
+    energy: deckEditions.includes("rampaging") ? 4 : 3,
     stars: deckEditions.includes("clever") ? 4 : 2,
     deckEditions,
     message: "파일 배치 완료 — 맨 위 카드를 가져옵니다.",
@@ -884,6 +980,7 @@ function CardFace({ card }: { card: Card }) {
 export default function Home() {
   const [screen, setScreen] = useState<Screen>("map");
   const [runPlayerHp, setRunPlayerHp] = useState(MAX_PLAYER_HP);
+  const runPlayerHpRef = useRef(MAX_PLAYER_HP);
   const [mapSeed, setMapSeed] = useState(1);
   const [mapPosition, setMapPosition] = useState<MapPosition>(MAP_START);
   const [seenRooms, setSeenRooms] = useState<Set<string>>(
@@ -892,6 +989,12 @@ export default function Home() {
   const [mapEnemyWorld, setMapEnemyWorld] = useState<MapEnemyWorld>(() => ({
     enemies: [],
   }));
+  const [mapBombs, setMapBombs] = useState<MapBomb[]>([]);
+  const mapBombsRef = useRef<MapBomb[]>([]);
+  const [destroyedShopRooms, setDestroyedShopRooms] = useState<Set<string>>(() => new Set());
+  const [usedHealRooms, setUsedHealRooms] = useState<Set<string>>(() => new Set());
+  const [usedBlessingRooms, setUsedBlessingRooms] = useState<Set<string>>(() => new Set());
+  const [rockBombHits, setRockBombHits] = useState<Record<string, number>>({});
   const [activeMapEnemyIds, setActiveMapEnemyIds] = useState<string[]>([]);
   const [activeBattleRoom, setActiveBattleRoom] = useState<string | null>(null);
   const [mapPan, setMapPan] = useState({ x: 0, y: 0 });
@@ -901,17 +1004,27 @@ export default function Home() {
   const [mapCollisionEnemyIds, setMapCollisionEnemyIds] = useState<string[]>([]);
   const [mapBattleFlash, setMapBattleFlash] = useState(false);
   const [debugMode, setDebugMode] = useState(false);
+  const [debugPasswordOpen, setDebugPasswordOpen] = useState(false);
+  const [debugPassword, setDebugPassword] = useState("");
+  const [debugSpawnSelection, setDebugSpawnSelection] = useState("card:basic:0");
   const [mapMessage, setMapMessage] = useState("");
   const [mapMessageNonce, setMapMessageNonce] = useState(0);
   const [ownedDecks, setOwnedDecks] = useState<DeckCase[]>(() => [createStarterDeck()]);
   const [activeDeckId, setActiveDeckId] = useState("starter");
   const [inventoryCards, setInventoryCards] = useState<Card[]>([]);
   const [inventoryConsumables, setInventoryConsumables] = useState<Consumable[]>([]);
+  const inventoryConsumablesRef = useRef<Consumable[]>([]);
   const [roomDrops, setRoomDrops] = useState<Record<string, Card[]>>({});
   const [roomConsumableDrops, setRoomConsumableDrops] = useState<Record<string, Consumable[]>>({});
   const [roomDeckDrops, setRoomDeckDrops] = useState<Record<string, DeckCase[]>>({});
   const [roomShops, setRoomShops] = useState<Record<string, ShopOffer[]>>({});
   const [shopOpen, setShopOpen] = useState(false);
+  const [blessingOpen, setBlessingOpen] = useState(false);
+  const [blessingOffers, setBlessingOffers] = useState<BlessingId[]>([]);
+  const [blessings, setBlessings] = useState<BlessingId[]>([]);
+  const [blessingRerollCost, setBlessingRerollCost] = useState(50);
+  const [athleteCooldown, setAthleteCooldown] = useState(0);
+  const [athletePrepared, setAthletePrepared] = useState(false);
   const [activeShopRoom, setActiveShopRoom] = useState<string | null>(null);
   const [shopMessage, setShopMessage] = useState("필요한 물건을 골라보세요.");
   const [gold, setGold] = useState(0);
@@ -930,6 +1043,8 @@ export default function Home() {
   const consumableDragRef = useRef<{ id: string; source: ConsumableArea } | null>(null);
   const [pendingExtractionTicketId, setPendingExtractionTicketId] = useState<string | null>(null);
   const [pendingPaintTicketId, setPendingPaintTicketId] = useState<string | null>(null);
+  const [pendingCloneTicketId, setPendingCloneTicketId] = useState<string | null>(null);
+  const [armedBombTicketIds, setArmedBombTicketIds] = useState<Set<string>>(() => new Set());
   const [deckCaseDrag, setDeckCaseDrag] = useState<{ deckId: string; source: "floor" | "owned" } | null>(null);
   const deckCaseDragRef = useRef<{ deckId: string; source: "floor" | "owned" } | null>(null);
   const [deckCaseDropSlot, setDeckCaseDropSlot] = useState<number | null>(null);
@@ -949,18 +1064,45 @@ export default function Home() {
   const deckDropChanceRef = useRef(0.25);
   const activeDeck = ownedDecks[0];
   const deckCards = activeDeck?.cards ?? [];
+  const inventoryCapacity = INVENTORY_CAPACITY + (blessings.includes("bag") ? 12 : 0);
+  const maxOwnedDecks = MAX_OWNED_DECKS + (blessings.includes("bag") ? 1 : 0);
+  const maxPlayerHp = MAX_PLAYER_HP + (blessings.includes("sturdy") ? 20 : 0);
+  const visionVerticalRadius = blessings.includes("vision") ? 2 : MAP_PLAYER_VISION_VERTICAL_RADIUS;
   const editingDeck = ownedDecks.find((deck) => deck.id === deckEditorDeckId) ?? activeDeck;
   const editingDeckCards = editingDeck?.cards ?? [];
+  useEffect(() => {
+    inventoryConsumablesRef.current = inventoryConsumables;
+  }, [inventoryConsumables]);
   const showMapMessage = (message: string) => {
     setMapMessage(message);
     setMapMessageNonce((current) => current + 1);
+  };
+  const setMapBombsSynced = (bombs: MapBomb[]) => {
+    mapBombsRef.current = bombs;
+    setMapBombs(bombs);
+  };
+  const effectiveRoomType = (position: MapPosition) => {
+    const baseType = getRoomType(position, mapSeed);
+    const roomKey = mapRoomKey(position);
+    if (baseType === "shop" && destroyedShopRooms.has(roomKey)) return "empty";
+    if (baseType === "heal" && usedHealRooms.has(roomKey)) return "empty";
+    if (baseType === "blessing" && usedBlessingRooms.has(roomKey)) return "empty";
+    if (baseType === "rock" && (rockBombHits[roomKey] ?? 0) >= 3) return "empty";
+    return baseType;
   };
   const toggleDebugMode = () => {
     if (debugMode) {
       setDebugMode(false);
       return;
     }
-    if (window.prompt("디버그 비밀번호") === "6384") setDebugMode(true);
+    setDebugPassword("");
+    setDebugPasswordOpen(true);
+  };
+  const submitDebugPassword = () => {
+    if (debugPassword === "6384") {
+      setDebugMode(true);
+      setDebugPasswordOpen(false);
+    }
   };
   const updateActiveDeckCards = (updater: Card[] | ((cards: Card[]) => Card[])) => {
     setOwnedDecks((current) => current.map((deck) => {
@@ -976,6 +1118,49 @@ export default function Home() {
     nextConsumableIdRef.current += 1;
     return createConsumable(type, id);
   };
+  const spawnDebugItemOnFloor = () => {
+    if (!debugMode) return;
+    const roomKey = mapRoomKey(mapPosition);
+
+    if (debugSpawnSelection === "deck:random") {
+      const deck = createRandomDeck(getRegionNumber(mapPosition), nextCardIdRef.current, blessings.includes("luck") ? .1 : 0, blessings.includes("deckSize") ? 5 : 0);
+      nextCardIdRef.current += deck.cards.length;
+      setRoomDeckDrops((current) => ({
+        ...current,
+        [roomKey]: [...(current[roomKey] ?? []), deck],
+      }));
+      return;
+    }
+
+    if (debugSpawnSelection.startsWith("consumable:")) {
+      const type = debugSpawnSelection.slice("consumable:".length) as ConsumableType;
+      if (!CONSUMABLE_TYPES.includes(type)) return;
+      const consumable = nextConsumable(type);
+      setRoomConsumableDrops((current) => ({
+        ...current,
+        [roomKey]: [...(current[roomKey] ?? []), consumable],
+      }));
+      return;
+    }
+
+    const [, rarity, rawIndex] = debugSpawnSelection.split(":");
+    let blueprint: CardBlueprint | undefined;
+    if (rarity === "basic") blueprint = BASIC_CARD_POOL[Number(rawIndex)];
+    if (rarity === "special") blueprint = SPECIAL_CARD_POOL[Number(rawIndex)];
+    if (rarity === "rare") blueprint = RARE_CARD_POOL[Number(rawIndex)];
+
+    const card = rarity === "adrenaline"
+      ? { ...createAdrenalineCard(), id: nextCardIdRef.current, revealed: false }
+      : blueprint
+        ? { ...blueprint, id: nextCardIdRef.current, revealed: false }
+        : null;
+    if (!card) return;
+    nextCardIdRef.current += 1;
+    setRoomDrops((current) => ({
+      ...current,
+      [roomKey]: [...(current[roomKey] ?? []), card],
+    }));
+  };
   const updateEditingDeckCards = (updater: Card[] | ((cards: Card[]) => Card[])) => {
     setOwnedDecks((current) => current.map((deck) => {
       if (deck.id !== editingDeck?.id) return deck;
@@ -984,13 +1169,13 @@ export default function Home() {
     }));
   };
   const grantBattleReward = (regionNumber: number) => {
-    const reward = createBattleReward(regionNumber, nextCardIdRef.current, deckDropChanceRef.current);
+    const reward = createBattleReward(regionNumber, nextCardIdRef.current, Math.min(1, deckDropChanceRef.current + (blessings.includes("luck") ? .1 : 0)), blessings.includes("luck") ? .1 : 0, blessings.includes("luck") ? .1 : 0, blessings.includes("deckSize") ? 5 : 0);
     const generatedCardCount = reward.cards.length + reward.decks.reduce((total, deck) => total + deck.cards.length, 0);
     nextCardIdRef.current += generatedCardCount;
     deckDropChanceRef.current = reward.decks.length > 0
       ? 0.25
       : Math.min(1, deckDropChanceRef.current + 0.1);
-    setBattleRewardGold(reward.gold);
+    setBattleRewardGold(reward.gold * (activeDeck?.editions.includes("greedy") ? 3 : 1) * (blessings.includes("greed") ? 2 : 1));
     setBattleRewards(reward.cards);
     setBattleRewardDecks(reward.decks);
     setBattleRewardConsumables(reward.consumableType ? [nextConsumable(reward.consumableType)] : []);
@@ -1011,13 +1196,19 @@ export default function Home() {
     };
     const consumables = Array.from({ length: 2 }, (_, slot) => {
       const ticketRoll = Math.random();
-      const type: ConsumableType = ticketRoll < 1 / 3
-        ? "extractTicket"
-        : ticketRoll < 2 / 3 ? "swiftTicket" : "paintTicket";
+      const type = consumableTypeFromRoll(ticketRoll);
       const consumable = nextConsumable(type);
       return {
         id: `shop-item-${depth}-${slot}-${consumable.id}`,
-        price: type === "extractTicket" ? 5 : type === "paintTicket" ? 4 : 3,
+        price: type === "cloneTicket"
+          ? 9
+          : type === "bombTicket"
+            ? 7
+            : type === "teleportTicket"
+              ? 6
+              : type === "extractTicket"
+                ? 5
+                : type === "paintTicket" ? 4 : 3,
         consumable,
         sold: false,
       };
@@ -1101,7 +1292,7 @@ export default function Home() {
         ...current,
         piles: draw.piles,
         hand: [...current.hand, ...draw.hand],
-        energy: 3,
+        energy: current.deckEditions.includes("rampaging") ? 4 : 3,
         pendingDraws: 0,
         pendingDiscards: 0,
         pendingSweep: false,
@@ -1132,12 +1323,12 @@ export default function Home() {
   };
 
   const rememberPlayerVision = (position: MapPosition, seed = mapSeed) => {
-    const visibleKeys = visibleMapRoomKeys(position, seed);
+    const visibleKeys = visibleMapRoomKeys(position, seed, visionVerticalRadius);
     setSeenRooms((current) => new Set([...current, ...visibleKeys]));
   };
 
   const startBattle = (
-    encounterIndexes: number[],
+    encounters: { encounterIndex: number; damageTaken?: number; awareness?: "sleeping" | "awake" | "alerted" }[],
     playerHp = runPlayerHp,
   ) => {
     clearBattleTimers();
@@ -1152,15 +1343,28 @@ export default function Home() {
     setBattleRewardDecks([]);
     setBattleRewardConsumables([]);
     setBattleRewardGold(0);
-    setPhase("drawing");
-    setGame(dealtState(
+    const battleEnemies = encounters.flatMap((encounter) =>
+      createSewerEncounterByIndex(encounter.encounterIndex).map((enemy) => ({
+        ...enemy,
+        hp: Math.max(0, enemy.hp - (encounter.damageTaken ?? 0)),
+      })));
+    const dealtGame = dealtState(
       playerHp,
       deckCards,
-      encounterIndexes.flatMap((encounterIndex) => createSewerEncounterByIndex(encounterIndex)),
+      battleEnemies,
       activeDeck?.editions ?? [],
-    ));
+    );
+    const nextGame = blessings.includes("ninja") && encounters.some((encounter) => encounter.awareness === "sleeping")
+      ? { ...dealtGame, hand: [...dealtGame.hand, { ...createAdrenalineCard(), id: nextCardIdRef.current++ }] }
+      : dealtGame;
+    const defeatedByBomb = battleEnemies.every((enemy) => enemy.hp === 0);
+    setPhase(defeatedByBomb ? "playing" : "drawing");
+    setGame(defeatedByBomb
+      ? { ...nextGame, status: "won", message: "폭발 피해로 모든 적이 쓰러졌습니다." }
+      : nextGame);
     setScreen("battle");
-    later(drawCards, 360);
+    if (defeatedByBomb) grantBattleReward(getRegionNumber(mapPosition));
+    else later(drawCards, 360);
   };
 
   useEffect(() => {
@@ -1206,14 +1410,123 @@ export default function Home() {
   };
 
   const activateRoomFeature = (position: MapPosition) => {
-    const roomType = getRoomType(position, mapSeed);
-    if (roomType === "heal") {
-      setRunPlayerHp(MAX_PLAYER_HP);
+    void position;
+  };
+
+  const rollBlessingOffers = (owned = blessings) => {
+    const available = (Object.keys(BLESSING_INFO) as BlessingId[]).filter((id) => !owned.includes(id));
+    return [...available].sort(() => Math.random() - .5).slice(0, 3);
+  };
+  const openBlessings = () => {
+    setBlessingOffers((current) => current.length > 0 ? current : rollBlessingOffers());
+    setBlessingOpen(true);
+  };
+  const chooseBlessing = (blessing: BlessingId) => {
+    if (!blessingOffers.includes(blessing) || blessings.includes(blessing)) return;
+    setBlessings((current) => [...current, blessing]);
+    if (blessing === "sturdy") {
+      runPlayerHpRef.current += 20;
+      setRunPlayerHp((current) => current + 20);
     }
+    if (blessing === "vision") {
+      setSeenRooms((current) => new Set([...current, ...visibleMapRoomKeys(mapPosition, mapSeed, 2)]));
+    }
+    if (blessing === "deckSize") setOwnedDecks((current) => current.map((deck) => ({ ...deck, capacity: deck.capacity + 5 })));
+    setUsedBlessingRooms((current) => new Set(current).add(mapRoomKey(mapPosition)));
+    setBlessingOffers([]);
+    setBlessingOpen(false);
+  };
+  const rerollBlessings = () => {
+    if (gold < blessingRerollCost) return;
+    setGold((current) => current - blessingRerollCost);
+    setBlessingRerollCost((current) => current + 10);
+    setBlessingOffers(rollBlessingOffers());
+  };
+  const activateAthlete = () => {
+    if (!blessings.includes("athlete") || athleteCooldown > 0) return;
+    setAthletePrepared((current) => !current);
+  };
+
+  const advanceBombsAfterMovement = (
+    playerPosition: MapPosition,
+    world: MapEnemyWorld,
+  ) => {
+    const bombStep = advanceBombs(mapBombsRef.current);
+    setMapBombsSynced(bombStep.bombs);
+    const carriedBombExplosions: MapBomb[] = [];
+    const nextInventoryConsumables = inventoryConsumablesRef.current.flatMap((consumable) => {
+      if (consumable.type !== "bombTicket" || consumable.armedMovesRemaining === undefined) {
+        return [consumable];
+      }
+      if (consumable.armedMovesRemaining <= 1) {
+        carriedBombExplosions.push({
+          id: `carried-bomb-${consumable.id}`,
+          position: { ...playerPosition },
+          movesRemaining: 0,
+        });
+        return [];
+      }
+      return [{ ...consumable, armedMovesRemaining: consumable.armedMovesRemaining - 1 }];
+    });
+    if (carriedBombExplosions.length > 0 || nextInventoryConsumables.some((item, index) =>
+      item !== inventoryConsumablesRef.current[index])) {
+      inventoryConsumablesRef.current = nextInventoryConsumables;
+      setInventoryConsumables(nextInventoryConsumables);
+    }
+    const explosions = [...bombStep.explosions, ...carriedBombExplosions];
+    if (explosions.length === 0) {
+      return { world, playerDefeated: false };
+    }
+
+    const affectedPositions = explosions.flatMap((bomb) =>
+      positionsInSquare(bomb.position, 1));
+    setDestroyedShopRooms((current) => {
+      const next = new Set(current);
+      affectedPositions.forEach((position) => {
+        if (getRoomType(position, mapSeed) === "shop") next.add(mapRoomKey(position));
+      });
+      return next;
+    });
+    setRockBombHits((current) => {
+      const next = { ...current };
+      affectedPositions.forEach((position) => {
+        if (getRoomType(position, mapSeed) !== "rock") return;
+        const roomKey = mapRoomKey(position);
+        next[roomKey] = Math.min(3, (next[roomKey] ?? 0) + 1);
+      });
+      return next;
+    });
+
+    const playerHitCount = explosions.filter((bomb) =>
+      chebyshevDistance(bomb.position, playerPosition) <= 1).length;
+    let playerDefeated = false;
+    if (playerHitCount > 0) {
+      const nextHp = Math.max(0, runPlayerHpRef.current - 20 * playerHitCount);
+      runPlayerHpRef.current = nextHp;
+      setRunPlayerHp(nextHp);
+      playerDefeated = nextHp === 0;
+      if (playerDefeated) {
+        clearMapTravel();
+        setGame({
+          ...waitingState(0, []),
+          status: "lost",
+          message: "폭탄에 휘말려 쓰러졌습니다.",
+        });
+        setPhase("playing");
+        setScreen("battle");
+      }
+    }
+    return {
+      world: {
+        ...world,
+        enemies: applyBombDamage(world.enemies, explosions),
+      },
+      playerDefeated,
+    };
   };
 
   const useCurrentPortal = () => {
-    const roomType = getRoomType(mapPosition, mapSeed);
+    const roomType = effectiveRoomType(mapPosition);
     if (roomType === "portal") {
       const regionIndex = getDungeonRegionIndex(mapPosition);
       if (regionIndex === null) return;
@@ -1238,6 +1551,7 @@ export default function Home() {
     nextPosition: MapPosition,
     world: MapEnemyWorld,
   ) => {
+    if (athleteCooldown > 0) setAthleteCooldown((current) => Math.max(0, current - 1));
     const roomKey = mapRoomKey(nextPosition);
     // A player stepping onto an enemy still starts a battle, but never cancels
     // the rest of the enemy phase.  Remember that contact before everyone acts.
@@ -1249,9 +1563,10 @@ export default function Home() {
       world.enemies,
       currentPosition,
       nextPosition,
-      (position) => isWalkableRoom(getRoomType(position, mapSeed)),
+      (position) => isWalkableRoom(effectiveRoomType(position)),
       Math.random,
       playerCollisionIds,
+      blessings.includes("lightStep") ? 0.5 : 1,
     );
     const nextWorld = {
       ...world,
@@ -1266,13 +1581,27 @@ export default function Home() {
     return { world: nextWorld, collisionEnemies };
   };
 
-  const beginMapEnemyBattle = (enemies: { id: string; encounterIndex: number }[], roomKey: string) => {
+  const beginMapEnemyBattle = (
+    enemies: { id: string; encounterIndex: number; damageTaken?: number; awareness?: "sleeping" | "awake" | "alerted" }[],
+    roomKey: string,
+  ) => {
     setActiveMapEnemyIds(enemies.map((enemy) => enemy.id));
     setActiveBattleRoom(roomKey);
-    startBattle(enemies.map((enemy) => enemy.encounterIndex), runPlayerHp);
+    startBattle(enemies, runPlayerHpRef.current);
   };
 
-  const animateMapCollision = (enemies: { id: string; encounterIndex: number }[], roomKey: string) => {
+  const useCurrentHeal = () => {
+    if (effectiveRoomType(mapPosition) !== "heal") return;
+    const roomKey = mapRoomKey(mapPosition);
+    runPlayerHpRef.current = maxPlayerHp;
+    setRunPlayerHp(maxPlayerHp);
+    setUsedHealRooms((current) => new Set(current).add(roomKey));
+  };
+
+  const animateMapCollision = (
+    enemies: { id: string; encounterIndex: number; damageTaken?: number }[],
+    roomKey: string,
+  ) => {
     setMapCollisionEnemyIds(enemies.map((enemy) => enemy.id));
     setMapTraveling(true);
     mapTravelTimerRef.current = window.setTimeout(() => {
@@ -1293,14 +1622,29 @@ export default function Home() {
       x: mapPosition.x + deltaX,
       y: mapPosition.y + deltaY,
     };
-    if (!isWalkableRoom(getRoomType(nextPosition, mapSeed))) return;
+    if (!isWalkableRoom(effectiveRoomType(nextPosition))) return;
+    if (athletePrepared) {
+      const bombResult = advanceBombsAfterMovement(nextPosition, mapEnemyWorld);
+      setMapPosition(nextPosition);
+      rememberPlayerVision(nextPosition);
+      setMapEnemyWorld(bombResult.world);
+      setAthleteCooldown(30);
+      setAthletePrepared(false);
+      if (!bombResult.playerDefeated) activateRoomFeature(nextPosition);
+      return;
+    }
     const roomKey = mapRoomKey(nextPosition);
     const result = resolveMapStep(mapPosition, nextPosition, mapEnemyWorld);
+    const bombResult = advanceBombsAfterMovement(nextPosition, result.world);
+    const bombWorld = bombResult.world;
+    const collisionIds = new Set(result.collisionEnemies.map((enemy) => enemy.id));
+    const collisionEnemies = bombWorld.enemies.filter((enemy) => collisionIds.has(enemy.id));
     setMapPosition(nextPosition);
     rememberPlayerVision(nextPosition);
-    setMapEnemyWorld(result.world);
-    if (result.collisionEnemies.length > 0) {
-      animateMapCollision(result.collisionEnemies, roomKey);
+    setMapEnemyWorld(bombWorld);
+    if (bombResult.playerDefeated) return;
+    if (collisionEnemies.length > 0) {
+      animateMapCollision(collisionEnemies, roomKey);
       return;
     }
     activateRoomFeature(nextPosition);
@@ -1323,8 +1667,17 @@ export default function Home() {
 
   const travelSafePath = (path: MapPosition[]) => {
     if (screen !== "map" || mapTraveling || path.length < 2) return;
+    if (debugMode) {
+      const destination = path.at(-1)!;
+      clearMapTravel();
+      setMapPosition(destination);
+      rememberPlayerVision(destination);
+      focusMapOn(destination);
+      activateRoomFeature(destination);
+      return;
+    }
     if (mapEnemyWorld.enemies.some((enemy) =>
-      isInPlayerVision(enemy.position, mapPosition))) {
+      isInPlayerVision(enemy.position, mapPosition, MAP_PLAYER_VISION_HORIZONTAL_RADIUS, visionVerticalRadius))) {
       showMapMessage("적이 시야 안에 있습니다! (빠른 이동 불가)");
       return;
     }
@@ -1339,19 +1692,28 @@ export default function Home() {
       const nextPosition = path[stepIndex];
       const roomKey = mapRoomKey(nextPosition);
       const result = resolveMapStep(currentPosition, nextPosition, currentWorld);
+      const bombResult = advanceBombsAfterMovement(nextPosition, result.world);
+      const bombWorld = bombResult.world;
+      const collisionIds = new Set(result.collisionEnemies.map((enemy) => enemy.id));
+      const collisionEnemies = bombWorld.enemies.filter((enemy) => collisionIds.has(enemy.id));
       currentPosition = nextPosition;
-      currentWorld = result.world;
+      currentWorld = bombWorld;
       setMapPosition(nextPosition);
       rememberPlayerVision(nextPosition);
-      setMapEnemyWorld(result.world);
-
-      if (result.collisionEnemies.length > 0) {
+      setMapEnemyWorld(bombWorld);
+      if (bombResult.playerDefeated) {
         mapTravelTimerRef.current = null;
-        animateMapCollision(result.collisionEnemies, roomKey);
+        setMapTraveling(false);
         return;
       }
-      if (result.world.enemies.some((enemy) =>
-        isInPlayerVision(enemy.position, nextPosition))) {
+
+      if (collisionEnemies.length > 0) {
+        mapTravelTimerRef.current = null;
+        animateMapCollision(collisionEnemies, roomKey);
+        return;
+      }
+      if (bombWorld.enemies.some((enemy) =>
+        isInPlayerVision(enemy.position, nextPosition, MAP_PLAYER_VISION_HORIZONTAL_RADIUS, visionVerticalRadius))) {
         mapTravelTimerRef.current = null;
         setMapTraveling(false);
         showMapMessage("적을 발견해 빠른 이동이 중지 되었습니다.");
@@ -1394,8 +1756,8 @@ export default function Home() {
         [battleRoom]: [...(current[battleRoom] ?? []), ...battleRewardConsumables],
       }));
     }
-    const roomType = getRoomType(mapPosition, mapSeed);
-    setRunPlayerHp(roomType === "heal" ? MAX_PLAYER_HP : game.playerHp);
+    runPlayerHpRef.current = game.playerHp;
+    setRunPlayerHp(game.playerHp);
     setBattleRewards([]);
     setBattleRewardDecks([]);
     setBattleRewardConsumables([]);
@@ -1410,12 +1772,18 @@ export default function Home() {
     clearMapTravel();
     const nextSeed = createRandomMapSeed();
     const starterDeck = createStarterDeck();
+    runPlayerHpRef.current = MAX_PLAYER_HP;
     setRunPlayerHp(MAX_PLAYER_HP);
     setMapSeed(nextSeed);
     setMapPosition(MAP_START);
     setMapMessage("");
     setSeenRooms(visibleMapRoomKeys(MAP_START, nextSeed));
     setMapEnemyWorld(createPreGeneratedMapEnemyWorld(nextSeed));
+    setMapBombsSynced([]);
+    setDestroyedShopRooms(new Set());
+    setUsedHealRooms(new Set());
+    setUsedBlessingRooms(new Set());
+    setRockBombHits({});
     setActiveMapEnemyIds([]);
     setActiveBattleRoom(null);
     setOwnedDecks([starterDeck]);
@@ -1428,6 +1796,12 @@ export default function Home() {
     setRoomDeckDrops({});
     setRoomShops({});
     setShopOpen(false);
+    setBlessingOpen(false);
+    setBlessingOffers([]);
+    setBlessings([]);
+    setBlessingRerollCost(50);
+    setAthleteCooldown(0);
+    setAthletePrepared(false);
     setActiveShopRoom(null);
     setGold(0);
     setBattleRewards([]);
@@ -1441,6 +1815,9 @@ export default function Home() {
     setPendingRemovedCards([]);
     setHoveredDeckCard(null);
     setPendingExtractionTicketId(null);
+    setPendingPaintTicketId(null);
+    setPendingCloneTicketId(null);
+    setArmedBombTicketIds(new Set());
     nextCardIdRef.current = STARTING_DECK_SIZE;
     nextConsumableIdRef.current = 1;
     setGame(waitingState());
@@ -1553,6 +1930,10 @@ export default function Home() {
   };
 
   const moveFloorCardToInventory = (cardId: number) => {
+    if (inventoryItemCount >= inventoryCapacity) {
+      showMapMessage("인벤토리가 가득찼습니다!");
+      return;
+    }
     const roomKey = mapRoomKey(mapPosition);
     const card = (roomDrops[roomKey] ?? []).find((item) => item.id === cardId);
     if (!card) return;
@@ -1581,6 +1962,10 @@ export default function Home() {
   };
 
   const moveFloorConsumableToInventory = (consumableId: string) => {
+    if (inventoryItemCount >= inventoryCapacity) {
+      showMapMessage("인벤토리가 가득찼습니다!");
+      return;
+    }
     const roomKey = mapRoomKey(mapPosition);
     const consumable = (roomConsumableDrops[roomKey] ?? []).find((item) => item.id === consumableId);
     if (!consumable) return;
@@ -1588,20 +1973,38 @@ export default function Home() {
       ...current,
       [roomKey]: (current[roomKey] ?? []).filter((item) => item.id !== consumableId),
     }));
-    setInventoryConsumables((current) => [...current, consumable]);
+    setInventoryConsumables((current) => {
+      const next = current.some((item) => item.id === consumable.id)
+        ? current
+        : [...current, consumable];
+      inventoryConsumablesRef.current = next;
+      return next;
+    });
     setDeckEditorMessage(`${consumable.name}을(를) 인벤토리에 주웠습니다.`);
   };
 
   const moveInventoryConsumableToFloor = (consumableId: string) => {
-    const consumable = inventoryConsumables.find((item) => item.id === consumableId);
+    const consumable = inventoryConsumablesRef.current.find((item) => item.id === consumableId)
+      ?? inventoryConsumables.find((item) => item.id === consumableId);
     if (!consumable) return;
     const roomKey = mapRoomKey(mapPosition);
-    setInventoryConsumables((current) => current.filter((item) => item.id !== consumableId));
+    setInventoryConsumables((current) => {
+      const next = current.filter((item) => item.id !== consumableId);
+      inventoryConsumablesRef.current = next;
+      return next;
+    });
     setRoomConsumableDrops((current) => ({
       ...current,
       [roomKey]: [...(current[roomKey] ?? []), consumable],
     }));
     if (pendingExtractionTicketId === consumableId) setPendingExtractionTicketId(null);
+    if (pendingPaintTicketId === consumableId) setPendingPaintTicketId(null);
+    if (pendingCloneTicketId === consumableId) setPendingCloneTicketId(null);
+    setArmedBombTicketIds((current) => {
+      const next = new Set(current);
+      next.delete(consumableId);
+      return next;
+    });
     setDeckEditorMessage(`${consumable.name}을(를) 바닥에 놓았습니다.`);
   };
 
@@ -1622,6 +2025,19 @@ export default function Home() {
     setConsumableDrag(null);
   };
 
+  const closeDeckEditorAfterMapTicket = () => {
+    setDeckEditorSnapshot(null);
+    setPendingRemovedCards([]);
+    setHoveredDeckCard(null);
+    setPendingExtractionTicketId(null);
+    setPendingPaintTicketId(null);
+    setPendingCloneTicketId(null);
+    setArmedBombTicketIds(new Set());
+    finishConsumableDrag();
+    finishDeckEditorDrag();
+    setDeckEditorOpen(false);
+  };
+
   const dropConsumable = (event: ReactDragEvent<HTMLElement>, target: ConsumableArea) => {
     const drag = consumableDragRef.current ?? consumableDrag;
     if (!drag || drag.source === target) return;
@@ -1632,10 +2048,128 @@ export default function Home() {
     finishConsumableDrag();
   };
 
+  const consumeTeleportTicket = (consumableId: string) => {
+    const ticket = inventoryConsumables.find((item) =>
+      item.id === consumableId && item.type === "teleportTicket");
+    if (!ticket) return;
+    const candidates = positionsInSquare(mapPosition, 4).filter((position) => {
+      if (chebyshevDistance(position, mapPosition) <= 2) return false;
+      const roomType = effectiveRoomType(position);
+      return roomType !== "rock"
+        && isWalkableRoom(roomType)
+        && !mapEnemyWorld.enemies.some((enemy) => mapRoomKey(enemy.position) === mapRoomKey(position));
+    });
+    if (candidates.length === 0) {
+      setDeckEditorMessage("순간이동할 수 있는 안전한 칸이 없습니다.");
+      return;
+    }
+    const destination = candidates[Math.floor(Math.random() * candidates.length)];
+    setInventoryConsumables((current) => current.filter((item) => item.id !== consumableId));
+    closeDeckEditorAfterMapTicket();
+    const bombResult = advanceBombsAfterMovement(destination, mapEnemyWorld);
+    setMapEnemyWorld(bombResult.world);
+    setMapPosition(destination);
+    rememberPlayerVision(destination);
+    focusMapOn(destination);
+    if (!bombResult.playerDefeated) {
+      activateRoomFeature(destination);
+    }
+  };
+
+  const installArmedFloorBombs = () => {
+    const roomKey = mapRoomKey(mapPosition);
+    const armedBombs = (roomConsumableDrops[roomKey] ?? []).filter((item) =>
+      item.type === "bombTicket" && item.armedMovesRemaining !== undefined);
+    if (armedBombs.length === 0) return;
+    setRoomConsumableDrops((current) => ({
+      ...current,
+      [roomKey]: (current[roomKey] ?? []).filter((item) => !armedBombs.some((bomb) => bomb.id === item.id)),
+    }));
+    setMapBombsSynced([
+      ...mapBombsRef.current,
+      ...armedBombs.map((bomb) => ({
+        id: `bomb-${bomb.id}`,
+        position: { ...mapPosition },
+        movesRemaining: bomb.armedMovesRemaining!,
+      })),
+    ]);
+  };
+
+  const cloneCardWithTicket = (card: Card) => {
+    if (!pendingCloneTicketId) return;
+    const ticket = inventoryConsumables.find((item) =>
+      item.id === pendingCloneTicketId && item.type === "cloneTicket");
+    if (!ticket) return;
+    const clone = { ...card, id: nextCardIdRef.current, revealed: false };
+    nextCardIdRef.current += 1;
+    setInventoryConsumables((current) =>
+      current.filter((item) => item.id !== pendingCloneTicketId));
+    setInventoryCards((current) => [...current, clone]);
+    setPendingCloneTicketId(null);
+    setDeckEditorMessage(`${card.name}을(를) 복제했습니다.`);
+  };
+
+  const cloneConsumableWithTicket = (targetId: string) => {
+    if (!pendingCloneTicketId) return;
+    const sourceTicket = inventoryConsumables.find((item) =>
+      item.id === pendingCloneTicketId && item.type === "cloneTicket");
+    const target = inventoryConsumables.find((item) => item.id === targetId);
+    if (!sourceTicket || !target) return;
+    const clone = nextConsumable(target.type);
+    setInventoryConsumables((current) => [
+      ...current.filter((item) => item.id !== pendingCloneTicketId),
+      clone,
+    ]);
+    setPendingCloneTicketId(null);
+    setDeckEditorMessage(`${target.name}을(를) 복제했습니다.`);
+  };
+
   const selectExtractionTicket = (consumable: Consumable) => {
+    if (pendingCloneTicketId && consumable.id !== pendingCloneTicketId) {
+      cloneConsumableWithTicket(consumable.id);
+      return;
+    }
+    if (consumable.type === "teleportTicket") {
+      consumeTeleportTicket(consumable.id);
+      return;
+    }
+    if (consumable.type === "bombTicket") {
+      const cancelling = consumable.armedMovesRemaining !== undefined;
+      setArmedBombTicketIds((current) => {
+        const next = new Set(current);
+        if (cancelling) next.delete(consumable.id);
+        else next.add(consumable.id);
+        return next;
+      });
+      setInventoryConsumables((current) => {
+        const next = current.map((item) => item.id === consumable.id
+          ? { ...item, armedMovesRemaining: cancelling ? undefined : 3 }
+          : item);
+        inventoryConsumablesRef.current = next;
+        return next;
+      });
+      setPendingExtractionTicketId(null);
+      setPendingPaintTicketId(null);
+      setPendingCloneTicketId(null);
+      setDeckEditorMessage(cancelling
+        ? "폭탄 점화를 취소했습니다."
+        : "폭탄을 점화했습니다. 바닥에 내려놓고 편집을 확인하면 설치됩니다.");
+      return;
+    }
+    if (consumable.type === "cloneTicket") {
+      setArmedBombTicketIds(new Set());
+      const cancelling = pendingCloneTicketId === consumable.id;
+      setPendingCloneTicketId(cancelling ? null : consumable.id);
+      setPendingExtractionTicketId(null);
+      setPendingPaintTicketId(null);
+      setDeckEditorMessage(cancelling ? "복제를 취소했습니다." : "복제할 카드나 티켓을 클릭하세요.");
+      return;
+    }
     if (consumable.type === "paintTicket") {
+      setArmedBombTicketIds(new Set());
       setPendingPaintTicketId((current) => current === consumable.id ? null : consumable.id);
       setPendingExtractionTicketId(null);
+      setPendingCloneTicketId(null);
       setDeckEditorMessage(
         pendingPaintTicketId === consumable.id ? "색칠을 취소했습니다." : "색칠할 덱 카드 1장을 클릭하세요.",
       );
@@ -1646,7 +2180,9 @@ export default function Home() {
       return;
     }
     setPendingExtractionTicketId((current) => current === consumable.id ? null : consumable.id);
+    setArmedBombTicketIds(new Set());
     setPendingPaintTicketId(null);
+    setPendingCloneTicketId(null);
     setDeckEditorMessage(
       pendingExtractionTicketId === consumable.id
         ? "추출을 취소했습니다."
@@ -1693,7 +2229,7 @@ export default function Home() {
   };
 
   const pickUpFloorDeck = (deckId: string) => {
-    if (ownedDecks.length >= MAX_OWNED_DECKS) {
+    if (ownedDecks.length >= maxOwnedDecks) {
       setDeckEditorMessage(`덱은 최대 ${MAX_OWNED_DECKS}개까지 보유할 수 있습니다.`);
       return;
     }
@@ -1725,10 +2261,10 @@ export default function Home() {
     const floorCards = roomDrops[roomKey] ?? [];
     const floorConsumables = roomConsumableDrops[roomKey] ?? [];
     const floorDecks = roomDeckDrops[roomKey] ?? [];
-    const freeItemSlots = Math.max(0, INVENTORY_CAPACITY - inventoryItemCount);
+    const freeItemSlots = Math.max(0, inventoryCapacity - inventoryItemCount);
     const pickedCards = floorCards.slice(0, freeItemSlots);
     const pickedConsumables = floorConsumables.slice(0, freeItemSlots - pickedCards.length);
-    const pickedDecks = floorDecks.slice(0, Math.max(0, MAX_OWNED_DECKS - ownedDecks.length));
+    const pickedDecks = floorDecks.slice(0, Math.max(0, maxOwnedDecks - ownedDecks.length));
     if (pickedCards.length > 0) {
       setRoomDrops((current) => ({
         ...current,
@@ -1751,7 +2287,10 @@ export default function Home() {
       setOwnedDecks((current) => [...current, ...pickedDecks]);
     }
     const pickedCount = pickedCards.length + pickedConsumables.length + pickedDecks.length;
-    if (pickedCount > 0) {
+    if (floorCards.length + floorConsumables.length > freeItemSlots) {
+      showMapMessage("인벤토리가 가득찼습니다!");
+    }
+    if (pickedCount > 0 && !blessings.includes("sleight")) {
       spendMapTurn();
     }
   };
@@ -1855,6 +2394,8 @@ export default function Home() {
     finishConsumableDrag();
     setPendingExtractionTicketId(null);
     setPendingPaintTicketId(null);
+    setPendingCloneTicketId(null);
+    setArmedBombTicketIds(new Set());
     setPendingRemovedCards([]);
     setHoveredDeckCard(null);
     setDeckEditorDeckId(activeDeck?.id ?? "");
@@ -1877,15 +2418,18 @@ export default function Home() {
       setDeckEditorMessage(`카드와 소모품을 합쳐 ${INVENTORY_CAPACITY}개 이하로 줄여야 편집을 확인할 수 있습니다.`);
       return;
     }
+    installArmedFloorBombs();
     setDeckEditorSnapshot(null);
     setPendingRemovedCards([]);
     setHoveredDeckCard(null);
     setPendingExtractionTicketId(null);
     setPendingPaintTicketId(null);
+    setPendingCloneTicketId(null);
+    setArmedBombTicketIds(new Set());
     finishConsumableDrag();
     finishDeckEditorDrag();
     setDeckEditorOpen(false);
-    spendMapTurn();
+    if (!blessings.includes("sleight")) spendMapTurn();
   };
 
   const cancelDeckEditor = () => {
@@ -1912,6 +2456,8 @@ export default function Home() {
     setHoveredDeckCard(null);
     setPendingExtractionTicketId(null);
     setPendingPaintTicketId(null);
+    setPendingCloneTicketId(null);
+    setArmedBombTicketIds(new Set());
     finishConsumableDrag();
     finishDeckEditorDrag();
     setDeckEditorOpen(false);
@@ -1932,6 +2478,9 @@ export default function Home() {
         if (deckViewerOpen) {
           event.preventDefault();
           setDeckViewerOpen(false);
+        } else if (blessingOpen) {
+          event.preventDefault();
+          setBlessingOpen(false);
         } else if (shopOpen) {
           event.preventDefault();
           setShopOpen(false);
@@ -1940,7 +2489,7 @@ export default function Home() {
       }
 
       if (screen !== "map" || mapTraveling || deckEditorOpen || deckViewerOpen) return;
-      if (event.key.toLowerCase() === "i") {
+      if (event.key.toLowerCase() === "i" || event.key.toLowerCase() === "e") {
         event.preventDefault();
         openDeckEditor("덱 편집");
         return;
@@ -2024,7 +2573,7 @@ export default function Home() {
       numpadMovementKeysRef.current.clear();
     };
   }, [
-    cancelDeckEditor, deckEditorOpen, deckViewerOpen, mapTraveling,
+    blessingOpen, cancelDeckEditor, deckEditorOpen, deckViewerOpen, mapTraveling,
     moveOnMap, openDeckEditor, quickPickUpFloorItems, screen, shopOpen, waitOnMap,
   ]);
 
@@ -2711,6 +3260,7 @@ export default function Home() {
             game.deckEditions.includes("fantastic") ? 4 : 5,
             game.deckEditions.includes("transparent"),
             game.deckEditions.includes("roomy") ? 1 : 0,
+            game.deckEditions.includes("golden"),
           )
           : game.piles;
         setGame({
@@ -2718,7 +3268,8 @@ export default function Home() {
           piles: sourcePiles,
           hand: [],
           discard: allPilesEmpty ? [] : discarded,
-          energy: 3,
+          energy: game.deckEditions.includes("rampaging") ? 4 : 3,
+          stars: game.stars + (game.deckEditions.includes("frugal") ? game.energy : 0),
           turn: game.turn + 1,
           playerHp: remainingHp,
           playerPhysicalBlock: 0,
@@ -2757,7 +3308,7 @@ export default function Home() {
 
   if (screen === "map") {
     const currentRoomKey = mapRoomKey(mapPosition);
-    const currentRoomType = getRoomType(mapPosition, mapSeed);
+    const currentRoomType = effectiveRoomType(mapPosition);
     const inSafeArea = isSafeAreaPosition(mapPosition);
     const canEditDeck = true;
     const viewedDeck = ownedDecks.find((deck) => deck.id === deckViewerDeckId) ?? activeDeck;
@@ -2811,7 +3362,7 @@ export default function Home() {
       ? `${floorItemNames[0]} 줍기`
       : `떨어진 물건 ${floorItemNames.length}개 줍기`;
     const activeShopOffers = activeShopRoom ? roomShops[activeShopRoom] ?? [] : [];
-    const knownRoomRoutes = buildKnownRoomRoutes(mapPosition, seenRooms, mapSeed);
+    const knownRoomRoutes = buildKnownRoomRoutes(mapPosition, seenRooms, mapSeed, effectiveRoomType);
     const pendingRemovedGroups = Array.from(pendingRemovedCards.reduce((groups, { card }) => {
       const groupKey = `${card.effect}:${card.damageType}:${card.name}`;
       const current = groups.get(groupKey);
@@ -2861,7 +3412,7 @@ export default function Home() {
       const position = parseMapRoomKey(seenRoomKey);
       mapCellMap.set(seenRoomKey, position);
     });
-    for (let offsetY = -MAP_PLAYER_VISION_VERTICAL_RADIUS; offsetY <= MAP_PLAYER_VISION_VERTICAL_RADIUS; offsetY += 1) {
+    for (let offsetY = -visionVerticalRadius; offsetY <= visionVerticalRadius; offsetY += 1) {
       for (let offsetX = -MAP_PLAYER_VISION_HORIZONTAL_RADIUS; offsetX <= MAP_PLAYER_VISION_HORIZONTAL_RADIUS; offsetX += 1) {
         const position = {
           x: mapPosition.x + offsetX,
@@ -2886,7 +3437,7 @@ export default function Home() {
     const renderedMapCellKeys = new Set(mapCells.map(mapRoomKey));
     const visibleMapEnemies = debugMode
       ? mapEnemyWorld.enemies.filter((enemy) => renderedMapCellKeys.has(mapRoomKey(enemy.position)))
-      : mapEnemyWorld.enemies.filter((enemy) => isInPlayerVision(enemy.position, mapPosition));
+      : mapEnemyWorld.enemies.filter((enemy) => isInPlayerVision(enemy.position, mapPosition, MAP_PLAYER_VISION_HORIZONTAL_RADIUS, visionVerticalRadius));
 
     return (
       <main className="game-shell map-shell">
@@ -2896,8 +3447,8 @@ export default function Home() {
           </div>
           <div className="map-top-actions">
             <div className="map-run-stats">
-              <div className="map-health" aria-label={`체력 ${runPlayerHp} 중 ${MAX_PLAYER_HP}`}>
-                <strong>❤️ {runPlayerHp} / {MAX_PLAYER_HP}</strong>
+              <div className="map-health" aria-label={`체력 ${runPlayerHp} 중 ${maxPlayerHp}`}>
+                <strong>❤️ {runPlayerHp} / {maxPlayerHp}</strong>
               </div>
               <div className="map-gold" aria-label={`골드 ${gold}`}>
                 <strong>🪙 {gold}</strong>
@@ -2947,6 +3498,16 @@ export default function Home() {
             )}
           </div>
         </header>
+        {blessings.length > 0 && (
+          <aside className="map-blessing-list" aria-label="획득한 축복">
+            {blessings.map((blessing) => blessing === "athlete" ? (
+              <button type="button" key={blessing} className={athletePrepared ? "is-prepared" : ""} onClick={activateAthlete} disabled={athleteCooldown > 0}>
+                <strong>운동선수</strong>
+                <small>{athleteCooldown > 0 ? `쿨타임 ${athleteCooldown}턴` : athletePrepared ? "준비됨 · 다음 이동 무료" : "눌러서 다음 이동 무료"}</small>
+              </button>
+            ) : <span key={blessing}>{BLESSING_INFO[blessing].name}</span>)}
+          </aside>
+        )}
 
         <section className="map-board" aria-label="탐험 지도">
           <div className="map-toolbar">
@@ -2958,6 +3519,51 @@ export default function Home() {
                 현재 위치로
               </button>
             </div>
+            {debugMode && (
+              <div className="debug-spawn-controls">
+                <select
+                  aria-label="바닥에 생성할 아이템"
+                  value={debugSpawnSelection}
+                  onChange={(event) => setDebugSpawnSelection(event.target.value)}
+                >
+                  <optgroup label="기본 카드">
+                    {BASIC_CARD_POOL.map((card, index) => (
+                      <option key={`basic-${card.effect}-${index}`} value={`card:basic:${index}`}>
+                        {card.name}
+                      </option>
+                    ))}
+                  </optgroup>
+                  <optgroup label="특별 카드">
+                    {SPECIAL_CARD_POOL.map((card, index) => (
+                      <option key={`special-${card.effect}-${index}`} value={`card:special:${index}`}>
+                        {card.name}
+                      </option>
+                    ))}
+                  </optgroup>
+                  <optgroup label="희귀 카드">
+                    {RARE_CARD_POOL.map((card, index) => (
+                      <option key={`rare-${card.effect}-${index}`} value={`card:rare:${index}`}>
+                        {card.name}
+                      </option>
+                    ))}
+                    <option value="card:adrenaline">{createAdrenalineCard().name}</option>
+                  </optgroup>
+                  <optgroup label="티켓">
+                    {CONSUMABLE_TYPES.map((type) => (
+                      <option key={type} value={`consumable:${type}`}>
+                        {createConsumable(type, `debug-preview-${type}`).name}
+                      </option>
+                    ))}
+                  </optgroup>
+                  <optgroup label="덱">
+                    <option value="deck:random">현재 지역 티어 무작위 덱</option>
+                  </optgroup>
+                </select>
+                <button type="button" onClick={spawnDebugItemOnFloor}>
+                  바닥에 생성
+                </button>
+              </div>
+            )}
           </div>
 
           <div
@@ -2986,13 +3592,13 @@ export default function Home() {
             >
               {mapCells.map((position) => {
                 const roomKey = mapRoomKey(position);
-                const roomType = getRoomType(position, mapSeed);
+                const roomType = effectiveRoomType(position);
                 const current = position.x === mapPosition.x && position.y === mapPosition.y;
-                const inVision = debugMode || isInPlayerVision(position, mapPosition);
+                const inVision = debugMode || isInPlayerVision(position, mapPosition, MAP_PLAYER_VISION_HORIZONTAL_RADIUS, visionVerticalRadius);
                 const distance = chebyshevDistance(position, mapPosition);
                 const walkable = isWalkableRoom(roomType);
                 const adjacent = distance === 1 && walkable;
-                const reachable = !current && knownRoomRoutes.has(roomKey);
+                const reachable = !current && (debugMode ? walkable : knownRoomRoutes.has(roomKey));
                 const hasItems = (roomDrops[roomKey]?.length ?? 0) > 0
                   || (roomConsumableDrops[roomKey]?.length ?? 0) > 0
                   || (roomDeckDrops[roomKey]?.length ?? 0) > 0;
@@ -3007,6 +3613,8 @@ export default function Home() {
                       ? "먼 공간"
                       : roomType === "shop"
                         ? "상점"
+                        : roomType === "blessing"
+                        ? "축복"
                         : roomType === "portal"
                           ? "안전 지역 포탈"
                           : roomType === "heal"
@@ -3033,6 +3641,13 @@ export default function Home() {
                       }
                       if (mapTraveling) return;
                       setMapMessage("");
+                      if (debugMode && walkable && !current) {
+                        setMapPosition(position);
+                        rememberPlayerVision(position);
+                        focusMapOn(position);
+                        activateRoomFeature(position);
+                        return;
+                      }
                       if (adjacent) {
                         moveOnMap(position.x - mapPosition.x, position.y - mapPosition.y);
                         return;
@@ -3046,6 +3661,8 @@ export default function Home() {
                   >
                     {roomType === "shop"
                           ? <span>상점</span>
+                          : roomType === "blessing"
+                          ? <span>축복</span>
                           : roomType === "portal"
                             ? <span>포탈</span>
                             : roomType === "heal"
@@ -3058,6 +3675,21 @@ export default function Home() {
                   </button>
                 );
               })}
+              {mapBombs.map((bomb) => (
+                <span
+                  className="map-bomb"
+                  key={bomb.id}
+                  style={{
+                    left: MAP_PADDING + (bomb.position.x - DUNGEON_MIN_X + MAP_WORLD_MARGIN_X) * (MAP_ROOM_WIDTH + MAP_CELL_GAP) + MAP_ROOM_WIDTH / 2,
+                    top: MAP_PADDING + (bomb.position.y + MAP_WORLD_MARGIN_Y) * (MAP_ROOM_HEIGHT + MAP_CELL_GAP) + MAP_ROOM_HEIGHT / 2,
+                  }}
+                  title={`${bomb.movesRemaining}번 이동 후 폭발`}
+                  aria-label={`폭탄, ${bomb.movesRemaining}번 이동 후 폭발`}
+                >
+                  <strong>●</strong>
+                  <small>{bomb.movesRemaining}</small>
+                </span>
+              ))}
               {visibleMapEnemies.map((enemy) => (
                 <span
                   className={`map-enemy is-${enemy.awareness} ${mapCollisionEnemyIds.includes(enemy.id) ? "is-colliding" : ""}`}
@@ -3100,20 +3732,36 @@ export default function Home() {
               <button
                 type="button"
                 className="room-floor-notice room-action-notice is-shop simple-room-action-notice"
-                onClick={() => openShop(currentRoomKey, getRegionNumber(mapPosition))}
+                onClick={() => openShop(mapRoomKey(mapPosition), (getDungeonRegionIndex(mapPosition) ?? 0) + 1)}
               >
                 <strong>상점 들어가기</strong>
+              </button>
+            )}
+            {currentRoomType === "blessing" && (
+              <button
+                type="button"
+                className="room-floor-notice room-action-notice is-shop simple-room-action-notice"
+                onClick={openBlessings}
+              >
+                <strong>축복 받기</strong>
               </button>
             )}
             {(currentRoomType === "portal" || currentRoomType === "safePortal") && (
               <button
                 type="button"
-                className="room-floor-notice room-action-notice is-portal"
+                className="room-floor-notice room-action-notice is-portal simple-room-action-notice"
                 onClick={useCurrentPortal}
               >
-                <span>포탈</span>
                 <strong>포탈 이용하기</strong>
-                <small>이동</small>
+              </button>
+            )}
+            {currentRoomType === "heal" && (
+              <button
+                type="button"
+                className="room-floor-notice room-action-notice simple-room-action-notice"
+                onClick={useCurrentHeal}
+              >
+                <strong>회복하기</strong>
               </button>
             )}
             {(currentFloorCards.length > 0 || currentFloorConsumables.length > 0 || currentFloorDecks.length > 0) && canEditDeck && (
@@ -3127,6 +3775,43 @@ export default function Home() {
             )}
           </div>
         </section>
+
+        {debugPasswordOpen && (
+          <div className="debug-password-overlay" role="dialog" aria-modal="true" aria-labelledby="debug-password-title">
+            <form className="debug-password-dialog" onSubmit={(event) => { event.preventDefault(); submitDebugPassword(); }}>
+              <h2 id="debug-password-title">디버그 비밀번호</h2>
+              <input autoFocus type="password" inputMode="numeric" value={debugPassword} onChange={(event) => setDebugPassword(event.target.value)} />
+              <div><button type="button" onClick={() => setDebugPasswordOpen(false)}>취소</button><button type="submit">확인</button></div>
+            </form>
+          </div>
+        )}
+
+        {blessingOpen && (
+          <div className="shop-overlay blessing-overlay" role="dialog" aria-modal="true" aria-labelledby="blessing-title">
+            <section className="shop-panel blessing-panel">
+              <header>
+                <div><h2 id="blessing-title">축복</h2></div>
+                <div className="shop-header-status">
+                  <strong>🪙 {gold}</strong>
+                  <button type="button" onClick={() => setBlessingOpen(false)}>나가기</button>
+                </div>
+              </header>
+              {blessingOffers.length > 0 ? (
+                <div className="blessing-options">
+                  {blessingOffers.map((blessing) => (
+                    <button type="button" key={blessing} onClick={() => chooseBlessing(blessing)}>
+                      <strong>{BLESSING_INFO[blessing].name}</strong>
+                      <span>{BLESSING_INFO[blessing].description}</span>
+                    </button>
+                  ))}
+                </div>
+              ) : <p className="blessing-empty">받을 수 있는 축복을 모두 얻었습니다.</p>}
+              {blessingOffers.length > 0 && (
+                <footer><button type="button" className="blessing-reroll" onClick={rerollBlessings} disabled={gold < blessingRerollCost}>🪙 {blessingRerollCost} 리롤</button></footer>
+              )}
+            </section>
+          </div>
+        )}
 
         {shopOpen && (
           <div className="shop-overlay" role="dialog" aria-modal="true" aria-labelledby="shop-title">
@@ -3209,15 +3894,15 @@ export default function Home() {
                 >
                   <div className="deck-editor-column-title">
                     <h3>인벤토리</h3>
-                    <strong className={inventoryItemCount > INVENTORY_CAPACITY ? "is-full" : ""}>
-                      {inventoryItemCount} / {INVENTORY_CAPACITY}
+                    <strong className={inventoryItemCount > inventoryCapacity ? "is-full" : ""}>
+                      {inventoryItemCount} / {inventoryCapacity}
                     </strong>
                   </div>
                   <div className="deck-editor-card-list">
                     {inventoryConsumables.map((consumable) => (
                       <button
                         type="button"
-                        className={`consumable-ticket inventory-ticket ${consumable.type} ${pendingExtractionTicketId === consumable.id || pendingPaintTicketId === consumable.id ? "is-selected" : ""}`}
+                        className={`consumable-ticket inventory-ticket ${consumable.type} ${pendingExtractionTicketId === consumable.id || pendingPaintTicketId === consumable.id || pendingCloneTicketId === consumable.id || consumable.armedMovesRemaining !== undefined ? "is-selected" : ""}`}
                         key={consumable.id}
                         draggable
                         onDragStart={(event) => beginConsumableDrag(event, consumable.id, "inventory")}
@@ -3241,7 +3926,10 @@ export default function Home() {
                         draggable
                         onDragStart={(event) => beginDeckEditorDrag(event, cardIds.at(-1)!, "inventory")}
                         onDragEnd={finishDeckEditorDrag}
-                        onClick={() => moveInventoryCardToDeck(cardIds.at(-1)!)}
+                        onClick={() => {
+                          if (pendingCloneTicketId) cloneCardWithTicket(card);
+                          else moveInventoryCardToDeck(cardIds.at(-1)!);
+                        }}
                         onContextMenu={(event) => {
                           event.preventDefault();
                           moveInventoryCardToFloor(cardIds.at(-1)!);
@@ -3325,7 +4013,7 @@ export default function Home() {
                         <strong><DeckName deck={deck} showEditions={false} /> <span>({deck.cards.length}/{deck.capacity})</span></strong>
                       </button>
                     ))}
-                    {Array.from({ length: MAX_OWNED_DECKS - ownedDecks.length }, (_, index) => (
+                    {Array.from({ length: maxOwnedDecks - ownedDecks.length }, (_, index) => (
                       <div
                         className={`empty-deck-slot ${deckCaseDrag?.source === "floor" && deckCaseDropSlot === index ? "is-deck-drop-target" : ""}`}
                         key={`empty-deck-${index}`}
@@ -3387,7 +4075,8 @@ export default function Home() {
                             onFocus={() => setHoveredDeckCard(card)}
                             onBlur={() => setHoveredDeckCard(null)}
                             onClick={() => {
-                              if (pendingExtractionTicketId) extractDeckCard(cardId);
+                              if (pendingCloneTicketId) cloneCardWithTicket(card);
+                              else if (pendingExtractionTicketId) extractDeckCard(cardId);
                               else if (pendingPaintTicketId) paintDeckCard(cardId);
                             }}
                             onContextMenu={(event) => {
@@ -3563,7 +4252,7 @@ export default function Home() {
                     {currentFloorConsumables.map((consumable) => (
                       <button
                         type="button"
-                        className={`consumable-ticket floor-ticket ${consumable.type}`}
+                        className={`consumable-ticket floor-ticket ${consumable.type} ${consumable.armedMovesRemaining !== undefined ? "is-selected" : ""}`}
                         key={consumable.id}
                         draggable
                         onDragStart={(event) => beginConsumableDrag(event, consumable.id, "floor")}
@@ -3583,7 +4272,10 @@ export default function Home() {
                         draggable
                         onDragStart={(event) => beginDeckEditorDrag(event, cardIds.at(-1)!, "floor")}
                         onDragEnd={finishDeckEditorDrag}
-                        onClick={() => moveFloorCardToInventory(cardIds.at(-1)!)}
+                        onClick={() => {
+                          if (pendingCloneTicketId) cloneCardWithTicket(card);
+                          else moveFloorCardToInventory(cardIds.at(-1)!);
+                        }}
                         aria-label={`${card.name} ${cardIds.length}장, 한 장을 인벤토리에 줍기`}
                       >
                         <CardFace card={card} />
@@ -3604,7 +4296,7 @@ export default function Home() {
                     type="button"
                     className={`confirm ${deckEditorHasChanges ? "" : "is-hidden"}`}
                     onClick={confirmDeckEditor}
-                    disabled={inventoryItemCount > INVENTORY_CAPACITY}
+                    disabled={inventoryItemCount > inventoryCapacity}
                   >편집 확인</button>
                 </div>
               </footer>
@@ -3643,7 +4335,7 @@ export default function Home() {
                     <span>{deck.cards.length} / {deck.capacity}</span>
                   </button>
                 ))}
-                {Array.from({ length: MAX_OWNED_DECKS - ownedDecks.length }, (_, index) => (
+                {Array.from({ length: maxOwnedDecks - ownedDecks.length }, (_, index) => (
                   <span className="is-empty" key={`viewer-empty-${index}`}>빈 덱 칸</span>
                 ))}
               </nav>
