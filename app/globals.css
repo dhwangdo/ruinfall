@@ -2079,6 +2079,26 @@ h1 { margin: 0; font-size: 25px; font-weight: 600; }
   text-align: center;
   font: 11px/1.4 Arial, sans-serif;
 }
+
+.solitaire-rule {
+  display: inline;
+  margin-left: 5px;
+  color: #6b4a99;
+  font-weight: 800;
+}
+
+.solitaire-keyword {
+  margin-left: 0;
+  margin-right: 5px;
+}
+
+.ignition-prompt {
+  margin: 4px auto 8px;
+  color: #ffd86b;
+  font-size: 13px;
+  font-weight: 800;
+  text-align: center;
+}
 .card-effect,
 .card-effect * { font-weight: 400; }
 .effect-type { font-weight: 400; }

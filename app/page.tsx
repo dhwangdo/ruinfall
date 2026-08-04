@@ -42,6 +42,7 @@ import {
 type CardKind = "strike" | "defend" | "skill";
 type DamageType = "physical" | "magic";
 type CardRarity = "basic" | "special" | "rare";
+type SolitaireRule = "top" | "bottom" | "spell";
 type CardEffect =
   | "strike"
   | "pommel"
@@ -61,7 +62,30 @@ type CardEffect =
   | "iceShield"
   | "ironWave"
   | "waterWave"
-  | "ironRampage";
+  | "ironRampage"
+  | "magicStrike"
+  | "shockwave"
+  | "ventilate"
+  | "plateArmor"
+  | "warmUp"
+  | "ironWall"
+  | "fourHit"
+  | "starlight"
+  | "augment"
+  | "fileDraw"
+  | "starGuard"
+  | "charge"
+  | "weaponSharpen"
+  | "armorSharpen"
+  | "boomerang"
+  | "meteor"
+  | "counter"
+  | "exchange"
+  | "anvil"
+  | "flood"
+  | "endStart"
+  | "superStrategist"
+  | "pioneer";
 type Phase = "drawing" | "playing" | "discarding" | "enemy-turn";
 type Screen = "map" | "battle";
 type MapPosition = { x: number; y: number };
@@ -141,11 +165,19 @@ type Card = {
   rarity: CardRarity;
   name: string;
   cost: number;
+  /** The printed cost.  Temporary cost swaps always revert to this on shuffle. */
+  baseCost?: number;
   value: number;
   draw: number;
   damageType: DamageType;
   revealed: boolean;
   colored?: boolean;
+  solitaireRule?: SolitaireRule;
+  forgeCost?: number;
+  forgeTargetName?: string;
+  forgeAny?: boolean;
+  forged?: boolean;
+  exhaust?: boolean;
 };
 
 type DeckEditorSnapshot = {
@@ -166,17 +198,24 @@ type GameState = {
   energy: number;
   stars: number;
   pendingDraws: number;
+  /** A one-time chosen-file draw (used by 뽑아내기). */
+  pendingPileDrawCount: number;
   pendingDiscards: number;
   pendingSweep: boolean;
+  pendingPileOperation: "discardTop" | "moveTopToBottom" | null;
   turn: number;
   playerHp: number;
   playerPhysicalBlock: number;
   playerMagicBlock: number;
   strength: number;
+  temporaryStrength: number;
+  agility: number;
   defenseMultiplier: number;
   damageTakenMultiplier: number;
   invulnerable: boolean;
   doubleNextAttack: boolean;
+  starsSpent: number;
+  reflectDamage: number;
   deckEditions: DeckEdition[];
   enemies: EnemyState[];
   status: "playing" | "won" | "lost";
@@ -583,7 +622,7 @@ const BASIC_CARD_POOL: CardBlueprint[] = [
   { kind: "defend", effect: "defend", rarity: "basic", name: "마법 방어", cost: 1, value: 5, draw: 0, damageType: "magic" },
 ];
 
-const SPECIAL_CARD_POOL: CardBlueprint[] = [
+const LEGACY_SPECIAL_CARD_POOL: CardBlueprint[] = [
   { kind: "strike", effect: "pommel", rarity: "special", name: "폼멜 타격", cost: 1, value: 6, draw: 1, damageType: "physical" },
   { kind: "defend", effect: "deflect", rarity: "special", name: "흘려보내기", cost: 1, value: 5, draw: 1, damageType: "physical" },
   { kind: "skill", effect: "battlePlan", rarity: "special", name: "전투 설계", cost: 1, value: 0, draw: 0, damageType: "physical" },
@@ -600,24 +639,50 @@ const SPECIAL_CARD_POOL: CardBlueprint[] = [
   { kind: "skill", effect: "focus", rarity: "special", name: "집중", cost: 0, value: 0, draw: 0, damageType: "physical" },
 ];
 
-const RARE_CARD_POOL: CardBlueprint[] = [
+const LEGACY_RARE_CARD_POOL: CardBlueprint[] = [
   { kind: "skill", effect: "steelHeart", rarity: "rare", name: "강철심장", cost: 0, value: 0, draw: 0, damageType: "physical" },
   { kind: "skill", effect: "transcend", rarity: "rare", name: "초월", cost: 4, value: 0, draw: 0, damageType: "physical" },
   { kind: "skill", effect: "rapidFire", rarity: "rare", name: "연사", cost: 1, value: 0, draw: 0, damageType: "physical" },
 ];
 
-function createBattleRewardCard(id: number): Card {
-  const weightedPool = [
-    ...SPECIAL_CARD_POOL.map((card) => ({ card, weight: 1 })),
-    ...RARE_CARD_POOL.map((card) => ({ card, weight: 0.5 })),
-  ];
-  const totalWeight = weightedPool.reduce((total, entry) => total + entry.weight, 0);
-  let roll = Math.random() * totalWeight;
-  const selected = weightedPool.find((entry) => {
-    roll -= entry.weight;
-    return roll < 0;
-  }) ?? weightedPool.at(-1)!;
-  return { ...selected.card, id, revealed: false };
+// 현재 플레이에 등장하는 추가 카드는 이 목록만 사용합니다.
+// 위의 LEGACY 목록은 이전 실행 중인 브라우저 상태를 안전하게 읽기 위한
+// 호환용 데이터이며, 보상·상점·새 덱에는 더 이상 쓰지 않습니다.
+const SPECIAL_CARD_POOL: CardBlueprint[] = [
+  { kind: "strike", effect: "strike", rarity: "special", name: "잽", cost: 0, value: 6, draw: 0, damageType: "physical" },
+  { kind: "skill", effect: "warmUp", rarity: "special", name: "준비 운동", cost: 0, value: 4, draw: 0, damageType: "physical" },
+  { kind: "skill", effect: "starlight", rarity: "special", name: "별빛", cost: 0, value: 1, draw: 0, damageType: "physical" },
+  { kind: "skill", effect: "sweep", rarity: "special", name: "휩쓸기", cost: 1, value: 7, draw: 0, damageType: "physical" },
+  { kind: "strike", effect: "strike", rarity: "special", name: "기회 창출", cost: 1, value: 6, draw: 1, damageType: "physical" },
+  { kind: "strike", effect: "rulerCompass", rarity: "special", name: "자와 컴퍼스", cost: 1, value: 9, draw: 0, damageType: "physical" },
+  { kind: "strike", effect: "fourHit", rarity: "special", name: "4연격", cost: 1, value: 2, draw: 0, damageType: "physical" },
+  { kind: "strike", effect: "boomerang", rarity: "special", name: "정리 타격", cost: 1, value: 9, draw: 0, damageType: "physical" },
+  { kind: "skill", effect: "battlePlan", rarity: "special", name: "전략가", cost: 1, value: 3, draw: 0, damageType: "physical" },
+  { kind: "defend", effect: "plateArmor", rarity: "special", name: "판금 갑옷", cost: 1, value: 8, draw: 0, damageType: "physical", forgeCost: 2 },
+  { kind: "skill", effect: "fileDraw", rarity: "special", name: "뽑아내기", cost: 1, value: 0, draw: 3, damageType: "physical" },
+  { kind: "skill", effect: "drawEachPile", rarity: "special", name: "걷어내기", cost: 1, value: 0, draw: 0, damageType: "physical" },
+  { kind: "skill", effect: "weaponSharpen", rarity: "special", name: "무기 연마", cost: 1, value: 2, draw: 0, damageType: "physical", forgeTargetName: "모루" },
+  { kind: "skill", effect: "armorSharpen", rarity: "special", name: "방어구 연마", cost: 1, value: 1, draw: 0, damageType: "physical", forgeTargetName: "모루" },
+  { kind: "strike", effect: "boomerang", rarity: "special", name: "부메랑 칼날", cost: 1, value: 9, draw: 0, damageType: "physical" },
+  { kind: "strike", effect: "meteor", rarity: "special", name: "유성우", cost: 2, value: 9, draw: 0, damageType: "physical" },
+  { kind: "defend", effect: "starGuard", rarity: "special", name: "받아내기", cost: 2, value: 12, draw: 0, damageType: "physical" },
+  { kind: "defend", effect: "counter", rarity: "special", name: "응수", cost: 2, value: 10, draw: 0, damageType: "physical" },
+  { kind: "strike", effect: "strike", rarity: "special", name: "묵직한 한 방", cost: 3, value: 30, draw: 0, damageType: "physical" },
+  { kind: "strike", effect: "exchange", rarity: "special", name: "교환법칙", cost: 3, value: 20, draw: 0, damageType: "physical", forgeAny: true },
+  { kind: "skill", effect: "anvil", rarity: "special", name: "모루", cost: 3, value: 0, draw: 0, damageType: "physical" },
+  { kind: "skill", effect: "flood", rarity: "special", name: "범람", cost: 4, value: 0, draw: 2, damageType: "physical" },
+];
+
+const RARE_CARD_POOL: CardBlueprint[] = [
+  { kind: "skill", effect: "endStart", rarity: "rare", name: "끝의 시작", cost: 0, value: 3, draw: 0, damageType: "physical" },
+  { kind: "skill", effect: "superStrategist", rarity: "rare", name: "초전략가", cost: 1, value: 5, draw: 0, damageType: "physical", exhaust: true },
+  { kind: "skill", effect: "pioneer", rarity: "rare", name: "개척하기", cost: 1, value: 0, draw: 0, damageType: "physical" },
+];
+
+function createBattleRewardCard(id: number, rareChance: number): Card {
+  const pool = Math.random() < rareChance ? RARE_CARD_POOL : SPECIAL_CARD_POOL;
+  const selected = pool[Math.floor(Math.random() * pool.length)];
+  return { ...selected, id, revealed: false };
 }
 
 function createDeck(): Card[] {
@@ -625,10 +690,11 @@ function createDeck(): Card[] {
     count: number,
     blueprint: CardBlueprint,
   ) => Array.from({ length: count }, () => ({ ...blueprint }));
+  const randomSpecialCards = shuffle(SPECIAL_CARD_POOL).slice(0, 2);
   const blueprints: CardBlueprint[] = [
     ...make(8, BASIC_CARD_POOL[0]),
     ...make(6, BASIC_CARD_POOL[1]),
-    ...make(2, BASIC_CARD_POOL[2]),
+    ...randomSpecialCards.flatMap((blueprint) => make(1, blueprint)),
   ];
   if (blueprints.length !== STARTING_DECK_SIZE) {
     throw new Error(`Starting deck must contain ${STARTING_DECK_SIZE} cards.`);
@@ -726,9 +792,9 @@ function createRandomDeck(regionNumber: number, startId: number, editionBonus = 
   for (let slot = 0; slot < capacity; slot += 1) {
     const roll = Math.random();
     let pool: CardBlueprint[] | null = null;
-    if (roll < 0.5) pool = null;
-    else if (roll < 0.75) pool = BASIC_CARD_POOL;
-    else if (roll < 0.95) pool = SPECIAL_CARD_POOL;
+    if (roll < 0.4) pool = null;
+    else if (roll < 0.6) pool = BASIC_CARD_POOL;
+    else if (roll < 0.98) pool = SPECIAL_CARD_POOL;
     else pool = RARE_CARD_POOL;
     if (!pool) continue;
     const blueprint = pool[Math.floor(Math.random() * pool.length)];
@@ -799,6 +865,7 @@ function createBattleReward(
   ticketBonus = 0,
   editionBonus = 0,
   capacityBonus = 0,
+  rareCardChance = 0.05,
 ) {
   const gold = 1 + Math.floor(Math.random() * Math.max(1, regionNumber));
   const decks = Math.random() < deckDropChance
@@ -806,7 +873,7 @@ function createBattleReward(
     : [];
   return {
     gold,
-    cards: decks.length > 0 ? [] : [createBattleRewardCard(nextCardId)],
+    cards: decks.length > 0 ? [] : [createBattleRewardCard(nextCardId, rareCardChance)],
     decks,
     consumableType: Math.random() < Math.min(1, 0.5 + ticketBonus)
       ? consumableTypeFromRoll(Math.random())
@@ -844,7 +911,13 @@ function buildPiles(
 }
 
 function prepareDeckForPiles(deck: Card[]) {
-  return shuffle(deck.map((card) => ({ ...card, revealed: false })));
+  return shuffle(deck.map((card) => ({
+    ...card,
+    cost: card.baseCost ?? card.cost,
+    baseCost: undefined,
+    revealed: false,
+    forged: false,
+  })));
 }
 
 function drawFromPiles(piles: Card[][]) {
@@ -858,6 +931,15 @@ function drawFromPiles(piles: Card[][]) {
     }
   });
   return { piles: nextPiles, hand };
+}
+
+function drawFromFirstPile(piles: Card[][]) {
+  const nextPiles = piles.map((pile) => [...pile]);
+  const pile = nextPiles[0];
+  const card = pile?.pop();
+  if (!card) return { piles: nextPiles, hand: [] as Card[] };
+  if (pile.length > 0) pile[pile.length - 1] = { ...pile[pile.length - 1], revealed: true };
+  return { piles: nextPiles, hand: [{ ...card, revealed: true }] };
 }
 
 function drawOneFromPiles(piles: Card[][]) {
@@ -881,17 +963,23 @@ function waitingState(
     energy: 3,
     stars: 2,
     pendingDraws: 0,
+    pendingPileDrawCount: 0,
     pendingDiscards: 0,
     pendingSweep: false,
+    pendingPileOperation: null,
     turn: 1,
     playerHp,
     playerPhysicalBlock: 0,
     playerMagicBlock: 0,
     strength: 0,
+    temporaryStrength: 0,
+    agility: 0,
     defenseMultiplier: 1,
     damageTakenMultiplier: 1,
     invulnerable: false,
     doubleNextAttack: false,
+    starsSpent: 0,
+    reflectDamage: 0,
     deckEditions: [],
     enemies,
     status: "playing",
@@ -925,13 +1013,23 @@ function dealtState(
   };
 }
 
-function CardFace({ card }: { card: Card }) {
+function pickRandom<T>(items: T[]) {
+  return items[Math.floor(Math.random() * items.length)];
+}
+
+function lowestHealthEnemy(enemies: EnemyState[]) {
+  return enemies
+    .filter((enemy) => enemy.hp > 0)
+    .reduce<EnemyState | undefined>((lowest, enemy) => !lowest || enemy.hp < lowest.hp ? enemy : lowest, undefined);
+}
+
+function CardFace({ card, starsSpent = 0 }: { card: Card; starsSpent?: number }) {
   const effectText = (() => {
     switch (card.effect) {
       case "strike":
-        return <span className="effect-type damage">피해 {card.value}</span>;
+        return <><span className="effect-type damage">피해 {card.value}</span>{card.draw > 0 && <span>드로우 {card.draw}</span>}</>;
       case "pommel":
-        return <><span className="effect-type damage">피해 {card.value}</span><span>1 드로우</span></>;
+        return <><span className="effect-type damage">피해 {card.value}</span><span>첫 번째 파일에서 드로우 1</span></>;
       case "defend":
         return <span className={`effect-type ${card.damageType}`}>{DEFENSE_LABEL[card.damageType]} {card.value}</span>;
       case "deflect":
@@ -947,7 +1045,7 @@ function CardFace({ card }: { card: Card }) {
       case "adrenaline":
         return <span>에너지 1 획득<br />1 드로우</span>;
       case "sweep":
-        return <span>파일 하나를 전부<br />손으로 가져옵니다</span>;
+        return <span className="effect-type damage">모든 적에게 피해 {card.value}</span>;
       case "drawEachPile":
         return <span>모든 파일에서<br />1장씩 뽑습니다</span>;
       case "rulerCompass":
@@ -959,7 +1057,56 @@ function CardFace({ card }: { card: Card }) {
       case "rapidFire":
         return <span>다음 공격 카드가<br />한 번 더 발동</span>;
       case "iceShield":
+        return <span className="effect-type magic">마법 방어 {card.value}</span>;
         return <><span className="effect-type magic">마법 방어 {card.value}</span><span>★를 얻습니다</span></>;
+      case "magicStrike":
+        return <span className="effect-type damage">체력이 가장 낮은 적에게 피해 {card.value}</span>;
+      case "shockwave":
+        return <span className="effect-type damage">적 전체 피해 {card.value}</span>;
+      case "ventilate":
+        return <span>에너지 {card.value} 획득</span>;
+      case "plateArmor":
+        return <span className="effect-type physical">{card.forged ? <>방어 {card.value * 2}</> : <>방어 {card.value} ({card.value * 2})</>}</span>;
+      case "warmUp":
+        return <span>이번 턴 힘 {card.value}</span>;
+      case "ironWall":
+        return <span className="effect-type physical">방어 {card.value}</span>;
+      case "fourHit":
+        return <span className="effect-type damage">피해 {card.value} × 4</span>;
+      case "starlight":
+        return <span>★ {card.value} 획득</span>;
+      case "augment":
+        return <span>힘과 민첩 {card.value} 획득</span>;
+      case "fileDraw":
+        return <span>{card.forged ? "모든 파일에서 1장씩 드로우" : "파일 하나 선택, 위에서부터 3장 드로우"}</span>;
+      case "starGuard":
+        return <><span className="effect-type physical">방어 {card.value}</span><span>★ 1 획득</span></>;
+      case "charge":
+        return <span>에너지 {card.value} 획득</span>;
+      case "weaponSharpen":
+        return <span>힘 +{card.forged ? card.value * 2 : card.value}{card.forged ? "" : ` (${card.value * 2})`}</span>;
+      case "armorSharpen":
+        return <span>강인함 +{card.forged ? 3 : card.value}{card.forged ? "" : " (3)"}</span>;
+      case "boomerang":
+        return card.name === "정리 타격"
+          ? <><span className="effect-type damage">피해 {card.value}</span><span>파일 하나의 맨 위 카드를 버림</span></>
+          : <><span className="effect-type damage">피해 {card.value}</span><span>파일 하나의 맨 위 카드를 맨 밑으로 보냄</span></>;
+      case "meteor":
+        return <span className="effect-type damage">이번 턴 사용한 ★당 무작위 적에게 피해 {card.value} ({starsSpent}번)</span>;
+      case "counter":
+        return <><span className="effect-type physical">방어 {card.value}</span><span>이번 턴 막은 피해를 반사</span></>;
+      case "exchange":
+        return <span className="effect-type damage">피해 {card.value}. 재련 시 밑패와 비용 교환</span>;
+      case "anvil":
+        return <span>무겁습니다.</span>;
+      case "flood":
+        return <span>피라미드(4-3-2-1). 에너지 +2, 드로우 2, ★ +2</span>;
+      case "endStart":
+        return <span>에너지 +3. 모든 파일이 비어있어야 사용 가능</span>;
+      case "superStrategist":
+        return <span>★ +5. 소멸</span>;
+      case "pioneer":
+        return <span>빈 파일 하나 생성</span>;
       case "ironWave":
         return <><span className="effect-type damage">피해 {card.value}</span><span className="effect-type physical">방어 5</span></>;
       case "waterWave":
@@ -971,10 +1118,44 @@ function CardFace({ card }: { card: Card }) {
   return (
     <>
       <span className="card-cost">{card.cost}</span>
-      <strong className={`card-name rarity-${card.rarity} ${card.colored ? "is-painted" : ""} ${card.name.length >= 6 ? "is-long" : ""}`}>{card.name}</strong>
-      <span className="card-effect">{effectText}</span>
+      <strong className={`card-name rarity-${card.rarity} ${card.colored ? "is-painted" : ""} ${card.name.length >= 6 ? "is-long" : ""}`}>{card.name}{card.forged ? "+" : ""}</strong>
+      <span className="card-effect">{card.solitaireRule && <strong className="solitaire-rule solitaire-keyword">{card.solitaireRule === "top" ? "윗패" : card.solitaireRule === "bottom" ? "밑패" : "주문"}</strong>}{effectText}{card.forged ? <strong className="solitaire-rule">재련됨.</strong> : (card.forgeCost !== undefined || card.forgeTargetName || card.forgeAny) && <strong className="solitaire-rule">제련: {card.forgeTargetName ? `[${card.forgeTargetName}]` : card.forgeAny ? "[아무거나]" : `[${card.forgeCost}코스트]`}</strong>}{card.exhaust && <strong className="solitaire-rule">소멸</strong>}</span>
     </>
   );
+}
+
+function isRuleMatchedPlacement(movingCard: Card, targetCard?: Card) {
+  if (movingCard.solitaireRule === "top") return targetCard?.solitaireRule === "bottom";
+  if (movingCard.solitaireRule === "spell") {
+    return targetCard?.solitaireRule === "spell" && targetCard.cost === movingCard.cost + 1;
+  }
+  return false;
+}
+
+function canPlaceBySolitaireRule(movingCard: Card, targetCard?: Card) {
+  if (movingCard.solitaireRule === "top" || movingCard.solitaireRule === "spell") {
+    return isRuleMatchedPlacement(movingCard, targetCard);
+  }
+  return true;
+}
+
+// A spell straight is read from the top of a pile: X, X+1, X+2.
+// The array is returned in firing order (top card first).
+function getSpellStraight(pile: Card[]) {
+  if (pile.length < 3) return null;
+  const cards = pile.slice(-3).reverse();
+  if (!cards.every((card) => card.solitaireRule === "spell")) return null;
+  if (cards[1].cost !== cards[0].cost + 1) return null;
+  if (cards[2].cost !== cards[1].cost + 1) return null;
+  return cards;
+}
+
+// 범람(4) 위에 3, 2, 1코스트가 차례로 쌓인 피라미드.
+function getFloodPyramid(pile: Card[]) {
+  if (pile.length < 4) return null;
+  const cards = pile.slice(-4);
+  if (cards[0].effect !== "flood" || cards[0].cost !== 4) return null;
+  return cards[1].cost === 3 && cards[2].cost === 2 && cards[3].cost === 1 ? cards : null;
 }
 
 export default function Home() {
@@ -1062,6 +1243,7 @@ export default function Home() {
   const nextCardIdRef = useRef(STARTING_DECK_SIZE);
   const nextConsumableIdRef = useRef(1);
   const deckDropChanceRef = useRef(0.25);
+  const rareCardDropChanceRef = useRef(0.05);
   const activeDeck = ownedDecks[0];
   const deckCards = activeDeck?.cards ?? [];
   const inventoryCapacity = INVENTORY_CAPACITY + (blessings.includes("bag") ? 12 : 0);
@@ -1169,17 +1351,36 @@ export default function Home() {
     }));
   };
   const grantBattleReward = (regionNumber: number) => {
-    const reward = createBattleReward(regionNumber, nextCardIdRef.current, Math.min(1, deckDropChanceRef.current + (blessings.includes("luck") ? .1 : 0)), blessings.includes("luck") ? .1 : 0, blessings.includes("luck") ? .1 : 0, blessings.includes("deckSize") ? 5 : 0);
+    const reward = createBattleReward(regionNumber, nextCardIdRef.current, Math.min(1, deckDropChanceRef.current + (blessings.includes("luck") ? .1 : 0)), blessings.includes("luck") ? .1 : 0, blessings.includes("luck") ? .1 : 0, blessings.includes("deckSize") ? 5 : 0, rareCardDropChanceRef.current);
     const generatedCardCount = reward.cards.length + reward.decks.reduce((total, deck) => total + deck.cards.length, 0);
     nextCardIdRef.current += generatedCardCount;
     deckDropChanceRef.current = reward.decks.length > 0
       ? 0.25
       : Math.min(1, deckDropChanceRef.current + 0.1);
+    if (reward.cards.length > 0) {
+      rareCardDropChanceRef.current = reward.cards[0].rarity === "rare"
+        ? 0.05
+        : Math.min(1, rareCardDropChanceRef.current + 0.02);
+    }
     setBattleRewardGold(reward.gold * (activeDeck?.editions.includes("greedy") ? 3 : 1) * (blessings.includes("greed") ? 2 : 1));
     setBattleRewards(reward.cards);
     setBattleRewardDecks(reward.decks);
     setBattleRewardConsumables(reward.consumableType ? [nextConsumable(reward.consumableType)] : []);
   };
+
+  // 전투 승리 상태가 먼저 반영되는 경로에서도 보상이 비어 있지 않도록 보완한다.
+  useEffect(() => {
+    if (
+      screen === "battle"
+      && game.status === "won"
+      && battleRewardGold === 0
+      && battleRewards.length === 0
+      && battleRewardDecks.length === 0
+      && battleRewardConsumables.length === 0
+    ) {
+      grantBattleReward(getRegionNumber(mapPosition));
+    }
+  }, [screen, game.status, battleRewardGold, battleRewards.length, battleRewardDecks.length, battleRewardConsumables.length, mapPosition]);
 
   const createShopStock = (depth: number): ShopOffer[] => {
     const makeCardOffer = (rarity: "special" | "rare", slot: number): ShopOffer => {
@@ -1294,6 +1495,7 @@ export default function Home() {
         hand: [...current.hand, ...draw.hand],
         energy: current.deckEditions.includes("rampaging") ? 4 : 3,
         pendingDraws: 0,
+        pendingPileDrawCount: 0,
         pendingDiscards: 0,
         pendingSweep: false,
         playerPhysicalBlock: 0,
@@ -1809,6 +2011,7 @@ export default function Home() {
     setBattleRewardConsumables([]);
     setBattleRewardGold(0);
     deckDropChanceRef.current = 0.25;
+    rareCardDropChanceRef.current = 0.05;
     setDeckEditorOpen(false);
     setDeckViewerOpen(false);
     setDeckEditorSnapshot(null);
@@ -2704,6 +2907,7 @@ export default function Home() {
           ...current,
           enemies: current.enemies.map((enemy) => ({ ...enemy, hp: 0 })),
           pendingDraws: 0,
+          pendingPileDrawCount: 0,
           pendingDiscards: 0,
           pendingSweep: false,
           status: "won",
@@ -2713,13 +2917,18 @@ export default function Home() {
   };
 
   const playCard = (card: Card, targetEnemyId?: string) => {
-    const isRewardAttack = card.kind === "strike";
-    const isRewardAttackAll = card.effect === "ironRampage";
-    const rewardTarget = game.enemies.find((enemy) => enemy.id === targetEnemyId);
+    const isRewardAttack = card.kind === "strike" || card.effect === "ironRampage" || card.effect === "magicStrike" || card.effect === "shockwave" || card.effect === "sweep" || card.effect === "meteor";
+    const isRewardAttackAll = card.effect === "ironRampage" || card.effect === "shockwave" || card.effect === "sweep";
+    const rewardTarget = card.effect === "magicStrike"
+      ? lowestHealthEnemy(game.enemies)
+      : card.effect === "meteor"
+        ? game.enemies.find((enemy) => enemy.hp > 0)
+        : game.enemies.find((enemy) => enemy.id === targetEnemyId);
     const canResolveRewardAttack = isRewardAttack
       && game.status === "playing"
       && phase === "playing"
       && game.pendingDraws === 0
+      && game.pendingPileDrawCount === 0
       && game.pendingDiscards === 0
       && !game.pendingSweep
       && game.energy >= card.cost
@@ -2727,7 +2936,7 @@ export default function Home() {
     if (canResolveRewardAttack) {
       const repetitions = game.doubleNextAttack ? 2 : 1;
       const damage = card.value + game.strength;
-      const enemiesAfterAttack = game.enemies.map((enemy) => isRewardAttackAll || enemy.id === targetEnemyId
+      const enemiesAfterAttack = game.enemies.map((enemy) => isRewardAttackAll || enemy.id === rewardTarget?.id
         ? applyPlayerAttack(enemy, damage, repetitions)
         : enemy);
       if (enemiesAfterAttack.every((enemy) => enemy.hp === 0)) {
@@ -2740,6 +2949,7 @@ export default function Home() {
       if (
         current.status !== "playing" ||
         current.pendingDraws > 0 ||
+        current.pendingPileDrawCount > 0 ||
         current.pendingDiscards > 0 ||
         current.pendingSweep ||
         phase !== "playing"
@@ -2747,21 +2957,35 @@ export default function Home() {
       if (current.energy < card.cost) {
         return { ...current, message: `${card.name}: 에너지가 ${card.cost} 필요합니다.` };
       }
+      if (card.effect === "endStart" && current.piles.some((pile) => pile.length > 0)) {
+        return { ...current, message: "끝의 시작은 모든 파일이 비어 있을 때만 사용할 수 있습니다." };
+      }
       const isIronRampage = card.effect === "ironRampage";
+      const isShockwave = card.effect === "shockwave";
+      const isMagicStrike = card.effect === "magicStrike";
+      const isSweepAttack = card.effect === "sweep";
+      const isMeteor = card.effect === "meteor";
+      const isDamageCard = card.kind === "strike" || isIronRampage || isShockwave || isMagicStrike || isSweepAttack || isMeteor;
+      const isAttackAll = isIronRampage || isShockwave || isSweepAttack;
       const isWave = card.effect === "ironWave" || card.effect === "waterWave";
-      if (card.kind === "strike" && !isIronRampage && !targetEnemyId) return current;
-      const targetEnemy = current.enemies.find((enemy) => enemy.id === targetEnemyId);
-      if (card.kind === "strike" && !isIronRampage && (!targetEnemy || targetEnemy.hp === 0)) return current;
-      const repetitions = card.kind === "strike" && current.doubleNextAttack ? 2 : 1;
-      const damagePerHit = card.kind === "strike" ? card.value + current.strength : 0;
+      if (isDamageCard && !isAttackAll && !isMagicStrike && !isMeteor && !targetEnemyId) return current;
+      const targetEnemy = isMagicStrike
+        ? lowestHealthEnemy(current.enemies)
+        : isMeteor
+          ? current.enemies.filter((enemy) => enemy.hp > 0)[Math.floor(Math.random() * current.enemies.filter((enemy) => enemy.hp > 0).length)]
+        : current.enemies.find((enemy) => enemy.id === targetEnemyId);
+      if (isDamageCard && !isAttackAll && (!targetEnemy || targetEnemy.hp === 0)) return current;
+      const repetitions = (isMeteor ? current.starsSpent : card.effect === "fourHit" ? 4 : 1) * (isDamageCard && current.doubleNextAttack ? 2 : 1);
+      const damagePerHit = isDamageCard ? card.value + current.strength : 0;
       const damage = damagePerHit * repetitions;
-      const nextEnemies = card.kind === "strike"
-        ? current.enemies.map((enemy) => isIronRampage || enemy.id === targetEnemyId
+      const nextEnemies = isDamageCard
+        ? current.enemies.map((enemy) => isAttackAll || enemy.id === targetEnemy?.id
           ? applyPlayerAttack(enemy, damagePerHit, repetitions)
           : enemy)
         : current.enemies;
+      const defenseValue = card.effect === "plateArmor" && card.forged ? card.value * 2 : card.value;
       const blockGained = card.kind === "defend"
-        ? card.value * current.defenseMultiplier
+        ? (defenseValue + current.agility) * current.defenseMultiplier
         : isIronRampage || isWave
           ? 5 * repetitions * current.defenseMultiplier
           : 0;
@@ -2776,16 +3000,30 @@ export default function Home() {
         : current.playerMagicBlock;
       const won = nextEnemies.every((enemy) => enemy.hp === 0);
       const canDraw = current.piles.some((pile) => pile.length > 0);
-      const drawEachPileResult = card.effect === "drawEachPile"
+      const drawEachPileResult = card.effect === "drawEachPile" || (card.effect === "fileDraw" && card.forged)
         ? drawFromPiles(current.piles)
         : null;
-      const drawsAdded = !won && canDraw ? card.draw * repetitions : 0;
+      const pommelDrawResult = card.effect === "pommel"
+        ? drawFromFirstPile(current.piles)
+        : null;
+      const pendingPileDrawCount = card.effect === "fileDraw" && !card.forged && canDraw
+        ? card.draw
+        : 0;
+      const drawsAdded = !won && canDraw && !drawEachPileResult && pendingPileDrawCount === 0
+        ? card.draw * repetitions
+        : 0;
       const remainingHand = current.hand.filter((item) => item.id !== card.id);
       const pendingDiscards = card.effect === "prepare"
         ? (canDraw || remainingHand.length > 0 ? 1 : 0)
         : card.effect === "focus" && remainingHand.length > 0 ? 1 : 0;
-      const pendingSweep = card.effect === "sweep" && canDraw;
+      const pendingSweep = card.effect === "boomerang" && canDraw;
+      const pendingPileOperation = card.effect === "boomerang"
+        ? card.name === "정리 타격" ? "discardTop" as const : "moveTopToBottom" as const
+        : null;
       const action = (() => {
+        if (isShockwave || isSweepAttack) return `${card.name}: 적 전체 공격`;
+        if (isMeteor) return `${card.name}: 사용한 ★ ${current.starsSpent}개만큼 무작위 공격`;
+        if (isMagicStrike) return "마법 타격 발동";
         if (isIronRampage) return `적 전체에게 피해 ${damage} · 방어 ${blockGained}${repetitions > 1 ? " (2회 발동)" : ""}`;
         if (isWave) return `${targetEnemy?.name}에게 피해 ${damage} · ${DEFENSE_LABEL[card.damageType]} ${blockGained}${repetitions > 1 ? " (2회 발동)" : ""}`;
         if (card.kind === "strike") return `${targetEnemy?.name}에게 피해 ${damage}${repetitions > 1 ? " (2회 발동)" : ""}`;
@@ -2800,6 +3038,16 @@ export default function Home() {
         if (card.effect === "berserk") return "에너지 2 획득 · 이번 턴 받는 피해 2배";
         if (card.effect === "transcend") return "이번 턴 피해 면역 · 힘 5 획득";
         if (card.effect === "rapidFire") return "다음 공격 카드가 2회 발동";
+        if (card.effect === "ventilate") return "환기: 에너지 획득";
+        if (card.effect === "fileDraw") return card.forged ? "모든 파일에서 1장씩 뽑음" : "드로우할 파일을 선택하세요.";
+        if (card.effect === "starGuard") return "별의 방패: 방어와 ★ 획득";
+        if (card.effect === "charge") return "충전: 에너지 획득";
+        if (card.effect === "plateArmor") return "판금 갑옷 사용";
+        if (card.effect === "warmUp") return "준비 운동: 이번 턴 힘 획득";
+        if (card.effect === "ironWall") return "철벽: 방어 획득";
+        if (card.effect === "fourHit") return "4연격";
+        if (card.effect === "starlight") return "별빛: ★ 획득";
+        if (card.effect === "augment") return "증강: 힘과 민첩 획득";
         return card.name;
       })();
       const drawMessage = card.draw > 0
@@ -2809,26 +3057,40 @@ export default function Home() {
         : "";
       return {
         ...current,
-        hand: [...remainingHand, ...(drawEachPileResult?.hand ?? [])],
-        discard: [...current.discard, card],
-        piles: drawEachPileResult?.piles ?? current.piles,
-        energy: current.energy - card.cost + (card.effect === "berserk" ? 2 : card.effect === "focus" || card.effect === "adrenaline" ? 1 : 0),
+        hand: [...remainingHand, ...(drawEachPileResult?.hand ?? pommelDrawResult?.hand ?? [])],
+        // 강화는 사용 후에도 다음 셔플 전까지 유지된다. 셔플 때 prepareDeckForPiles가 해제한다.
+        discard: card.exhaust
+          ? current.discard
+          : [...current.discard, card],
+        energy: current.energy - card.cost + (card.effect === "berserk" ? 2 : card.effect === "focus" || card.effect === "adrenaline" || card.effect === "charge" || card.effect === "endStart" ? card.value : card.effect === "flood" ? 2 : card.effect === "ventilate" ? card.value : 0),
         stars: current.stars + (
           card.effect === "battlePlan"
             ? 3
             : card.effect === "rulerCompass"
               ? repetitions
-              : card.effect === "iceShield"
+              : card.effect === "starlight"
+                ? card.value
+              : card.effect === "starGuard"
                 ? 1
-                : 0
+                : card.effect === "superStrategist"
+                  ? card.value
+                  : card.effect === "flood"
+                    ? 2
+              : 0
         ),
         pendingDraws: drawsAdded,
+        pendingPileDrawCount,
         pendingDiscards,
         pendingSweep,
+        pendingPileOperation,
         enemies: nextEnemies,
         playerPhysicalBlock: nextPhysicalBlock,
         playerMagicBlock: nextMagicBlock,
-        strength: current.strength + (card.effect === "transcend" ? 5 : 0),
+        strength: current.strength + (card.effect === "transcend" ? 5 : card.effect === "warmUp" || card.effect === "augment" ? card.value : card.effect === "weaponSharpen" ? (card.forged ? card.value * 2 : card.value) : 0),
+        temporaryStrength: current.temporaryStrength + (card.effect === "transcend" ? 5 : card.effect === "warmUp" ? card.value : 0),
+        agility: current.agility + (card.effect === "augment" ? card.value : card.effect === "armorSharpen" ? (card.forged ? 3 : card.value) : 0),
+        piles: card.effect === "pioneer" ? [...(drawEachPileResult?.piles ?? pommelDrawResult?.piles ?? current.piles), []] : (drawEachPileResult?.piles ?? pommelDrawResult?.piles ?? current.piles),
+        reflectDamage: card.effect === "counter" ? 1 : current.reflectDamage,
         defenseMultiplier: card.effect === "steelHeart" ? 2 : current.defenseMultiplier,
         damageTakenMultiplier: card.effect === "berserk" ? 2 : current.damageTakenMultiplier,
         invulnerable: card.effect === "transcend" || current.invulnerable,
@@ -2855,7 +3117,7 @@ export default function Home() {
   };
 
   const drawSelectedPile = (pileIndex: number) => {
-    if (game.pendingDraws < 1 || phase !== "playing" || game.status !== "playing") return;
+    if ((game.pendingDraws < 1 && game.pendingPileDrawCount < 1) || phase !== "playing" || game.status !== "playing") return;
     const pile = game.piles[pileIndex];
     const card = pile?.at(-1);
     if (!card) return;
@@ -2867,11 +3129,16 @@ export default function Home() {
     }
 
     setGame((current) => {
-      if (current.pendingDraws < 1 || current.piles[pileIndex]?.at(-1)?.id !== card.id) return current;
+      if ((current.pendingDraws < 1 && current.pendingPileDrawCount < 1) || current.piles[pileIndex]?.at(-1)?.id !== card.id) return current;
       const nextPiles = current.piles.map((currentPile) => [...currentPile]);
-      const drawnCard = nextPiles[pileIndex].pop();
-      if (!drawnCard) return current;
-      const revealedCard = { ...drawnCard, revealed: true };
+      const drawCount = current.pendingPileDrawCount || 1;
+      const drawnCards: Card[] = [];
+      for (let index = 0; index < drawCount; index += 1) {
+        const drawnCard = nextPiles[pileIndex].pop();
+        if (!drawnCard) break;
+        drawnCards.push({ ...drawnCard, revealed: true });
+      }
+      if (drawnCards.length === 0) return current;
       if (nextPiles[pileIndex].length > 0) {
         const nextTopIndex = nextPiles[pileIndex].length - 1;
         nextPiles[pileIndex][nextTopIndex] = {
@@ -2879,13 +3146,16 @@ export default function Home() {
           revealed: true,
         };
       }
-      const action = `${pileIndex + 1}번 파일에서 ${revealedCard.name} 드로우`;
+      const action = `${pileIndex + 1}번 파일에서 ${drawnCards.length}장 드로우`;
       return {
         ...current,
         piles: nextPiles,
-        hand: [...current.hand, revealedCard],
-        pendingDraws: current.pendingDraws - 1,
-        message: current.pendingDraws > 1
+        hand: [...current.hand, ...drawnCards],
+        pendingDraws: current.pendingPileDrawCount > 0 ? current.pendingDraws : current.pendingDraws - 1,
+        pendingPileDrawCount: 0,
+        message: current.pendingPileDrawCount > 0
+          ? action
+          : current.pendingDraws > 1
           ? "다음 드로우 파일을 선택하세요."
           : current.pendingDiscards > 0
             ? "손에서 버릴 카드 1장을 클릭하세요."
@@ -2916,23 +3186,25 @@ export default function Home() {
     if (!game.pendingSweep || phase !== "playing" || game.status !== "playing") return;
     const pile = game.piles[pileIndex];
     if (!pile?.length) return;
-    const origins = new Map<number, DOMRect>();
-    document.querySelectorAll<HTMLElement>(`[data-pile-index="${pileIndex}"] [data-card-id]`).forEach((element) => {
-      origins.set(Number(element.dataset.cardId), element.getBoundingClientRect());
-    });
-    pendingOriginsRef.current = origins;
-    setPhase("drawing");
     setGame((current) => {
       if (!current.pendingSweep || !current.piles[pileIndex]?.length) return current;
       const nextPiles = current.piles.map((currentPile) => [...currentPile]);
-      const cards = nextPiles[pileIndex].map((card) => ({ ...card, revealed: true }));
-      nextPiles[pileIndex] = [];
+      const top = nextPiles[pileIndex].pop();
+      if (!top) return current;
+      const cards = [top];
+      if (current.pendingPileOperation !== "discardTop") {
+        nextPiles[pileIndex].unshift({ ...top, revealed: true });
+      }
+      if (nextPiles[pileIndex].length > 0) {
+        nextPiles[pileIndex][nextPiles[pileIndex].length - 1] = { ...nextPiles[pileIndex].at(-1)!, revealed: true };
+      }
       const action = `${pileIndex + 1}번 파일 ${cards.length}장을 손으로 가져옴`;
       return {
         ...current,
         piles: nextPiles,
-        hand: [...current.hand, ...cards],
+        discard: current.pendingPileOperation === "discardTop" ? [...current.discard, top] : current.discard,
         pendingSweep: false,
+        pendingPileOperation: null,
         message: action,
         history: [action, ...current.history].slice(0, 5),
       };
@@ -2948,6 +3220,7 @@ export default function Home() {
     if (
       game.status !== "playing" ||
       game.pendingDraws > 0 ||
+      game.pendingPileDrawCount > 0 ||
       game.pendingDiscards > 0 ||
       game.pendingSweep ||
       phase !== "playing"
@@ -2981,12 +3254,22 @@ export default function Home() {
       if (
         current.status !== "playing" ||
         current.pendingDraws > 0 ||
+        current.pendingPileDrawCount > 0 ||
         current.pendingDiscards > 0 ||
         current.pendingSweep ||
         phase !== "playing"
       ) return current;
       if (!current.piles[targetPileIndex]) return current;
       if (drag.source.type === "pile" && drag.source.pileIndex === targetPileIndex) return current;
+      const targetCard = current.piles[targetPileIndex].at(-1);
+      if (!canPlaceBySolitaireRule(drag.card, targetCard)) {
+        return {
+          ...current,
+          message: drag.card.solitaireRule === "top"
+            ? "윗패는 밑패 위에만 놓을 수 있습니다."
+            : "주문은 비용이 1 높은 주문 카드 위에만 놓을 수 있습니다.",
+        };
+      }
       if (current.stars < 1) {
         return { ...current, message: "솔리테어 행동에 필요한 ★가 없습니다." };
       }
@@ -3007,10 +3290,75 @@ export default function Home() {
         return current;
       }
 
-      nextPiles[targetPileIndex].push(...drag.cards.map((card) => ({
+      const isExchangeForge = drag.cards.length === 1
+        && drag.card.effect === "exchange"
+        && !drag.card.forged
+        && Boolean(targetCard);
+      if (isExchangeForge && targetCard) {
+        const targetIndex = nextPiles[targetPileIndex].length - 1;
+        nextPiles[targetPileIndex][targetIndex] = {
+          ...targetCard,
+          baseCost: targetCard.baseCost ?? targetCard.cost,
+          cost: drag.card.cost,
+        };
+      }
+      nextPiles[targetPileIndex].push(...drag.cards.map((card, index) => ({
         ...card,
+        baseCost: isExchangeForge && index === 0 ? (card.baseCost ?? card.cost) : card.baseCost,
+        cost: isExchangeForge && index === 0 && targetCard ? targetCard.cost : card.cost,
         revealed: drag.source.type === "hand" ? true : card.revealed,
+        forged: card.forged || (!card.forged && index === 0 && (
+          (card.forgeCost !== undefined && card.forgeCost === targetCard?.cost)
+          || (card.forgeAny === true && Boolean(targetCard))
+          || (card.forgeTargetName !== undefined && card.forgeTargetName === targetCard?.name)
+        )),
       })));
+      const spellStraight = getSpellStraight(nextPiles[targetPileIndex]);
+      const floodPyramid = spellStraight ? null : getFloodPyramid(nextPiles[targetPileIndex]);
+      let nextEnemies = current.enemies;
+      let nextEnergy = current.energy;
+      let nextStars = current.stars - 1;
+      let autoDiscard: Card[] = [];
+      let autoDraws = 0;
+      if (spellStraight) {
+        nextPiles[targetPileIndex].splice(-3);
+        if (nextPiles[targetPileIndex].length > 0) {
+          const topIndex = nextPiles[targetPileIndex].length - 1;
+          nextPiles[targetPileIndex][topIndex] = { ...nextPiles[targetPileIndex][topIndex], revealed: true };
+        }
+        autoDiscard = spellStraight.map((card) => ({ ...card, forged: false }));
+        for (const spell of spellStraight) {
+          if (spell.effect === "magicStrike") {
+            const target = lowestHealthEnemy(nextEnemies);
+            if (target) {
+              nextEnemies = nextEnemies.map((enemy) => enemy.id === target.id
+                ? applyPlayerAttack(enemy, spell.value + current.strength, 1)
+                : enemy);
+            }
+          } else if (spell.effect === "shockwave") {
+            nextEnemies = nextEnemies.map((enemy) => enemy.hp > 0
+              ? applyPlayerAttack(enemy, spell.value + current.strength, 1)
+              : enemy);
+          } else if (spell.effect === "ventilate") {
+            nextEnergy += spell.value;
+          } else if (spell.effect === "starlight") {
+            nextStars += spell.value;
+          }
+        }
+        if (nextEnemies.every((enemy) => enemy.hp === 0)) {
+          grantBattleReward(getRegionNumber(mapPosition));
+        }
+      } else if (floodPyramid) {
+        nextPiles[targetPileIndex].splice(-4);
+        if (nextPiles[targetPileIndex].length > 0) {
+          const topIndex = nextPiles[targetPileIndex].length - 1;
+          nextPiles[targetPileIndex][topIndex] = { ...nextPiles[targetPileIndex][topIndex], revealed: true };
+        }
+        autoDiscard = floodPyramid.map((card) => ({ ...card, forged: false }));
+        nextEnergy += 2;
+        nextStars += 2;
+        autoDraws = 2;
+      }
       const cardLabel = drag.cards.length > 1 ? `${drag.cards.length}장` : drag.card.name;
       const action = drag.source.type === "hand"
         ? `${drag.card.name} 카드를 손패에서 ${targetPileIndex + 1}번 파일로 이동`
@@ -3022,9 +3370,15 @@ export default function Home() {
         hand: drag.source.type === "hand"
           ? current.hand.filter((card) => card.id !== drag.card.id)
           : current.hand,
-        stars: current.stars - 1,
-        message: action,
-        history: [action, ...current.history].slice(0, 5),
+        discard: spellStraight || floodPyramid ? [...current.discard, ...autoDiscard] : current.discard,
+        enemies: nextEnemies,
+        energy: nextEnergy,
+        stars: nextStars,
+        pendingDraws: floodPyramid ? current.pendingDraws + autoDraws : current.pendingDraws,
+        starsSpent: current.starsSpent + 1,
+        status: spellStraight && nextEnemies.every((enemy) => enemy.hp === 0) ? "won" : current.status,
+        message: spellStraight ? "주문 스트레이트 발동!" : floodPyramid ? "범람 피라미드 발동!" : action,
+        history: [spellStraight ? "주문 스트레이트" : floodPyramid ? "범람 피라미드" : action, ...current.history].slice(0, 5),
       };
     });
   };
@@ -3091,6 +3445,7 @@ export default function Home() {
     if (
       phase !== "playing" ||
       game.pendingDraws > 0 ||
+      game.pendingPileDrawCount > 0 ||
       game.pendingDiscards > 0 ||
       game.pendingSweep ||
       enemy.hp === 0
@@ -3102,6 +3457,7 @@ export default function Home() {
     if (
       game.status !== "playing" ||
       game.pendingDraws > 0 ||
+      game.pendingPileDrawCount > 0 ||
       game.pendingDiscards > 0 ||
       game.pendingSweep ||
       phase !== "playing"
@@ -3126,6 +3482,7 @@ export default function Home() {
         magicBlockAfter: number;
       }> = [];
       const actedEnemyIds = new Set<string>();
+      const reflectedDamage = new Map<string, number>();
 
       for (const enemy of livingEnemies) {
         if (remainingHp === 0) break;
@@ -3140,6 +3497,9 @@ export default function Home() {
             if (remainingHp === 0) break;
             const matchingBlock = resolvedAttack.type === "physical" ? remainingPhysicalBlock : remainingMagicBlock;
             const blocked = game.invulnerable ? 0 : Math.min(attackValue, matchingBlock);
+            if (game.reflectDamage > 0 && blocked > 0) {
+              reflectedDamage.set(enemy.id, (reflectedDamage.get(enemy.id) ?? 0) + blocked * game.reflectDamage);
+            }
             const damage = game.invulnerable
               ? 0
               : (attackValue - blocked) * game.damageTakenMultiplier;
@@ -3170,7 +3530,7 @@ export default function Home() {
         }
       }
 
-      const nextEnemies = game.enemies.map((enemy) => {
+      let nextEnemies = game.enemies.map((enemy) => {
         if (enemy.hp === 0 || !actedEnemyIds.has(enemy.id)) return enemy;
         const action = enemy.actions[enemy.intentIndex];
         return {
@@ -3182,6 +3542,10 @@ export default function Home() {
             ? true
             : enemy.nextAttackMagic && action.attacks.length === 0,
         };
+      });
+      nextEnemies = nextEnemies.map((enemy) => {
+        const reflected = reflectedDamage.get(enemy.id) ?? 0;
+        return reflected > 0 ? applyPlayerAttack(enemy, reflected, 1) : enemy;
       });
 
       setGame({
@@ -3270,10 +3634,14 @@ export default function Home() {
           discard: allPilesEmpty ? [] : discarded,
           energy: game.deckEditions.includes("rampaging") ? 4 : 3,
           stars: game.stars + (game.deckEditions.includes("frugal") ? game.energy : 0),
+          starsSpent: 0,
+          reflectDamage: 0,
           turn: game.turn + 1,
           playerHp: remainingHp,
           playerPhysicalBlock: 0,
           playerMagicBlock: 0,
+          strength: Math.max(0, game.strength - game.temporaryStrength),
+          temporaryStrength: 0,
           defenseMultiplier: 1,
           damageTakenMultiplier: 1,
           invulnerable: false,
@@ -3303,6 +3671,7 @@ export default function Home() {
     phase !== "playing" ||
     game.status !== "playing" ||
     game.pendingDraws > 0 ||
+    game.pendingPileDrawCount > 0 ||
     game.pendingDiscards > 0 ||
     game.pendingSweep;
 
@@ -4435,10 +4804,10 @@ export default function Home() {
 
         <div className="pile-zone">
           <div className="section-label">
-            <span>{game.pendingSweep ? "가져올 파일 선택" : game.pendingDraws > 0 ? "드로우할 파일 선택" : "파일"}</span>
+            <span>{game.pendingSweep ? "효과를 적용할 파일 선택" : game.pendingDraws > 0 || game.pendingPileDrawCount > 0 ? "드로우할 파일 선택" : "파일"}</span>
             <small>{game.pendingSweep
               ? "원하는 파일을 클릭해 모든 카드를 손으로 가져오세요"
-              : game.pendingDraws > 0
+              : game.pendingDraws > 0 || game.pendingPileDrawCount > 0
                 ? "원하는 파일을 클릭해 맨 위 카드를 가져오세요"
                 : "각 파일의 맨 위 카드를 턴 시작에 가져옵니다"}</small>
           </div>
@@ -4447,7 +4816,7 @@ export default function Home() {
               const stackOffset = getStackOffset(pile.length);
               return (
                 <div
-                  className={`solitaire-pile ${game.pendingDraws > 0 || game.pendingSweep ? pile.length > 0 ? "is-draw-choice" : "is-draw-empty" : ""}`}
+                  className={`solitaire-pile ${game.pendingDraws > 0 || game.pendingPileDrawCount > 0 || game.pendingSweep ? pile.length > 0 ? "is-draw-choice" : "is-draw-empty" : ""}`}
                   key={index}
                   data-pile-index={index}
                   data-drop-target={`pile:${index}`}
@@ -4544,6 +4913,7 @@ export default function Home() {
               </div>
               <div className="combat-buffs" aria-label="현재 강화 효과">
                 <span>힘 {game.strength}</span>
+                {game.agility > 0 && <span>민첩 {game.agility}</span>}
                 {game.defenseMultiplier > 1 && <span>방어 ×{game.defenseMultiplier}</span>}
                 {game.damageTakenMultiplier > 1 && <span>받는 피해 ×{game.damageTakenMultiplier}</span>}
                 {game.invulnerable && <span>피해 면역</span>}
@@ -4596,7 +4966,7 @@ export default function Home() {
                 disabled={controlsLocked && game.pendingDiscards === 0}
                 aria-label={`${card.name}, 에너지 ${card.cost}`}
               >
-                <CardFace card={card} />
+                <CardFace card={card} starsSpent={game.starsSpent} />
               </button>
             ))}
             {game.hand.length === 0 && phase === "playing" && game.status === "playing" && (
@@ -4655,7 +5025,6 @@ export default function Home() {
               )}
               <button
                 onClick={game.status === "won" ? returnToMap : startNewRun}
-                disabled={game.status === "won" && battleRewardGold < 1}
               >
                 {game.status === "won" ? "다음" : "새 탐험 시작"}
               </button>
