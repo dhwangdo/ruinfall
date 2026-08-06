@@ -43,11 +43,11 @@ const SEWER_ENCOUNTERS: EnemyBlueprint[][] = [
   [
     {
       name: "주황 슬라임",
-      hp: 35,
-      maxHp: 35,
+      hp: 28,
+      maxHp: 28,
       actions: [
-        { name: "점액 충돌", attacks: [{ type: "physical", value: 10 }], cycle: true },
-        { name: "점액 방어", attacks: [{ type: "physical", value: 7 }], blockGain: 7, cycle: true },
+        { name: "점액 충돌", attacks: [{ type: "physical", value: 9 }], cycle: true },
+        { name: "점액 방어", attacks: [{ type: "physical", value: 6 }], blockGain: 7, cycle: true },
       ],
       strength: 0,
       physicalBlock: 0,
@@ -61,12 +61,12 @@ const SEWER_ENCOUNTERS: EnemyBlueprint[][] = [
   [
     {
       name: "골렘",
-      hp: 65,
-      maxHp: 65,
+      hp: 52,
+      maxHp: 52,
       actions: [
         { name: "...", attacks: [], cycle: true },
         { name: "...!", attacks: [], cycle: true },
-        { name: "공격", attacks: [{ type: "physical", value: 25 }], cycle: true },
+        { name: "공격", attacks: [{ type: "physical", value: 24 }], cycle: true },
       ],
       strength: 0,
       physicalBlock: 0,
@@ -80,12 +80,12 @@ const SEWER_ENCOUNTERS: EnemyBlueprint[][] = [
   [
     {
       name: "하수구 쥐",
-      hp: 40,
-      maxHp: 40,
+      hp: 32,
+      maxHp: 32,
       actions: [
-        { name: "물어뜯기", attacks: [{ type: "physical", value: 12 }], discardCount: 1, cycle: true },
+        { name: "물어뜯기", attacks: [{ type: "physical", value: 11 }], discardCount: 1, cycle: true },
         { name: "웅크리기", attacks: [], blockGain: 10, discardCount: 1, cycle: true },
-        { name: "광폭 질주", attacks: [{ type: "physical", value: 7 }], strengthGain: 3, cycle: true },
+        { name: "광폭 질주", attacks: [{ type: "physical", value: 6 }], strengthGain: 3, cycle: true },
       ],
       strength: 0,
       physicalBlock: 0,
@@ -99,12 +99,12 @@ const SEWER_ENCOUNTERS: EnemyBlueprint[][] = [
   [
     {
       name: "도깨비",
-      hp: 60,
-      maxHp: 60,
+      hp: 48,
+      maxHp: 48,
       actions: [
-        { name: "난타", attacks: [{ type: "physical", value: 5, hits: 3 }], cycle: true },
-        { name: "연타", attacks: [{ type: "physical", value: 7, hits: 2 }], cycle: true },
-        { name: "강습", attacks: [{ type: "physical", value: 9 }], strengthGain: 2, cycle: true },
+        { name: "난타", attacks: [{ type: "physical", value: 4, hits: 3 }], cycle: true },
+        { name: "연타", attacks: [{ type: "physical", value: 6, hits: 2 }], cycle: true },
+        { name: "강습", attacks: [{ type: "physical", value: 8 }], strengthGain: 2, cycle: true },
       ],
       strength: 0,
       physicalBlock: 0,
