@@ -39,7 +39,7 @@ import {
   type MapBomb,
 } from "./game/mapEffects";
 
-type CardKind = "strike" | "defend" | "skill";
+type CardKind = "strike" | "defend" | "skill" | "power";
 type DamageType = "physical" | "magic";
 type CardRarity = "basic" | "special" | "rare";
 type SolitaireRule = "top" | "bottom" | "spell";
@@ -68,6 +68,7 @@ type CardEffect =
   | "ventilate"
   | "plateArmor"
   | "warmUp"
+  | "opportunityCreate"
   | "ironWall"
   | "fourHit"
   | "starlight"
@@ -85,7 +86,8 @@ type CardEffect =
   | "flood"
   | "endStart"
   | "superStrategist"
-  | "pioneer";
+  | "pioneer"
+  | "grimoire";
 type Phase = "drawing" | "playing" | "discarding" | "enemy-turn";
 type Screen = "map" | "battle";
 type MapPosition = { x: number; y: number };
@@ -653,7 +655,8 @@ const SPECIAL_CARD_POOL: CardBlueprint[] = [
   { kind: "skill", effect: "warmUp", rarity: "special", name: "준비 운동", cost: 0, value: 4, draw: 0, damageType: "physical" },
   { kind: "skill", effect: "starlight", rarity: "special", name: "별빛", cost: 0, value: 1, draw: 0, damageType: "physical" },
   { kind: "skill", effect: "sweep", rarity: "special", name: "휩쓸기", cost: 1, value: 7, draw: 0, damageType: "physical" },
-  { kind: "strike", effect: "strike", rarity: "special", name: "기회 창출", cost: 1, value: 6, draw: 1, damageType: "physical" },
+  { kind: "skill", effect: "opportunityCreate", rarity: "special", name: "기회 창출", cost: 1, value: 5, draw: 1, damageType: "physical" },
+  { kind: "strike", effect: "strike", rarity: "special", name: "기회 포착", cost: 1, value: 6, draw: 1, damageType: "physical" },
   { kind: "strike", effect: "rulerCompass", rarity: "special", name: "자와 컴퍼스", cost: 1, value: 9, draw: 0, damageType: "physical" },
   { kind: "strike", effect: "fourHit", rarity: "special", name: "4연격", cost: 1, value: 2, draw: 0, damageType: "physical" },
   { kind: "strike", effect: "boomerang", rarity: "special", name: "정리 타격", cost: 1, value: 9, draw: 0, damageType: "physical" },
@@ -661,8 +664,8 @@ const SPECIAL_CARD_POOL: CardBlueprint[] = [
   { kind: "defend", effect: "plateArmor", rarity: "special", name: "판금 갑옷", cost: 1, value: 8, draw: 0, damageType: "physical", forgeCost: 2 },
   { kind: "skill", effect: "fileDraw", rarity: "special", name: "뽑아내기", cost: 1, value: 0, draw: 3, damageType: "physical" },
   { kind: "skill", effect: "drawEachPile", rarity: "special", name: "걷어내기", cost: 1, value: 0, draw: 0, damageType: "physical" },
-  { kind: "skill", effect: "weaponSharpen", rarity: "special", name: "무기 연마", cost: 1, value: 2, draw: 0, damageType: "physical", forgeTargetName: "모루" },
-  { kind: "skill", effect: "armorSharpen", rarity: "special", name: "방어구 연마", cost: 1, value: 1, draw: 0, damageType: "physical", forgeTargetName: "모루" },
+  { kind: "power", effect: "weaponSharpen", rarity: "special", name: "무기 연마", cost: 1, value: 2, draw: 0, damageType: "physical", exhaust: true },
+  { kind: "power", effect: "armorSharpen", rarity: "special", name: "방어구 연마", cost: 1, value: 2, draw: 0, damageType: "physical", exhaust: true },
   { kind: "strike", effect: "boomerang", rarity: "special", name: "부메랑 칼날", cost: 1, value: 9, draw: 0, damageType: "physical" },
   { kind: "strike", effect: "meteor", rarity: "special", name: "유성우", cost: 2, value: 9, draw: 0, damageType: "physical" },
   { kind: "defend", effect: "starGuard", rarity: "special", name: "받아내기", cost: 2, value: 12, draw: 0, damageType: "physical" },
@@ -670,13 +673,13 @@ const SPECIAL_CARD_POOL: CardBlueprint[] = [
   { kind: "strike", effect: "strike", rarity: "special", name: "묵직한 한 방", cost: 3, value: 30, draw: 0, damageType: "physical" },
   { kind: "strike", effect: "exchange", rarity: "special", name: "교환법칙", cost: 3, value: 20, draw: 0, damageType: "physical", forgeAny: true },
   { kind: "skill", effect: "anvil", rarity: "special", name: "모루", cost: 3, value: 0, draw: 0, damageType: "physical" },
-  { kind: "skill", effect: "flood", rarity: "special", name: "범람", cost: 4, value: 0, draw: 2, damageType: "physical" },
 ];
 
 const RARE_CARD_POOL: CardBlueprint[] = [
   { kind: "skill", effect: "endStart", rarity: "rare", name: "끝의 시작", cost: 0, value: 3, draw: 0, damageType: "physical" },
   { kind: "skill", effect: "superStrategist", rarity: "rare", name: "초전략가", cost: 1, value: 5, draw: 0, damageType: "physical", exhaust: true },
-  { kind: "skill", effect: "pioneer", rarity: "rare", name: "개척하기", cost: 1, value: 0, draw: 0, damageType: "physical" },
+  { kind: "power", effect: "pioneer", rarity: "rare", name: "개척하기", cost: 1, value: 0, draw: 0, damageType: "physical", exhaust: true },
+  { kind: "skill", effect: "grimoire", rarity: "rare", name: "마도서", cost: 0, value: 0, draw: 0, damageType: "physical" },
 ];
 
 function createBattleRewardCard(id: number, rareChance: number): Card {
@@ -1069,6 +1072,8 @@ function CardFace({ card, starsSpent = 0 }: { card: Card; starsSpent?: number })
         return <span className="effect-type physical">{card.forged ? <>방어 {card.value * 2}</> : <>방어 {card.value} ({card.value * 2})</>}</span>;
       case "warmUp":
         return <span>이번 턴 힘 {card.value}</span>;
+      case "opportunityCreate":
+        return <><span className="effect-type physical">방어 {card.value}</span><span>드로우 {card.draw}</span></>;
       case "ironWall":
         return <span className="effect-type physical">방어 {card.value}</span>;
       case "fourHit":
@@ -1076,7 +1081,7 @@ function CardFace({ card, starsSpent = 0 }: { card: Card; starsSpent?: number })
       case "starlight":
         return <span>★ {card.value} 획득</span>;
       case "augment":
-        return <span>힘과 민첩 {card.value} 획득</span>;
+        return <span>힘과 강인함 {card.value} 획득</span>;
       case "fileDraw":
         return <span>{card.forged ? "모든 파일에서 1장씩 드로우" : "파일 하나 선택, 위에서부터 3장 드로우"}</span>;
       case "starGuard":
@@ -1107,6 +1112,8 @@ function CardFace({ card, starsSpent = 0 }: { card: Card; starsSpent?: number })
         return <span>★ +5. 소멸</span>;
       case "pioneer":
         return <span>빈 파일 하나 생성</span>;
+      case "grimoire":
+        return <span>사용 불가. 손에 있는 동안 카드를 낼 때마다 ★ +1</span>;
       case "ironWave":
         return <><span className="effect-type damage">피해 {card.value}</span><span className="effect-type physical">방어 5</span></>;
       case "waterWave":
@@ -1119,7 +1126,7 @@ function CardFace({ card, starsSpent = 0 }: { card: Card; starsSpent?: number })
     <>
       <span className="card-cost">{card.cost}</span>
       <strong className={`card-name rarity-${card.rarity} ${card.colored ? "is-painted" : ""} ${card.name.length >= 6 ? "is-long" : ""}`}>{card.name}{card.forged ? "+" : ""}</strong>
-      <span className="card-effect">{card.solitaireRule && <strong className="solitaire-rule solitaire-keyword">{card.solitaireRule === "top" ? "윗패" : card.solitaireRule === "bottom" ? "밑패" : "주문"}</strong>}{effectText}{card.forged ? <strong className="solitaire-rule">재련됨.</strong> : (card.forgeCost !== undefined || card.forgeTargetName || card.forgeAny) && <strong className="solitaire-rule">제련: {card.forgeTargetName ? `[${card.forgeTargetName}]` : card.forgeAny ? "[아무거나]" : `[${card.forgeCost}코스트]`}</strong>}{card.exhaust && <strong className="solitaire-rule">소멸</strong>}</span>
+      <span className="card-effect">{card.solitaireRule && <strong className="solitaire-rule solitaire-keyword">{card.solitaireRule === "top" ? "윗패" : card.solitaireRule === "bottom" ? "밑패" : "주문"}</strong>}{effectText}{card.forged ? <strong className="solitaire-rule">재련됨.</strong> : (card.forgeCost !== undefined || card.forgeTargetName || card.forgeAny) && <strong className="solitaire-rule">제련: {card.forgeTargetName ? `[${card.forgeTargetName}]` : card.forgeAny ? "[아무거나]" : `[${card.forgeCost}코스트]`}</strong>}{card.kind === "power" ? <strong className="solitaire-rule">파워</strong> : card.exhaust && <strong className="solitaire-rule">소멸</strong>}</span>
     </>
   );
 }
@@ -2954,6 +2961,9 @@ export default function Home() {
         current.pendingSweep ||
         phase !== "playing"
       ) return current;
+      if (card.effect === "grimoire") {
+        return { ...current, message: "마도서는 사용할 수 없습니다." };
+      }
       if (current.energy < card.cost) {
         return { ...current, message: `${card.name}: 에너지가 ${card.cost} 필요합니다.` };
       }
@@ -2968,6 +2978,7 @@ export default function Home() {
       const isDamageCard = card.kind === "strike" || isIronRampage || isShockwave || isMagicStrike || isSweepAttack || isMeteor;
       const isAttackAll = isIronRampage || isShockwave || isSweepAttack;
       const isWave = card.effect === "ironWave" || card.effect === "waterWave";
+      const isOpportunityCreate = card.effect === "opportunityCreate";
       if (isDamageCard && !isAttackAll && !isMagicStrike && !isMeteor && !targetEnemyId) return current;
       const targetEnemy = isMagicStrike
         ? lowestHealthEnemy(current.enemies)
@@ -2986,11 +2997,14 @@ export default function Home() {
       const defenseValue = card.effect === "plateArmor" && card.forged ? card.value * 2 : card.value;
       const blockGained = card.kind === "defend"
         ? (defenseValue + current.agility) * current.defenseMultiplier
-        : isIronRampage || isWave
+        : isOpportunityCreate
+          ? card.value * current.defenseMultiplier
+          : isIronRampage || isWave
           ? 5 * repetitions * current.defenseMultiplier
           : 0;
       const nextPhysicalBlock = (card.kind === "defend" && card.damageType === "physical")
         || isIronRampage
+        || isOpportunityCreate
         || (isWave && card.damageType === "physical")
         ? current.playerPhysicalBlock + blockGained
         : current.playerPhysicalBlock;
@@ -3000,6 +3014,7 @@ export default function Home() {
         : current.playerMagicBlock;
       const won = nextEnemies.every((enemy) => enemy.hp === 0);
       const canDraw = current.piles.some((pile) => pile.length > 0);
+      const hasGrimoireInHand = current.hand.some((item) => item.effect === "grimoire");
       const drawEachPileResult = card.effect === "drawEachPile" || (card.effect === "fileDraw" && card.forged)
         ? drawFromPiles(current.piles)
         : null;
@@ -3026,6 +3041,7 @@ export default function Home() {
         if (isMagicStrike) return "마법 타격 발동";
         if (isIronRampage) return `적 전체에게 피해 ${damage} · 방어 ${blockGained}${repetitions > 1 ? " (2회 발동)" : ""}`;
         if (isWave) return `${targetEnemy?.name}에게 피해 ${damage} · ${DEFENSE_LABEL[card.damageType]} ${blockGained}${repetitions > 1 ? " (2회 발동)" : ""}`;
+        if (isOpportunityCreate) return `방어 ${blockGained} 획득`;
         if (card.kind === "strike") return `${targetEnemy?.name}에게 피해 ${damage}${repetitions > 1 ? " (2회 발동)" : ""}`;
         if (card.kind === "defend") return `${DEFENSE_LABEL[card.damageType]} ${blockGained} 획득`;
         if (card.effect === "steelHeart") return "이번 턴 방어와 마법 방어 획득량 2배";
@@ -3063,7 +3079,7 @@ export default function Home() {
           ? current.discard
           : [...current.discard, card],
         energy: current.energy - card.cost + (card.effect === "berserk" ? 2 : card.effect === "focus" || card.effect === "adrenaline" || card.effect === "charge" || card.effect === "endStart" ? card.value : card.effect === "flood" ? 2 : card.effect === "ventilate" ? card.value : 0),
-        stars: current.stars + (
+        stars: current.stars + (hasGrimoireInHand ? 1 : 0) + (
           card.effect === "battlePlan"
             ? 3
             : card.effect === "rulerCompass"
@@ -4880,7 +4896,7 @@ export default function Home() {
                 ? "여기에 놓아 전체 공격"
               : dragging?.card.kind === "defend"
                 ? `여기에 놓아 ${DEFENSE_LABEL[dragging.card.damageType]}`
-                : dragging?.card.kind === "skill"
+                : (dragging?.card.kind === "skill" || dragging?.card.kind === "power")
                   ? "여기에 놓아 사용"
                   : "여기에 놓아 수비"}
           </div>
@@ -4913,7 +4929,7 @@ export default function Home() {
               </div>
               <div className="combat-buffs" aria-label="현재 강화 효과">
                 <span>힘 {game.strength}</span>
-                {game.agility > 0 && <span>민첩 {game.agility}</span>}
+                {game.agility > 0 && <span>강인함 {game.agility}</span>}
                 {game.defenseMultiplier > 1 && <span>방어 ×{game.defenseMultiplier}</span>}
                 {game.damageTakenMultiplier > 1 && <span>받는 피해 ×{game.damageTakenMultiplier}</span>}
                 {game.invulnerable && <span>피해 면역</span>}
