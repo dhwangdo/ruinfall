@@ -9,11 +9,15 @@ export type EnemyHit = {
 export type EnemyAction = {
   name: string;
   attacks: EnemyHit[];
+  /** Listed actions advance in order instead of being selected randomly. */
+  cycle?: boolean;
   strengthGain?: number;
+  blockGain?: number;
   nextAttackMagic?: boolean;
+  discardCount?: number;
 };
 
-export type EnemyVariant = "gargoyle" | "rat" | "slime" | "snake" | "scavenger";
+export type EnemyVariant = "slime" | "golem" | "goblin" | "rat";
 
 export type EnemyState = {
   id: string;
@@ -23,10 +27,13 @@ export type EnemyState = {
   actions: EnemyAction[];
   intentIndex: number;
   strength: number;
+  physicalBlock: number;
   variant: EnemyVariant;
   sturdyThreshold: number;
   quicknessReady: boolean;
   nextAttackMagic: boolean;
+  /** The pile chosen for the next discard action. */
+  discardPileIndex?: number;
   trait: string | null;
 };
 
@@ -35,94 +42,79 @@ type EnemyBlueprint = Omit<EnemyState, "id" | "intentIndex">;
 const SEWER_ENCOUNTERS: EnemyBlueprint[][] = [
   [
     {
-      name: "가고일 석상",
-      hp: 6,
-      maxHp: 6,
+      name: "주황 슬라임",
+      hp: 35,
+      maxHp: 35,
       actions: [
-        { name: "내려찍기", attacks: [{ type: "physical", value: 6 }] },
-        { name: "돌의 기세", attacks: [], strengthGain: 3 },
-        { name: "파편 난사", attacks: [{ type: "physical", value: 2, hits: 3 }] },
+        { name: "점액 충돌", attacks: [{ type: "physical", value: 10 }], cycle: true },
+        { name: "점액 방어", attacks: [{ type: "physical", value: 7 }], blockGain: 7, cycle: true },
       ],
       strength: 0,
-      variant: "gargoyle",
-      sturdyThreshold: 10,
-      quicknessReady: false,
-      nextAttackMagic: false,
-      trait: "단단함 · 10 이하의 피해를 1로 줄임",
-    },
-  ],
-  [
-    {
-      name: "독성 점액",
-      hp: 24,
-      maxHp: 24,
-      actions: [
-        {
-          name: "마력 오염",
-          attacks: [{ type: "physical", value: 7 }],
-          nextAttackMagic: true,
-        },
-        { name: "점액 충돌", attacks: [{ type: "physical", value: 7 }] },
-      ],
-      strength: 0,
+      physicalBlock: 0,
       variant: "slime",
       sturdyThreshold: 0,
       quicknessReady: false,
       nextAttackMagic: false,
-      trait: null,
+      trait: "점액투성이 · 전투 시작 시 유독성 점액을 손패에 넣음",
     },
   ],
   [
     {
-      name: "하수구 뱀",
-      hp: 13,
-      maxHp: 13,
+      name: "골렘",
+      hp: 65,
+      maxHp: 65,
       actions: [
-        { name: "재빠른 물기", attacks: [{ type: "physical", value: 6 }] },
+        { name: "...", attacks: [], cycle: true },
+        { name: "...!", attacks: [], cycle: true },
+        { name: "공격", attacks: [{ type: "physical", value: 25 }], cycle: true },
       ],
       strength: 0,
-      variant: "snake",
-      sturdyThreshold: 0,
-      quicknessReady: true,
-      nextAttackMagic: false,
-      trait: "재빠름 · 매 턴 처음 받는 공격을 무시",
-    },
-  ],
-  [
-    {
-      name: "청소부",
-      hp: 35,
-      maxHp: 35,
-      actions: [
-        { name: "강타", attacks: [{ type: "physical", value: 11 }] },
-        {
-          name: "노획",
-          attacks: [{ type: "physical", value: 8 }],
-          strengthGain: 3,
-        },
-      ],
-      strength: 0,
-      variant: "scavenger",
+      physicalBlock: 0,
+      variant: "golem",
       sturdyThreshold: 0,
       quicknessReady: false,
       nextAttackMagic: false,
       trait: null,
     },
   ],
-  Array.from({ length: 4 }, () => ({
-    name: "하수구 쥐",
-    hp: 5,
-    maxHp: 5,
-    actions: [
-      { name: "물기", attacks: [{ type: "physical" as const, value: 3 }] },
-    ],
-    strength: 0,
-    variant: "rat" as const,
-    sturdyThreshold: 0,
-    quicknessReady: false,
-    nextAttackMagic: false,
-    trait: null,
-  })),
+  [
+    {
+      name: "하수구 쥐",
+      hp: 40,
+      maxHp: 40,
+      actions: [
+        { name: "물어뜯기", attacks: [{ type: "physical", value: 12 }], discardCount: 1, cycle: true },
+        { name: "웅크리기", attacks: [], blockGain: 10, discardCount: 1, cycle: true },
+        { name: "광폭 질주", attacks: [{ type: "physical", value: 7 }], strengthGain: 3, cycle: true },
+      ],
+      strength: 0,
+      physicalBlock: 0,
+      variant: "rat",
+      sturdyThreshold: 0,
+      quicknessReady: false,
+      nextAttackMagic: false,
+      trait: "버리기: 지정된 파일의 맨 위 카드 1장을 턴 종료 시 버립니다.",
+    },
+  ],
+  [
+    {
+      name: "도깨비",
+      hp: 60,
+      maxHp: 60,
+      actions: [
+        { name: "난타", attacks: [{ type: "physical", value: 5, hits: 3 }], cycle: true },
+        { name: "연타", attacks: [{ type: "physical", value: 7, hits: 2 }], cycle: true },
+        { name: "강습", attacks: [{ type: "physical", value: 9 }], strengthGain: 2, cycle: true },
+      ],
+      strength: 0,
+      physicalBlock: 0,
+      variant: "goblin",
+      sturdyThreshold: 0,
+      quicknessReady: false,
+      nextAttackMagic: false,
+      trait: "전투 시작 시 유물·흙·흙·흙·흙 파일을 추가",
+    },
+  ],
 ];
 
 function randomIndex(length: number, random: () => number) {
@@ -135,6 +127,7 @@ export function chooseNextIntent(
   random: () => number = Math.random,
 ) {
   if (actions.length <= 1) return 0;
+  if (actions[0]?.cycle) return (previousIndex + 1) % actions.length;
   const candidates = actions
     .map((_, index) => index)
     .filter((index) => index !== previousIndex);
@@ -142,10 +135,7 @@ export function chooseNextIntent(
 }
 
 export function createSewerEncounter(random: () => number = Math.random): EnemyState[] {
-  return createSewerEncounterByIndex(
-    randomIndex(SEWER_ENCOUNTERS.length, random),
-    random,
-  );
+  return createSewerEncounterByIndex(randomIndex(SEWER_ENCOUNTERS.length, random), random);
 }
 
 export const SEWER_ENCOUNTER_COUNT = SEWER_ENCOUNTERS.length;
@@ -154,10 +144,7 @@ export function createSewerEncounterByIndex(
   encounterIndex: number,
   random: () => number = Math.random,
 ): EnemyState[] {
-  const safeIndex = Math.max(
-    0,
-    Math.min(SEWER_ENCOUNTERS.length - 1, Math.floor(encounterIndex)),
-  );
+  const safeIndex = Math.max(0, Math.min(SEWER_ENCOUNTERS.length - 1, Math.floor(encounterIndex)));
   const encounter = SEWER_ENCOUNTERS[safeIndex];
   return encounter.map((enemy, index) => ({
     ...enemy,
@@ -166,34 +153,28 @@ export function createSewerEncounterByIndex(
       ...action,
       attacks: action.attacks.map((attack) => ({ ...attack })),
     })),
-    intentIndex: randomIndex(enemy.actions.length, random),
+    intentIndex: enemy.actions[0]?.cycle ? 0 : randomIndex(enemy.actions.length, random),
+    discardPileIndex: undefined,
   }));
 }
 
 export function getSewerEncounterLabel(encounterIndex: number) {
-  const safeIndex = Math.max(
-    0,
-    Math.min(SEWER_ENCOUNTERS.length - 1, Math.floor(encounterIndex)),
-  );
+  const safeIndex = Math.max(0, Math.min(SEWER_ENCOUNTERS.length - 1, Math.floor(encounterIndex)));
   const encounter = SEWER_ENCOUNTERS[safeIndex];
-  return encounter.length > 1
-    ? `${encounter[0].name} ${encounter.length}마리`
-    : encounter[0].name;
+  return encounter.length > 1 ? `${encounter[0].name} ${encounter.length}마리` : encounter[0].name;
 }
 
-export function actionSummary(
-  action: EnemyAction,
-  strength: number,
-  forceMagic = false,
-) {
+export function actionSummary(action: EnemyAction, strength: number, forceMagic = false) {
   const parts = action.attacks.map((attack) => {
     const type = forceMagic ? "magic" : attack.type;
     const label = type === "magic" ? "마법 피해" : "피해";
     const total = attack.value + strength;
-    return `${label} ${total}${(attack.hits ?? 1) > 1 ? `×${attack.hits}` : ""}`;
+    return `${label} ${total}${(attack.hits ?? 1) > 1 ? ` x ${attack.hits}번` : ""}`;
   });
   if (action.strengthGain) parts.push(`힘 ${action.strengthGain} 획득`);
-  if (action.nextAttackMagic) parts.push("다음 공격이 마법 속성");
+  if (action.blockGain) parts.push(`방어 ${action.blockGain} 획득`);
+  if (action.nextAttackMagic) parts.push("다음 공격은 마법 속성");
+  if (action.discardCount) parts.push(`버리기 ${action.discardCount}`);
   return parts.join(" + ");
 }
 
@@ -201,6 +182,7 @@ export function applyPlayerAttack(
   enemy: EnemyState,
   damage: number,
   repetitions: number,
+  damageType: EnemyDamageType = "physical",
 ) {
   let next = enemy;
   for (let hit = 0; hit < repetitions && next.hp > 0; hit += 1) {
@@ -209,13 +191,15 @@ export function applyPlayerAttack(
       continue;
     }
     if (next.sturdyThreshold > 0 && damage > 0 && damage <= next.sturdyThreshold) {
-      next = {
-        ...next,
-        hp: Math.max(0, next.hp - 1),
-      };
+      next = { ...next, hp: Math.max(0, next.hp - 1) };
       continue;
     }
-    next = { ...next, hp: Math.max(0, next.hp - damage) };
+    const blocked = damageType === "physical" ? Math.min(damage, next.physicalBlock) : 0;
+    next = {
+      ...next,
+      hp: Math.max(0, next.hp - (damage - blocked)),
+      physicalBlock: next.physicalBlock - blocked,
+    };
   }
   return next;
 }

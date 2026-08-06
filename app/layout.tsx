@@ -13,8 +13,8 @@ const geistMono = Geist_Mono({
 });
 
 export const metadata: Metadata = {
-  title: "카드 파일 전투 — 프로토타입",
-  description: "솔리테어 방식의 파일 드로우와 덱빌딩 전투를 결합한 웹게임 프로토타입",
+  title: "Ruinfall",
+  description: "Ruinfall",
 };
 
 export default function RootLayout({ children }: Readonly<{ children: React.ReactNode }>) {
