@@ -1666,6 +1666,7 @@ export default function Home() {
             return { ...latest, piles: latest.clearPlan.pilesBeforeDraw, discard: [], message: "CLEAR! 새 파일을 배치했습니다." };
           });
           setPileClearNotice(false);
+          let missingOriginFrames = 0;
           const drawFromNewPiles = () => {
             const plannedHandIds = new Set(clearPlan.hand.map((card) => card.id));
             const origins = new Map<number, DOMRect>();
@@ -1676,9 +1677,10 @@ export default function Home() {
               }
             });
 
-            // 새 파일의 카드가 모두 실제 화면 좌표를 가져야만 손패에 추가한다.
-            // 일부만 추가하면 좌표를 못 잡은 카드가 모션 없이 손패에 나타난다.
-            if (origins.size !== plannedHandIds.size) {
+            // 렌더가 늦을 때만 잠시 기다린다. 좌표를 끝내 못 찾더라도
+            // 애니메이션을 생략하고 진행해야 전투가 drawing 상태에 고정되지 않는다.
+            if (origins.size !== plannedHandIds.size && missingOriginFrames < 12) {
+              missingOriginFrames += 1;
               window.requestAnimationFrame(drawFromNewPiles);
               return;
             }
