@@ -1697,6 +1697,9 @@ export default function Home() {
                 message: `새 파일에서 ${planned.hand.length}장을 가져왔습니다.`,
               };
             });
+            if (origins.size === 0) {
+              window.requestAnimationFrame(() => setPhase("playing"));
+            }
           };
 
           // React가 새 파일을 화면에 그린 뒤 두 프레임을 기다린다.
