@@ -4,10 +4,10 @@ import { useState } from "react";
 import styles from "./page.module.css";
 
 const DEFAULTS = {
-  nameWeight: 600,
-  nameSize: 8.5,
-  effectWeight: 400,
-  effectSize: 8.5,
+  nameWeight: 700,
+  nameSize: 10,
+  effectWeight: 500,
+  effectSize: 8,
 };
 
 type SliderProps = {
@@ -67,7 +67,7 @@ export default function CardFontLab() {
             className={styles.effect}
             style={{ fontSize: `${effectSize}pt`, fontWeight: effectWeight }}
           >
-            사용 불가.<br />손에 있는 동안 힘 +2,<br />강인함 +2
+            사용 불가.<br />손에 있는 동안 힘 +<b style={{ fontWeight: Math.min(900, effectWeight + 100) }}>2</b>,<br />강인함 +<b style={{ fontWeight: Math.min(900, effectWeight + 100) }}>2</b>
           </span>
         </div>
       </section>

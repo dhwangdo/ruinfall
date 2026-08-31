@@ -1,6 +1,9 @@
 "use client";
 
 import {
+  Children,
+  cloneElement,
+  isValidElement,
   useEffect,
   useLayoutEffect,
   useRef,
@@ -9,6 +12,7 @@ import {
   type DragEvent as ReactDragEvent,
   type MouseEvent as ReactMouseEvent,
   type PointerEvent as ReactPointerEvent,
+  type ReactNode,
   type WheelEvent as ReactWheelEvent,
 } from "react";
 import {
@@ -1103,6 +1107,19 @@ function lowestHealthEnemy(enemies: EnemyState[]) {
     .reduce<EnemyState | undefined>((lowest, enemy) => !lowest || enemy.hp < lowest.hp ? enemy : lowest, undefined);
 }
 
+function emphasizeEffectNumbers(node: ReactNode): ReactNode {
+  if (typeof node === "number") return <span className="effect-number">{node}</span>;
+  if (typeof node === "string") {
+    return node.split(/(\d+(?:\.\d+)?)/g).map((part, index) =>
+      /^\d/.test(part) ? <span className="effect-number" key={`${part}-${index}`}>{part}</span> : part);
+  }
+  if (Array.isArray(node)) return Children.map(node, emphasizeEffectNumbers);
+  if (isValidElement<{ children?: ReactNode }>(node) && node.props.children !== undefined) {
+    return cloneElement(node, undefined, emphasizeEffectNumbers(node.props.children));
+  }
+  return node;
+}
+
 function CardFace({ card, starsSpent = 0, strength = 0, agility = 0 }: { card: Card; starsSpent?: number; strength?: number; agility?: number }) {
   const damageValue = card.value + strength;
   const defenseValue = card.value + agility;
@@ -1213,7 +1230,7 @@ function CardFace({ card, starsSpent = 0, strength = 0, agility = 0 }: { card: C
     <>
       {card.effect !== "slime" && <span className="card-cost">{card.cost}</span>}
       <strong className={`card-name rarity-${card.rarity} ${card.colored ? "is-painted" : ""} ${card.name.length >= 6 ? "is-long" : ""}`}>{card.name}{card.forged ? "+" : ""}</strong>
-      <span className="card-effect">{card.solitaireRule && <strong className="solitaire-rule solitaire-keyword">{card.solitaireRule === "top" ? "윗패" : card.solitaireRule === "bottom" ? "밑패" : "주문"}</strong>}{effectText}{card.forged ? <strong className="solitaire-rule">재련됨.</strong> : (card.forgeCost !== undefined || card.forgeTargetName || card.forgeAny) && <strong className="solitaire-rule">제련: {card.forgeTargetName ? `[${card.forgeTargetName}]` : card.forgeAny ? "[아무거나]" : `[${card.forgeCost}코스트]`}</strong>}{card.exhaust && <strong className="solitaire-rule">소멸</strong>}{card.power && <strong className="solitaire-rule">파워</strong>}</span>
+      <span className="card-effect">{emphasizeEffectNumbers(<>{card.solitaireRule && <strong className="solitaire-rule solitaire-keyword">{card.solitaireRule === "top" ? "윗패" : card.solitaireRule === "bottom" ? "밑패" : "주문"}</strong>}{effectText}{card.forged ? <strong className="solitaire-rule">재련됨.</strong> : (card.forgeCost !== undefined || card.forgeTargetName || card.forgeAny) && <strong className="solitaire-rule">제련: {card.forgeTargetName ? `[${card.forgeTargetName}]` : card.forgeAny ? "[아무거나]" : `[${card.forgeCost}코스트]`}</strong>}{card.exhaust && <strong className="solitaire-rule">소멸</strong>}{card.power && <strong className="solitaire-rule">파워</strong>}</>)}</span>
     </>
   );
 }
@@ -2332,6 +2349,18 @@ export default function Home() {
     setDeckEditorMessage(`${card.name}을(를) 덱에서 제거했습니다. 취소하면 되돌릴 수 있습니다.`);
   };
 
+  const restoreRemovedCardToDeck = (cardId: number) => {
+    if (!editingDeck || editingDeckCards.length >= editingDeck.capacity) {
+      setDeckEditorMessage(`${editingDeck?.name ?? "현재 덱"}에는 더 이상 카드를 넣을 수 없습니다.`);
+      return;
+    }
+    const card = pendingRemovedCards.find((item) => item.id === cardId);
+    if (!card) return;
+    updateEditingDeckCards((current) => [...current, card]);
+    setPendingRemovedCards((current) => current.filter((item) => item.id !== cardId));
+    setDeckEditorMessage(`${card.name}을(를) 덱으로 되돌렸습니다.`);
+  };
+
   const moveInventoryCardToDeck = (cardId: number) => {
     if (!editingDeck || editingDeckCards.length >= editingDeck.capacity) {
       setDeckEditorMessage(`${activeDeck?.name ?? "현재 덱"}에는 더 이상 카드를 넣을 수 없습니다.`);
@@ -2724,6 +2753,7 @@ export default function Home() {
       else if (source === "inventory" && target === "floor") moveInventoryCardToFloor(cardId);
       else if (source === "floor" && target === "inventory") moveFloorCardToInventory(cardId);
       else if (source === "floor" && target === "deck") moveFloorCardToDeck(cardId);
+      else if (source === "trash" && target === "deck") restoreRemovedCardToDeck(cardId);
       else if (source === "deck" && target === "inventory") moveDeckCardToInventory(cardId);
       else if (source === "deck" && target === "trash") removeDeckCard(cardId);
     }
@@ -4649,7 +4679,7 @@ export default function Home() {
                   className={`deck-editor-column deck-list-column ${deckEditorDropTarget === "deck" ? "is-drop-target" : ""}`}
                   onDragOver={(event) => {
                     const source = (deckEditorDragRef.current ?? deckEditorDrag)?.source;
-                    const addingCard = source === "inventory" || source === "floor";
+                    const addingCard = source === "inventory" || source === "floor" || source === "trash";
                     if (!addingCard || !editingDeck || editingDeckCards.length >= editingDeck.capacity) {
                       event.dataTransfer.dropEffect = "none";
                       setDeckEditorDropTarget(null);
@@ -4817,18 +4847,29 @@ export default function Home() {
                         }}
                         aria-label="덱 카드 제거 휴지통"
                       >
-                        <span className="trash-icon" aria-hidden="true" />
-                        <strong>휴지통</strong>
                         {pendingRemovedCards.length > 0 ? (
                           <div className="trash-card-list" aria-label="편집 확인 전 제거 예정 카드">
                             {pendingRemovedCards.map((card) => (
-                              <div className="trash-card-preview" key={card.id}>
+                              <div
+                                className="trash-card-preview"
+                                key={card.id}
+                                draggable
+                                onDragStart={(event) => beginDeckEditorDrag(event, card.id, "trash")}
+                                onDragEnd={finishDeckEditorDrag}
+                                aria-label={`${card.name}, 덱으로 되돌리기 가능`}
+                              >
                                 <span>{card.cost}</span>
                                 <strong>{card.name}</strong>
                               </div>
                             ))}
                           </div>
-                        ) : <small>덱 카드를 여기에 놓으면 제거됩니다.</small>}
+                        ) : (
+                          <>
+                            <span className="trash-icon" aria-hidden="true" />
+                            <strong>휴지통</strong>
+                            <small>덱 카드를 여기에 놓으면 제거됩니다.</small>
+                          </>
+                        )}
                       </div>
                     </aside>
                   </div>
