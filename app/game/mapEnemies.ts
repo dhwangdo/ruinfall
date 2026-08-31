@@ -58,8 +58,20 @@ export function updateEnemyCellMemory(
   memory: MapEnemyCellMemory,
   enemies: MapEnemy[],
   visibleCellKeys: ReadonlySet<string>,
+  previousEnemies: MapEnemy[] = [],
 ) {
   const next = { ...memory };
+  const previousEnemyById = new Map(previousEnemies.map((enemy) => [enemy.id, enemy]));
+  for (const enemy of enemies) {
+    const currentCellKey = positionKey(enemy.position);
+    if (!visibleCellKeys.has(currentCellKey)) continue;
+    const previousEnemy = previousEnemyById.get(enemy.id);
+    if (!previousEnemy) continue;
+    const previousCellKey = positionKey(previousEnemy.position);
+    if (previousCellKey !== currentCellKey && !visibleCellKeys.has(previousCellKey)) {
+      delete next[previousCellKey];
+    }
+  }
   const enemyByCell = new Map(enemies.map((enemy) => [positionKey(enemy.position), enemy]));
   for (const cellKey of visibleCellKeys) {
     const enemy = enemyByCell.get(cellKey);

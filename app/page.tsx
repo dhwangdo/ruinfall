@@ -1830,10 +1830,11 @@ export default function Home() {
     position: MapPosition,
     seed = mapSeed,
     enemies = mapEnemyWorld.enemies,
+    previousEnemies: typeof mapEnemyWorld.enemies = [],
   ) => {
     const visibleKeys = visibleMapRoomKeys(position, seed, visionVerticalRadius);
     setSeenRooms((current) => new Set([...current, ...visibleKeys]));
-    setMapEnemyCellMemory((current) => updateEnemyCellMemory(current, enemies, visibleKeys));
+    setMapEnemyCellMemory((current) => updateEnemyCellMemory(current, enemies, visibleKeys, previousEnemies));
   };
 
   const startBattle = (
@@ -2189,7 +2190,7 @@ export default function Home() {
     const collisionIds = new Set(result.collisionEnemies.map((enemy) => enemy.id));
     const collisionEnemies = bombWorld.enemies.filter((enemy) => collisionIds.has(enemy.id));
     setMapPosition(nextPosition);
-    rememberPlayerVision(nextPosition, mapSeed, bombWorld.enemies);
+    rememberPlayerVision(nextPosition, mapSeed, bombWorld.enemies, mapEnemyWorld.enemies);
     setMapEnemyWorld(bombWorld);
     if (bombResult.playerDefeated) return;
     if (collisionEnemies.length > 0) {
@@ -2203,7 +2204,7 @@ export default function Home() {
     if (screen !== "map" || mapTraveling) return;
     const roomKey = mapRoomKey(mapPosition);
     const result = resolveMapStep(mapPosition, mapPosition, mapEnemyWorld);
-    rememberPlayerVision(mapPosition, mapSeed, result.world.enemies);
+    rememberPlayerVision(mapPosition, mapSeed, result.world.enemies, mapEnemyWorld.enemies);
     setMapEnemyWorld(result.world);
     if (result.collisionEnemies.length > 0) {
       animateMapCollision(result.collisionEnemies, roomKey);
@@ -2241,6 +2242,7 @@ export default function Home() {
     const advance = () => {
       const nextPosition = path[stepIndex];
       const roomKey = mapRoomKey(nextPosition);
+      const previousWorld = currentWorld;
       const result = resolveMapStep(currentPosition, nextPosition, currentWorld);
       const bombResult = advanceBombsAfterMovement(nextPosition, result.world);
       const bombWorld = bombResult.world;
@@ -2249,7 +2251,7 @@ export default function Home() {
       currentPosition = nextPosition;
       currentWorld = bombWorld;
       setMapPosition(nextPosition);
-      rememberPlayerVision(nextPosition, mapSeed, bombWorld.enemies);
+      rememberPlayerVision(nextPosition, mapSeed, bombWorld.enemies, previousWorld.enemies);
       setMapEnemyWorld(bombWorld);
       if (bombResult.playerDefeated) {
         mapTravelTimerRef.current = null;

@@ -43,15 +43,33 @@ test("enemy memory follows observed cells instead of enemy identities", () => {
   const movedMemory = updateEnemyCellMemory(
     firstMemory,
     [{ ...enemy, position: { x: 1, y: 0 } }],
-    new Set(["1:0"]),
+    new Set(["2:0"]),
+    [enemy],
   );
 
   assert.deepEqual(movedMemory["0:0"], { encounterIndex: 2, awareness: "awake" });
-  assert.deepEqual(movedMemory["1:0"], { encounterIndex: 2, awareness: "awake" });
 
   const revisitedMemory = updateEnemyCellMemory(movedMemory, [], new Set(["0:0"]));
   assert.equal(revisitedMemory["0:0"], undefined);
-  assert.deepEqual(revisitedMemory["1:0"], { encounterIndex: 2, awareness: "awake" });
+});
+
+test("an enemy entering vision removes the echo from the cell it just left", () => {
+  const enemy = {
+    id: "returning-wanderer",
+    position: { x: 0, y: 0 },
+    encounterIndex: 3,
+    awareness: "alerted",
+  };
+  const firstMemory = updateEnemyCellMemory({}, [enemy], new Set(["0:0"]));
+  const enteredVision = updateEnemyCellMemory(
+    firstMemory,
+    [{ ...enemy, position: { x: 1, y: 0 } }],
+    new Set(["1:0"]),
+    [enemy],
+  );
+
+  assert.equal(enteredVision["0:0"], undefined);
+  assert.deepEqual(enteredVision["1:0"], { encounterIndex: 3, awareness: "alerted" });
 });
 
 test("pre-generation can reserve the start cell and its eight neighbors from spawning", () => {
