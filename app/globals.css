@@ -2288,7 +2288,7 @@ h1 { margin: 0; font-size: 25px; font-weight: 600; }
 .solitaire-pile {
   position: relative;
   width: var(--card-w);
-  height: 226px;
+  height: 271px;
   border-radius: 6px;
   transition: background .15s ease, box-shadow .15s ease;
 }

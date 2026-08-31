@@ -325,8 +325,8 @@ const MAP_COLLISION_OVERLAP_MS = 280;
 const MAP_BATTLE_FLASH_MS = 600;
 const MAP_START: MapPosition = { x: 0, y: 0 };
 const CARD_HEIGHT = 163;
-const PILE_HEIGHT = 226;
-const DEFAULT_STACK_OFFSET = 18;
+const PILE_HEIGHT = 271;
+const DEFAULT_STACK_OFFSET = 27;
 const MAX_STACK_TRAVEL = PILE_HEIGHT - CARD_HEIGHT;
 
 function shrineCollapseChance(rarity: CardRarity, priorUses: number) {
