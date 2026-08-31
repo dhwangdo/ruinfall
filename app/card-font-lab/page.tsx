@@ -67,7 +67,7 @@ export default function CardFontLab() {
             className={styles.effect}
             style={{ fontSize: `${effectSize}pt`, fontWeight: effectWeight }}
           >
-            사용 불가.<br />손에 있는 동안 힘 +<b style={{ fontWeight: Math.min(900, effectWeight + 100) }}>2</b>,<br />강인함 +<b style={{ fontWeight: Math.min(900, effectWeight + 100) }}>2</b>
+            <span>사용 불가.<br />손에 있는 동안 힘 +<b style={{ fontWeight: Math.min(900, effectWeight + 100) }}>2</b>,<br />강인함 +<b style={{ fontWeight: Math.min(900, effectWeight + 100) }}>2</b></span>
           </span>
         </div>
       </section>

@@ -2289,7 +2289,7 @@ h1 { margin: 0; font-size: 25px; font-weight: 600; }
   grid-column: 1 / -1;
   grid-row: 2;
   place-self: center;
-  width: 100%;
+  width: calc(100% + 4px);
   padding: 9px 4px;
   color: #222;
   text-align: center;

@@ -74,10 +74,11 @@
 
 .effect {
   display: flex;
+  flex-direction: column;
   grid-column: 1 / -1;
   grid-row: 2;
   place-self: center;
-  width: 100%;
+  width: calc(100% + 4px);
   align-items: center;
   justify-content: center;
   padding: 4px 1px;
