@@ -5183,16 +5183,6 @@ export default function Home() {
                     ? "여기에 놓아 파워 사용"
                   : "여기에 놓아 수비"}
           </div>
-          <div className="defense-shields" aria-label="현재 방어도">
-            <div className="defense-shield physical" aria-label={`방어 ${game.playerPhysicalBlock}`}>
-              <span>방어</span>
-              <strong>{game.playerPhysicalBlock}</strong>
-            </div>
-            <div className="defense-shield magic" aria-label={`마법 방어 ${game.playerMagicBlock}`}>
-              <span>마법 방어</span>
-              <strong>{game.playerMagicBlock}</strong>
-            </div>
-          </div>
           <div className="status-strip" role="status" aria-live="polite">{game.message}</div>
         </div>
 
@@ -5202,38 +5192,50 @@ export default function Home() {
               {damagePopup.text}
             </div>
           )}
-          <div className="player-panel">
-            <div className="player-avatar">P</div>
-            <div className="player-details">
-              <strong>방랑자</strong>
-              <div className="healthbar player-health">
-                <i style={{ width: `${(game.playerHp / MAX_PLAYER_HP) * 100}%` }} />
-                <span>{game.playerHp} / {MAX_PLAYER_HP}</span>
-              </div>
-              <div className="combat-buffs" aria-label="현재 강화 효과">
-                <span>힘 {game.strength + combatManualBonus}</span>
-                {game.agility + combatManualBonus > 0 && <span>강인함 {game.agility + combatManualBonus}</span>}
-                {game.defenseMultiplier > 1 && <span>방어 ×{game.defenseMultiplier}</span>}
-                {game.damageTakenMultiplier > 1 && <span>받는 피해 ×{game.damageTakenMultiplier}</span>}
-                {game.invulnerable && <span>피해 면역</span>}
-                {game.doubleNextAttack && <span>다음 공격 2회</span>}
-              </div>
-              {inventoryConsumables.length > 0 && (
-                <div className="battle-consumables" aria-label="보유 소모품">
-                  {inventoryConsumables.filter((consumable) => consumable.type === "swiftTicket").map((consumable) => (
-                    <button
-                      type="button"
-                      className={consumable.type}
-                      key={consumable.id}
-                      onClick={() => consumable.type === "swiftTicket" && consumeSwiftTicket(consumable.id)}
-                      disabled={controlsLocked}
-                      title={consumable.description}
-                    >
-                      <strong>{consumable.name}</strong>
-                    </button>
-                  ))}
+          <div className="player-status-column">
+            <div className="player-panel">
+              <div className="player-avatar">P</div>
+              <div className="player-details">
+                <strong>방랑자</strong>
+                <div className="healthbar player-health">
+                  <i style={{ width: `${(game.playerHp / MAX_PLAYER_HP) * 100}%` }} />
+                  <span>{game.playerHp} / {MAX_PLAYER_HP}</span>
                 </div>
-              )}
+                <div className="combat-buffs" aria-label="현재 강화 효과">
+                  <span>힘 {game.strength + combatManualBonus}</span>
+                  {game.agility + combatManualBonus > 0 && <span>강인함 {game.agility + combatManualBonus}</span>}
+                  {game.defenseMultiplier > 1 && <span>방어 ×{game.defenseMultiplier}</span>}
+                  {game.damageTakenMultiplier > 1 && <span>받는 피해 ×{game.damageTakenMultiplier}</span>}
+                  {game.invulnerable && <span>피해 면역</span>}
+                  {game.doubleNextAttack && <span>다음 공격 2회</span>}
+                </div>
+                {inventoryConsumables.length > 0 && (
+                  <div className="battle-consumables" aria-label="보유 소모품">
+                    {inventoryConsumables.filter((consumable) => consumable.type === "swiftTicket").map((consumable) => (
+                      <button
+                        type="button"
+                        className={consumable.type}
+                        key={consumable.id}
+                        onClick={() => consumable.type === "swiftTicket" && consumeSwiftTicket(consumable.id)}
+                        disabled={controlsLocked}
+                        title={consumable.description}
+                      >
+                        <strong>{consumable.name}</strong>
+                      </button>
+                    ))}
+                  </div>
+                )}
+              </div>
+            </div>
+            <div className="defense-shields" aria-label="현재 방어도">
+              <div className="defense-shield physical" aria-label={`방어 ${game.playerPhysicalBlock}`}>
+                <span>방어</span>
+                <strong>{game.playerPhysicalBlock}</strong>
+              </div>
+              <div className="defense-shield magic" aria-label={`마법 방어 ${game.playerMagicBlock}`}>
+                <span>마법 방어</span>
+                <strong>{game.playerMagicBlock}</strong>
+              </div>
             </div>
           </div>
 

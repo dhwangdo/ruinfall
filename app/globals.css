@@ -2364,6 +2364,13 @@ h1 { margin: 0; font-size: 25px; font-weight: 600; }
   padding: 0 20px 12px;
 }
 
+.player-status-column {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 8px;
+}
+
 .damage-popup {
   position: absolute;
   z-index: 40;
@@ -2615,12 +2622,12 @@ h1 { margin: 0; font-size: 25px; font-weight: 600; }
 /* Desktop battle layout: player left, solitaire and hand in the center, enemies right. */
 @media (min-width: 901px) {
   .battlefield {
-    /* Battle cards are intentionally compact so the center board stays readable. */
-    --card-w: 77px;
-    --card-h: 108px;
+    /* 135% of the previous battle-card size; typography stays unchanged below. */
+    --card-w: 104px;
+    --card-h: 146px;
     display: grid;
     grid-template-columns: minmax(220px, .9fr) minmax(600px, 2.7fr) minmax(240px, 1fr);
-    grid-template-rows: minmax(0, .85fr) minmax(0, .85fr) minmax(0, .8fr);
+    grid-template-rows: minmax(218px, 1fr) minmax(100px, .48fr) minmax(230px, 1fr);
     height: calc(100vh - 90px);
     min-height: 600px;
   }
@@ -2665,7 +2672,7 @@ h1 { margin: 0; font-size: 25px; font-weight: 600; }
   }
   .pile-zone .piles { gap: 13px; }
   .pile-zone .section-label small { display: none; }
-  .pile-zone .solitaire-pile { height: 168px; }
+  .pile-zone .solitaire-pile { height: 205px; }
   .pile-resource {
     position: static;
     transform: none;
@@ -2698,18 +2705,23 @@ h1 { margin: 0; font-size: 25px; font-weight: 600; }
   .center-drop-zone {
     grid-column: 2;
     grid-row: 2;
-    min-height: 180px;
-    padding-block: 6px;
+    min-height: 100px;
+    padding-block: 4px;
   }
-  .center-drop-zone .defense-shields { transform: translateY(16px); }
   .center-drop-zone .status-strip { display: none; }
   .player-zone { display: contents; }
-  .player-panel {
+  .player-status-column {
     grid-column: 1;
     grid-row: 2;
     align-self: center;
-    margin: 0 20px;
+    gap: 10px;
+    margin: 0 12px;
   }
+  .player-panel {
+    width: 100%;
+  }
+  .player-status-column .defense-shields { gap: 8px; }
+  .player-status-column .defense-shield { width: 92px; height: 82px; }
   .player-panel .player-avatar { width: 48px; height: 56px; font-size: 20px; }
   .player-panel .player-details > strong { font-size: 15px; }
   .player-panel .player-health { width: 190px; height: 28px; }
