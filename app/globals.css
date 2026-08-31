@@ -804,7 +804,11 @@ h1 { margin: 0; font-size: 25px; font-weight: 600; }
 .shrine-deck-card { cursor: grab; }
 .shrine-deck-card:active { cursor: grabbing; }
 .shrine-deck-card.is-dragging { opacity: 1; }
-.shrine-deck-card.is-selected { box-shadow: 0 0 0 3px #6b4b80, 0 4px 10px rgba(0,0,0,.3); }
+.shrine-deck-card.is-selected { animation: shrine-selected-card-blink .72s ease-in-out infinite alternate; }
+@keyframes shrine-selected-card-blink {
+  from { opacity: 1; filter: brightness(1); }
+  to { opacity: .35; filter: brightness(.72); }
+}
 .shrine-transfer-arrow {
   display: grid;
   place-items: center;
@@ -883,7 +887,9 @@ h1 { margin: 0; font-size: 25px; font-weight: 600; }
   top: -2px;
   --card-w: 116px;
   --card-h: 163px;
+  cursor: grab;
 }
+.shrine-pending-card:active { cursor: grabbing; }
 .shrine-confirm-extract {
   width: 116px;
   padding: 9px 12px;

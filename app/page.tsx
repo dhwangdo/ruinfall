@@ -4125,8 +4125,7 @@ export default function Home() {
       : `떨어진 물건 ${floorItemNames.length}개 줍기`;
     const activeShopOffers = activeShopRoom ? roomShops[activeShopRoom] ?? [] : [];
     const shrinePendingCard = activeDeck?.cards.find((card) => card.id === shrinePendingCardId) ?? null;
-    const shrineProbabilityCard = activeDeck?.cards.find((card) =>
-      card.id === (shrineDraggedCardId ?? shrinePendingCardId)) ?? null;
+    const shrineProbabilityCard = shrinePendingCard;
     const knownRoomRoutes = buildKnownRoomRoutes(mapPosition, seenRooms, mapSeed, effectiveRoomType);
     const floorGroups = Array.from(currentFloorCards.reduce((groups, card) => {
       const groupKey = `${card.effect}:${card.damageType}:${card.name}`;
@@ -4635,7 +4634,16 @@ export default function Home() {
                 </div>
               ) : (
                 <div className="shrine-transfer">
-                  <section className="shrine-deck-column" aria-label="현재 덱 카드">
+                  <section
+                    className="shrine-deck-column"
+                    aria-label="현재 덱 카드"
+                    onDragOver={(event) => event.preventDefault()}
+                    onDrop={(event) => {
+                      event.preventDefault();
+                      const payload = event.dataTransfer.getData("text/plain");
+                      if (payload.startsWith("shrine-pending:")) setShrinePendingCardId(null);
+                    }}
+                  >
                     <header>
                       <strong>현재 덱</strong>
                       <small>{activeDeck?.cards.length ?? 0}장</small>
@@ -4695,7 +4703,14 @@ export default function Home() {
                       }}
                     >
                       {shrinePendingCard && (
-                        <div className={`shrine-pending-card card-face ${shrinePendingCard.kind} ${shrinePendingCard.damageType}`}>
+                        <div
+                          className={`shrine-pending-card card-face ${shrinePendingCard.kind} ${shrinePendingCard.damageType}`}
+                          draggable
+                          onDragStart={(event) => {
+                            event.dataTransfer.effectAllowed = "move";
+                            event.dataTransfer.setData("text/plain", `shrine-pending:${shrinePendingCard.id}`);
+                          }}
+                        >
                           <CardFace card={shrinePendingCard} />
                         </div>
                       )}
