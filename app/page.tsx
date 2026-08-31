@@ -5199,7 +5199,7 @@ export default function Home() {
                   <span>{game.playerHp} / {MAX_PLAYER_HP}</span>
                 </div>
                 <div className="combat-buffs" aria-label="현재 강화 효과">
-                  <span>힘 {game.strength + combatManualBonus}</span>
+                  {game.strength + combatManualBonus > 0 && <span>힘 {game.strength + combatManualBonus}</span>}
                   {game.agility + combatManualBonus > 0 && <span>강인함 {game.agility + combatManualBonus}</span>}
                   {game.defenseMultiplier > 1 && <span>방어 ×{game.defenseMultiplier}</span>}
                   {game.damageTakenMultiplier > 1 && <span>받는 피해 ×{game.damageTakenMultiplier}</span>}
@@ -5224,16 +5224,22 @@ export default function Home() {
                 )}
               </div>
             </div>
-            <div className="defense-shields" aria-label="현재 방어도">
-              <div className="defense-shield physical" aria-label={`방어 ${game.playerPhysicalBlock}`}>
-                <span>방어</span>
-                <strong>{game.playerPhysicalBlock}</strong>
+            {(game.playerPhysicalBlock > 0 || game.playerMagicBlock > 0) && (
+              <div className="defense-shields" aria-label="현재 방어도">
+                {game.playerPhysicalBlock > 0 && (
+                  <div className="defense-shield physical" aria-label={`방어 ${game.playerPhysicalBlock}`}>
+                    <span>방어</span>
+                    <strong>{game.playerPhysicalBlock}</strong>
+                  </div>
+                )}
+                {game.playerMagicBlock > 0 && (
+                  <div className="defense-shield magic" aria-label={`마법 방어 ${game.playerMagicBlock}`}>
+                    <span>마법 방어</span>
+                    <strong>{game.playerMagicBlock}</strong>
+                  </div>
+                )}
               </div>
-              <div className="defense-shield magic" aria-label={`마법 방어 ${game.playerMagicBlock}`}>
-                <span>마법 방어</span>
-                <strong>{game.playerMagicBlock}</strong>
-              </div>
-            </div>
+            )}
           </div>
 
           <div

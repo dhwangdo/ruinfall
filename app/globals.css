@@ -1,3 +1,4 @@
+@import url("https://cdn.jsdelivr.net/gh/orioncactus/pretendard/dist/web/static/pretendard.css");
 @import "tailwindcss";
 
 :root {
@@ -1146,7 +1147,7 @@ h1 { margin: 0; font-size: 25px; font-weight: 600; }
   width: var(--card-w);
   height: var(--card-h);
   padding: 6px;
-  border-radius: 4px;
+  border-radius: 6px;
   box-shadow: 0 10px 25px rgba(0,0,0,.42);
   transform: none;
 }
@@ -2196,7 +2197,7 @@ h1 { margin: 0; font-size: 25px; font-weight: 600; }
   padding: 8px;
   overflow: visible;
   border: 1px solid #454545;
-  border-radius: 5px;
+  border-radius: 7px;
   color: #222;
   background: var(--paper);
   box-shadow: 0 2px 4px rgba(0,0,0,.28);
@@ -2252,7 +2253,7 @@ h1 { margin: 0; font-size: 25px; font-weight: 600; }
   padding: 9px 4px;
   color: #222;
   text-align: center;
-  font: 11px/1.4 Arial, sans-serif;
+  font: 11px/1.55 Pretendard, Arial, sans-serif;
 }
 
 .solitaire-rule {
@@ -2682,7 +2683,7 @@ h1 { margin: 0; font-size: 25px; font-weight: 600; }
     grid-template-columns: 19px 1fr 19px;
     grid-template-rows: 24px 1fr 8px;
     padding: 6px;
-    border-radius: 4px;
+    border-radius: 6px;
   }
   .battlefield .card-cost {
     top: -5px;
