@@ -3979,6 +3979,10 @@ export default function Home() {
       left.card.cost - right.card.cost
       || rarityOrder[left.card.rarity] - rarityOrder[right.card.rarity]
       || left.card.name.localeCompare(right.card.name, "ko"));
+    const trashPreviewCard = deckEditorDropTarget === "trash"
+      && (deckEditorDragRef.current ?? deckEditorDrag)?.source === "deck"
+      ? editingDeckCards.find((card) => card.id === (deckEditorDragRef.current ?? deckEditorDrag)?.cardId) ?? null
+      : null;
     const inventoryGroups = Array.from(inventoryCards.reduce((groups, card) => {
       const groupKey = `${card.effect}:${card.damageType}:${card.name}`;
       const current = groups.get(groupKey);
@@ -4812,9 +4816,18 @@ export default function Home() {
                         }}
                         aria-label="덱 카드 제거 휴지통"
                       >
-                        <span className="trash-icon" aria-hidden="true" />
-                        <strong>휴지통</strong>
-                        <small>덱 카드를 여기에 놓으면 제거됩니다.</small>
+                        {trashPreviewCard ? (
+                          <div className={`trash-card-preview rarity-${trashPreviewCard.rarity} ${trashPreviewCard.colored ? "is-painted" : ""}`}>
+                            <span>{trashPreviewCard.cost}</span>
+                            <strong>{trashPreviewCard.name}</strong>
+                          </div>
+                        ) : (
+                          <>
+                            <span className="trash-icon" aria-hidden="true" />
+                            <strong>휴지통</strong>
+                            <small>덱 카드를 여기에 놓으면 제거됩니다.</small>
+                          </>
+                        )}
                       </div>
                     </aside>
                   </div>

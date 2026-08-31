@@ -1081,6 +1081,38 @@ h1 { margin: 0; font-size: 25px; font-weight: 600; }
   font-weight: 700 !important;
 }
 
+.trash-card-preview {
+  display: grid;
+  grid-template-columns: 25px minmax(0, 1fr);
+  align-items: stretch;
+  width: min(112px, 100%);
+  min-height: 34px;
+  overflow: hidden;
+  border: 1px solid #8b3732;
+  border-radius: 5px;
+  background: #f5e9e6;
+  box-shadow: 0 1px 2px rgba(88,35,30,.16);
+}
+
+.trash-card-preview > span {
+  display: grid;
+  place-items: center;
+  color: #111;
+  background: #22a8df;
+  font: 800 12px Arial, sans-serif;
+}
+
+.trash-card-preview > strong {
+  display: grid;
+  align-items: center;
+  overflow: hidden;
+  padding: 0 6px;
+  color: #332e2c;
+  font: 600 10px Pretendard, Arial, sans-serif;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
 .trash-card-list {
   display: flex;
   flex: 1;
@@ -1170,7 +1202,7 @@ h1 { margin: 0; font-size: 25px; font-weight: 600; }
 .deck-card-preview-floating .card-effect {
   gap: 2px;
   padding: 4px 1px;
-  font-size: 10px;
+  font-size: calc(10px + 1pt);
 }
 
 .area-flow-arrow {
@@ -1608,7 +1640,7 @@ h1 { margin: 0; font-size: 25px; font-weight: 600; }
 .deck-viewer-card .card-effect {
   gap: 2px;
   padding: 4px 1px;
-  font-size: 10px;
+  font-size: calc(10px + 1pt);
 }
 
 .floor-deck-item,
@@ -2253,7 +2285,9 @@ h1 { margin: 0; font-size: 25px; font-weight: 600; }
   padding: 9px 4px;
   color: #222;
   text-align: center;
-  font: 11px/1.55 Pretendard, Arial, sans-serif;
+  font-family: Pretendard, Arial, sans-serif;
+  font-size: calc(11px + 1pt);
+  line-height: 1.55;
 }
 
 .solitaire-rule {
@@ -2700,7 +2734,7 @@ h1 { margin: 0; font-size: 25px; font-weight: 600; }
   .battlefield .card-effect {
     gap: 2px;
     padding: 4px 1px;
-    font-size: 10px;
+    font-size: calc(10px + 1pt);
   }
   .battlefield .face-down { padding: 2px; }
   .battlefield .card-back-pattern { border-width: 1px; }
