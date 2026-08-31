@@ -1209,7 +1209,7 @@ h1 { margin: 0; font-size: 25px; font-weight: 600; }
 .deck-card-preview-floating .card-effect {
   gap: 2px;
   padding: 4px 1px;
-  font-size: 8pt;
+  font-size: 8.75pt;
 }
 
 .area-flow-arrow {
@@ -1647,7 +1647,7 @@ h1 { margin: 0; font-size: 25px; font-weight: 600; }
 .deck-viewer-card .card-effect {
   gap: 2px;
   padding: 4px 1px;
-  font-size: 8pt;
+  font-size: 8.75pt;
 }
 
 .floor-deck-item,
@@ -2294,7 +2294,7 @@ h1 { margin: 0; font-size: 25px; font-weight: 600; }
   color: #222;
   text-align: center;
   font-family: Pretendard, Arial, sans-serif;
-  font-size: 8pt;
+  font-size: 8.75pt;
   line-height: 1.55;
 }
 
@@ -2744,7 +2744,7 @@ h1 { margin: 0; font-size: 25px; font-weight: 600; }
   .battlefield .card-effect {
     gap: 2px;
     padding: 4px 1px;
-    font-size: 8pt;
+    font-size: 8.75pt;
   }
   .battlefield .face-down { padding: 2px; }
   .battlefield .card-back-pattern { border-width: 1px; }
