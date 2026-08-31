@@ -804,6 +804,7 @@ h1 { margin: 0; font-size: 25px; font-weight: 600; }
 .shrine-deck-card { cursor: grab; }
 .shrine-deck-card:active { cursor: grabbing; }
 .shrine-deck-card.is-dragging { opacity: 1; }
+.shrine-deck-card.is-selected { box-shadow: 0 0 0 3px #6b4b80, 0 4px 10px rgba(0,0,0,.3); }
 .shrine-transfer-arrow {
   display: grid;
   place-items: center;
@@ -838,7 +839,13 @@ h1 { margin: 0; font-size: 25px; font-weight: 600; }
   border-right: 13px solid #493857;
   transform: rotate(45deg);
 }
+.shrine-extract-column {
+  display: grid;
+  justify-items: center;
+  gap: 12px;
+}
 .shrine-extract-slot {
+  position: relative;
   display: grid;
   place-items: center;
   align-content: center;
@@ -857,9 +864,28 @@ h1 { margin: 0; font-size: 25px; font-weight: 600; }
   background: #dfcfea;
   transform: scale(1.025);
 }
-.shrine-slot-mark { font-size: 56px; line-height: 1; }
-.shrine-extract-slot > strong { font-size: 20px; }
-.shrine-extract-slot > small { color: #756b7c; }
+.shrine-extract-slot.has-card {
+  border-color: transparent;
+  background: transparent;
+}
+.shrine-pending-card {
+  position: absolute;
+  left: -2px;
+  top: -2px;
+  --card-w: 116px;
+  --card-h: 163px;
+}
+.shrine-confirm-extract {
+  width: 116px;
+  padding: 9px 12px;
+  border: 1px solid #5f486f;
+  border-radius: 4px;
+  color: white;
+  background: #675276;
+  cursor: pointer;
+  font-weight: 800;
+}
+.shrine-confirm-extract:disabled { opacity: .35; cursor: not-allowed; }
 .shrine-result {
   display: grid;
   place-items: center;

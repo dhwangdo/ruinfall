@@ -1306,6 +1306,7 @@ export default function Home() {
   const [shrineUses, setShrineUses] = useState<Record<string, number>>({});
   const [shrineOpen, setShrineOpen] = useState(false);
   const [shrineDraggedCardId, setShrineDraggedCardId] = useState<number | null>(null);
+  const [shrinePendingCardId, setShrinePendingCardId] = useState<number | null>(null);
   const [shrineDropActive, setShrineDropActive] = useState(false);
   const [shrineResult, setShrineResult] = useState<ShrineResult | null>(null);
   const [usedHealRooms, setUsedHealRooms] = useState<Set<string>>(() => new Set());
@@ -2087,6 +2088,7 @@ export default function Home() {
   const openShrine = () => {
     if (effectiveRoomType(mapPosition) !== "shrine") return;
     setShrineDraggedCardId(null);
+    setShrinePendingCardId(null);
     setShrineDropActive(false);
     setShrineResult(null);
     setShrineOpen(true);
@@ -2116,6 +2118,7 @@ export default function Home() {
       setMapMessage(`${card.name} 추출 완료. 성소는 아직 사용할 수 있습니다.`);
     }
     setShrineDraggedCardId(null);
+    setShrinePendingCardId(null);
     setShrineDropActive(false);
     setShrineResult({ card, collapsed, collapseChance });
   };
@@ -2307,6 +2310,7 @@ export default function Home() {
     setShrineUses({});
     setShrineOpen(false);
     setShrineDraggedCardId(null);
+    setShrinePendingCardId(null);
     setShrineDropActive(false);
     setShrineResult(null);
     setUsedHealRooms(new Set());
@@ -4120,6 +4124,7 @@ export default function Home() {
       ? `${floorItemNames[0]} 줍기`
       : `떨어진 물건 ${floorItemNames.length}개 줍기`;
     const activeShopOffers = activeShopRoom ? roomShops[activeShopRoom] ?? [] : [];
+    const shrinePendingCard = activeDeck?.cards.find((card) => card.id === shrinePendingCardId) ?? null;
     const knownRoomRoutes = buildKnownRoomRoutes(mapPosition, seenRooms, mapSeed, effectiveRoomType);
     const floorGroups = Array.from(currentFloorCards.reduce((groups, card) => {
       const groupKey = `${card.effect}:${card.damageType}:${card.name}`;
@@ -4636,7 +4641,7 @@ export default function Home() {
                     <div className="shrine-deck-cards">
                       {(activeDeck?.cards ?? []).map((card) => (
                         <div
-                          className={`shrine-deck-card card-face ${card.kind} ${card.damageType} ${shrineDraggedCardId === card.id ? "is-dragging" : ""}`}
+                          className={`shrine-deck-card card-face ${card.kind} ${card.damageType} ${shrineDraggedCardId === card.id ? "is-dragging" : ""} ${shrinePendingCardId === card.id ? "is-selected" : ""}`}
                           key={`shrine-${card.id}`}
                           draggable={(activeDeck?.cards.length ?? 0) > 1}
                           onDragStart={(event) => {
@@ -4657,27 +4662,41 @@ export default function Home() {
                   <div className="shrine-transfer-arrow">
                     <span className="shrine-arrow-icon" aria-hidden="true" />
                   </div>
-                  <div
-                    className={`shrine-extract-slot ${shrineDropActive ? "is-drop-active" : ""}`}
-                    onDragEnter={(event) => {
-                      event.preventDefault();
-                      setShrineDropActive(true);
-                    }}
-                    onDragOver={(event) => {
-                      event.preventDefault();
-                      event.dataTransfer.dropEffect = "move";
-                      setShrineDropActive(true);
-                    }}
-                    onDragLeave={() => setShrineDropActive(false)}
-                    onDrop={(event) => {
-                      event.preventDefault();
-                      const transferredId = event.dataTransfer.getData("text/plain");
-                      const cardId = transferredId ? Number(transferredId) : shrineDraggedCardId;
-                      setShrineDropActive(false);
-                      if (cardId !== null && Number.isFinite(cardId)) extractCardAtShrine(cardId);
-                    }}
-                  >
-                    <span className="shrine-slot-mark" aria-hidden="true">◇</span>
+                  <div className="shrine-extract-column">
+                    <div
+                      className={`shrine-extract-slot ${shrineDropActive ? "is-drop-active" : ""} ${shrinePendingCard ? "has-card" : ""}`}
+                      onDragEnter={(event) => {
+                        event.preventDefault();
+                        setShrineDropActive(true);
+                      }}
+                      onDragOver={(event) => {
+                        event.preventDefault();
+                        event.dataTransfer.dropEffect = "move";
+                        setShrineDropActive(true);
+                      }}
+                      onDragLeave={() => setShrineDropActive(false)}
+                      onDrop={(event) => {
+                        event.preventDefault();
+                        const transferredId = event.dataTransfer.getData("text/plain");
+                        const cardId = transferredId ? Number(transferredId) : shrineDraggedCardId;
+                        setShrineDropActive(false);
+                        if (cardId !== null && Number.isFinite(cardId)) setShrinePendingCardId(cardId);
+                      }}
+                    >
+                      {shrinePendingCard && (
+                        <div className={`shrine-pending-card card-face ${shrinePendingCard.kind} ${shrinePendingCard.damageType}`}>
+                          <CardFace card={shrinePendingCard} />
+                        </div>
+                      )}
+                    </div>
+                    <button
+                      type="button"
+                      className="shrine-confirm-extract"
+                      disabled={!shrinePendingCard}
+                      onClick={() => shrinePendingCard && extractCardAtShrine(shrinePendingCard.id)}
+                    >
+                      확정
+                    </button>
                   </div>
                 </div>
               )}
