@@ -2056,19 +2056,8 @@ h1 { margin: 0; font-size: 25px; font-weight: 600; }
 .healthbar span { position: absolute; inset: 0; display: grid; place-items: center; color: white; font: 800 16px Arial, sans-serif; text-shadow: 0 1px 2px #000, 0 0 3px #000; }
 .enemy-health { width: 220px; }
 .enemy-effects {
-  display: flex;
-  justify-content: center;
   flex-wrap: wrap;
-  gap: 4px;
   margin-top: 6px;
-}
-.enemy-effects > span {
-  padding: 2px 6px;
-  border: 1px solid rgba(236, 220, 155, .48);
-  border-radius: 10px;
-  color: #f4e6aa;
-  background: rgba(18, 35, 27, .72);
-  font: 700 15px Arial, sans-serif;
 }
 .defense-shield.enemy-defense-shield {
   position: absolute;
@@ -2081,11 +2070,6 @@ h1 { margin: 0; font-size: 25px; font-weight: 600; }
 }
 .defense-shield.enemy-defense-shield span { font-size: 7px; }
 .defense-shield.enemy-defense-shield strong { margin-top: 1px; font-size: 15px; }
-.enemy-effects > small {
-  width: 100%;
-  color: rgba(255,255,255,.76);
-  font: 10px/1.25 Arial, sans-serif;
-}
 .pile-zone {
   position: relative;
   min-height: 275px;

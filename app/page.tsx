@@ -5135,12 +5135,11 @@ export default function Home() {
                       <i style={{ width: `${(enemy.hp / enemy.maxHp) * 100}%` }} />
                       <span>{enemy.hp} / {enemy.maxHp}</span>
                     </div>
-                    <div className="enemy-effects">
+                    <div className="combat-buffs enemy-effects" aria-label="적 상태 효과">
                       {enemy.strength !== 0 && <span>힘 {enemy.strength}</span>}
                       {enemy.sturdyThreshold > 0 && <span>단단함 ≤{enemy.sturdyThreshold}</span>}
                       {enemy.quicknessReady && <span>재빠름 준비</span>}
                       {enemy.nextAttackMagic && <span>다음 공격 마법</span>}
-                      {enemy.trait && <small>{enemy.trait}</small>}
                     </div>
                   </div>
                 </button>
