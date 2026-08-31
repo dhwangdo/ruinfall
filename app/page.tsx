@@ -35,6 +35,8 @@ import {
   MAP_PLAYER_VISION_HORIZONTAL_RADIUS,
   MAP_PLAYER_VISION_VERTICAL_RADIUS,
   createMapEnemyWorld,
+  updateEnemyCellMemory,
+  type MapEnemyCellMemory,
   type MapEnemyWorld,
 } from "./game/mapEnemies";
 import {
@@ -1314,6 +1316,7 @@ export default function Home() {
   const [mapEnemyWorld, setMapEnemyWorld] = useState<MapEnemyWorld>(() => ({
     enemies: [],
   }));
+  const [mapEnemyCellMemory, setMapEnemyCellMemory] = useState<MapEnemyCellMemory>({});
   const [mapBombs, setMapBombs] = useState<MapBomb[]>([]);
   const mapBombsRef = useRef<MapBomb[]>([]);
   const [destroyedShopRooms, setDestroyedShopRooms] = useState<Set<string>>(() => new Set());
@@ -1823,9 +1826,14 @@ export default function Home() {
     setMapTraveling(false);
   };
 
-  const rememberPlayerVision = (position: MapPosition, seed = mapSeed) => {
+  const rememberPlayerVision = (
+    position: MapPosition,
+    seed = mapSeed,
+    enemies = mapEnemyWorld.enemies,
+  ) => {
     const visibleKeys = visibleMapRoomKeys(position, seed, visionVerticalRadius);
     setSeenRooms((current) => new Set([...current, ...visibleKeys]));
+    setMapEnemyCellMemory((current) => updateEnemyCellMemory(current, enemies, visibleKeys));
   };
 
   const startBattle = (
@@ -1874,6 +1882,7 @@ export default function Home() {
       const nextSeed = createRandomMapSeed();
       setMapSeed(nextSeed);
       setMapEnemyWorld(createPreGeneratedMapEnemyWorld(nextSeed));
+      setMapEnemyCellMemory({});
       const floorDrops = createPreGeneratedMapFloorDrops(nextSeed);
       setRoomDrops(floorDrops.cards);
       setRoomConsumableDrops(floorDrops.consumables);
@@ -2166,7 +2175,7 @@ export default function Home() {
     if (athletePrepared) {
       const bombResult = advanceBombsAfterMovement(nextPosition, mapEnemyWorld);
       setMapPosition(nextPosition);
-      rememberPlayerVision(nextPosition);
+      rememberPlayerVision(nextPosition, mapSeed, bombResult.world.enemies);
       setMapEnemyWorld(bombResult.world);
       setAthleteCooldown(30);
       setAthletePrepared(false);
@@ -2180,7 +2189,7 @@ export default function Home() {
     const collisionIds = new Set(result.collisionEnemies.map((enemy) => enemy.id));
     const collisionEnemies = bombWorld.enemies.filter((enemy) => collisionIds.has(enemy.id));
     setMapPosition(nextPosition);
-    rememberPlayerVision(nextPosition);
+    rememberPlayerVision(nextPosition, mapSeed, bombWorld.enemies);
     setMapEnemyWorld(bombWorld);
     if (bombResult.playerDefeated) return;
     if (collisionEnemies.length > 0) {
@@ -2194,6 +2203,7 @@ export default function Home() {
     if (screen !== "map" || mapTraveling) return;
     const roomKey = mapRoomKey(mapPosition);
     const result = resolveMapStep(mapPosition, mapPosition, mapEnemyWorld);
+    rememberPlayerVision(mapPosition, mapSeed, result.world.enemies);
     setMapEnemyWorld(result.world);
     if (result.collisionEnemies.length > 0) {
       animateMapCollision(result.collisionEnemies, roomKey);
@@ -2239,7 +2249,7 @@ export default function Home() {
       currentPosition = nextPosition;
       currentWorld = bombWorld;
       setMapPosition(nextPosition);
-      rememberPlayerVision(nextPosition);
+      rememberPlayerVision(nextPosition, mapSeed, bombWorld.enemies);
       setMapEnemyWorld(bombWorld);
       if (bombResult.playerDefeated) {
         mapTravelTimerRef.current = null;
@@ -2283,10 +2293,9 @@ export default function Home() {
       setGold((current) => current + battleRewardGold);
     }
     if (activeMapEnemyIds.length > 0 && battleRoom) {
-      setMapEnemyWorld((current) => ({
-        ...current,
-        enemies: current.enemies.filter((enemy) => !activeMapEnemyIds.includes(enemy.id)),
-      }));
+      const remainingEnemies = mapEnemyWorld.enemies.filter((enemy) => !activeMapEnemyIds.includes(enemy.id));
+      setMapEnemyWorld({ ...mapEnemyWorld, enemies: remainingEnemies });
+      rememberPlayerVision(mapPosition, mapSeed, remainingEnemies);
       if (battleRewardDecks.length > 0) setRoomDeckDrops((current) => ({
         ...current,
         [battleRoom]: [...(current[battleRoom] ?? []), ...battleRewardDecks],
@@ -2319,6 +2328,7 @@ export default function Home() {
     setMapMessage("");
     setSeenRooms(visibleMapRoomKeys(MAP_START, nextSeed));
     setMapEnemyWorld(createPreGeneratedMapEnemyWorld(nextSeed));
+    setMapEnemyCellMemory({});
     setMapBombsSynced([]);
     setDestroyedShopRooms(new Set());
     setCollapsedShrineRooms(new Set());
@@ -2608,7 +2618,7 @@ export default function Home() {
     const bombResult = advanceBombsAfterMovement(destination, mapEnemyWorld);
     setMapEnemyWorld(bombResult.world);
     setMapPosition(destination);
-    rememberPlayerVision(destination);
+    rememberPlayerVision(destination, mapSeed, bombResult.world.enemies);
     focusMapOn(destination);
     if (!bombResult.playerDefeated) {
       activateRoomFeature(destination);
@@ -4210,6 +4220,14 @@ export default function Home() {
     const visibleMapEnemies = debugMode
       ? mapEnemyWorld.enemies.filter((enemy) => renderedMapCellKeys.has(mapRoomKey(enemy.position)))
       : mapEnemyWorld.enemies.filter((enemy) => isInPlayerVision(enemy.position, mapPosition, MAP_PLAYER_VISION_HORIZONTAL_RADIUS, visionVerticalRadius));
+    const rememberedEnemyCells = debugMode
+      ? []
+      : Object.entries(mapEnemyCellMemory)
+        .filter(([roomKey]) => {
+          if (!renderedMapCellKeys.has(roomKey)) return false;
+          return !isInPlayerVision(parseMapRoomKey(roomKey), mapPosition, MAP_PLAYER_VISION_HORIZONTAL_RADIUS, visionVerticalRadius);
+        })
+        .map(([roomKey, memory]) => ({ roomKey, position: parseMapRoomKey(roomKey), ...memory }));
 
     return (
       <main className="game-shell map-shell">
@@ -4469,6 +4487,21 @@ export default function Home() {
                 >
                   <strong>●</strong>
                   <small>{bomb.movesRemaining}</small>
+                </span>
+              ))}
+              {rememberedEnemyCells.map((memory) => (
+                <span
+                  className="map-enemy is-memory"
+                  key={`memory-${memory.roomKey}`}
+                  style={{
+                    left: MAP_PADDING + (memory.position.x - DUNGEON_MIN_X + MAP_WORLD_MARGIN_X) * (MAP_ROOM_WIDTH + MAP_CELL_GAP) + MAP_ROOM_WIDTH / 2,
+                    top: MAP_PADDING + (memory.position.y + MAP_WORLD_MARGIN_Y) * (MAP_ROOM_HEIGHT + MAP_CELL_GAP) + MAP_ROOM_HEIGHT / 2,
+                  }}
+                  title={`${getSewerEncounterLabel(memory.encounterIndex)} · 마지막 목격 위치`}
+                  aria-label={`${getSewerEncounterLabel(memory.encounterIndex)}, 마지막 목격 위치`}
+                >
+                  <strong>{awarenessSymbol(memory.awareness)}</strong>
+                  <small>{getSewerEncounterLabel(memory.encounterIndex)}</small>
                 </span>
               ))}
               {visibleMapEnemies.map((enemy) => (
@@ -5389,6 +5422,9 @@ export default function Home() {
                 <div
                   className={`solitaire-pile ${discardCount > 0 ? "is-discard-target" : ""} ${game.pendingDraws > 0 || game.pendingPileDrawCount > 0 || game.pendingSweep ? pile.length > 0 ? "is-draw-choice" : "is-draw-empty" : ""}`}
                   key={index}
+                  style={{
+                    "--pile-stack-height": `${CARD_HEIGHT + Math.max(0, pile.length - 1) * stackOffset}px`,
+                  } as CSSProperties}
                   data-pile-index={index}
                   data-drop-target={`pile:${index}`}
                   aria-label={`${index + 1}번 파일, ${pile.length}장`}

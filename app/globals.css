@@ -5,8 +5,8 @@
   --paper: #f7f5ef;
   --ink: #252525;
   --muted: #6f716d;
-  --felt: #9da8a3;
-  --felt-dark: #7f8c86;
+  --felt: #7f8985;
+  --felt-dark: #66716c;
   --red: #a83932;
   --blue: #315f88;
   --card-w: 116px;
@@ -754,6 +754,15 @@ h1 { margin: 0; font-size: 25px; font-weight: 600; }
   background: #f7f2e6;
   color: #5e5a51;
   font: 11px Arial, sans-serif;
+}
+
+.map-enemy.is-memory {
+  z-index: 8;
+  border-color: #050505;
+  color: #d8d8d8;
+  background: #151515;
+  box-shadow: 0 3px 9px rgba(0, 0, 0, .38);
+  opacity: .82;
 }
 
 .shrine-panel {
@@ -2300,7 +2309,7 @@ h1 { margin: 0; font-size: 25px; font-weight: 600; }
 .solitaire-pile {
   position: relative;
   width: var(--card-w);
-  height: 271px;
+  height: var(--pile-stack-height, 271px);
   border-radius: 6px;
   transition: background .15s ease, box-shadow .15s ease;
 }
@@ -2893,7 +2902,7 @@ h1 { margin: 0; font-size: 25px; font-weight: 600; }
   }
   .pile-zone .piles { gap: 13px; }
   .pile-zone .section-label small { display: none; }
-  .pile-zone .solitaire-pile { height: 205px; }
+  .pile-zone .solitaire-pile { height: var(--pile-stack-height, 271px); }
   .pile-resource {
     position: static;
     transform: none;

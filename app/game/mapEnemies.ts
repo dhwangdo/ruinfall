@@ -14,6 +14,11 @@ export type MapEnemyWorld = {
   enemies: MapEnemy[];
 };
 
+export type MapEnemyCellMemory = Record<string, {
+  encounterIndex: number;
+  awareness: MapEnemyAwareness;
+}>;
+
 export const MAP_ENEMY_ACTIVE_RADIUS = 4;
 export const MAP_PLAYER_VISION_HORIZONTAL_RADIUS = 2;
 export const MAP_PLAYER_VISION_VERTICAL_RADIUS = 1;
@@ -47,6 +52,27 @@ export function isInPlayerVision(
   const offsetX = Math.abs(position.x - playerPosition.x);
   const offsetY = Math.abs(position.y - playerPosition.y);
   return offsetX <= horizontalRadius && offsetY <= verticalRadius;
+}
+
+export function updateEnemyCellMemory(
+  memory: MapEnemyCellMemory,
+  enemies: MapEnemy[],
+  visibleCellKeys: ReadonlySet<string>,
+) {
+  const next = { ...memory };
+  const enemyByCell = new Map(enemies.map((enemy) => [positionKey(enemy.position), enemy]));
+  for (const cellKey of visibleCellKeys) {
+    const enemy = enemyByCell.get(cellKey);
+    if (enemy) {
+      next[cellKey] = {
+        encounterIndex: enemy.encounterIndex,
+        awareness: enemy.awareness,
+      };
+    } else {
+      delete next[cellKey];
+    }
+  }
+  return next;
 }
 
 function seededCellRoll(position: GridPosition, seed: number, salt: number) {

@@ -7,6 +7,7 @@ import {
   createMapEnemyWorld,
   isInPlayerVision,
   MAP_ENEMY_SPAWN_CHANCE,
+  updateEnemyCellMemory,
 } from "../app/game/mapEnemies.ts";
 
 const alwaysWalkable = () => true;
@@ -29,6 +30,28 @@ test("player vision has a 5 by 3 rectangle with 15 cells", () => {
   assert.equal(isInPlayerVision({ x: 0, y: 2 }, center), false);
   assert.equal(isInPlayerVision({ x: 1, y: 1 }, center), true);
   assert.equal(isInPlayerVision({ x: 2, y: 1 }, center), true);
+});
+
+test("enemy memory follows observed cells instead of enemy identities", () => {
+  const enemy = {
+    id: "wanderer",
+    position: { x: 0, y: 0 },
+    encounterIndex: 2,
+    awareness: "awake",
+  };
+  const firstMemory = updateEnemyCellMemory({}, [enemy], new Set(["0:0"]));
+  const movedMemory = updateEnemyCellMemory(
+    firstMemory,
+    [{ ...enemy, position: { x: 1, y: 0 } }],
+    new Set(["1:0"]),
+  );
+
+  assert.deepEqual(movedMemory["0:0"], { encounterIndex: 2, awareness: "awake" });
+  assert.deepEqual(movedMemory["1:0"], { encounterIndex: 2, awareness: "awake" });
+
+  const revisitedMemory = updateEnemyCellMemory(movedMemory, [], new Set(["0:0"]));
+  assert.equal(revisitedMemory["0:0"], undefined);
+  assert.deepEqual(revisitedMemory["1:0"], { encounterIndex: 2, awareness: "awake" });
 });
 
 test("pre-generation can reserve the start cell and its eight neighbors from spawning", () => {
