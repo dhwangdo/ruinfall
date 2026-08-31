@@ -757,58 +757,125 @@ h1 { margin: 0; font-size: 25px; font-weight: 600; }
 }
 
 .shrine-panel {
-  grid-template-rows: auto auto minmax(0, 1fr) auto;
+  grid-template-rows: auto minmax(0, 1fr) auto;
   width: min(920px, 100%);
 }
-.shrine-chance-summary {
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  flex-wrap: wrap;
-  gap: 8px;
-  padding: 13px 18px;
-  border-bottom: 1px solid #c7bdd3;
-  background: #eee8f4;
-}
-.shrine-chance-summary span {
-  padding: 5px 9px;
-  border: 1px solid #8b7b9e;
-  border-radius: 4px;
-  color: #3e3150;
-  background: #faf7fd;
-  font: 700 12px Arial, sans-serif;
-}
-.shrine-chance-summary small {
-  width: 100%;
-  color: #665b70;
-  text-align: center;
-}
-.shrine-card-grid {
+.shrine-transfer {
   display: grid;
-  grid-template-columns: repeat(auto-fill, minmax(132px, 1fr));
-  align-content: start;
-  gap: 14px;
+  grid-template-columns: minmax(0, 1fr) 150px 220px;
+  align-items: center;
+  gap: 18px;
   min-height: 0;
   padding: 18px;
-  overflow-y: auto;
   background: #ddd8d0;
 }
-.shrine-card-choice {
+.shrine-deck-column {
   display: grid;
-  justify-items: center;
-  gap: 8px;
-  padding: 10px 8px;
-  border: 1px solid #8b8291;
+  grid-template-rows: auto minmax(0, 1fr);
+  align-self: stretch;
+  min-height: 0;
+  border: 1px solid #9e978d;
   border-radius: 6px;
-  background: #f4f0f5;
-  cursor: pointer;
+  overflow: hidden;
+  background: #eeeae2;
 }
-.shrine-card-choice:hover:not(:disabled) { border-color: #5f447d; background: #e9def0; }
-.shrine-card-choice:disabled { opacity: .55; cursor: not-allowed; }
-.shrine-card-choice > strong { color: #5b386f; font: 800 12px Arial, sans-serif; }
-.shrine-card {
+.shrine-deck-column > header {
+  display: flex;
+  justify-content: space-between;
+  padding: 10px 12px;
+  border-bottom: 1px solid #aaa298;
+  color: #423e38;
+}
+.shrine-deck-cards {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, 116px);
+  align-content: start;
+  justify-content: center;
+  gap: 12px;
+  min-height: 0;
+  padding: 14px;
+  overflow-y: auto;
+}
+.shrine-deck-card,
+.shrine-result-card {
   --card-w: 116px;
   --card-h: 163px;
+}
+.shrine-deck-card { cursor: grab; }
+.shrine-deck-card:active { cursor: grabbing; }
+.shrine-deck-card.is-dragging { opacity: 1; }
+.shrine-transfer-arrow {
+  display: grid;
+  justify-items: center;
+  gap: 10px;
+  color: #4e3e60;
+  text-align: center;
+}
+.shrine-transfer-arrow > strong { font: 700 64px/1 Arial, sans-serif; }
+.shrine-transfer-arrow > div {
+  display: grid;
+  gap: 3px;
+  min-width: 118px;
+  padding: 9px 10px;
+  border: 1px solid #81718f;
+  border-radius: 5px;
+  background: #f4edf8;
+}
+.shrine-transfer-arrow span { font: 11px Arial, sans-serif; }
+.shrine-transfer-arrow b { font: 800 21px Arial, sans-serif; }
+.shrine-transfer-arrow small { color: #675d70; font: 10px/1.45 Arial, sans-serif; }
+.shrine-extract-slot {
+  display: grid;
+  place-items: center;
+  align-content: center;
+  gap: 8px;
+  min-height: 245px;
+  padding: 18px;
+  border: 2px dashed #81728e;
+  border-radius: 9px;
+  color: #5e5069;
+  background: #eee7f1;
+  transition: border-color .15s ease, background .15s ease, transform .15s ease;
+}
+.shrine-extract-slot.is-drop-active {
+  border-color: #51306d;
+  background: #dfcfea;
+  transform: scale(1.025);
+}
+.shrine-slot-mark { font-size: 56px; line-height: 1; }
+.shrine-extract-slot > strong { font-size: 20px; }
+.shrine-extract-slot > small { color: #756b7c; }
+.shrine-result {
+  display: grid;
+  place-items: center;
+  align-content: center;
+  gap: 10px;
+  min-height: 430px;
+  padding: 28px;
+  text-align: center;
+  background: #e8e2da;
+}
+.shrine-result-symbol { color: #6d537c; font-size: 58px; line-height: 1; }
+.shrine-result p { margin: 0; color: #74677b; font: 700 11px Arial, sans-serif; letter-spacing: .14em; }
+.shrine-result h3 { margin: 0 0 5px; font-size: 26px; }
+.shrine-result.is-collapsed h3 { color: #9b3f38; }
+.shrine-result.is-intact h3 { color: #37694d; }
+.shrine-result > small { color: #655d68; }
+.shrine-result > button {
+  min-width: 110px;
+  padding: 9px 18px;
+  border: 1px solid #65556f;
+  border-radius: 4px;
+  color: white;
+  background: #675276;
+  cursor: pointer;
+  font-weight: 800;
+}
+
+@media (max-width: 760px) {
+  .shrine-transfer { grid-template-columns: 1fr; overflow-y: auto; }
+  .shrine-transfer-arrow > strong { transform: rotate(90deg); }
+  .shrine-extract-slot { min-height: 170px; }
 }
 
 .deck-editor-trigger,

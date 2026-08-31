@@ -167,6 +167,12 @@ type ShopOffer = {
   sold: boolean;
 };
 
+type ShrineResult = {
+  card: Card;
+  collapsed: boolean;
+  collapseChance: number;
+};
+
 type Card = {
   id: number;
   kind: CardKind;
@@ -1299,6 +1305,9 @@ export default function Home() {
   const [collapsedShrineRooms, setCollapsedShrineRooms] = useState<Set<string>>(() => new Set());
   const [shrineUses, setShrineUses] = useState<Record<string, number>>({});
   const [shrineOpen, setShrineOpen] = useState(false);
+  const [shrineDraggedCardId, setShrineDraggedCardId] = useState<number | null>(null);
+  const [shrineDropActive, setShrineDropActive] = useState(false);
+  const [shrineResult, setShrineResult] = useState<ShrineResult | null>(null);
   const [usedHealRooms, setUsedHealRooms] = useState<Set<string>>(() => new Set());
   const [usedBlessingRooms, setUsedBlessingRooms] = useState<Set<string>>(() => new Set());
   const [rockBombHits, setRockBombHits] = useState<Record<string, number>>({});
@@ -2077,6 +2086,9 @@ export default function Home() {
 
   const openShrine = () => {
     if (effectiveRoomType(mapPosition) !== "shrine") return;
+    setShrineDraggedCardId(null);
+    setShrineDropActive(false);
+    setShrineResult(null);
     setShrineOpen(true);
   };
 
@@ -2084,7 +2096,6 @@ export default function Home() {
     if (effectiveRoomType(mapPosition) !== "shrine" || !activeDeck) return;
     if (activeDeck.cards.length <= 1) {
       setMapMessage("덱에는 반드시 카드가 1장 이상 있어야 합니다.");
-      setShrineOpen(false);
       return;
     }
     const card = activeDeck.cards.find((item) => item.id === cardId);
@@ -2104,7 +2115,9 @@ export default function Home() {
     } else {
       setMapMessage(`${card.name} 추출 완료. 성소는 아직 사용할 수 있습니다.`);
     }
-    setShrineOpen(false);
+    setShrineDraggedCardId(null);
+    setShrineDropActive(false);
+    setShrineResult({ card, collapsed, collapseChance });
   };
 
   const animateMapCollision = (
@@ -2293,6 +2306,9 @@ export default function Home() {
     setCollapsedShrineRooms(new Set());
     setShrineUses({});
     setShrineOpen(false);
+    setShrineDraggedCardId(null);
+    setShrineDropActive(false);
+    setShrineResult(null);
     setUsedHealRooms(new Set());
     setUsedBlessingRooms(new Set());
     setRockBombHits({});
@@ -4104,6 +4120,7 @@ export default function Home() {
       ? `${floorItemNames[0]} 줍기`
       : `떨어진 물건 ${floorItemNames.length}개 줍기`;
     const activeShopOffers = activeShopRoom ? roomShops[activeShopRoom] ?? [] : [];
+    const shrineDraggedCard = activeDeck?.cards.find((card) => card.id === shrineDraggedCardId) ?? null;
     const knownRoomRoutes = buildKnownRoomRoutes(mapPosition, seenRooms, mapSeed, effectiveRoomType);
     const floorGroups = Array.from(currentFloorCards.reduce((groups, card) => {
       const groupKey = `${card.effect}:${card.damageType}:${card.name}`;
@@ -4600,34 +4617,91 @@ export default function Home() {
                   <button type="button" onClick={() => setShrineOpen(false)}>나가기</button>
                 </div>
               </header>
-              <div className="shrine-chance-summary" aria-label="현재 성소 붕괴 확률">
-                <span>일반 {Math.round(shrineCollapseChance("basic", shrineUses[currentRoomKey] ?? 0) * 100)}%</span>
-                <span>특별 {Math.round(shrineCollapseChance("special", shrineUses[currentRoomKey] ?? 0) * 100)}%</span>
-                <span>희귀 {Math.round(shrineCollapseChance("rare", shrineUses[currentRoomKey] ?? 0) * 100)}%</span>
-                <small>추출할 때마다 이 성소의 붕괴 확률이 5%p 증가합니다.</small>
-              </div>
-              <div className="shrine-card-grid">
-                {(activeDeck?.cards ?? []).map((card) => {
-                  const collapsePercent = Math.round(
-                    shrineCollapseChance(card.rarity, shrineUses[currentRoomKey] ?? 0) * 100,
-                  );
-                  return (
-                    <button
-                      type="button"
-                      className="shrine-card-choice"
-                      key={`shrine-${card.id}`}
-                      onClick={() => extractCardAtShrine(card.id)}
-                      disabled={(activeDeck?.cards.length ?? 0) <= 1}
-                    >
-                      <span className={`shrine-card card-face ${card.kind} ${card.damageType}`}>
-                        <CardFace card={card} />
-                      </span>
-                      <strong>붕괴 {collapsePercent}%</strong>
-                    </button>
-                  );
-                })}
-              </div>
-              <footer>카드를 선택하면 즉시 추출되고 성소의 붕괴 여부를 판정합니다.</footer>
+              {shrineResult ? (
+                <div className={`shrine-result ${shrineResult.collapsed ? "is-collapsed" : "is-intact"}`}>
+                  <span className="shrine-result-symbol" aria-hidden="true">{shrineResult.collapsed ? "✦" : "◇"}</span>
+                  <p>추출 완료</p>
+                  <h3>{shrineResult.collapsed ? "성소가 붕괴했습니다" : "성소가 버텼습니다"}</h3>
+                  <div className={`shrine-result-card card-face ${shrineResult.card.kind} ${shrineResult.card.damageType}`}>
+                    <CardFace card={shrineResult.card} />
+                  </div>
+                  <small>판정 확률 {Math.round(shrineResult.collapseChance * 100)}%</small>
+                  <button type="button" onClick={() => setShrineOpen(false)}>확인</button>
+                </div>
+              ) : (
+                <div className="shrine-transfer">
+                  <section className="shrine-deck-column" aria-label="현재 덱 카드">
+                    <header>
+                      <strong>현재 덱</strong>
+                      <small>{activeDeck?.cards.length ?? 0}장</small>
+                    </header>
+                    <div className="shrine-deck-cards">
+                      {(activeDeck?.cards ?? []).map((card) => (
+                        <div
+                          className={`shrine-deck-card card-face ${card.kind} ${card.damageType} ${shrineDraggedCardId === card.id ? "is-dragging" : ""}`}
+                          key={`shrine-${card.id}`}
+                          draggable={(activeDeck?.cards.length ?? 0) > 1}
+                          onDragStart={(event) => {
+                            event.dataTransfer.effectAllowed = "move";
+                            event.dataTransfer.setData("text/plain", String(card.id));
+                            setShrineDraggedCardId(card.id);
+                          }}
+                          onDragEnd={() => {
+                            setShrineDraggedCardId(null);
+                            setShrineDropActive(false);
+                          }}
+                        >
+                          <CardFace card={card} />
+                        </div>
+                      ))}
+                    </div>
+                  </section>
+                  <div className="shrine-transfer-arrow" aria-live="polite">
+                    <strong aria-hidden="true">→</strong>
+                    <div>
+                      <span>붕괴 확률</span>
+                      {shrineDraggedCard ? (
+                        <b>{Math.round(shrineCollapseChance(
+                          shrineDraggedCard.rarity,
+                          shrineUses[currentRoomKey] ?? 0,
+                        ) * 100)}%</b>
+                      ) : (
+                        <b>카드 선택</b>
+                      )}
+                    </div>
+                    <small>
+                      일반 {Math.round(shrineCollapseChance("basic", shrineUses[currentRoomKey] ?? 0) * 100)}%
+                      · 특별 {Math.round(shrineCollapseChance("special", shrineUses[currentRoomKey] ?? 0) * 100)}%
+                      · 희귀 {Math.round(shrineCollapseChance("rare", shrineUses[currentRoomKey] ?? 0) * 100)}%
+                    </small>
+                  </div>
+                  <div
+                    className={`shrine-extract-slot ${shrineDropActive ? "is-drop-active" : ""}`}
+                    onDragEnter={(event) => {
+                      event.preventDefault();
+                      setShrineDropActive(true);
+                    }}
+                    onDragOver={(event) => {
+                      event.preventDefault();
+                      event.dataTransfer.dropEffect = "move";
+                      setShrineDropActive(true);
+                    }}
+                    onDragLeave={() => setShrineDropActive(false)}
+                    onDrop={(event) => {
+                      event.preventDefault();
+                      const transferredId = event.dataTransfer.getData("text/plain");
+                      const cardId = transferredId ? Number(transferredId) : shrineDraggedCardId;
+                      setShrineDropActive(false);
+                      if (cardId !== null && Number.isFinite(cardId)) extractCardAtShrine(cardId);
+                    }}
+                  >
+                    <span className="shrine-slot-mark" aria-hidden="true">◇</span>
+                    <strong>뺄 카드</strong>
+                    <small>카드를 여기에 놓으세요</small>
+                  </div>
+                </div>
+              )}
+              {!shrineResult && <footer>한 번에 카드 1장만 추출할 수 있습니다.</footer>}
             </section>
           </div>
         )}
