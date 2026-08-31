@@ -1247,7 +1247,7 @@ function CardFace({ card, starsSpent = 0, strength = 0, agility = 0 }: { card: C
   return (
     <>
       {card.effect !== "slime" && <span className="card-cost">{card.cost}</span>}
-      <strong className={`card-name rarity-${card.rarity} ${card.colored ? "is-painted" : ""} ${card.name.length >= 6 ? "is-long" : ""}`}>{card.name}{card.forged ? "+" : ""}</strong>
+      <strong className={`card-name rarity-${card.rarity} ${card.colored ? "is-painted" : ""}`}>{card.name}{card.forged ? "+" : ""}</strong>
       <span className="card-effect">{emphasizeEffectNumbers(<>{card.solitaireRule && <strong className="solitaire-rule solitaire-keyword">{card.solitaireRule === "top" ? "윗패" : card.solitaireRule === "bottom" ? "밑패" : "주문"}</strong>}{effectText}{card.forged ? <strong className="solitaire-rule">재련됨.</strong> : (card.forgeCost !== undefined || card.forgeTargetName || card.forgeAny) && <strong className="solitaire-rule">제련: {card.forgeTargetName ? `[${card.forgeTargetName}]` : card.forgeAny ? "[아무거나]" : `[${card.forgeCost}코스트]`}</strong>}{card.exhaust && <strong className="solitaire-rule">소멸</strong>}{card.power && <strong className="solitaire-rule">파워</strong>}</>)}</span>
     </>
   );
@@ -4125,6 +4125,8 @@ export default function Home() {
       : `떨어진 물건 ${floorItemNames.length}개 줍기`;
     const activeShopOffers = activeShopRoom ? roomShops[activeShopRoom] ?? [] : [];
     const shrinePendingCard = activeDeck?.cards.find((card) => card.id === shrinePendingCardId) ?? null;
+    const shrineProbabilityCard = activeDeck?.cards.find((card) =>
+      card.id === (shrineDraggedCardId ?? shrinePendingCardId)) ?? null;
     const knownRoomRoutes = buildKnownRoomRoutes(mapPosition, seenRooms, mapSeed, effectiveRoomType);
     const floorGroups = Array.from(currentFloorCards.reduce((groups, card) => {
       const groupKey = `${card.effect}:${card.damageType}:${card.name}`;
@@ -4661,6 +4663,15 @@ export default function Home() {
                   </section>
                   <div className="shrine-transfer-arrow">
                     <span className="shrine-arrow-icon" aria-hidden="true" />
+                    {shrineProbabilityCard && (
+                      <div className="shrine-collapse-live" role="status" aria-live="polite">
+                        <span>붕괴 확률</span>
+                        <strong>{Math.round(shrineCollapseChance(
+                          shrineProbabilityCard.rarity,
+                          shrineUses[currentRoomKey] ?? 0,
+                        ) * 100)}%</strong>
+                      </div>
+                    )}
                   </div>
                   <div className="shrine-extract-column">
                     <div
