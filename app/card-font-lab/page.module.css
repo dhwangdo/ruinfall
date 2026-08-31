@@ -23,8 +23,8 @@
 }
 
 .card {
-  --card-width: 104px;
-  --card-height: 146px;
+  --card-width: 116px;
+  --card-height: 163px;
   position: relative;
   display: grid;
   grid-template-columns: 19px 1fr 19px;

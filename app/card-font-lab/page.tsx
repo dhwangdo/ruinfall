@@ -7,7 +7,7 @@ const DEFAULTS = {
   nameWeight: 700,
   nameSize: 10,
   effectWeight: 500,
-  effectSize: 8.75,
+  effectSize: 9,
 };
 
 type SliderProps = {

@@ -106,6 +106,7 @@ type RoomType =
   | "empty"
   | "blessing"
   | "shop"
+  | "shrine"
   | "portal"
   | "heal"
   | "safePortal";
@@ -285,7 +286,8 @@ const REGION_NAMES = [
   "이름 미정 지역",
 ] as const;
 const ROCK_BARRIER_HEIGHT = 5;
-const SHOP_NODE_CHANCE = 0.005;
+const SHOP_NODE_CHANCE = 0.0025;
+const SHRINE_NODE_CHANCE = 0.0025;
 const PORTAL_NODE_CHANCE = 0.05;
 const ROCK_CLUSTER_CHANCE = 0.03;
 const ROCK_CLUSTER_EDGE_CHANCE = 0.05;
@@ -316,10 +318,19 @@ const MAP_TRAVEL_STEP_MS = 140;
 const MAP_COLLISION_OVERLAP_MS = 280;
 const MAP_BATTLE_FLASH_MS = 600;
 const MAP_START: MapPosition = { x: 0, y: 0 };
-const CARD_HEIGHT = 144;
+const CARD_HEIGHT = 163;
 const PILE_HEIGHT = 226;
 const DEFAULT_STACK_OFFSET = 18;
 const MAX_STACK_TRAVEL = PILE_HEIGHT - CARD_HEIGHT;
+
+function shrineCollapseChance(rarity: CardRarity, priorUses: number) {
+  const baseChance: Record<CardRarity, number> = {
+    basic: 0,
+    special: 0.3,
+    rare: 1,
+  };
+  return Math.min(1, baseChance[rarity] + priorUses * 0.05);
+}
 
 function getStackOffset(cardCount: number) {
   if (cardCount <= 1) return DEFAULT_STACK_OFFSET;
@@ -431,7 +442,7 @@ function isNormalDungeonFloor(position: MapPosition, seed: number) {
   }
   const portalEligible = localY === regionHeight(regionIndex) - 1;
   const availableChance = portalEligible ? 1 - PORTAL_NODE_CHANCE : 1;
-  return seededRoll(position, seed) >= SHOP_NODE_CHANCE / availableChance;
+  return seededRoll(position, seed) >= (SHOP_NODE_CHANCE + SHRINE_NODE_CHANCE) / availableChance;
 }
 
 function isRockClusterCell(position: MapPosition, seed: number) {
@@ -505,6 +516,7 @@ function getRoomType(position: MapPosition, seed: number): RoomType {
       const availableChance = portalEligible ? 1 - PORTAL_NODE_CHANCE : 1;
       const roll = seededRoll(position, seed);
       if (roll < SHOP_NODE_CHANCE / availableChance) return "shop";
+      if (roll < (SHOP_NODE_CHANCE + SHRINE_NODE_CHANCE) / availableChance) return "shrine";
       if (isRockClusterCell(position, seed)) return "rock";
       return "empty";
     }
@@ -1284,6 +1296,9 @@ export default function Home() {
   const [mapBombs, setMapBombs] = useState<MapBomb[]>([]);
   const mapBombsRef = useRef<MapBomb[]>([]);
   const [destroyedShopRooms, setDestroyedShopRooms] = useState<Set<string>>(() => new Set());
+  const [collapsedShrineRooms, setCollapsedShrineRooms] = useState<Set<string>>(() => new Set());
+  const [shrineUses, setShrineUses] = useState<Record<string, number>>({});
+  const [shrineOpen, setShrineOpen] = useState(false);
   const [usedHealRooms, setUsedHealRooms] = useState<Set<string>>(() => new Set());
   const [usedBlessingRooms, setUsedBlessingRooms] = useState<Set<string>>(() => new Set());
   const [rockBombHits, setRockBombHits] = useState<Record<string, number>>({});
@@ -1425,6 +1440,7 @@ export default function Home() {
     const baseType = getRoomType(position, mapSeed);
     const roomKey = mapRoomKey(position);
     if (baseType === "shop" && destroyedShopRooms.has(roomKey)) return "empty";
+    if (baseType === "shrine" && collapsedShrineRooms.has(roomKey)) return "empty";
     if (baseType === "heal" && usedHealRooms.has(roomKey)) return "empty";
     if (baseType === "blessing" && usedBlessingRooms.has(roomKey)) return "empty";
     if (baseType === "rock" && (rockBombHits[roomKey] ?? 0) >= 3) return "empty";
@@ -2059,6 +2075,38 @@ export default function Home() {
     setUsedHealRooms((current) => new Set(current).add(roomKey));
   };
 
+  const openShrine = () => {
+    if (effectiveRoomType(mapPosition) !== "shrine") return;
+    setShrineOpen(true);
+  };
+
+  const extractCardAtShrine = (cardId: number) => {
+    if (effectiveRoomType(mapPosition) !== "shrine" || !activeDeck) return;
+    if (activeDeck.cards.length <= 1) {
+      setMapMessage("덱에는 반드시 카드가 1장 이상 있어야 합니다.");
+      setShrineOpen(false);
+      return;
+    }
+    const card = activeDeck.cards.find((item) => item.id === cardId);
+    if (!card) return;
+    const roomKey = mapRoomKey(mapPosition);
+    const priorUses = shrineUses[roomKey] ?? 0;
+    const collapseChance = shrineCollapseChance(card.rarity, priorUses);
+    const collapsed = Math.random() < collapseChance;
+    setOwnedDecks((current) => current.map((deck) => deck.id === activeDeck.id
+      ? { ...deck, cards: deck.cards.filter((item) => item.id !== cardId) }
+      : deck));
+    setShrineUses((current) => ({ ...current, [roomKey]: priorUses + 1 }));
+    setDeckSelectionAttention(true);
+    if (collapsed) {
+      setCollapsedShrineRooms((current) => new Set(current).add(roomKey));
+      setMapMessage(`${card.name} 추출 완료. 성소가 붕괴했습니다.`);
+    } else {
+      setMapMessage(`${card.name} 추출 완료. 성소는 아직 사용할 수 있습니다.`);
+    }
+    setShrineOpen(false);
+  };
+
   const animateMapCollision = (
     enemies: { id: string; encounterIndex: number; damageTaken?: number }[],
     roomKey: string,
@@ -2242,6 +2290,9 @@ export default function Home() {
     setMapEnemyWorld(createPreGeneratedMapEnemyWorld(nextSeed));
     setMapBombsSynced([]);
     setDestroyedShopRooms(new Set());
+    setCollapsedShrineRooms(new Set());
+    setShrineUses({});
+    setShrineOpen(false);
     setUsedHealRooms(new Set());
     setUsedBlessingRooms(new Set());
     setRockBombHits({});
@@ -2897,6 +2948,9 @@ export default function Home() {
         if (deckViewerOpen) {
           event.preventDefault();
           setDeckViewerOpen(false);
+        } else if (shrineOpen) {
+          event.preventDefault();
+          setShrineOpen(false);
         } else if (blessingOpen) {
           event.preventDefault();
           setBlessingOpen(false);
@@ -2993,7 +3047,7 @@ export default function Home() {
     };
   }, [
     blessingOpen, cancelDeckEditor, deckEditorOpen, deckViewerOpen, mapTraveling,
-    moveOnMap, openDeckEditor, quickPickUpFloorItems, screen, shopOpen, waitOnMap,
+    moveOnMap, openDeckEditor, quickPickUpFloorItems, screen, shopOpen, shrineOpen, waitOnMap,
   ]);
 
   const beginMapDrag = (event: ReactPointerEvent<HTMLDivElement>) => {
@@ -4295,6 +4349,8 @@ export default function Home() {
                       ? "먼 공간"
                       : roomType === "shop"
                         ? "상점"
+                        : roomType === "shrine"
+                          ? "성소"
                         : roomType === "blessing"
                         ? "축복"
                         : roomType === "portal"
@@ -4347,6 +4403,8 @@ export default function Home() {
                   >
                     {roomType === "shop"
                           ? <span>상점</span>
+                          : roomType === "shrine"
+                            ? <span>성소</span>
                           : roomType === "blessing"
                           ? <span>축복</span>
                           : roomType === "portal"
@@ -4469,6 +4527,16 @@ export default function Home() {
                 <strong>상점 들어가기</strong>
               </button>
             )}
+            {currentRoomType === "shrine" && (
+              <button
+                type="button"
+                className="room-floor-notice room-action-notice is-shrine simple-room-action-notice"
+                onClick={openShrine}
+              >
+                <strong>성소 이용하기</strong>
+                <small>카드 1장 추출</small>
+              </button>
+            )}
             {currentRoomType === "blessing" && (
               <button
                 type="button"
@@ -4515,6 +4583,52 @@ export default function Home() {
               <input autoFocus type="password" inputMode="numeric" value={debugPassword} onChange={(event) => setDebugPassword(event.target.value)} />
               <div><button type="button" onClick={() => setDebugPasswordOpen(false)}>취소</button><button type="submit">확인</button></div>
             </form>
+          </div>
+        )}
+
+        {shrineOpen && (
+          <div className="shop-overlay shrine-overlay" role="dialog" aria-modal="true" aria-labelledby="shrine-title">
+            <section className="shop-panel shrine-panel">
+              <header>
+                <div>
+                  <p>SHRINE</p>
+                  <h2 id="shrine-title">성소</h2>
+                  <span>현재 덱에서 카드 1장을 영구적으로 추출합니다.</span>
+                </div>
+                <div className="shop-header-status">
+                  <strong>사용 {shrineUses[currentRoomKey] ?? 0}회</strong>
+                  <button type="button" onClick={() => setShrineOpen(false)}>나가기</button>
+                </div>
+              </header>
+              <div className="shrine-chance-summary" aria-label="현재 성소 붕괴 확률">
+                <span>일반 {Math.round(shrineCollapseChance("basic", shrineUses[currentRoomKey] ?? 0) * 100)}%</span>
+                <span>특별 {Math.round(shrineCollapseChance("special", shrineUses[currentRoomKey] ?? 0) * 100)}%</span>
+                <span>희귀 {Math.round(shrineCollapseChance("rare", shrineUses[currentRoomKey] ?? 0) * 100)}%</span>
+                <small>추출할 때마다 이 성소의 붕괴 확률이 5%p 증가합니다.</small>
+              </div>
+              <div className="shrine-card-grid">
+                {(activeDeck?.cards ?? []).map((card) => {
+                  const collapsePercent = Math.round(
+                    shrineCollapseChance(card.rarity, shrineUses[currentRoomKey] ?? 0) * 100,
+                  );
+                  return (
+                    <button
+                      type="button"
+                      className="shrine-card-choice"
+                      key={`shrine-${card.id}`}
+                      onClick={() => extractCardAtShrine(card.id)}
+                      disabled={(activeDeck?.cards.length ?? 0) <= 1}
+                    >
+                      <span className={`shrine-card card-face ${card.kind} ${card.damageType}`}>
+                        <CardFace card={card} />
+                      </span>
+                      <strong>붕괴 {collapsePercent}%</strong>
+                    </button>
+                  );
+                })}
+              </div>
+              <footer>카드를 선택하면 즉시 추출되고 성소의 붕괴 여부를 판정합니다.</footer>
+            </section>
           </div>
         )}
 
