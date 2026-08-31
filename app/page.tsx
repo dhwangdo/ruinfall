@@ -2285,8 +2285,8 @@ export default function Home() {
   ) => {
     const margin = 12;
     const offset = 18;
-    const previewWidth = 170;
-    const previewHeight = 232;
+    const previewWidth = 104;
+    const previewHeight = 146;
     setHoveredDeckCard(card);
     setDeckPreviewPosition({
       x: Math.max(margin, Math.min(clientX + offset, window.innerWidth - previewWidth - margin)),
@@ -4797,11 +4797,19 @@ export default function Home() {
                         onDragOver={(event) => {
                           if ((deckEditorDragRef.current ?? deckEditorDrag)?.source !== "deck") return;
                           event.preventDefault();
+                          event.stopPropagation();
                           event.dataTransfer.dropEffect = "move";
                           setDeckEditorDropTarget("trash");
                         }}
-                        onDragLeave={() => setDeckEditorDropTarget((current) => current === "trash" ? null : current)}
-                        onDrop={(event) => dropDeckEditorCard(event, "trash")}
+                        onDragLeave={(event) => {
+                          event.stopPropagation();
+                          setDeckEditorDropTarget((current) => current === "trash" ? null : current);
+                        }}
+                        onDrop={(event) => {
+                          event.preventDefault();
+                          event.stopPropagation();
+                          dropDeckEditorCard(event, "trash");
+                        }}
                         aria-label="덱 카드 제거 휴지통"
                       >
                         <span className="trash-icon" aria-hidden="true" />

@@ -1135,13 +1135,41 @@ h1 { margin: 0; font-size: 25px; font-weight: 600; }
 .deck-card-preview-floating {
   position: fixed;
   z-index: 140;
+  --card-w: 104px;
+  --card-h: 146px;
   pointer-events: none;
 }
 
 .deck-card-preview-floating .card-face {
+  grid-template-columns: 19px 1fr 19px;
+  grid-template-rows: 24px 1fr 8px;
+  width: var(--card-w);
+  height: var(--card-h);
+  padding: 6px;
+  border-radius: 4px;
   box-shadow: 0 10px 25px rgba(0,0,0,.42);
-  transform: scale(1.5);
-  transform-origin: top left;
+  transform: none;
+}
+
+.deck-card-preview-floating .card-cost {
+  top: -5px;
+  left: -5px;
+  width: 26px;
+  height: 26px;
+  font-size: 14px;
+}
+
+.deck-card-preview-floating .card-name {
+  padding: 2px 2px 2px 16px;
+  font-size: calc(10px + 1pt);
+}
+
+.deck-card-preview-floating .card-name.is-long { font-size: calc(9px + 1pt); }
+
+.deck-card-preview-floating .card-effect {
+  gap: 2px;
+  padding: 4px 1px;
+  font-size: 10px;
 }
 
 .area-flow-arrow {
@@ -2665,9 +2693,9 @@ h1 { margin: 0; font-size: 25px; font-weight: 600; }
   }
   .battlefield .card-name {
     padding: 2px 2px 2px 16px;
-    font-size: 10px;
+    font-size: calc(10px + 1pt);
   }
-  .battlefield .card-name.is-long { font-size: 9px; }
+  .battlefield .card-name.is-long { font-size: calc(9px + 1pt); }
   .battlefield .card-effect {
     gap: 2px;
     padding: 4px 1px;
