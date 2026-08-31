@@ -328,6 +328,7 @@ const CARD_HEIGHT = 163;
 const PILE_HEIGHT = 271;
 const DEFAULT_STACK_OFFSET = 27;
 const MAX_STACK_TRAVEL = PILE_HEIGHT - CARD_HEIGHT;
+const HAND_CARD_STEP = 102;
 
 function shrineCollapseChance(rarity: CardRarity, priorUses: number) {
   const baseChance: Record<CardRarity, number> = {
@@ -341,6 +342,20 @@ function shrineCollapseChance(rarity: CardRarity, priorUses: number) {
 function getStackOffset(cardCount: number) {
   if (cardCount <= 1) return DEFAULT_STACK_OFFSET;
   return Math.min(DEFAULT_STACK_OFFSET, MAX_STACK_TRAVEL / (cardCount - 1));
+}
+
+function getHandArcTransform(index: number, cardCount: number) {
+  if (cardCount <= 1) return { angle: 0, y: 0 };
+
+  const midpoint = (cardCount - 1) / 2;
+  const x = (index - midpoint) * HAND_CARD_STEP;
+  const halfWidth = midpoint * HAND_CARD_STEP;
+  const halfAngleDegrees = Math.min(10, Math.max(3.5, (cardCount - 1) * 2.5));
+  const radius = halfWidth / Math.sin((halfAngleDegrees * Math.PI) / 180);
+  const angleRadians = Math.asin(Math.max(-1, Math.min(1, x / radius)));
+  const y = radius - Math.sqrt(Math.max(0, radius ** 2 - x ** 2));
+
+  return { angle: (angleRadians * 180) / Math.PI, y };
 }
 
 function mapRoomKey(position: MapPosition) {
@@ -5514,8 +5529,10 @@ export default function Home() {
             data-drop-target="hand"
             aria-label="손패"
           >
-            {displayedHand.map((card, index) => card ? (
-              <button
+            {displayedHand.map((card, index) => {
+              const handArc = getHandArcTransform(index, displayedHand.length);
+              return card ? (
+                <button
                 className={`game-card card-face ${card.kind} ${card.damageType} ${dragging?.card.id === card.id ? "is-dragging" : ""}`}
                 key={card.id}
                 ref={(element) => {
@@ -5524,8 +5541,8 @@ export default function Home() {
                 }}
                 style={{
                   "--card-index": index,
-                  "--fan-angle": `${(index - (displayedHand.length - 1) / 2) * 3.5}deg`,
-                  "--fan-y": `${Math.abs(index - (displayedHand.length - 1) / 2) * 5}px`,
+                  "--fan-angle": `${handArc.angle}deg`,
+                  "--fan-y": `${handArc.y}px`,
                 } as CSSProperties}
                 onPointerDown={(event) => beginDrag(event, card, { type: "hand" })}
                 onPointerMove={moveDrag}
@@ -5538,7 +5555,8 @@ export default function Home() {
               >
                 <CardFace card={card} starsSpent={game.starsSpent} strength={game.strength + combatManualBonus} agility={game.agility + combatManualBonus} />
               </button>
-            ) : <div className="hand-card-placeholder" aria-hidden="true" key={`clear-slot-${index}`} />)}
+              ) : <div className="hand-card-placeholder" aria-hidden="true" key={`clear-slot-${index}`} />;
+            })}
             {game.hand.length === 0 && phase === "playing" && game.status === "playing" && (
               <div className="empty-hand">사용할 카드가 없습니다</div>
             )}

@@ -804,7 +804,7 @@ h1 { margin: 0; font-size: 25px; font-weight: 600; }
 .shrine-deck-card { cursor: grab; }
 .shrine-deck-card:active { cursor: grabbing; }
 .shrine-deck-card.is-dragging { opacity: 1; }
-.shrine-deck-card.is-selected { animation: shrine-selected-card-blink .72s ease-in-out infinite alternate; }
+.shrine-deck-card.is-selected { animation: shrine-selected-card-blink .42s ease-in-out infinite alternate; }
 @keyframes shrine-selected-card-blink {
   from { opacity: 1; filter: brightness(1); }
   to { opacity: .35; filter: brightness(.72); }
