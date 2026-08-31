@@ -1318,6 +1318,7 @@ export default function Home() {
   const [deckEditorDrag, setDeckEditorDrag] = useState<{ cardId: number; source: DeckEditorArea } | null>(null);
   const deckEditorDragRef = useRef<{ cardId: number; source: DeckEditorArea } | null>(null);
   const [deckEditorDropTarget, setDeckEditorDropTarget] = useState<DeckEditorArea | null>(null);
+  const [pendingRemovedCards, setPendingRemovedCards] = useState<Card[]>([]);
   const [consumableDrag, setConsumableDrag] = useState<{ id: string; source: ConsumableArea } | null>(null);
   const consumableDragRef = useRef<{ id: string; source: ConsumableArea } | null>(null);
   const [pendingPaintTicketId, setPendingPaintTicketId] = useState<string | null>(null);
@@ -2326,6 +2327,7 @@ export default function Home() {
     const card = editingDeckCards.find((item) => item.id === cardId);
     if (!card) return;
     updateEditingDeckCards((current) => current.filter((item) => item.id !== cardId));
+    setPendingRemovedCards((current) => [...current, card]);
     setHoveredDeckCard(null);
     setDeckEditorMessage(`${card.name}을(를) 덱에서 제거했습니다. 취소하면 되돌릴 수 있습니다.`);
   };
@@ -2775,6 +2777,7 @@ export default function Home() {
     setPendingPaintTicketId(null);
     setPendingCloneTicketId(null);
     setArmedBombTicketIds(new Set());
+    setPendingRemovedCards([]);
     setHoveredDeckCard(null);
     setDeckEditorDeckId(activeDeck?.id ?? "");
     setDeckEditorSnapshot({
@@ -2805,6 +2808,7 @@ export default function Home() {
     if (deckWasEdited) setDeckSelectionAttention(true);
     installArmedFloorBombs();
     setDeckEditorSnapshot(null);
+    setPendingRemovedCards([]);
     setHoveredDeckCard(null);
     setPendingPaintTicketId(null);
     setPendingCloneTicketId(null);
@@ -2837,6 +2841,7 @@ export default function Home() {
       }));
     }
     setDeckEditorSnapshot(null);
+    setPendingRemovedCards([]);
     setHoveredDeckCard(null);
     setPendingPaintTicketId(null);
     setPendingCloneTicketId(null);
@@ -3979,10 +3984,6 @@ export default function Home() {
       left.card.cost - right.card.cost
       || rarityOrder[left.card.rarity] - rarityOrder[right.card.rarity]
       || left.card.name.localeCompare(right.card.name, "ko"));
-    const trashPreviewCard = deckEditorDropTarget === "trash"
-      && (deckEditorDragRef.current ?? deckEditorDrag)?.source === "deck"
-      ? editingDeckCards.find((card) => card.id === (deckEditorDragRef.current ?? deckEditorDrag)?.cardId) ?? null
-      : null;
     const inventoryGroups = Array.from(inventoryCards.reduce((groups, card) => {
       const groupKey = `${card.effect}:${card.damageType}:${card.name}`;
       const current = groups.get(groupKey);
@@ -4797,7 +4798,7 @@ export default function Home() {
                     </div>
                     <aside className="deck-tools-column">
                       <div
-                        className={`trash-slot ${deckEditorDropTarget === "trash" ? "is-drop-target" : ""}`}
+                        className={`trash-slot ${deckEditorDropTarget === "trash" ? "is-drop-target" : ""} ${pendingRemovedCards.length > 0 ? "has-cards" : ""}`}
                         onDragOver={(event) => {
                           if ((deckEditorDragRef.current ?? deckEditorDrag)?.source !== "deck") return;
                           event.preventDefault();
@@ -4816,18 +4817,18 @@ export default function Home() {
                         }}
                         aria-label="덱 카드 제거 휴지통"
                       >
-                        {trashPreviewCard ? (
-                          <div className={`trash-card-preview rarity-${trashPreviewCard.rarity} ${trashPreviewCard.colored ? "is-painted" : ""}`}>
-                            <span>{trashPreviewCard.cost}</span>
-                            <strong>{trashPreviewCard.name}</strong>
+                        <span className="trash-icon" aria-hidden="true" />
+                        <strong>휴지통</strong>
+                        {pendingRemovedCards.length > 0 ? (
+                          <div className="trash-card-list" aria-label="편집 확인 전 제거 예정 카드">
+                            {pendingRemovedCards.map((card) => (
+                              <div className="trash-card-preview" key={card.id}>
+                                <span>{card.cost}</span>
+                                <strong>{card.name}</strong>
+                              </div>
+                            ))}
                           </div>
-                        ) : (
-                          <>
-                            <span className="trash-icon" aria-hidden="true" />
-                            <strong>휴지통</strong>
-                            <small>덱 카드를 여기에 놓으면 제거됩니다.</small>
-                          </>
-                        )}
+                        ) : <small>덱 카드를 여기에 놓으면 제거됩니다.</small>}
                       </div>
                     </aside>
                   </div>
