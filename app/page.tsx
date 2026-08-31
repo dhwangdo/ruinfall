@@ -5296,24 +5296,20 @@ export default function Home() {
   return (
     <main className="game-shell">
       <span className="game-version" aria-label={`게임 버전 ${GAME_VERSION}`}>{GAME_VERSION}</span>
-      <header className="topbar">
-        <div>
-          <h1>Ruinfall</h1>
-        </div>
-        <div className="turn-badge" aria-label={`현재 ${game.turn}턴`}>
-          <span>TURN</span><strong>{game.turn}</strong>
-        </div>
-        {debugMode && game.status === "playing" && (
-          <button type="button" className="debug-defeat-trigger" onClick={defeatEnemiesForDebug}>
-            적 즉시 처치
-          </button>
-        )}
-      </header>
-
       <section
         className={`battlefield ${dragging ? `${dragging.source.type === "hand" ? `dragging-${dragging.card.kind}` : "dragging-from-pile"} dragging-solitaire` : ""} ${lockedEnemyId ? "has-lock" : ""}`}
         aria-label="전투 화면"
       >
+        <header className="battle-topbar">
+          <div className="turn-badge" aria-label={`현재 ${game.turn}턴`}>
+            <span>TURN</span><strong>{game.turn}</strong>
+          </div>
+          {debugMode && game.status === "playing" && (
+            <button type="button" className="debug-defeat-trigger" onClick={defeatEnemiesForDebug}>
+              적 즉시 처치
+            </button>
+          )}
+        </header>
         <div className="enemy-zone">
           <div className={`enemies-row ${game.enemies.length > 2 ? "is-crowded" : ""}`}>
             {game.enemies.filter((enemy) => enemy.hp > 0).map((enemy) => {

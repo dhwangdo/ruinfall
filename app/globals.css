@@ -5,8 +5,8 @@
   --paper: #f7f5ef;
   --ink: #252525;
   --muted: #6f716d;
-  --felt: #356b55;
-  --felt-dark: #275642;
+  --felt: #9da8a3;
+  --felt-dark: #7f8c86;
   --red: #a83932;
   --blue: #315f88;
   --card-w: 116px;
@@ -1905,7 +1905,7 @@ h1 { margin: 0; font-size: 25px; font-weight: 600; }
   position: relative;
   min-height: 865px;
   overflow: hidden;
-  border: 1px solid #214a38;
+  border: 1px solid #69746f;
   border-radius: 5px;
   background: var(--felt);
   box-shadow: 0 3px 10px rgba(35, 36, 31, .2);
@@ -2239,6 +2239,18 @@ h1 { margin: 0; font-size: 25px; font-weight: 600; }
   flex-wrap: wrap;
   margin-top: 6px;
 }
+
+.battle-topbar {
+  position: absolute;
+  top: 8px;
+  right: 12px;
+  z-index: 12;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.battle-topbar .turn-badge { color: rgba(37, 37, 37, .62); }
 .defense-shield.enemy-defense-shield {
   position: absolute;
   right: -16px;
@@ -2481,14 +2493,14 @@ h1 { margin: 0; font-size: 25px; font-weight: 600; }
   text-align: center;
 }
 .card-effect,
-.card-effect * { font-weight: 500; }
-.card-effect { font-weight: 500; }
+.card-effect * { font-weight: 400; }
+.card-effect { font-weight: 400; }
 .card-effect .effect-number { font-weight: 600; }
-.effect-type { font-weight: 500; }
+.effect-type { font-weight: 400; }
 .effect-type.damage { color: #222; }
 .effect-type.physical { color: #c76522; }
 .effect-type.magic { color: #245caa; }
-.draw-effect { color: #222; font-weight: 500; }
+.draw-effect { color: #222; font-weight: 400; }
 
 .center-drop-zone {
   position: relative;
@@ -2837,7 +2849,7 @@ h1 { margin: 0; font-size: 25px; font-weight: 600; }
     display: grid;
     grid-template-columns: minmax(220px, .9fr) minmax(600px, 2.7fr) minmax(240px, 1fr);
     grid-template-rows: minmax(218px, 1fr) minmax(100px, .48fr) minmax(230px, 1fr);
-    height: calc(100vh - 90px);
+    height: calc(100vh - 24px);
     min-height: 600px;
   }
 
@@ -2874,7 +2886,7 @@ h1 { margin: 0; font-size: 25px; font-weight: 600; }
     grid-column: 2;
     grid-row: 1;
     min-height: 205px;
-    padding-top: 14px;
+    padding-top: 6px;
     border: 0;
     border-bottom: 1px solid rgba(255,255,255,.1);
     background: rgba(0,0,0,.035);
@@ -2903,6 +2915,7 @@ h1 { margin: 0; font-size: 25px; font-weight: 600; }
     padding: 2px 2px 2px 16px;
     font-size: 10pt;
   }
+  .pile-zone .section-label { margin-bottom: 4px; }
   .battlefield .card-effect {
     gap: 2px;
     padding: 4px 1px;
