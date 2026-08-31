@@ -2741,6 +2741,7 @@ export default function Home() {
     deckEditorDragRef.current = { cardId, source };
     setDeckEditorDrag({ cardId, source });
     setDeckEditorDropTarget(null);
+    setHoveredDeckCard(null);
   };
 
   const dropDeckEditorCard = (event: ReactDragEvent<HTMLElement>, target: DeckEditorArea) => {
@@ -4996,7 +4997,7 @@ export default function Home() {
                 </div>
               </footer>
               </section>
-              {hoveredDeckCard && (
+              {hoveredDeckCard && !deckEditorDrag && (
                 <aside
                   className="deck-card-preview-floating"
                   style={{ left: deckPreviewPosition.x, top: deckPreviewPosition.y }}
