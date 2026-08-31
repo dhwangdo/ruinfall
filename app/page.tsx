@@ -4120,7 +4120,6 @@ export default function Home() {
       ? `${floorItemNames[0]} 줍기`
       : `떨어진 물건 ${floorItemNames.length}개 줍기`;
     const activeShopOffers = activeShopRoom ? roomShops[activeShopRoom] ?? [] : [];
-    const shrineDraggedCard = activeDeck?.cards.find((card) => card.id === shrineDraggedCardId) ?? null;
     const knownRoomRoutes = buildKnownRoomRoutes(mapPosition, seenRooms, mapSeed, effectiveRoomType);
     const floorGroups = Array.from(currentFloorCards.reduce((groups, card) => {
       const groupKey = `${card.effect}:${card.damageType}:${card.name}`;
@@ -4613,7 +4612,6 @@ export default function Home() {
                   <span>현재 덱에서 카드 1장을 영구적으로 추출합니다.</span>
                 </div>
                 <div className="shop-header-status">
-                  <strong>사용 {shrineUses[currentRoomKey] ?? 0}회</strong>
                   <button type="button" onClick={() => setShrineOpen(false)}>나가기</button>
                 </div>
               </header>
@@ -4656,24 +4654,8 @@ export default function Home() {
                       ))}
                     </div>
                   </section>
-                  <div className="shrine-transfer-arrow" aria-live="polite">
-                    <strong aria-hidden="true">→</strong>
-                    <div>
-                      <span>붕괴 확률</span>
-                      {shrineDraggedCard ? (
-                        <b>{Math.round(shrineCollapseChance(
-                          shrineDraggedCard.rarity,
-                          shrineUses[currentRoomKey] ?? 0,
-                        ) * 100)}%</b>
-                      ) : (
-                        <b>카드 선택</b>
-                      )}
-                    </div>
-                    <small>
-                      일반 {Math.round(shrineCollapseChance("basic", shrineUses[currentRoomKey] ?? 0) * 100)}%
-                      · 특별 {Math.round(shrineCollapseChance("special", shrineUses[currentRoomKey] ?? 0) * 100)}%
-                      · 희귀 {Math.round(shrineCollapseChance("rare", shrineUses[currentRoomKey] ?? 0) * 100)}%
-                    </small>
+                  <div className="shrine-transfer-arrow">
+                    <span className="shrine-arrow-icon" aria-hidden="true" />
                   </div>
                   <div
                     className={`shrine-extract-slot ${shrineDropActive ? "is-drop-active" : ""}`}
@@ -4696,12 +4678,9 @@ export default function Home() {
                     }}
                   >
                     <span className="shrine-slot-mark" aria-hidden="true">◇</span>
-                    <strong>뺄 카드</strong>
-                    <small>카드를 여기에 놓으세요</small>
                   </div>
                 </div>
               )}
-              {!shrineResult && <footer>한 번에 카드 1장만 추출할 수 있습니다.</footer>}
             </section>
           </div>
         )}

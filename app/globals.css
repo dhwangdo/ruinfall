@@ -439,10 +439,10 @@ h1 { margin: 0; font-size: 25px; font-weight: 600; }
   box-shadow: inset 0 0 0 1px rgba(255,239,184,.28), 0 3px 5px rgba(0,0,0,.24);
 }
 .map-room.is-shrine {
-  border-color: #4f446b;
-  color: #f7efff;
-  background: #75668f;
-  box-shadow: inset 0 0 0 1px rgba(235,220,255,.28), 0 3px 5px rgba(0,0,0,.24);
+  border-color: #377f9c;
+  color: #103d50;
+  background: #78cbea;
+  box-shadow: inset 0 0 0 1px rgba(235,250,255,.55), 0 3px 5px rgba(0,0,0,.24);
 }
 .map-room.is-portal,
 .map-room.is-safePortal {
@@ -757,12 +757,12 @@ h1 { margin: 0; font-size: 25px; font-weight: 600; }
 }
 
 .shrine-panel {
-  grid-template-rows: auto minmax(0, 1fr) auto;
+  grid-template-rows: auto minmax(0, 1fr);
   width: min(920px, 100%);
 }
 .shrine-transfer {
   display: grid;
-  grid-template-columns: minmax(0, 1fr) 150px 220px;
+  grid-template-columns: minmax(0, 1fr) 180px 116px;
   align-items: center;
   gap: 18px;
   min-height: 0;
@@ -806,31 +806,46 @@ h1 { margin: 0; font-size: 25px; font-weight: 600; }
 .shrine-deck-card.is-dragging { opacity: 1; }
 .shrine-transfer-arrow {
   display: grid;
+  place-items: center;
   justify-items: center;
-  gap: 10px;
   color: #4e3e60;
   text-align: center;
 }
-.shrine-transfer-arrow > strong { font: 700 64px/1 Arial, sans-serif; }
-.shrine-transfer-arrow > div {
-  display: grid;
-  gap: 3px;
-  min-width: 118px;
-  padding: 9px 10px;
-  border: 1px solid #81718f;
-  border-radius: 5px;
-  background: #f4edf8;
+.shrine-arrow-icon {
+  position: relative;
+  display: block;
+  width: 132px;
+  height: 58px;
 }
-.shrine-transfer-arrow span { font: 11px Arial, sans-serif; }
-.shrine-transfer-arrow b { font: 800 21px Arial, sans-serif; }
-.shrine-transfer-arrow small { color: #675d70; font: 10px/1.45 Arial, sans-serif; }
+.shrine-arrow-icon::before {
+  content: "";
+  position: absolute;
+  left: 0;
+  top: 23px;
+  width: 104px;
+  height: 13px;
+  border-radius: 999px;
+  background: #493857;
+}
+.shrine-arrow-icon::after {
+  content: "";
+  position: absolute;
+  right: 1px;
+  top: 9px;
+  width: 40px;
+  height: 40px;
+  border-top: 13px solid #493857;
+  border-right: 13px solid #493857;
+  transform: rotate(45deg);
+}
 .shrine-extract-slot {
   display: grid;
   place-items: center;
   align-content: center;
   gap: 8px;
-  min-height: 245px;
-  padding: 18px;
+  width: 116px;
+  height: 163px;
+  padding: 0;
   border: 2px dashed #81728e;
   border-radius: 9px;
   color: #5e5069;
@@ -874,8 +889,7 @@ h1 { margin: 0; font-size: 25px; font-weight: 600; }
 
 @media (max-width: 760px) {
   .shrine-transfer { grid-template-columns: 1fr; overflow-y: auto; }
-  .shrine-transfer-arrow > strong { transform: rotate(90deg); }
-  .shrine-extract-slot { min-height: 170px; }
+  .shrine-arrow-icon { transform: rotate(90deg); }
 }
 
 .deck-editor-trigger,
