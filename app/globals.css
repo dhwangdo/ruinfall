@@ -879,8 +879,6 @@ h1 { margin: 0; font-size: 25px; font-weight: 600; }
 .deck-editor-header-costs strong { font-size: 17px; }
 .deck-editor-header-costs span { color: #8b5d20; font-weight: 700; }
 .deck-editor-header-costs .is-over-budget { color: #bd3030; }
-.deck-editor-header-costs .is-over-budget { animation: extraction-cost-warning .28s ease-in-out 5; }
-@keyframes extraction-cost-warning { 50% { opacity: .15; } }
 
 .deck-editor-footer-actions {
   display: flex;
@@ -1006,27 +1004,6 @@ h1 { margin: 0; font-size: 25px; font-weight: 600; }
   border-left: 1px solid #aaa69b;
   background: rgba(255,255,255,.3);
 }
-
-.deck-sort-controls {
-  display: grid;
-  grid-template-columns: 1fr 1fr;
-  gap: 4px;
-  width: 100%;
-}
-
-.deck-sort-controls button {
-  min-width: 0;
-  padding: 6px 3px;
-  border: 1px solid #8b887f;
-  border-radius: 2px;
-  color: #5d5a54;
-  background: #e9e6dd;
-  cursor: pointer;
-  font: 700 10px Arial, sans-serif;
-}
-
-.deck-sort-controls button:hover { border-color: #4e4c47; background: #f5f2e9; }
-.deck-sort-controls button.is-active { border-color: #315f48; color: #244c38; background: #cbdccf; box-shadow: inset 0 0 0 1px #6d967d; }
 
 .trash-slot {
   display: flex;
@@ -1156,10 +1133,8 @@ h1 { margin: 0; font-size: 25px; font-weight: 600; }
 }
 
 .deck-card-preview-floating {
-  position: absolute;
-  top: 165px;
-  left: calc(100% + 20px);
-  z-index: 2;
+  position: fixed;
+  z-index: 140;
   pointer-events: none;
 }
 
@@ -1328,8 +1303,6 @@ h1 { margin: 0; font-size: 25px; font-weight: 600; }
 .deck-editor-card:hover { z-index: 2; transform: translateY(-6px); box-shadow: 0 8px 16px rgba(0,0,0,.3); }
 .deck-editor-card:focus-visible { outline: 3px solid #2e5f85; outline-offset: 3px; }
 .deck-editor-card.is-dragging { opacity: .32; }
-.deck-editor-card.is-pending-extraction { filter: grayscale(.72); opacity: .62; }
-.deck-extraction-cost { position: absolute; right: 5px; bottom: 7px; z-index: 2; padding: 4px 6px; border-radius: 3px; background: rgba(40, 39, 35, .78); color: #fff; font: 700 14px Arial, sans-serif; }
 .card-pack-result { width: min(960px, calc(100vw - 32px)); padding: 22px; border: 1px solid #514f48; border-radius: 6px; background: #f7f5ef; box-shadow: 0 20px 60px rgba(0,0,0,.45); }
 .card-pack-result header { display: flex; justify-content: space-between; align-items: start; margin-bottom: 18px; }
 .card-pack-result p { margin: 0; color: #77736a; font: 9px Arial, sans-serif; letter-spacing: .15em; }
@@ -2824,7 +2797,6 @@ h1 { margin: 0; font-size: 25px; font-weight: 600; }
   .deck-editor-footer-actions button { flex: 1; }
   .deck-editor-columns { grid-template-columns: 1fr; overflow: auto; }
   .deck-editor-deck-body { grid-template-columns: minmax(0, 1fr) 142px; }
-  .deck-card-preview-floating { top: auto; right: 12px; bottom: 12px; left: auto; }
   .inventory-deck-flow { display: none; }
   .deck-to-trash { right: 127px; }
   .deck-editor-column { min-height: 390px; }
