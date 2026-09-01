@@ -288,6 +288,7 @@ const BLESSING_INFO: Record<BlessingId, { name: string; description: string }> =
   ninja: { name: "닌자", description: "잠든 적과 전투 시 아드레날린 1장을 얻습니다." },
 };
 const STARTER_DECK_CAPACITY = 20;
+const DEBUG_ALL_CARDS_DECK_ID = "debug-all-cards";
 const REGION_COUNT = 7;
 const REGION_NAMES = [
   "하수구",
@@ -735,6 +736,15 @@ const RARE_CARD_POOL: CardBlueprint[] = [
   { kind: "skill", effect: "supernova", rarity: "rare", name: "초신성", cost: 0, value: 3, draw: 0, damageType: "physical", exhaust: true },
 ];
 
+// 디버그 덱은 현재 사용 카드와 호환용 카드까지 모두 확인할 수 있게 한다.
+const DEBUG_ALL_CARD_BLUEPRINTS: CardBlueprint[] = [
+  ...BASIC_CARD_POOL,
+  ...LEGACY_SPECIAL_CARD_POOL,
+  ...LEGACY_RARE_CARD_POOL,
+  ...SPECIAL_CARD_POOL,
+  ...RARE_CARD_POOL,
+];
+
 function createBattleRewardCard(id: number, rareChance: number): Card {
   const pool = Math.random() < rareChance ? RARE_CARD_POOL : SPECIAL_CARD_POOL;
   const selected = pool[Math.floor(Math.random() * pool.length)];
@@ -795,8 +805,8 @@ function createSlimeCard(id: number): Card {
   };
 }
 
-function createGoblinStarterPile(): Card[] {
-  const soil = (id: number): Card => ({
+function createSoilCard(id: number): Card {
+  return {
     id,
     kind: "skill",
     effect: "soil",
@@ -809,26 +819,55 @@ function createGoblinStarterPile(): Card[] {
     revealed: false,
     token: true,
     enemyToken: true,
-  });
-  return [
-    {
-      id: -10000,
-      kind: "skill",
-      effect: "relic",
-      rarity: "rare",
-      name: "유물",
-      cost: 0,
-      value: 4,
-      draw: 0,
-      damageType: "physical",
-      revealed: true,
-      token: true,
-      enemyToken: true,
+  };
+}
+
+function createRelicCard(id: number): Card {
+  return {
+    id,
+    kind: "skill",
+    effect: "relic",
+    rarity: "rare",
+    name: "유물",
+    cost: 0,
+    value: 4,
+    draw: 0,
+    damageType: "physical",
+    revealed: true,
+    token: true,
+    enemyToken: true,
+  };
+}
+
+function createDebugAllCardsDeck(startId: number): { deck: DeckCase; nextCardId: number } {
+  let nextCardId = startId;
+  const cards = [
+    ...DEBUG_ALL_CARD_BLUEPRINTS.map((blueprint) => ({ ...blueprint, id: nextCardId++, revealed: false })),
+    { ...createAdrenalineCard(), id: nextCardId++, revealed: false },
+    createSlimeCard(nextCardId++),
+    createSoilCard(nextCardId++),
+    createRelicCard(nextCardId++),
+  ];
+  return {
+    deck: {
+      id: DEBUG_ALL_CARDS_DECK_ID,
+      name: "ALL",
+      capacity: cards.length,
+      cards,
+      editions: [],
+      editionColors: {},
     },
-    soil(-10004),
-    soil(-10003),
-    soil(-10002),
-    soil(-10001),
+    nextCardId,
+  };
+}
+
+function createGoblinStarterPile(): Card[] {
+  return [
+    createRelicCard(-10000),
+    createSoilCard(-10004),
+    createSoilCard(-10003),
+    createSoilCard(-10002),
+    createSoilCard(-10001),
   ];
 }
 
@@ -1498,6 +1537,15 @@ export default function Home() {
   };
   const submitDebugPassword = () => {
     if (debugPassword === "6384") {
+      const { deck, nextCardId } = createDebugAllCardsDeck(nextCardIdRef.current);
+      nextCardIdRef.current = nextCardId;
+      setOwnedDecks((current) => [
+        deck,
+        ...current.filter((currentDeck) => currentDeck.id !== DEBUG_ALL_CARDS_DECK_ID),
+      ]);
+      setActiveDeckId(deck.id);
+      setDeckSelectionAttention(true);
+      setMapMessage(`디버그 덱 ALL 생성: 모든 카드 ${deck.cards.length}장`);
       setDebugMode(true);
       setDebugPasswordOpen(false);
     }
