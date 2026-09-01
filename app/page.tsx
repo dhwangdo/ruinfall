@@ -337,13 +337,13 @@ const DEFAULT_STACK_OFFSET = 27;
 const MAX_STACK_TRAVEL = PILE_HEIGHT - CARD_HEIGHT;
 const HAND_CARD_STEP = 102;
 
-function shrineCollapseChance(rarity: CardRarity, priorUses: number) {
+function shrineCollapseChance(rarity: CardRarity) {
   const baseChance: Record<CardRarity, number> = {
-    basic: 0,
+    basic: 0.1,
     special: 0.3,
     rare: 1,
   };
-  return Math.min(1, baseChance[rarity] + priorUses * 0.05);
+  return baseChance[rarity];
 }
 
 function getStackOffset(cardCount: number) {
@@ -1175,104 +1175,103 @@ function CardFace({ card, starsSpent = 0, strength = 0, agility = 0 }: { card: C
   const effectText = (() => {
     switch (card.effect) {
       case "strike":
-        return <><span className="effect-type damage">피해 {damageValue}</span>{card.draw > 0 && <span>드로우 {card.draw}</span>}</>;
+        return <><span className="effect-type damage">피해를 {damageValue} 줍니다.</span>{card.draw > 0 && <span>카드를 {card.draw}장 뽑습니다.</span>}</>;
       case "pommel":
-        return <><span className="effect-type damage">피해 {damageValue}</span><span>첫 번째 파일에서 드로우 1</span></>;
+        return <><span className="effect-type damage">피해를 {damageValue} 줍니다.</span><span>첫 번째 파일에서 카드를 1장 뽑습니다.</span></>;
       case "defend":
-        return <span className={`effect-type ${card.damageType}`}>{DEFENSE_LABEL[card.damageType]} {defenseValue}</span>;
+        return <span className={`effect-type ${card.damageType}`}>{DEFENSE_LABEL[card.damageType]}를 {defenseValue} 얻습니다.</span>;
       case "deflect":
-        return <><span className="effect-type physical">방어 {defenseValue}</span><span>1 드로우</span></>;
+        return <><span className="effect-type physical">방어를 {defenseValue} 얻습니다.</span><span>카드를 1장 뽑습니다.</span></>;
       case "steelHeart":
-        return <span>이번 턴 동안 얻는<br /><span className="effect-type physical">방어</span>/<span className="effect-type magic">마법 방어</span> 2배</span>;
+        return <span>이번 턴 동안 얻는 <span className="effect-type physical">방어</span>와 <span className="effect-type magic">마법 방어</span>가 2배가 됩니다.</span>;
       case "battlePlan":
-        return <><span>★ {card.value} 획득</span><span>드로우 {card.draw}</span></>;
+        return <><span>★ +{card.value}</span><span>카드를 {card.draw}장 뽑습니다.</span></>;
       case "prepare":
-        return <span>1장 뽑고<br />1장 버립니다</span>;
+        return <span>카드를 1장 뽑고 1장 버립니다.</span>;
       case "focus":
-        return <span>에너지 1 획득<br />카드 1장 버림</span>;
+        return <span>에너지 +1. 카드를 1장 버립니다.</span>;
       case "adrenaline":
-        return <span>에너지 1 획득<br />1 드로우</span>;
+        return <span>에너지 +1. 카드를 1장 뽑습니다.</span>;
       case "sweep":
-        return <span className="effect-type damage">모든 적에게 피해 {damageValue}</span>;
+        return <span className="effect-type damage">모든 적에게 피해를 {damageValue} 줍니다.</span>;
       case "drawEachPile":
-        return <span>모든 파일에서<br />1장씩 뽑습니다</span>;
+        return <span>모든 파일에서 카드를 1장씩 뽑습니다.</span>;
       case "rulerCompass":
-        return <><span className="effect-type damage">피해 {damageValue}</span><span>★를 얻습니다</span></>;
+        return <><span className="effect-type damage">피해를 {damageValue} 줍니다.</span><span>★ +1</span></>;
       case "berserk":
-        return <span>에너지 2 획득<br />이번 턴 받는 피해 2배</span>;
+        return <span>에너지 +2. 이번 턴 받는 피해가 2배가 됩니다.</span>;
       case "transcend":
-        return <span>이번 턴 피해 면역<br />힘 5를 얻습니다</span>;
+        return <span>이번 턴 피해에 면역이 됩니다. 힘 +5.</span>;
       case "rapidFire":
-        return <span>다음 공격 카드가<br />한 번 더 발동</span>;
+        return <span>다음 공격 카드가 한 번 더 발동합니다.</span>;
       case "iceShield":
-        return <span className="effect-type magic">마법 방어 {defenseValue}</span>;
-        return <><span className="effect-type magic">마법 방어 {card.value}</span><span>★를 얻습니다</span></>;
+        return <span className="effect-type magic">마법 방어를 {defenseValue} 얻습니다.</span>;
       case "magicStrike":
-        return <span className="effect-type damage">체력이 가장 낮은 적에게 피해 {damageValue}</span>;
+        return <span className="effect-type damage">체력이 가장 낮은 적에게 피해를 {damageValue} 줍니다.</span>;
       case "shockwave":
-        return <span className="effect-type damage">적 전체 피해 {damageValue}</span>;
+        return <span className="effect-type damage">모든 적에게 피해를 {damageValue} 줍니다.</span>;
       case "ventilate":
-        return <span>에너지 {card.value} 획득</span>;
+        return <span>에너지 +{card.value}</span>;
       case "plateArmor":
-        return <><span className="effect-type physical">방어 {defenseValue}</span>{!card.forged && <span>제련 후 비용 1 감소</span>}</>;
+        return <><span className="effect-type physical">방어를 {defenseValue} 얻습니다.</span>{!card.forged && <span>제련하면 비용이 1 감소합니다.</span>}</>;
       case "warmUp":
-        return <span>이번 턴 힘 {card.value}</span>;
+        return <span>이번 턴 힘 +{card.value}.</span>;
       case "ironWall":
-        return <span className="effect-type physical">방어 {defenseValue}</span>;
+        return <span className="effect-type physical">방어를 {defenseValue} 얻습니다.</span>;
       case "fourHit":
-        return <span className="effect-type damage">피해 {damageValue} × 4</span>;
+        return <span className="effect-type damage">피해를 {damageValue}씩 4번 줍니다.</span>;
       case "doubleHit":
-        return <span className="effect-type damage">피해 {damageValue} × {card.forged ? 2 : "1(2)"}번</span>;
+        return <span className="effect-type damage">피해를 {damageValue}씩 {card.forged ? 2 : "1(2)"}번 줍니다.</span>;
       case "starlight":
-        return <span>★ {card.value} 획득</span>;
+        return <span>★ +{card.value}</span>;
       case "augment":
-        return <span>힘과 강인함 {card.value} 획득</span>;
+        return <span>힘 +{card.value}. 강인함 +{card.value}.</span>;
       case "fileDraw":
-        return <span>{card.forged ? "모든 파일에서 1장씩 드로우" : "파일 하나 선택, 위에서부터 3장 드로우"}</span>;
+        return <span>{card.forged ? "모든 파일에서 카드를 1장씩 뽑습니다." : "파일 하나를 선택해 위에서부터 카드를 3장 뽑습니다."}</span>;
       case "starGuard":
-        return <><span className="effect-type physical">방어 {defenseValue}</span><span>★ 2 획득</span></>;
+        return <><span className="effect-type physical">방어를 {defenseValue} 얻습니다.</span><span>★ +2</span></>;
       case "charge":
-        return <span>에너지 {card.value} 획득</span>;
+        return <span>에너지 +{card.value}</span>;
       case "weaponSharpen":
         return <span>힘 +{card.value}</span>;
       case "armorSharpen":
         return <span>강인함 +{card.value}</span>;
       case "boomerang":
         return card.name === "정리 타격"
-          ? <><span className="effect-type damage">피해 {damageValue}</span><span>파일 하나의 맨 위 카드를 버림</span></>
-          : <><span className="effect-type damage">피해 {damageValue}</span><span>파일 하나의 맨 위 카드를 맨 밑으로 보냄</span></>;
+          ? <><span className="effect-type damage">피해를 {damageValue} 줍니다.</span><span>파일 하나의 맨 위 카드를 버립니다.</span></>
+          : <><span className="effect-type damage">피해를 {damageValue} 줍니다.</span><span>파일 하나의 맨 위 카드를 맨 밑으로 보냅니다.</span></>;
       case "meteor":
-        return <span className="effect-type damage">이번 턴 사용한 ★당 무작위 적에게 피해 {damageValue} ({starsSpent}번)</span>;
+        return <span className="effect-type damage">이번 턴 사용한 ★마다 무작위 적에게 피해를 {damageValue} 줍니다. ({starsSpent}번)</span>;
       case "counter":
-        return <span>이번 턴 막은 피해를 반사</span>;
+        return <span>이번 턴 막은 피해를 반사합니다.</span>;
       case "exchange":
-        return <span className="effect-type damage">피해 {damageValue}. 재련 시 밑패와 비용 교환</span>;
+        return <span className="effect-type damage">피해를 {damageValue} 줍니다. 재련하면 밑패와 비용을 교환합니다.</span>;
       case "flood":
-        return <span>피라미드(4-3-2-1). 에너지 +2, 드로우 2, ★ +2</span>;
+        return <span>피라미드(4-3-2-1). 에너지 +2. 카드를 2장 뽑습니다. ★ +2.</span>;
       case "endStart":
-        return <span>에너지 +{card.value}. 모든 파일이 비어있어야 사용 가능</span>;
+        return <span>모든 파일이 비어 있어야 사용할 수 있습니다. 에너지 +{card.value}.</span>;
       case "superStrategist":
         return <span>★ +5. 소멸</span>;
       case "pioneer":
-        return <span>빈 파일 하나 생성</span>;
+        return <span>빈 파일을 하나 생성합니다.</span>;
       case "slime":
-        return <span>턴 종료 시 손패에 있다면 피해 12.<br />사용 불가.</span>;
+        return <span>사용 불가. 턴 종료 시 손패에 있다면 피해를 12 받습니다.</span>;
       case "relic":
         return <span>도깨비의 힘 -4</span>;
       case "soil":
-        return <span>드로우 1</span>;
+        return <span>카드를 1장 뽑습니다.</span>;
       case "supernova":
-        return <span>★ 3개 소모<br />에너지 +3</span>;
+        return <span>★ -3. 에너지 +3.</span>;
       case "combatManual":
-        return <span>사용 불가.<br />손에 있는 동안 힘 +2, 강인함 +2</span>;
+        return <span>사용 불가. 손에 있는 동안 힘 +2. 강인함 +2.</span>;
       case "grimoire":
-        return <span>사용 불가.<br />손에 있는 동안 카드를 낼 때마다 ★ +1</span>;
+        return <span>사용 불가. 손에 있는 동안 카드를 낼 때마다 ★ +1.</span>;
       case "ironWave":
-        return <><span className="effect-type damage">피해 {damageValue}</span><span className="effect-type physical">방어 5</span></>;
+        return <><span className="effect-type damage">피해를 {damageValue} 줍니다.</span><span className="effect-type physical">방어를 5 얻습니다.</span></>;
       case "waterWave":
-        return <><span className="effect-type damage">피해 {damageValue}</span><span className="effect-type magic">마법 방어 5</span></>;
+        return <><span className="effect-type damage">피해를 {damageValue} 줍니다.</span><span className="effect-type magic">마법 방어를 5 얻습니다.</span></>;
       case "ironRampage":
-        return <><span className="effect-type damage">적 전체 피해 {damageValue}</span><span className="effect-type physical">방어 5</span></>;
+        return <><span className="effect-type damage">모든 적에게 피해를 {damageValue} 줍니다.</span><span className="effect-type physical">방어를 5 얻습니다.</span></>;
     }
   })();
   return (
@@ -1335,8 +1334,8 @@ export default function Home() {
   const mapBombsRef = useRef<MapBomb[]>([]);
   const [destroyedShopRooms, setDestroyedShopRooms] = useState<Set<string>>(() => new Set());
   const [collapsedShrineRooms, setCollapsedShrineRooms] = useState<Set<string>>(() => new Set());
-  const [shrineUses, setShrineUses] = useState<Record<string, number>>({});
   const [shrineOpen, setShrineOpen] = useState(false);
+  const [shrineDeckId, setShrineDeckId] = useState("");
   const [shrineDraggedCardId, setShrineDraggedCardId] = useState<number | null>(null);
   const [shrinePendingCardId, setShrinePendingCardId] = useState<number | null>(null);
   const [shrineDropActive, setShrineDropActive] = useState(false);
@@ -1419,6 +1418,7 @@ export default function Home() {
   const deckDropChanceRef = useRef(0.25);
   const rareCardDropChanceRef = useRef(0.05);
   const activeDeck = ownedDecks.find((deck) => deck.id === activeDeckId) ?? ownedDecks[0];
+  const shrineDeck = ownedDecks.find((deck) => deck.id === shrineDeckId) ?? activeDeck;
   const deckCards = activeDeck?.cards ?? [];
   const inventoryCapacity = INVENTORY_CAPACITY + (blessings.includes("bag") ? 12 : 0);
   const maxOwnedDecks = MAX_OWNED_DECKS + (blessings.includes("bag") ? 1 : 0);
@@ -2127,6 +2127,7 @@ export default function Home() {
 
   const openShrine = () => {
     if (effectiveRoomType(mapPosition) !== "shrine") return;
+    setShrineDeckId(activeDeck?.id ?? "");
     setShrineDraggedCardId(null);
     setShrinePendingCardId(null);
     setShrineDropActive(false);
@@ -2135,21 +2136,19 @@ export default function Home() {
   };
 
   const extractCardAtShrine = (cardId: number) => {
-    if (effectiveRoomType(mapPosition) !== "shrine" || !activeDeck) return;
-    if (activeDeck.cards.length <= 1) {
+    if (effectiveRoomType(mapPosition) !== "shrine" || !shrineDeck) return;
+    if (shrineDeck.cards.length <= 1) {
       setMapMessage("덱에는 반드시 카드가 1장 이상 있어야 합니다.");
       return;
     }
-    const card = activeDeck.cards.find((item) => item.id === cardId);
+    const card = shrineDeck.cards.find((item) => item.id === cardId);
     if (!card) return;
     const roomKey = mapRoomKey(mapPosition);
-    const priorUses = shrineUses[roomKey] ?? 0;
-    const collapseChance = shrineCollapseChance(card.rarity, priorUses);
+    const collapseChance = shrineCollapseChance(card.rarity);
     const collapsed = Math.random() < collapseChance;
-    setOwnedDecks((current) => current.map((deck) => deck.id === activeDeck.id
+    setOwnedDecks((current) => current.map((deck) => deck.id === shrineDeck.id
       ? { ...deck, cards: deck.cards.filter((item) => item.id !== cardId) }
       : deck));
-    setShrineUses((current) => ({ ...current, [roomKey]: priorUses + 1 }));
     setDeckSelectionAttention(true);
     if (collapsed) {
       setCollapsedShrineRooms((current) => new Set(current).add(roomKey));
@@ -2349,7 +2348,6 @@ export default function Home() {
     setMapBombsSynced([]);
     setDestroyedShopRooms(new Set());
     setCollapsedShrineRooms(new Set());
-    setShrineUses({});
     setShrineOpen(false);
     setShrineDraggedCardId(null);
     setShrinePendingCardId(null);
@@ -4168,7 +4166,7 @@ export default function Home() {
       ? `${floorItemNames[0]} 줍기`
       : `떨어진 물건 ${floorItemNames.length}개 줍기`;
     const activeShopOffers = activeShopRoom ? roomShops[activeShopRoom] ?? [] : [];
-    const shrinePendingCard = activeDeck?.cards.find((card) => card.id === shrinePendingCardId) ?? null;
+    const shrinePendingCard = shrineDeck?.cards.find((card) => card.id === shrinePendingCardId) ?? null;
     const shrineProbabilityCard = shrinePendingCard;
     const knownRoomRoutes = buildKnownRoomRoutes(mapPosition, seenRooms, mapSeed, effectiveRoomType);
     const floorGroups = Array.from(currentFloorCards.reduce((groups, card) => {
@@ -4682,7 +4680,7 @@ export default function Home() {
                 <div>
                   <p>SHRINE</p>
                   <h2 id="shrine-title">성소</h2>
-                  <span>현재 덱에서 카드 1장을 영구적으로 추출합니다.</span>
+                  <span>선택한 덱에서 카드 1장을 영구적으로 추출합니다.</span>
                 </div>
                 <div className="shop-header-status">
                   <button type="button" onClick={() => setShrineOpen(false)}>나가기</button>
@@ -4703,7 +4701,7 @@ export default function Home() {
                 <div className="shrine-transfer">
                   <section
                     className="shrine-deck-column"
-                    aria-label="현재 덱 카드"
+                    aria-label={`${shrineDeck?.name ?? "선택한 덱"} 카드`}
                     onDragOver={(event) => event.preventDefault()}
                     onDrop={(event) => {
                       event.preventDefault();
@@ -4711,16 +4709,33 @@ export default function Home() {
                       if (payload.startsWith("shrine-pending:")) setShrinePendingCardId(null);
                     }}
                   >
+                    <nav className="shrine-deck-tabs" aria-label="추출할 덱 선택">
+                      {ownedDecks.map((deck) => (
+                        <button
+                          type="button"
+                          className={deck.id === shrineDeck?.id ? "is-active" : ""}
+                          key={`shrine-deck-${deck.id}`}
+                          onClick={() => {
+                            setShrineDeckId(deck.id);
+                            setShrineDraggedCardId(null);
+                            setShrinePendingCardId(null);
+                            setShrineDropActive(false);
+                          }}
+                        >
+                          덱 {deck.name}
+                        </button>
+                      ))}
+                    </nav>
                     <header>
-                      <strong>현재 덱</strong>
-                      <small>{activeDeck?.cards.length ?? 0}장</small>
+                      <strong>덱 {shrineDeck?.name}</strong>
+                      <small>{shrineDeck?.cards.length ?? 0}장</small>
                     </header>
                     <div className="shrine-deck-cards">
-                      {(activeDeck?.cards ?? []).map((card) => (
+                      {(shrineDeck?.cards ?? []).map((card) => (
                         <div
                           className={`shrine-deck-card card-face ${card.kind} ${card.damageType} ${shrineDraggedCardId === card.id ? "is-dragging" : ""} ${shrinePendingCardId === card.id ? "is-selected" : ""}`}
                           key={`shrine-${card.id}`}
-                          draggable={(activeDeck?.cards.length ?? 0) > 1}
+                          draggable={(shrineDeck?.cards.length ?? 0) > 1}
                           onDragStart={(event) => {
                             event.dataTransfer.effectAllowed = "move";
                             event.dataTransfer.setData("text/plain", String(card.id));
@@ -4741,10 +4756,7 @@ export default function Home() {
                     {shrineProbabilityCard && (
                       <div className="shrine-collapse-live" role="status" aria-live="polite">
                         <span>붕괴 확률</span>
-                        <strong>{Math.round(shrineCollapseChance(
-                          shrineProbabilityCard.rarity,
-                          shrineUses[currentRoomKey] ?? 0,
-                        ) * 100)}%</strong>
+                        <strong>{Math.round(shrineCollapseChance(shrineProbabilityCard.rarity) * 100)}%</strong>
                       </div>
                     )}
                   </div>

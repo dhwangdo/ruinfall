@@ -780,13 +780,36 @@ h1 { margin: 0; font-size: 25px; font-weight: 600; }
 }
 .shrine-deck-column {
   display: grid;
-  grid-template-rows: auto minmax(0, 1fr);
+  grid-template-rows: auto auto minmax(0, 1fr);
   align-self: stretch;
   min-height: 0;
   border: 1px solid #9e978d;
   border-radius: 6px;
   overflow: hidden;
   background: #eeeae2;
+}
+.shrine-deck-tabs {
+  display: flex;
+  gap: 6px;
+  padding: 8px;
+  overflow-x: auto;
+  border-bottom: 1px solid #aaa298;
+  background: #e3ded5;
+}
+.shrine-deck-tabs button {
+  flex: 0 0 auto;
+  min-height: 32px;
+  padding: 6px 11px;
+  border: 1px solid #9e978d;
+  border-radius: 4px;
+  background: #f6f2ea;
+  color: #423e38;
+  font: 700 12px Pretendard, Arial, sans-serif;
+}
+.shrine-deck-tabs button.is-active {
+  border-color: #4e3e60;
+  background: #e5daed;
+  color: #392b47;
 }
 .shrine-deck-column > header {
   display: flex;
@@ -2480,6 +2503,10 @@ h1 { margin: 0; font-size: 25px; font-weight: 600; }
   font-family: Pretendard, Arial, sans-serif;
   font-size: 9pt;
   line-height: 1.55;
+  overflow-wrap: normal;
+  word-break: keep-all;
+  text-wrap: pretty;
+  hyphens: none;
 }
 
 .card-face:has(.token-rule.is-enemy-token) {
