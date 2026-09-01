@@ -2482,6 +2482,10 @@ h1 { margin: 0; font-size: 25px; font-weight: 600; }
   line-height: 1.55;
 }
 
+.card-face:has(.token-rule.is-enemy-token) {
+  background: #eee6f7;
+}
+
 .solitaire-rule {
   display: inline;
   margin-left: 5px;
@@ -2592,6 +2596,12 @@ h1 { margin: 0; font-size: 25px; font-weight: 600; }
   align-items: center;
   min-height: 245px;
   padding: 0 20px 12px;
+}
+
+.token-rule {
+  display: block;
+  margin: 3px 0 0;
+  color: #634481;
 }
 
 .player-status-column {

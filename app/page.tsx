@@ -45,6 +45,7 @@ import {
   positionsInSquare,
   type MapBomb,
 } from "./game/mapEffects";
+import { cardsForNextShuffle } from "./game/cardRules";
 
 type CardKind = "strike" | "defend" | "skill" | "power";
 type DamageType = "physical" | "magic";
@@ -199,6 +200,10 @@ type Card = {
   exhaust?: boolean;
   /** Power cards leave this battle's deck once they have been used. */
   power?: boolean;
+  /** Token cards participate in the current cycle once, then leave on reshuffle. */
+  token?: boolean;
+  /** Enemy-created tokens use a distinct card face color. */
+  enemyToken?: boolean;
 };
 
 type DeckEditorSnapshot = {
@@ -218,7 +223,7 @@ type GameState = {
   piles: Card[][];
   hand: Card[];
   discard: Card[];
-  /** The player's deck at the beginning of this battle, excluding encounter-only cards. */
+  /** Canonical cards for rebuilding files; token cards are kept here only until the reshuffle filter runs. */
   initialDeck: Card[];
   /** Used exhaust and power cards that must not return on the next reshuffle. */
   removedFromReshuffleIds: number[];
@@ -785,6 +790,8 @@ function createSlimeCard(id: number): Card {
     draw: 0,
     damageType: "physical",
     revealed: true,
+    token: true,
+    enemyToken: true,
   };
 }
 
@@ -800,6 +807,8 @@ function createGoblinStarterPile(): Card[] {
     draw: 1,
     damageType: "physical",
     revealed: false,
+    token: true,
+    enemyToken: true,
   });
   return [
     {
@@ -813,6 +822,8 @@ function createGoblinStarterPile(): Card[] {
       draw: 0,
       damageType: "physical",
       revealed: true,
+      token: true,
+      enemyToken: true,
     },
     soil(-10004),
     soil(-10003),
@@ -1119,12 +1130,15 @@ function dealtState(
     deckEditions.includes("roomy") ? 1 : 0,
     deckEditions.includes("golden"),
   );
-  if (enemies.some((enemy) => enemy.variant === "goblin")) initialPiles.push(createGoblinStarterPile());
+  const encounterTokens = enemies.some((enemy) => enemy.variant === "goblin")
+    ? createGoblinStarterPile()
+    : [];
+  if (encounterTokens.length > 0) initialPiles.push(encounterTokens);
   return {
     ...waitingState(playerHp, enemies),
     piles: initialPiles,
     hand: deckEditions.includes("lively") ? [createAdrenalineCard()] : [],
-    initialDeck: deck.map((card) => ({ ...card, revealed: false })),
+    initialDeck: [...deck, ...encounterTokens].map((card) => ({ ...card, revealed: false })),
     energy: deckEditions.includes("rampaging") ? 4 : 3,
     stars: deckEditions.includes("clever") ? 4 : 2,
     deckEditions,
@@ -1265,7 +1279,7 @@ function CardFace({ card, starsSpent = 0, strength = 0, agility = 0 }: { card: C
     <>
       {card.effect !== "slime" && <span className="card-cost">{card.cost}</span>}
       <strong className={`card-name rarity-${card.rarity} ${card.colored ? "is-painted" : ""}`}>{card.name}{card.forged ? "+" : ""}</strong>
-      <span className="card-effect">{emphasizeEffectNumbers(<>{card.solitaireRule && <strong className="solitaire-rule solitaire-keyword">{card.solitaireRule === "top" ? "윗패" : card.solitaireRule === "bottom" ? "밑패" : "주문"}</strong>}{effectText}{card.forged ? <strong className="solitaire-rule">재련됨.</strong> : (card.forgeCost !== undefined || card.forgeTargetName || card.forgeAny) && <strong className="solitaire-rule">제련: {card.forgeTargetName ? `[${card.forgeTargetName}]` : card.forgeAny ? "[아무거나]" : `[${card.forgeCost}코스트]`}</strong>}{card.exhaust && <strong className="solitaire-rule">소멸</strong>}{card.power && <strong className="solitaire-rule">파워</strong>}</>)}</span>
+      <span className="card-effect">{emphasizeEffectNumbers(<>{card.solitaireRule && <strong className="solitaire-rule solitaire-keyword">{card.solitaireRule === "top" ? "윗패" : card.solitaireRule === "bottom" ? "밑패" : "주문"}</strong>}{effectText}{card.forged ? <strong className="solitaire-rule">재련됨.</strong> : (card.forgeCost !== undefined || card.forgeTargetName || card.forgeAny) && <strong className="solitaire-rule">제련: {card.forgeTargetName ? `[${card.forgeTargetName}]` : card.forgeAny ? "[아무거나]" : `[${card.forgeCost}코스트]`}</strong>}{card.exhaust && <strong className="solitaire-rule">소멸</strong>}{card.power && <strong className="solitaire-rule">파워</strong>}{card.token && <strong className={`solitaire-rule token-rule ${card.enemyToken ? "is-enemy-token" : ""}`}>토큰. 다음 셔플에 포함되지 않습니다.</strong>}</>)}</span>
     </>
   );
 }
@@ -1791,6 +1805,7 @@ export default function Home() {
         piles: draw.piles,
         enemies: enemiesAfterDiscardTargeting,
         hand: [...current.hand, ...initialDraw, ...toxicSlimes],
+        initialDeck: [...current.initialDeck, ...toxicSlimes.map((card) => ({ ...card, revealed: false }))],
         energy: current.deckEditions.includes("rampaging") ? 4 : 3,
         pendingDraws: 0,
         pendingPileDrawCount: 0,
@@ -4013,9 +4028,11 @@ export default function Home() {
           ? (() => {
             const emptyIndexes = pilesAfterSlime.map((pile, index) => pile.length === 0 ? index : -1).filter((index) => index >= 0);
             const cardsDrawnBeforeClear = new Set(pilesAfterSlime.flatMap((pile) => pile.map((card) => card.id)));
-            const cards = game.initialDeck.filter((card) =>
-              !game.removedFromReshuffleIds.includes(card.id)
-              && !cardsDrawnBeforeClear.has(card.id));
+            const cards = cardsForNextShuffle(
+              game.initialDeck,
+              new Set(game.removedFromReshuffleIds),
+              cardsDrawnBeforeClear,
+            );
             const rebuilt = buildPiles(prepareDeckForPiles(cards), game.deckEditions.includes("fantastic") ? 4 : 5, game.deckEditions.includes("transparent"), game.deckEditions.includes("roomy") ? 1 : 0, game.deckEditions.includes("golden"));
             const redraw = drawFromPileIndexes(rebuilt, emptyIndexes);
             return { pilesBeforeDraw: rebuilt, pilesAfterDraw: redraw.piles, hand: redraw.hand };
