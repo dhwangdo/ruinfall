@@ -69,6 +69,6 @@
 
 ## 중요한 주소
 
-- 저장소: https://github.com/dhwangdo/solitaire-deckbattle-prototype
-- 공개 게임: https://dhwangdo.github.io/solitaire-deckbattle-prototype/
+- 저장소: https://github.com/dhwangdo/ruinfall
+- 공개 게임: https://dhwangdo.github.io/ruinfall/
 

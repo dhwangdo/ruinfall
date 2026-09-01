@@ -1,6 +1,6 @@
 import type { NextConfig } from "next";
 
-const repositoryName = "solitaire-deckbattle-prototype";
+const repositoryName = "ruinfall";
 const isGitHubPages = process.env.GITHUB_ACTIONS === "true";
 
 const nextConfig: NextConfig = {
