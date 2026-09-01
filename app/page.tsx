@@ -47,7 +47,7 @@ import {
 } from "./game/mapEffects";
 import { cardsForNextShuffle } from "./game/cardRules";
 
-type CardKind = "strike" | "defend" | "skill" | "power";
+type CardKind = "strike" | "defend" | "skill";
 type DamageType = "physical" | "magic";
 type CardRarity = "basic" | "special" | "rare";
 type SolitaireRule = "top" | "bottom" | "spell";
@@ -198,8 +198,6 @@ type Card = {
   forgeAny?: boolean;
   forged?: boolean;
   exhaust?: boolean;
-  /** Power cards leave this battle's deck once they have been used. */
-  power?: boolean;
   /** Token cards participate in the current cycle once, then leave on reshuffle. */
   token?: boolean;
   /** Enemy-created tokens use a distinct card face color. */
@@ -225,7 +223,7 @@ type GameState = {
   discard: Card[];
   /** Canonical cards for rebuilding files; token cards are kept here only until the reshuffle filter runs. */
   initialDeck: Card[];
-  /** Used exhaust and power cards that must not return on the next reshuffle. */
+  /** Used exhaust cards that must not return on the next reshuffle. */
   removedFromReshuffleIds: number[];
   clearPlan: ClearPlan | null;
   energy: number;
@@ -717,8 +715,8 @@ const SPECIAL_CARD_POOL: CardBlueprint[] = [
   { kind: "strike", effect: "boomerang", rarity: "special", name: "정리 타격", cost: 1, value: 9, draw: 0, damageType: "physical" },
   { kind: "skill", effect: "battlePlan", rarity: "special", name: "전략가", cost: 1, value: 2, draw: 1, damageType: "physical" },
   { kind: "skill", effect: "plateArmor", rarity: "special", name: "판금 갑옷", cost: 1, value: 9, draw: 0, damageType: "physical", forgeCost: 2 },
-  { kind: "power", effect: "weaponSharpen", rarity: "special", name: "무기 연마", cost: 1, value: 2, draw: 0, damageType: "physical", power: true },
-  { kind: "power", effect: "armorSharpen", rarity: "special", name: "방어구 연마", cost: 1, value: 2, draw: 0, damageType: "physical", power: true },
+  { kind: "skill", effect: "weaponSharpen", rarity: "special", name: "무기 연마", cost: 1, value: 2, draw: 0, damageType: "physical", exhaust: true },
+  { kind: "skill", effect: "armorSharpen", rarity: "special", name: "방어구 연마", cost: 1, value: 2, draw: 0, damageType: "physical", exhaust: true },
   { kind: "strike", effect: "meteor", rarity: "special", name: "유성우", cost: 2, value: 9, draw: 0, damageType: "physical" },
   { kind: "skill", effect: "starGuard", rarity: "special", name: "별의 장막", cost: 2, value: 12, draw: 0, damageType: "physical" },
   { kind: "skill", effect: "counter", rarity: "special", name: "응수", cost: 0, value: 0, draw: 0, damageType: "physical" },
@@ -731,7 +729,7 @@ const SPECIAL_CARD_POOL: CardBlueprint[] = [
 
 const RARE_CARD_POOL: CardBlueprint[] = [
   { kind: "skill", effect: "superStrategist", rarity: "rare", name: "전술가", cost: 1, value: 5, draw: 0, damageType: "physical", exhaust: true },
-  { kind: "power", effect: "pioneer", rarity: "rare", name: "개척하기", cost: 1, value: 0, draw: 0, damageType: "physical", power: true },
+  { kind: "skill", effect: "pioneer", rarity: "rare", name: "개척하기", cost: 1, value: 0, draw: 0, damageType: "physical", exhaust: true },
   { kind: "skill", effect: "grimoire", rarity: "rare", name: "마도서", cost: 0, value: 1, draw: 0, damageType: "physical" },
   { kind: "skill", effect: "supernova", rarity: "rare", name: "초신성", cost: 0, value: 3, draw: 0, damageType: "physical", exhaust: true },
 ];
@@ -1321,7 +1319,15 @@ function CardFace({ card, starsSpent = 0, strength = 0, agility = 0 }: { card: C
     <>
       {card.effect !== "slime" && <span className="card-cost">{card.cost}</span>}
       <strong className={`card-name rarity-${card.rarity} ${card.colored ? "is-painted" : ""}`}>{card.name}{card.forged ? "+" : ""}</strong>
-      <span className="card-effect">{emphasizeEffectNumbers(<>{card.solitaireRule && <strong className="solitaire-rule solitaire-keyword effect-keyword">{card.solitaireRule === "top" ? "윗패" : card.solitaireRule === "bottom" ? "밑패" : "주문"}</strong>}{effectText}{card.forged ? <strong className="solitaire-rule effect-keyword">재련</strong> : (card.forgeCost !== undefined || card.forgeTargetName || card.forgeAny) && <strong className="solitaire-rule"><span className="effect-keyword">재련</span>: {card.forgeTargetName ? `[${card.forgeTargetName}]` : card.forgeAny ? "[아무거나]" : `[${card.forgeCost}코스트]`}</strong>}{card.exhaust && <strong className="solitaire-rule effect-keyword">소멸</strong>}{card.power && <strong className="solitaire-rule effect-keyword">파워</strong>}{card.token && <strong className={`solitaire-rule token-rule effect-keyword ${card.enemyToken ? "is-enemy-token" : ""}`}>토큰</strong>}</>)}</span>
+      <span className="card-effect">{emphasizeEffectNumbers(<>
+        <span className="card-effect-copy">
+          {card.solitaireRule && <strong className="solitaire-rule solitaire-keyword effect-keyword">{card.solitaireRule === "top" ? "윗패" : card.solitaireRule === "bottom" ? "밑패" : "주문"}</strong>}
+          {effectText}
+          {card.token && <strong className={`solitaire-rule token-rule effect-keyword ${card.enemyToken ? "is-enemy-token" : ""}`}>토큰.</strong>}
+          {card.exhaust && <strong className="solitaire-rule effect-keyword">소멸.</strong>}
+        </span>
+        {card.forged ? <strong className="solitaire-rule forge-rule effect-keyword">재련</strong> : (card.forgeCost !== undefined || card.forgeTargetName || card.forgeAny) && <strong className="solitaire-rule forge-rule"><span className="effect-keyword">재련</span>: {card.forgeTargetName ? `[${card.forgeTargetName}]` : card.forgeAny ? "[아무거나]" : `[${card.forgeCost}코스트]`}</strong>}
+      </>)}</span>
     </>
   );
 }
@@ -3469,10 +3475,10 @@ export default function Home() {
         ...current,
         hand: [...remainingHand, ...(drawEachPileResult?.hand ?? pommelDrawResult?.hand ?? [])],
         // 강화는 사용 후에도 다음 셔플 전까지 유지된다. 셔플 때 prepareDeckForPiles가 해제한다.
-        discard: card.exhaust || card.power
+        discard: card.exhaust
           ? current.discard
           : [...current.discard, card],
-        removedFromReshuffleIds: card.exhaust || card.power
+        removedFromReshuffleIds: card.exhaust
           ? [...current.removedFromReshuffleIds, card.id]
           : current.removedFromReshuffleIds,
         energy: current.energy - card.cost + (card.effect === "berserk" ? 2 : card.effect === "focus" || card.effect === "adrenaline" || card.effect === "charge" || card.effect === "endStart" || card.effect === "supernova" ? card.value : card.effect === "flood" ? 2 : card.effect === "ventilate" ? card.value : 0),
@@ -5159,13 +5165,9 @@ export default function Home() {
                                 ? `${card.name} ${cardIds.length}장, 우클릭하거나 인벤토리로 드래그하면 한 장 회수`
                                 : `${card.name} ${cardIds.length}장, 휴지통으로 드래그하면 한 장 제거`}
                           >
-                            <span className="deck-list-cost">{card.cost}</span>
-                            <strong>
-                              {card.name}
-                              {card.colored && <em className="deck-card-painted">색칠</em>}
-                              {isTemporary && <em className="deck-card-new">NEW!</em>}
-                            </strong>
-                            <span className="deck-list-count">x{cardIds.length}</span>
+                            <CardFace card={card} />
+                            {cardIds.length > 1 && <span className="inventory-card-count">x{cardIds.length}</span>}
+                            {isTemporary && <em className="deck-editor-card-new">NEW!</em>}
                           </button>
                         );
                       })}
@@ -5573,8 +5575,6 @@ export default function Home() {
                 ? `여기에 놓아 ${DEFENSE_LABEL[dragging.card.damageType]}`
                 : dragging?.card.kind === "skill"
                   ? "여기에 놓아 사용"
-                  : dragging?.card.kind === "power"
-                    ? "여기에 놓아 파워 사용"
                   : "여기에 놓아 수비"}
           </div>
           <div className="status-strip" role="status" aria-live="polite">{game.message}</div>
