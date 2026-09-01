@@ -1208,6 +1208,10 @@ function emphasizeEffectNumbers(node: ReactNode): ReactNode {
   return node;
 }
 
+function starIcons(amount: number) {
+  return "★".repeat(Math.max(0, amount));
+}
+
 function CardFace({ card, starsSpent = 0, strength = 0, agility = 0 }: { card: Card; starsSpent?: number; strength?: number; agility?: number }) {
   const damageValue = card.value + strength;
   const defenseValue = card.value + agility;
@@ -1218,13 +1222,13 @@ function CardFace({ card, starsSpent = 0, strength = 0, agility = 0 }: { card: C
       case "pommel":
         return <><span className="effect-type damage">피해를 {damageValue} 줍니다.</span><span>첫 번째 파일에서 카드를 1장 뽑습니다.</span></>;
       case "defend":
-        return <span className={`effect-type ${card.damageType}`}>{DEFENSE_LABEL[card.damageType]}를 {defenseValue} 얻습니다.</span>;
+        return <span><span className={`effect-type ${card.damageType}`}>{DEFENSE_LABEL[card.damageType]}</span>를 {defenseValue} 얻습니다.</span>;
       case "deflect":
-        return <><span className="effect-type physical">방어를 {defenseValue} 얻습니다.</span><span>카드를 1장 뽑습니다.</span></>;
+        return <><span><span className="effect-type physical">방어</span>를 {defenseValue} 얻습니다.</span><span>카드를 1장 뽑습니다.</span></>;
       case "steelHeart":
         return <span>이번 턴 동안 얻는 <span className="effect-type physical">방어</span>와 <span className="effect-type magic">마법 방어</span>가 2배가 됩니다.</span>;
       case "battlePlan":
-        return <><span>★ +{card.value}</span><span>카드를 {card.draw}장 뽑습니다.</span></>;
+        return <>{card.value > 0 && <span>{starIcons(card.value)}을 얻습니다.</span>}{card.draw > 0 && <span>카드를 {card.draw}장 뽑습니다.</span>}</>;
       case "prepare":
         return <span>카드를 1장 뽑고 1장 버립니다.</span>;
       case "focus":
@@ -1236,15 +1240,15 @@ function CardFace({ card, starsSpent = 0, strength = 0, agility = 0 }: { card: C
       case "drawEachPile":
         return <span>모든 파일에서 카드를 1장씩 뽑습니다.</span>;
       case "rulerCompass":
-        return <><span className="effect-type damage">피해를 {damageValue} 줍니다.</span><span>★ +1</span></>;
+        return <><span className="effect-type damage">피해를 {damageValue} 줍니다.</span><span>★을 얻습니다.</span></>;
       case "berserk":
         return <span>에너지 +2. 이번 턴 받는 피해가 2배가 됩니다.</span>;
       case "transcend":
-        return <span>이번 턴 피해에 면역이 됩니다. 힘 +5.</span>;
+        return <span>이번 턴 피해에 <strong className="effect-keyword">면역</strong>이 됩니다. <strong className="effect-keyword">힘</strong>을 5 얻습니다.</span>;
       case "rapidFire":
         return <span>다음 공격 카드가 한 번 더 발동합니다.</span>;
       case "iceShield":
-        return <span className="effect-type magic">마법 방어를 {defenseValue} 얻습니다.</span>;
+        return <span><span className="effect-type magic">마법 방어</span>를 {defenseValue} 얻습니다.</span>;
       case "magicStrike":
         return <span className="effect-type damage">체력이 가장 낮은 적에게 피해를 {damageValue} 줍니다.</span>;
       case "shockwave":
@@ -1252,29 +1256,29 @@ function CardFace({ card, starsSpent = 0, strength = 0, agility = 0 }: { card: C
       case "ventilate":
         return <span>에너지 +{card.value}</span>;
       case "plateArmor":
-        return <><span className="effect-type physical">방어를 {defenseValue} 얻습니다.</span>{!card.forged && <span>제련하면 비용이 1 감소합니다.</span>}</>;
+        return <><span><span className="effect-type physical">방어</span>를 {defenseValue} 얻습니다.</span>{!card.forged && <span><strong className="effect-keyword">제련</strong>하면 비용이 1 감소합니다.</span>}</>;
       case "warmUp":
-        return <span>이번 턴 힘 +{card.value}.</span>;
+        return <span>이번 턴 <strong className="effect-keyword">힘</strong>을 {card.value} 얻습니다.</span>;
       case "ironWall":
-        return <span className="effect-type physical">방어를 {defenseValue} 얻습니다.</span>;
+        return <span><span className="effect-type physical">방어</span>를 {defenseValue} 얻습니다.</span>;
       case "fourHit":
         return <span className="effect-type damage">피해를 {damageValue}씩 4번 줍니다.</span>;
       case "doubleHit":
         return <span className="effect-type damage">피해를 {damageValue}씩 {card.forged ? 2 : "1(2)"}번 줍니다.</span>;
       case "starlight":
-        return <span>★ +{card.value}</span>;
+        return <span>{starIcons(card.value)}을 얻습니다.</span>;
       case "augment":
-        return <span>힘 +{card.value}. 강인함 +{card.value}.</span>;
+        return <span><strong className="effect-keyword">힘</strong>과 <strong className="effect-keyword">강인함</strong>을 {card.value} 얻습니다.</span>;
       case "fileDraw":
         return <span>{card.forged ? "모든 파일에서 카드를 1장씩 뽑습니다." : "파일 하나를 선택해 위에서부터 카드를 3장 뽑습니다."}</span>;
       case "starGuard":
-        return <><span className="effect-type physical">방어를 {defenseValue} 얻습니다.</span><span>★ +2</span></>;
+        return <><span><span className="effect-type physical">방어</span>를 {defenseValue} 얻습니다.</span><span>★★를 얻습니다.</span></>;
       case "charge":
         return <span>에너지 +{card.value}</span>;
       case "weaponSharpen":
-        return <span>힘 +{card.value}</span>;
+        return <span><strong className="effect-keyword">힘</strong>을 {card.value} 얻습니다.</span>;
       case "armorSharpen":
-        return <span>강인함 +{card.value}</span>;
+        return <span><strong className="effect-keyword">강인함</strong>을 {card.value} 얻습니다.</span>;
       case "boomerang":
         return card.name === "정리 타격"
           ? <><span className="effect-type damage">피해를 {damageValue} 줍니다.</span><span>파일 하나의 맨 위 카드를 버립니다.</span></>
@@ -1286,38 +1290,38 @@ function CardFace({ card, starsSpent = 0, strength = 0, agility = 0 }: { card: C
       case "exchange":
         return <span className="effect-type damage">피해를 {damageValue} 줍니다. 재련하면 밑패와 비용을 교환합니다.</span>;
       case "flood":
-        return <span>피라미드(4-3-2-1). 에너지 +2. 카드를 2장 뽑습니다. ★ +2.</span>;
+        return <span>피라미드(4-3-2-1). 에너지 +2. 카드를 2장 뽑습니다. ★★를 얻습니다.</span>;
       case "endStart":
         return <span>모든 파일이 비어 있어야 사용할 수 있습니다. 에너지 +{card.value}.</span>;
       case "superStrategist":
-        return <span>★ +5. 소멸</span>;
+        return <span>★★★★★을 얻습니다.</span>;
       case "pioneer":
         return <span>빈 파일을 하나 생성합니다.</span>;
       case "slime":
-        return <span>사용 불가. 턴 종료 시 손패에 있다면 피해를 12 받습니다.</span>;
+        return <span><strong className="effect-keyword">사용 불가</strong>. 턴 종료 시 손패에 있다면 피해를 12 받습니다.</span>;
       case "relic":
-        return <span>도깨비의 힘 -4</span>;
+        return <span>도깨비의 <strong className="effect-keyword">힘</strong>을 4 잃게 합니다.</span>;
       case "soil":
         return <span>카드를 1장 뽑습니다.</span>;
       case "supernova":
-        return <span>★ -3. 에너지 +3.</span>;
+        return <span>★★를 잃습니다. 에너지 +3.</span>;
       case "combatManual":
-        return <span>사용 불가. 손에 있는 동안 힘 +2. 강인함 +2.</span>;
+        return <span><strong className="effect-keyword">사용 불가</strong>. 손에 있는 동안 <strong className="effect-keyword">힘</strong>과 <strong className="effect-keyword">강인함</strong>을 2 얻습니다.</span>;
       case "grimoire":
-        return <span>사용 불가. 손에 있는 동안 카드를 낼 때마다 ★ +1.</span>;
+        return <span><strong className="effect-keyword">사용 불가</strong>. 손에 있는 동안 카드를 낼 때마다 ★을 얻습니다.</span>;
       case "ironWave":
-        return <><span className="effect-type damage">피해를 {damageValue} 줍니다.</span><span className="effect-type physical">방어를 5 얻습니다.</span></>;
+        return <><span className="effect-type damage">피해를 {damageValue} 줍니다.</span><span><span className="effect-type physical">방어</span>를 5 얻습니다.</span></>;
       case "waterWave":
-        return <><span className="effect-type damage">피해를 {damageValue} 줍니다.</span><span className="effect-type magic">마법 방어를 5 얻습니다.</span></>;
+        return <><span className="effect-type damage">피해를 {damageValue} 줍니다.</span><span><span className="effect-type magic">마법 방어</span>를 5 얻습니다.</span></>;
       case "ironRampage":
-        return <><span className="effect-type damage">모든 적에게 피해를 {damageValue} 줍니다.</span><span className="effect-type physical">방어를 5 얻습니다.</span></>;
+        return <><span className="effect-type damage">모든 적에게 피해를 {damageValue} 줍니다.</span><span><span className="effect-type physical">방어</span>를 5 얻습니다.</span></>;
     }
   })();
   return (
     <>
       {card.effect !== "slime" && <span className="card-cost">{card.cost}</span>}
       <strong className={`card-name rarity-${card.rarity} ${card.colored ? "is-painted" : ""}`}>{card.name}{card.forged ? "+" : ""}</strong>
-      <span className="card-effect">{emphasizeEffectNumbers(<>{card.solitaireRule && <strong className="solitaire-rule solitaire-keyword">{card.solitaireRule === "top" ? "윗패" : card.solitaireRule === "bottom" ? "밑패" : "주문"}</strong>}{effectText}{card.forged ? <strong className="solitaire-rule">재련됨.</strong> : (card.forgeCost !== undefined || card.forgeTargetName || card.forgeAny) && <strong className="solitaire-rule">제련: {card.forgeTargetName ? `[${card.forgeTargetName}]` : card.forgeAny ? "[아무거나]" : `[${card.forgeCost}코스트]`}</strong>}{card.exhaust && <strong className="solitaire-rule">소멸</strong>}{card.power && <strong className="solitaire-rule">파워</strong>}{card.token && <strong className={`solitaire-rule token-rule ${card.enemyToken ? "is-enemy-token" : ""}`}>토큰. 다음 셔플에 포함되지 않습니다.</strong>}</>)}</span>
+      <span className="card-effect">{emphasizeEffectNumbers(<>{card.solitaireRule && <strong className="solitaire-rule solitaire-keyword">{card.solitaireRule === "top" ? "윗패" : card.solitaireRule === "bottom" ? "밑패" : "주문"}</strong>}{effectText}{card.forged ? <strong className="solitaire-rule effect-keyword">재련</strong> : (card.forgeCost !== undefined || card.forgeTargetName || card.forgeAny) && <strong className="solitaire-rule"><span className="effect-keyword">제련</span>: {card.forgeTargetName ? `[${card.forgeTargetName}]` : card.forgeAny ? "[아무거나]" : `[${card.forgeCost}코스트]`}</strong>}{card.exhaust && <strong className="solitaire-rule effect-keyword">소멸</strong>}{card.power && <strong className="solitaire-rule effect-keyword">파워</strong>}{card.token && <strong className={`solitaire-rule token-rule effect-keyword ${card.enemyToken ? "is-enemy-token" : ""}`}>토큰</strong>}</>)}</span>
     </>
   );
 }
@@ -3347,8 +3351,8 @@ export default function Home() {
       if (card.effect === "endStart" && current.piles.some((pile) => pile.length > 0)) {
         return { ...current, message: "끝의 시작은 모든 파일이 비어 있을 때만 사용할 수 있습니다." };
       }
-      if (card.effect === "supernova" && current.stars < 3) {
-        return { ...current, message: "초신성: ★ 3개가 필요합니다." };
+      if (card.effect === "supernova" && current.stars < 2) {
+        return { ...current, message: "초신성: ★★가 필요합니다." };
       }
       const isIronRampage = card.effect === "ironRampage";
       const isShockwave = card.effect === "shockwave";
@@ -3453,7 +3457,7 @@ export default function Home() {
         if (card.effect === "starlight") return "별빛: ★ 획득";
         if (card.effect === "augment") return "증강: 힘과 강인함 획득";
         if (card.effect === "relic") return "유물: 도깨비의 힘 -4";
-        if (card.effect === "supernova") return "★ 3개 소모 · 에너지 +3";
+        if (card.effect === "supernova") return "★★를 잃습니다 · 에너지 +3";
         return card.name;
       })();
       const drawMessage = card.draw > 0
@@ -3486,7 +3490,7 @@ export default function Home() {
                   : card.effect === "flood"
                     ? 2
               : 0
-        ) + grimoireBonus - (card.effect === "supernova" ? 3 : 0),
+        ) + grimoireBonus - (card.effect === "supernova" ? 2 : 0),
         pendingDraws: drawsAdded,
         pendingPileDrawCount,
         pendingDiscards,

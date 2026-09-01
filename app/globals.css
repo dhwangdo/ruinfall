@@ -1822,10 +1822,10 @@ h1 { margin: 0; font-size: 25px; font-weight: 600; }
 .deck-edition-name:hover .deck-edition-tooltip { display: block; }
 
 .deck-viewer-grid {
-  --card-w: 77px;
-  --card-h: 108px;
+  --card-w: 116px;
+  --card-h: 163px;
   display: grid;
-  grid-template-columns: repeat(10, 77px);
+  grid-template-columns: repeat(5, 116px);
   align-content: start;
   justify-content: center;
   gap: 12px;
@@ -1835,31 +1835,16 @@ h1 { margin: 0; font-size: 25px; font-weight: 600; }
 }
 
 .deck-viewer-card {
-  width: 77px;
-  height: 108px;
+  width: 116px;
+  height: 163px;
 }
 
 .deck-viewer-card .card-face {
-  grid-template-columns: 19px 1fr 19px;
-  grid-template-rows: 24px 1fr 8px;
-  padding: 6px;
   transform: none;
 }
 .deck-viewer-card .card-cost {
-  top: -5px;
-  left: -5px;
-  width: 26px;
-  height: 26px;
-  font-size: 14px;
-}
-.deck-viewer-card .card-name {
-  padding: 2px 2px 2px 16px;
-  font-size: 10pt;
-}
-.deck-viewer-card .card-effect {
-  gap: 2px;
-  padding: 4px 1px;
-  font-size: 9pt;
+  top: -7px;
+  left: -7px;
 }
 
 .floor-deck-item,
@@ -2510,14 +2495,14 @@ h1 { margin: 0; font-size: 25px; font-weight: 600; }
 }
 
 .card-face:has(.token-rule.is-enemy-token) {
-  background: #eee6f7;
+  background: #dec8ed;
 }
 
 .solitaire-rule {
   display: inline;
   margin-left: 5px;
-  color: #6b4a99;
-  font-weight: 800;
+  color: inherit;
+  font-weight: 400;
 }
 
 .solitaire-keyword {
@@ -2536,6 +2521,7 @@ h1 { margin: 0; font-size: 25px; font-weight: 600; }
 .card-effect * { font-weight: 400; }
 .card-effect { font-weight: 400; }
 .card-effect .effect-number { font-weight: 600; }
+.card-effect .effect-keyword { font-weight: 600; }
 .effect-type { font-weight: 400; }
 .effect-type.damage { color: #222; }
 .effect-type.physical { color: #c76522; }
@@ -2628,7 +2614,6 @@ h1 { margin: 0; font-size: 25px; font-weight: 600; }
 .token-rule {
   display: block;
   margin: 3px 0 0;
-  color: #634481;
 }
 
 .player-status-column {
