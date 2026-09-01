@@ -1232,9 +1232,9 @@ function CardFace({ card, starsSpent = 0, strength = 0, agility = 0 }: { card: C
       case "prepare":
         return <span>카드를 1장 뽑고 1장 버립니다.</span>;
       case "focus":
-        return <span>에너지 +1. 카드를 1장 버립니다.</span>;
+        return <span><strong className="effect-keyword">에너지</strong>를 1 얻습니다. 카드를 1장 버립니다.</span>;
       case "adrenaline":
-        return <span>에너지 +1. 카드를 1장 뽑습니다.</span>;
+        return <span><strong className="effect-keyword">에너지</strong>를 1 얻습니다. 카드를 1장 뽑습니다.</span>;
       case "sweep":
         return <span className="effect-type damage">모든 적에게 피해를 {damageValue} 줍니다.</span>;
       case "drawEachPile":
@@ -1242,7 +1242,7 @@ function CardFace({ card, starsSpent = 0, strength = 0, agility = 0 }: { card: C
       case "rulerCompass":
         return <><span className="effect-type damage">피해를 {damageValue} 줍니다.</span><span>★을 얻습니다.</span></>;
       case "berserk":
-        return <span>에너지 +2. 이번 턴 받는 피해가 2배가 됩니다.</span>;
+        return <span><strong className="effect-keyword">에너지</strong>를 2 얻습니다. 이번 턴 받는 피해가 2배가 됩니다.</span>;
       case "transcend":
         return <span>이번 턴 피해에 <strong className="effect-keyword">면역</strong>이 됩니다. <strong className="effect-keyword">힘</strong>을 5 얻습니다.</span>;
       case "rapidFire":
@@ -1254,9 +1254,9 @@ function CardFace({ card, starsSpent = 0, strength = 0, agility = 0 }: { card: C
       case "shockwave":
         return <span className="effect-type damage">모든 적에게 피해를 {damageValue} 줍니다.</span>;
       case "ventilate":
-        return <span>에너지 +{card.value}</span>;
+        return <span><strong className="effect-keyword">에너지</strong>를 {card.value} 얻습니다.</span>;
       case "plateArmor":
-        return <><span><span className="effect-type physical">방어</span>를 {defenseValue} 얻습니다.</span>{!card.forged && <span><strong className="effect-keyword">제련</strong>하면 비용이 1 감소합니다.</span>}</>;
+        return <><span><span className="effect-type physical">방어</span>를 {defenseValue} 얻습니다.</span>{!card.forged && <span><strong className="effect-keyword">재련</strong>하면 비용이 1 감소합니다.</span>}</>;
       case "warmUp":
         return <span>이번 턴 <strong className="effect-keyword">힘</strong>을 {card.value} 얻습니다.</span>;
       case "ironWall":
@@ -1274,7 +1274,7 @@ function CardFace({ card, starsSpent = 0, strength = 0, agility = 0 }: { card: C
       case "starGuard":
         return <><span><span className="effect-type physical">방어</span>를 {defenseValue} 얻습니다.</span><span>★★를 얻습니다.</span></>;
       case "charge":
-        return <span>에너지 +{card.value}</span>;
+        return <span><strong className="effect-keyword">에너지</strong>를 {card.value} 얻습니다.</span>;
       case "weaponSharpen":
         return <span><strong className="effect-keyword">힘</strong>을 {card.value} 얻습니다.</span>;
       case "armorSharpen":
@@ -1288,11 +1288,11 @@ function CardFace({ card, starsSpent = 0, strength = 0, agility = 0 }: { card: C
       case "counter":
         return <span>이번 턴 막은 피해를 반사합니다.</span>;
       case "exchange":
-        return <span className="effect-type damage">피해를 {damageValue} 줍니다. 재련하면 밑패와 비용을 교환합니다.</span>;
+        return <span className="effect-type damage">피해를 {damageValue} 줍니다. <strong className="effect-keyword">재련</strong>하면 <strong className="effect-keyword">밑패</strong>와 비용을 교환합니다.</span>;
       case "flood":
-        return <span>피라미드(4-3-2-1). 에너지 +2. 카드를 2장 뽑습니다. ★★를 얻습니다.</span>;
+        return <span>피라미드(4-3-2-1). <strong className="effect-keyword">에너지</strong>를 2 얻습니다. 카드를 2장 뽑습니다. ★★를 얻습니다.</span>;
       case "endStart":
-        return <span>모든 파일이 비어 있어야 사용할 수 있습니다. 에너지 +{card.value}.</span>;
+        return <span>모든 파일이 비어 있어야 사용할 수 있습니다. <strong className="effect-keyword">에너지</strong>를 {card.value} 얻습니다.</span>;
       case "superStrategist":
         return <span>★★★★★을 얻습니다.</span>;
       case "pioneer":
@@ -1304,7 +1304,7 @@ function CardFace({ card, starsSpent = 0, strength = 0, agility = 0 }: { card: C
       case "soil":
         return <span>카드를 1장 뽑습니다.</span>;
       case "supernova":
-        return <span>★★를 잃습니다. 에너지 +3.</span>;
+        return <span>★★를 잃습니다. <strong className="effect-keyword">에너지</strong>를 3 얻습니다.</span>;
       case "combatManual":
         return <span><strong className="effect-keyword">사용 불가</strong>. 손에 있는 동안 <strong className="effect-keyword">힘</strong>과 <strong className="effect-keyword">강인함</strong>을 2 얻습니다.</span>;
       case "grimoire":
@@ -1321,7 +1321,7 @@ function CardFace({ card, starsSpent = 0, strength = 0, agility = 0 }: { card: C
     <>
       {card.effect !== "slime" && <span className="card-cost">{card.cost}</span>}
       <strong className={`card-name rarity-${card.rarity} ${card.colored ? "is-painted" : ""}`}>{card.name}{card.forged ? "+" : ""}</strong>
-      <span className="card-effect">{emphasizeEffectNumbers(<>{card.solitaireRule && <strong className="solitaire-rule solitaire-keyword">{card.solitaireRule === "top" ? "윗패" : card.solitaireRule === "bottom" ? "밑패" : "주문"}</strong>}{effectText}{card.forged ? <strong className="solitaire-rule effect-keyword">재련</strong> : (card.forgeCost !== undefined || card.forgeTargetName || card.forgeAny) && <strong className="solitaire-rule"><span className="effect-keyword">제련</span>: {card.forgeTargetName ? `[${card.forgeTargetName}]` : card.forgeAny ? "[아무거나]" : `[${card.forgeCost}코스트]`}</strong>}{card.exhaust && <strong className="solitaire-rule effect-keyword">소멸</strong>}{card.power && <strong className="solitaire-rule effect-keyword">파워</strong>}{card.token && <strong className={`solitaire-rule token-rule effect-keyword ${card.enemyToken ? "is-enemy-token" : ""}`}>토큰</strong>}</>)}</span>
+      <span className="card-effect">{emphasizeEffectNumbers(<>{card.solitaireRule && <strong className="solitaire-rule solitaire-keyword effect-keyword">{card.solitaireRule === "top" ? "윗패" : card.solitaireRule === "bottom" ? "밑패" : "주문"}</strong>}{effectText}{card.forged ? <strong className="solitaire-rule effect-keyword">재련</strong> : (card.forgeCost !== undefined || card.forgeTargetName || card.forgeAny) && <strong className="solitaire-rule"><span className="effect-keyword">재련</span>: {card.forgeTargetName ? `[${card.forgeTargetName}]` : card.forgeAny ? "[아무거나]" : `[${card.forgeCost}코스트]`}</strong>}{card.exhaust && <strong className="solitaire-rule effect-keyword">소멸</strong>}{card.power && <strong className="solitaire-rule effect-keyword">파워</strong>}{card.token && <strong className={`solitaire-rule token-rule effect-keyword ${card.enemyToken ? "is-enemy-token" : ""}`}>토큰</strong>}</>)}</span>
     </>
   );
 }
@@ -3438,11 +3438,11 @@ export default function Home() {
         if (card.effect === "steelHeart") return "이번 턴 방어와 마법 방어 획득량 2배";
         if (card.effect === "battlePlan") return `★ ${card.value}개 획득 · 드로우 ${card.draw}`;
         if (card.effect === "prepare") return canDraw ? "드로우할 파일을 선택하세요." : "버릴 카드를 선택하세요.";
-        if (card.effect === "focus") return "에너지 1 획득 · 버릴 카드를 선택하세요.";
-        if (card.effect === "adrenaline") return "에너지 1 획득 · 드로우할 파일을 선택하세요.";
+        if (card.effect === "focus") return "에너지를 1 얻습니다 · 버릴 카드를 선택하세요.";
+        if (card.effect === "adrenaline") return "에너지를 1 얻습니다 · 드로우할 파일을 선택하세요.";
         if (card.effect === "sweep") return canDraw ? "가져올 파일을 선택하세요." : "가져올 카드가 없습니다.";
         if (card.effect === "drawEachPile") return `모든 파일에서 ${drawEachPileResult?.hand.length ?? 0}장 뽑음`;
-        if (card.effect === "berserk") return "에너지 2 획득 · 이번 턴 받는 피해 2배";
+        if (card.effect === "berserk") return "에너지를 2 얻습니다 · 이번 턴 받는 피해 2배";
         if (card.effect === "transcend") return "이번 턴 피해 면역 · 힘 5 획득";
         if (card.effect === "rapidFire") return "다음 공격 카드가 2회 발동";
         if (card.effect === "ventilate") return "환기: 에너지 획득";
@@ -3457,7 +3457,7 @@ export default function Home() {
         if (card.effect === "starlight") return "별빛: ★ 획득";
         if (card.effect === "augment") return "증강: 힘과 강인함 획득";
         if (card.effect === "relic") return "유물: 도깨비의 힘 -4";
-        if (card.effect === "supernova") return "★★를 잃습니다 · 에너지 +3";
+        if (card.effect === "supernova") return "★★를 잃습니다 · 에너지를 3 얻습니다";
         return card.name;
       })();
       const drawMessage = card.draw > 0
