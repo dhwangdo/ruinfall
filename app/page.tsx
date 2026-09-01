@@ -5165,9 +5165,13 @@ export default function Home() {
                                 ? `${card.name} ${cardIds.length}장, 우클릭하거나 인벤토리로 드래그하면 한 장 회수`
                                 : `${card.name} ${cardIds.length}장, 휴지통으로 드래그하면 한 장 제거`}
                           >
-                            <CardFace card={card} />
-                            {cardIds.length > 1 && <span className="inventory-card-count">x{cardIds.length}</span>}
-                            {isTemporary && <em className="deck-editor-card-new">NEW!</em>}
+                            <span className="deck-list-cost">{card.cost}</span>
+                            <strong>
+                              {card.name}
+                              {card.colored && <em className="deck-card-painted">색칠</em>}
+                              {isTemporary && <em className="deck-card-new">NEW!</em>}
+                            </strong>
+                            <span className="deck-list-count">x{cardIds.length}</span>
                           </button>
                         );
                       })}

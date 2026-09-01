@@ -1202,11 +1202,9 @@ h1 { margin: 0; font-size: 25px; font-weight: 600; }
 }
 
 .deck-editor-deck-list {
-  display: grid;
-  grid-template-columns: repeat(auto-fill, 136px);
-  align-content: start;
-  justify-content: center;
-  gap: 18px 15px;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
   min-height: 0;
   padding: 14px;
   overflow: auto;
@@ -1477,30 +1475,61 @@ h1 { margin: 0; font-size: 25px; font-weight: 600; }
 }
 
 .deck-list-entry {
-  position: relative;
-  width: 136px;
-  height: 191px;
-  padding: 0;
-  border: 0;
-  background: transparent;
+  display: grid;
+  grid-template-columns: 38px minmax(0, 1fr) 32px;
+  align-items: center;
+  width: 100%;
+  min-height: 40px;
+  padding: 0 8px 0 0;
+  overflow: hidden;
+  border: 1px solid #77736b;
+  border-radius: 3px;
+  color: #272725;
+  background: #f5f1e7;
+  box-shadow: 0 2px 3px rgba(0,0,0,.17);
   cursor: context-menu;
+  text-align: left;
 }
 
-.deck-list-entry:hover { z-index: 2; transform: translateY(-6px); }
+.deck-list-entry:hover { border-color: #343331; filter: brightness(1.035); transform: translateX(2px); }
 .deck-list-entry:active { cursor: context-menu; }
 .deck-list-entry:focus-visible { outline: 3px solid #315f88; outline-offset: 2px; }
 .deck-list-entry.is-dragging { opacity: 1; }
-.deck-editor-card-new {
-  position: absolute;
-  z-index: 9;
-  right: 3px;
-  bottom: 3px;
-  padding: 2px 4px;
-  border-radius: 3px;
+.deck-list-cost {
+  display: grid;
+  place-items: center;
+  align-self: stretch;
+  color: #101010;
+  background: #22a8df;
+  border-right: 1px solid #147eaa;
+  font: 800 17px Arial, sans-serif;
+}
+
+.deck-list-entry strong {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  overflow: hidden;
+  padding: 0 10px;
+  font-size: 13px;
+  font-weight: 600;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.deck-card-new {
+  flex: none;
   color: #bd2c25;
-  background: rgba(247,245,239,.92);
   font: 900 10px Arial, sans-serif;
   letter-spacing: .02em;
+}
+
+.deck-list-count {
+  justify-self: end;
+  min-width: 24px;
+  color: #45433e;
+  font: 800 14px Arial, sans-serif;
+  text-align: right;
 }
 
 .deck-editor-card-list {
