@@ -2718,7 +2718,7 @@ h1 { margin: 0; font-size: 25px; font-weight: 600; }
 .hand-card-placeholder:first-child { margin-left: 0; }
 .game-card.has-hand-aura {
   border-color: #e4bc4d;
-  box-shadow: 0 0 4px rgba(255,221,101,.8), 0 0 12px rgba(255,210,67,.48), 0 0 24px rgba(255,210,67,.24);
+  box-shadow: 0 0 6px rgba(255,221,101,.9), 0 0 18px rgba(255,210,67,.6), 0 0 34px rgba(255,210,67,.32);
 }
 .game-card:hover:not(:disabled), .game-card:focus-visible { z-index: 3; outline: 2px solid #e3d49a; transform: translateY(-10px); }
 .game-card:active:not(:disabled) { cursor: grabbing; }
@@ -2977,6 +2977,10 @@ h1 { margin: 0; font-size: 25px; font-weight: 600; }
     transform-origin: 50% 115%;
   }
   .player-zone .hand .hand-card-placeholder { margin-left: -14px; }
+  .player-zone .hand.is-crowded .game-card,
+  .player-zone .hand.is-crowded .hand-card-placeholder { margin-left: -44px; }
+  .player-zone .hand.is-crowded .game-card:first-child,
+  .player-zone .hand.is-crowded .hand-card-placeholder:first-child { margin-left: 0; }
   .player-zone .hand .game-card:hover:not(:disabled),
   .player-zone .hand .game-card:focus-visible {
     transform: translateY(-14px) rotate(0deg);
@@ -2989,7 +2993,7 @@ h1 { margin: 0; font-size: 25px; font-weight: 600; }
     grid-row: 3;
     align-self: end;
     justify-self: end;
-    margin: 0 63px 106px 0;
+    margin: 0 0 106px 0;
   }
   .player-zone .controls .end-turn {
     grid-column: 2;
@@ -2998,7 +3002,7 @@ h1 { margin: 0; font-size: 25px; font-weight: 600; }
     justify-self: end;
     position: relative;
     z-index: 10;
-    margin: 0 44px 42px 0;
+    margin: 0 0 42px 0;
     min-width: 109px;
     min-height: 48px;
     padding: 10px 14px;

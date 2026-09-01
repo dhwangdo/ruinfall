@@ -5646,7 +5646,7 @@ export default function Home() {
           </div>
 
           <div
-            className={`hand ${phase === "discarding" ? "is-discarding" : ""} ${game.pendingDiscards > 0 ? "is-discard-choice" : ""}`}
+            className={`hand ${phase === "discarding" ? "is-discarding" : ""} ${game.pendingDiscards > 0 ? "is-discard-choice" : ""} ${displayedHand.length >= 5 ? "is-crowded" : ""}`}
             data-drop-target="hand"
             aria-label="손패"
           >
