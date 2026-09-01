@@ -2457,7 +2457,7 @@ h1 { margin: 0; font-size: 25px; font-weight: 600; }
   line-height: 1.55;
   overflow-wrap: normal;
   word-break: keep-all;
-  text-wrap: pretty;
+  text-wrap: balance;
   hyphens: none;
 }
 
