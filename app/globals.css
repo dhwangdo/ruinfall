@@ -2716,6 +2716,10 @@ h1 { margin: 0; font-size: 25px; font-weight: 600; }
 
 .game-card:first-child { margin-left: 0; }
 .hand-card-placeholder:first-child { margin-left: 0; }
+.game-card.has-hand-aura {
+  border-color: #e4bc4d;
+  box-shadow: 0 0 4px rgba(255,221,101,.8), 0 0 12px rgba(255,210,67,.48), 0 0 24px rgba(255,210,67,.24);
+}
 .game-card:hover:not(:disabled), .game-card:focus-visible { z-index: 3; outline: 2px solid #e3d49a; transform: translateY(-10px); }
 .game-card:active:not(:disabled) { cursor: grabbing; }
 .game-card:disabled { cursor: not-allowed; opacity: .58; }

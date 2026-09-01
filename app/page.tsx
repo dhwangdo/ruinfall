@@ -100,6 +100,8 @@ type CardEffect =
   | "supernova"
   | "combatManual"
   | "grimoire";
+
+const HAND_PASSIVE_EFFECTS = new Set<CardEffect>(["combatManual", "grimoire"]);
 type Phase = "drawing" | "playing" | "discarding" | "enemy-turn";
 type Screen = "map" | "battle";
 type MapPosition = { x: number; y: number };
@@ -5652,7 +5654,7 @@ export default function Home() {
               const handArc = getHandArcTransform(index, displayedHand.length);
               return card ? (
                 <button
-                className={`game-card card-face ${card.kind} ${card.damageType} ${dragging?.card.id === card.id ? "is-dragging" : ""}`}
+                className={`game-card card-face ${card.kind} ${card.damageType} ${HAND_PASSIVE_EFFECTS.has(card.effect) ? "has-hand-aura" : ""} ${dragging?.card.id === card.id ? "is-dragging" : ""}`}
                 key={card.id}
                 ref={(element) => {
                   if (element) handCardRefs.current.set(card.id, element);
