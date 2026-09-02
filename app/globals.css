@@ -84,6 +84,21 @@ h1 { margin: 0; font-size: 25px; font-weight: 600; }
 .map-run-stats .map-health strong { color: #8e302a; }
 .map-run-stats .map-gold { min-width: 92px; }
 .map-run-stats .map-gold strong { margin: auto; color: #896313; }
+.map-run-stats .map-nickname {
+  display: grid;
+  min-width: 112px;
+  padding: 6px 9px;
+  border: 1px solid #8a7f9c;
+  border-radius: 3px;
+  color: #4b405a;
+  background: #f5f1e7;
+  cursor: pointer;
+  font-family: Arial, sans-serif;
+  text-align: center;
+}
+.map-run-stats .map-nickname:hover { background: white; }
+.map-run-stats .map-nickname span { color: var(--muted); font-size: 9px; letter-spacing: .08em; }
+.map-run-stats .map-nickname strong { font-size: 13px; white-space: nowrap; }
 
 /* Keep the map controls compact without making their labels hard to read. */
 .map-top-actions { gap: 8px; }
@@ -3041,6 +3056,8 @@ h1 { margin: 0; font-size: 25px; font-weight: 600; }
   .map-run-stats { gap: 4px; }
   .map-run-stats > div { min-width: 48px; padding: 5px 6px; }
   .map-run-stats .map-health { min-width: 120px; }
+  .map-run-stats .map-nickname { min-width: 96px; padding: 5px 6px; }
+  .map-run-stats .map-nickname strong { font-size: 11px; }
   .map-run-stats strong { font-size: 17px; }
   .shop-panel > header { align-items: start; flex-direction: column; }
   .shop-header-status { width: 100%; justify-content: space-between; }

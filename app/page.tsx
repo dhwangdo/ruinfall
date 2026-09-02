@@ -876,6 +876,14 @@ function createDeckName() {
   return Array.from({ length: 4 }, () => alphabet[Math.floor(Math.random() * alphabet.length)]).join("");
 }
 
+function createPlayerNickname(exclude?: string) {
+  const titles = ["잿빛", "별빛", "길잃은", "바위", "새벽", "은빛", "고요한", "불꽃", "그림자", "푸른"];
+  const names = ["방랑자", "도박사", "순례자", "검객", "탐험가", "점술가", "사냥꾼", "수호자", "여행자", "모험가"];
+  const candidates = titles.flatMap((title) => names.map((name) => `${title} ${name}`))
+    .filter((nickname) => nickname !== exclude);
+  return pickRandom(candidates);
+}
+
 const DECK_EDITION_INFO: Record<DeckEdition, { name: string; description: string }> = {
   clever: { name: "똑똑한", description: "전투 시작 시 ★를 추가로 2개 얻습니다." },
   roomy: { name: "널널한", description: "전투 시작 시 빈 파일을 추가로 하나 가집니다." },
@@ -1370,6 +1378,7 @@ function getFloodPyramid(pile: Card[]) {
 
 export default function Home() {
   const [screen, setScreen] = useState<Screen>("map");
+  const [playerNickname, setPlayerNickname] = useState(createPlayerNickname);
   const [runPlayerHp, setRunPlayerHp] = useState(MAX_PLAYER_HP);
   const runPlayerHpRef = useRef(MAX_PLAYER_HP);
   const [mapSeed, setMapSeed] = useState(1);
@@ -2209,12 +2218,16 @@ export default function Home() {
     setOwnedDecks((current) => current.map((deck) => deck.id === shrineDeck.id
       ? { ...deck, cards: deck.cards.filter((item) => item.id !== cardId) }
       : deck));
+    setRoomDrops((current) => ({
+      ...current,
+      [roomKey]: [...(current[roomKey] ?? []), card],
+    }));
     setDeckSelectionAttention(true);
     if (collapsed) {
       setCollapsedShrineRooms((current) => new Set(current).add(roomKey));
-      setMapMessage(`${card.name} 추출 완료. 성소가 붕괴했습니다.`);
+      setMapMessage(`${card.name} 추출 완료. 성소가 붕괴했고 카드가 바닥에 떨어졌습니다.`);
     } else {
-      setMapMessage(`${card.name} 추출 완료. 성소는 아직 사용할 수 있습니다.`);
+      setMapMessage(`${card.name} 추출 완료. 카드가 성소 바닥에 떨어졌습니다.`);
     }
     setShrineDraggedCardId(null);
     setShrinePendingCardId(null);
@@ -4315,6 +4328,16 @@ export default function Home() {
           </div>
           <div className="map-top-actions">
             <div className="map-run-stats">
+              <button
+                type="button"
+                className="map-nickname"
+                onClick={() => setPlayerNickname((current) => createPlayerNickname(current))}
+                title="랜덤 닉네임 리롤"
+                aria-label={`현재 닉네임 ${playerNickname}. 클릭하여 랜덤 닉네임 리롤`}
+              >
+                <span>닉네임</span>
+                <strong>{playerNickname} ↻</strong>
+              </button>
               <div className="map-health" aria-label={`체력 ${runPlayerHp} 중 ${maxPlayerHp}`}>
                 <strong>❤️ {runPlayerHp} / {maxPlayerHp}</strong>
               </div>
@@ -5596,7 +5619,7 @@ export default function Home() {
             <div className="player-panel">
               <div className="player-avatar">P</div>
               <div className="player-details">
-                <strong>방랑자</strong>
+                <strong>{playerNickname}</strong>
                 <div className="healthbar player-health">
                   <i style={{ width: `${(game.playerHp / MAX_PLAYER_HP) * 100}%` }} />
                   <span>{game.playerHp} / {MAX_PLAYER_HP}</span>
