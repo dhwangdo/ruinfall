@@ -1379,6 +1379,7 @@ function getFloodPyramid(pile: Card[]) {
 export default function Home() {
   const [screen, setScreen] = useState<Screen>("map");
   const [playerNickname, setPlayerNickname] = useState(createPlayerNickname);
+  const [startPromptOpen, setStartPromptOpen] = useState(true);
   const [runPlayerHp, setRunPlayerHp] = useState(MAX_PLAYER_HP);
   const runPlayerHpRef = useRef(MAX_PLAYER_HP);
   const [mapSeed, setMapSeed] = useState(1);
@@ -2463,6 +2464,8 @@ export default function Home() {
     setPendingPaintTicketId(null);
     setPendingCloneTicketId(null);
     setArmedBombTicketIds(new Set());
+    setPlayerNickname(createPlayerNickname());
+    setStartPromptOpen(true);
     nextCardIdRef.current = STARTING_DECK_SIZE;
     nextConsumableIdRef.current = 1;
     setGame(waitingState());
@@ -4328,16 +4331,6 @@ export default function Home() {
           </div>
           <div className="map-top-actions">
             <div className="map-run-stats">
-              <button
-                type="button"
-                className="map-nickname"
-                onClick={() => setPlayerNickname((current) => createPlayerNickname(current))}
-                title="랜덤 닉네임 리롤"
-                aria-label={`현재 닉네임 ${playerNickname}. 클릭하여 랜덤 닉네임 리롤`}
-              >
-                <span>닉네임</span>
-                <strong>{playerNickname} ↻</strong>
-              </button>
               <div className="map-health" aria-label={`체력 ${runPlayerHp} 중 ${maxPlayerHp}`}>
                 <strong>❤️ {runPlayerHp} / {maxPlayerHp}</strong>
               </div>
@@ -5432,6 +5425,20 @@ export default function Home() {
                     </div>
                   </div>
                 ))}
+              </div>
+            </section>
+          </div>
+        )}
+        {startPromptOpen && (
+          <div className="result-overlay start-run-overlay" role="dialog" aria-modal="true" aria-labelledby="start-run-title">
+            <section className="result-card start-run-card">
+              <p>NEW EXPEDITION</p>
+              <h2 id="start-run-title">탐험 준비</h2>
+              <span>이번 탐험에서 사용할 닉네임입니다.</span>
+              <strong className="start-run-nickname">{playerNickname}</strong>
+              <div className="start-run-actions">
+                <button type="button" onClick={() => setPlayerNickname((current) => createPlayerNickname(current))}>↻ 닉네임 리롤</button>
+                <button type="button" className="start-run-confirm" onClick={() => setStartPromptOpen(false)}>탐험 시작</button>
               </div>
             </section>
           </div>
