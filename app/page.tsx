@@ -21,6 +21,7 @@ import {
   chooseNextIntent,
   createSewerEncounter,
   createSewerEncounterByIndex,
+  getEncounterIndicesForRegion,
   getSewerEncounterLabel,
   SEWER_ENCOUNTER_COUNT,
   type EnemyAction,
@@ -46,6 +47,7 @@ import {
   type MapBomb,
 } from "./game/mapEffects";
 import { cardsForNextShuffle } from "./game/cardRules";
+import { addVulnerability, vulnerabilityMultiplier } from "./game/statuses";
 
 type CardKind = "strike" | "defend" | "skill";
 type DamageType = "physical" | "magic";
@@ -240,6 +242,10 @@ type GameState = {
   playerHp: number;
   playerPhysicalBlock: number;
   playerMagicBlock: number;
+  physicalResistance: number;
+  physicalVulnerability: number;
+  magicResistance: number;
+  magicVulnerability: number;
   strength: number;
   temporaryStrength: number;
   agility: number;
@@ -576,8 +582,10 @@ function visibleMapRoomKeys(center: MapPosition, seed: number, verticalRadius = 
 }
 
 function isMapEnemySpawnCell(position: MapPosition, seed: number) {
+  const regionIndex = getDungeonRegionIndex(position);
   return chebyshevDistance(position, MAP_START) > 1
-    && getDungeonRegionIndex(position) !== null
+    && regionIndex !== null
+    && regionIndex < 2
     && !isSafeAreaPosition(position)
     && getRoomType(position, seed) === "empty";
 }
@@ -590,7 +598,18 @@ function createPreGeneratedMapEnemyWorld(seed: number) {
       if (isMapEnemySpawnCell(position, seed)) spawnCells.push(position);
     }
   }
-  return createMapEnemyWorld(spawnCells, seed, SEWER_ENCOUNTER_COUNT);
+  const world = createMapEnemyWorld(spawnCells, seed, SEWER_ENCOUNTER_COUNT);
+  return {
+    enemies: world.enemies.map((enemy) => {
+      const regionIndex = getDungeonRegionIndex(enemy.position);
+      const candidates = getEncounterIndicesForRegion(regionIndex ?? -1);
+      const roll = seededRoll(enemy.position, seed, 4001);
+      return {
+        ...enemy,
+        encounterIndex: candidates[Math.min(candidates.length - 1, Math.floor(roll * candidates.length))],
+      };
+    }),
+  };
 }
 
 function createPreGeneratedMapFloorDrops(seed: number) {
@@ -1137,6 +1156,10 @@ function waitingState(
     playerHp,
     playerPhysicalBlock: 0,
     playerMagicBlock: 0,
+    physicalResistance: 0,
+    physicalVulnerability: 0,
+    magicResistance: 0,
+    magicVulnerability: 0,
     strength: 0,
     temporaryStrength: 0,
     agility: 0,
@@ -1873,6 +1896,10 @@ export default function Home() {
         pendingSweep: false,
         playerPhysicalBlock: 0,
         playerMagicBlock: 0,
+        physicalResistance: 0,
+        physicalVulnerability: 0,
+        magicResistance: 0,
+        magicVulnerability: 0,
         defenseMultiplier: 1,
         damageTakenMultiplier: 1,
         invulnerable: false,
@@ -3912,6 +3939,14 @@ export default function Home() {
       const pilesAfterSlime = game.piles.map((pile) => [...pile]);
       let remainingPhysicalBlock = game.playerPhysicalBlock;
       let remainingMagicBlock = game.playerMagicBlock;
+      let physicalStatus = {
+        resistance: game.physicalResistance,
+        vulnerability: game.physicalVulnerability,
+      };
+      const magicStatus = {
+        resistance: game.magicResistance,
+        vulnerability: game.magicVulnerability,
+      };
       const toxicSlimeBlocked = game.invulnerable ? 0 : Math.min(toxicSlimeDamage, remainingPhysicalBlock);
       const toxicSlimeDamageTaken = game.invulnerable ? 0 : toxicSlimeDamage - toxicSlimeBlocked;
       remainingPhysicalBlock -= toxicSlimeBlocked;
@@ -3945,9 +3980,12 @@ export default function Home() {
             if (game.reflectDamage > 0 && blocked > 0) {
               reflectedDamage.set(enemy.id, (reflectedDamage.get(enemy.id) ?? 0) + blocked * game.reflectDamage);
             }
+            const damageMultiplier = resolvedAttack.type === "physical"
+              ? vulnerabilityMultiplier(physicalStatus.vulnerability)
+              : vulnerabilityMultiplier(magicStatus.vulnerability);
             const damage = game.invulnerable
               ? 0
-              : (attackValue - blocked) * game.damageTakenMultiplier;
+              : (attackValue - blocked) * game.damageTakenMultiplier * damageMultiplier;
             if (!game.invulnerable && resolvedAttack.type === "physical") remainingPhysicalBlock -= blocked;
             else if (!game.invulnerable) remainingMagicBlock -= blocked;
             remainingHp = Math.max(0, remainingHp - damage);
@@ -3990,6 +4028,19 @@ export default function Home() {
             hpAfter: remainingHp,
             physicalBlockAfter: remainingPhysicalBlock,
             magicBlockAfter: remainingMagicBlock,
+          });
+        }
+        if (action.physicalVulnerabilityGain) {
+          physicalStatus = addVulnerability(physicalStatus, action.physicalVulnerabilityGain);
+          steps.push({
+            enemy,
+            action,
+            attack: null,
+            damage: 0,
+            hpAfter: remainingHp,
+            physicalBlockAfter: remainingPhysicalBlock,
+            magicBlockAfter: remainingMagicBlock,
+            message: `물리 취약 ${physicalStatus.vulnerability} 부여`,
           });
         }
       }
@@ -4044,6 +4095,10 @@ export default function Home() {
             playerHp: step.hpAfter,
             playerPhysicalBlock: step.physicalBlockAfter,
             playerMagicBlock: step.magicBlockAfter,
+            physicalResistance: physicalStatus.resistance,
+            physicalVulnerability: physicalStatus.vulnerability,
+            magicResistance: magicStatus.resistance,
+            magicVulnerability: magicStatus.vulnerability,
           }));
         }, base + hitAt);
         later(() => setAttackingEnemyId(null), base + clearAt);
@@ -4072,6 +4127,10 @@ export default function Home() {
             playerHp: 0,
             playerPhysicalBlock: remainingPhysicalBlock,
             playerMagicBlock: remainingMagicBlock,
+            physicalResistance: physicalStatus.resistance,
+            physicalVulnerability: physicalStatus.vulnerability,
+            magicResistance: magicStatus.resistance,
+            magicVulnerability: magicStatus.vulnerability,
             enemies: nextEnemies,
             status: "lost",
             message: "적의 공격을 받고 쓰러졌습니다.",
@@ -4110,6 +4169,10 @@ export default function Home() {
           playerHp: remainingHp,
           playerPhysicalBlock: 0,
           playerMagicBlock: 0,
+          physicalResistance: physicalStatus.resistance,
+          physicalVulnerability: physicalStatus.vulnerability,
+          magicResistance: magicStatus.resistance,
+          magicVulnerability: magicStatus.vulnerability,
           strength: Math.max(0, game.strength - game.temporaryStrength),
           temporaryStrength: 0,
           defenseMultiplier: 1,
@@ -5605,6 +5668,10 @@ export default function Home() {
                   {game.strength + combatManualBonus > 0 && <span>힘 {game.strength + combatManualBonus}</span>}
                   {game.agility + combatManualBonus > 0 && <span>강인함 {game.agility + combatManualBonus}</span>}
                   {game.defenseMultiplier > 1 && <span>방어 ×{game.defenseMultiplier}</span>}
+                  {game.physicalResistance > 0 && <span>물리 저항 {game.physicalResistance}</span>}
+                  {game.physicalVulnerability > 0 && <span>물리 취약 {game.physicalVulnerability}</span>}
+                  {game.magicResistance > 0 && <span>마법 저항 {game.magicResistance}</span>}
+                  {game.magicVulnerability > 0 && <span>마법 취약 {game.magicVulnerability}</span>}
                   {game.damageTakenMultiplier > 1 && <span>받는 피해 ×{game.damageTakenMultiplier}</span>}
                   {game.invulnerable && <span>피해 면역</span>}
                   {game.doubleNextAttack && <span>다음 공격 2회</span>}
