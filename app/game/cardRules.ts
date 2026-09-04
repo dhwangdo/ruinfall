@@ -13,3 +13,18 @@ export function cardsForNextShuffle<T extends ReshuffleCard>(
     && !removedCardIds.has(card.id)
     && !cardsStillInPlayIds.has(card.id));
 }
+
+export function dealCardsToFixedPiles<T>(
+  cards: T[],
+  pileCount: number,
+  cardsPerPile = 5,
+): T[][] {
+  const count = Math.max(0, Math.floor(pileCount));
+  if (count === 0) return [];
+  const piles = Array.from({ length: count }, () => [] as T[]);
+  cards.forEach((card, cardIndex) => {
+    const pileIndex = Math.min(Math.floor(cardIndex / cardsPerPile), count - 1);
+    piles[pileIndex].push(card);
+  });
+  return piles;
+}

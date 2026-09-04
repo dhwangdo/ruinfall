@@ -1,0 +1,13 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 200 280">
+  <defs>
+    <path id="star" d="M0-10 2.35-3.24 9.51-3.09 3.8 1.24 5.88 8.09 0 4-5.88 8.09-3.8 1.24-9.51-3.09-2.35-3.24Z" />
+  </defs>
+  <g fill="none" stroke="#17234f" stroke-linecap="round" stroke-linejoin="round" stroke-width="1.8" opacity=".86">
+    <use href="#star" transform="translate(35 60) scale(.7)" />
+    <use href="#star" transform="translate(100 45) scale(1.08)" />
+    <use href="#star" transform="translate(165 70) scale(.84)" />
+    <use href="#star" transform="translate(165 205)" />
+    <use href="#star" transform="translate(95 230) scale(.76)" />
+    <use href="#star" transform="translate(32 190) scale(.94)" />
+  </g>
+</svg>

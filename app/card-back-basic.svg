@@ -1,0 +1,30 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 120 169">
+  <defs>
+    <pattern id="lattice" width="12" height="12" patternUnits="userSpaceOnUse">
+      <path d="M6 0 12 6 6 12 0 6Z" fill="none" stroke="#1b1b1b" stroke-width=".7"/>
+      <circle cx="6" cy="6" r="1.15" fill="#1b1b1b"/>
+      <circle cx="0" cy="0" r=".7" fill="#1b1b1b"/>
+      <circle cx="12" cy="0" r=".7" fill="#1b1b1b"/>
+      <circle cx="0" cy="12" r=".7" fill="#1b1b1b"/>
+      <circle cx="12" cy="12" r=".7" fill="#1b1b1b"/>
+    </pattern>
+  </defs>
+  <rect width="120" height="169" rx="5" fill="#fbfaf5"/>
+  <rect x="5.5" y="5.5" width="109" height="158" rx="3" fill="none" stroke="#111" stroke-width="1"/>
+  <rect x="8.5" y="8.5" width="103" height="152" rx="2" fill="none" stroke="#111" stroke-width="1.5"/>
+  <rect x="12" y="12" width="96" height="145" fill="url(#lattice)" stroke="#111" stroke-width="1"/>
+  <rect x="18" y="18" width="84" height="133" rx="17" fill="none" stroke="#fbfaf5" stroke-width="3"/>
+  <rect x="20.5" y="20.5" width="79" height="128" rx="15" fill="none" stroke="#111" stroke-width="1"/>
+  <g fill="#fbfaf5" stroke="#111" stroke-width="1.1">
+    <path d="M60 8.5 64 13 60 17.5 56 13Z"/>
+    <path d="M60 151.5 64 156 60 160.5 56 156Z"/>
+    <path d="M60 68 69 84.5 60 101 51 84.5Z"/>
+  </g>
+  <g fill="none" stroke="#111" stroke-width="1">
+    <circle cx="60" cy="84.5" r="20" fill="#fbfaf5"/>
+    <circle cx="60" cy="84.5" r="15"/>
+    <path d="M60 68v33M44 84.5h32M48.5 73l23 23M71.5 73l-23 23"/>
+    <path d="M12 28h96M12 141h96" stroke="#fbfaf5" stroke-width="3"/>
+    <path d="M13 28h94M13 141h94"/>
+  </g>
+</svg>

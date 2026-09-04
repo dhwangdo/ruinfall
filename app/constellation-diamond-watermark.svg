@@ -1,0 +1,8 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 200 280">
+  <defs><path id="diamond" d="M0-9 8 0 0 9-8 0Z" /></defs>
+  <g fill="none" stroke="#17234f" stroke-linecap="round" stroke-linejoin="round" stroke-width="1.8" opacity=".86">
+    <use href="#diamond" transform="translate(35 60) scale(.7)" /><use href="#diamond" transform="translate(100 45) scale(1.08)" />
+    <use href="#diamond" transform="translate(165 70) scale(.84)" /><use href="#diamond" transform="translate(165 205)" />
+    <use href="#diamond" transform="translate(95 230) scale(.76)" /><use href="#diamond" transform="translate(32 190) scale(.94)" />
+  </g>
+</svg>

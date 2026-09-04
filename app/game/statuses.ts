@@ -1,0 +1,18 @@
+export type OpposingStatus = {
+  resistance: number;
+  vulnerability: number;
+};
+
+export function addResistance(status: OpposingStatus, amount: number): OpposingStatus {
+  const balance = status.resistance + amount - status.vulnerability;
+  return { resistance: Math.max(0, balance), vulnerability: Math.max(0, -balance) };
+}
+
+export function addVulnerability(status: OpposingStatus, amount: number): OpposingStatus {
+  const balance = status.resistance - status.vulnerability - amount;
+  return { resistance: Math.max(0, balance), vulnerability: Math.max(0, -balance) };
+}
+
+export function vulnerabilityMultiplier(vulnerability: number) {
+  return vulnerability > 0 ? 2 : 1;
+}

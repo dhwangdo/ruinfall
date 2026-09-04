@@ -1,12 +1,31 @@
 import assert from "node:assert/strict";
 import test from "node:test";
 
-import { chooseNextIntent, createSewerEncounter } from "../app/game/enemies.ts";
+import {
+  chooseNextIntent,
+  createSewerEncounterByIndex,
+  getEncounterIndicesForRegion,
+  reduceEnemyDamageByResistance,
+} from "../app/game/enemies.ts";
 
-test("orange slime alternates a 9-damage attack with block and 6 damage", () => {
-  const slime = createSewerEncounter(() => 0)[0];
+test("physical and magic resistance halve matching enemy damage", () => {
+  assert.equal(reduceEnemyDamageByResistance(11, "physical", 1, 0), 5);
+  assert.equal(reduceEnemyDamageByResistance(11, "magic", 0, 1), 5);
+  assert.equal(reduceEnemyDamageByResistance(11, "physical", 0, 1), 11);
+  assert.equal(reduceEnemyDamageByResistance(11, "magic", 1, 0), 11);
+  assert.equal(reduceEnemyDamageByResistance(1, "physical", 1, 0), 0);
+});
+
+test("regions select only their assigned encounters", () => {
+  assert.deepEqual(getEncounterIndicesForRegion(0), [0, 1, 3, 5, 7]);
+  assert.deepEqual(getEncounterIndicesForRegion(1), [2, 4, 6]);
+  assert.deepEqual(getEncounterIndicesForRegion(2), []);
+});
+
+test("orange slime has 35 health and its established alternating pattern", () => {
+  const slime = createSewerEncounterByIndex(1, () => 0)[0];
   const actions = slime.actions;
-  assert.equal(slime.hp, 28);
+  assert.equal(slime.hp, 35);
   assert.equal(slime.intentIndex, 0);
   assert.equal(actions.length, 2);
   assert.equal(actions[0].attacks[0].value, 9);
@@ -18,19 +37,20 @@ test("orange slime alternates a 9-damage attack with block and 6 damage", () => 
 });
 
 test("golem waits twice, then repeats a 24-damage attack", () => {
-  const golem = createSewerEncounter(() => 0.25)[0];
+  const golem = createSewerEncounterByIndex(2)[0];
   assert.equal(golem.name, "골렘");
-  assert.equal(golem.hp, 52);
+  assert.equal(golem.hp, 70);
   assert.equal(golem.intentIndex, 0);
-  assert.deepEqual(golem.actions.map((action) => action.name), ["...", "...!", "공격"]);
+  assert.deepEqual(golem.actions.map((action) => action.name), ["...", "...!", "공격", "...", "공격"]);
   assert.equal(golem.actions[2].attacks[0].value, 24);
   assert.equal(chooseNextIntent(golem.actions, 0), 1);
   assert.equal(chooseNextIntent(golem.actions, 1), 2);
-  assert.equal(chooseNextIntent(golem.actions, 2), 0);
+  assert.equal(chooseNextIntent(golem.actions, 2), 3);
+  assert.equal(chooseNextIntent(golem.actions, 4), 0);
 });
 
 test("sewer rat alternates discard attacks and marks a target pile", () => {
-  const rat = createSewerEncounter(() => 0.5)[0];
+  const rat = createSewerEncounterByIndex(3)[0];
   assert.equal(rat.name, "하수구 쥐");
   assert.equal(rat.hp, 32);
   assert.equal(rat.actions[0].attacks[0].value, 11);
@@ -43,9 +63,9 @@ test("sewer rat alternates discard attacks and marks a target pile", () => {
 });
 
 test("goblin repeats its three escalating attack patterns", () => {
-  const goblin = createSewerEncounter(() => 0.999)[0];
+  const goblin = createSewerEncounterByIndex(4)[0];
   assert.equal(goblin.name, "도깨비");
-  assert.equal(goblin.hp, 48);
+  assert.equal(goblin.hp, 60);
   assert.equal(goblin.actions[0].attacks[0].value, 4);
   assert.equal(goblin.actions[0].attacks[0].hits, 3);
   assert.equal(goblin.actions[1].attacks[0].value, 6);
@@ -53,4 +73,32 @@ test("goblin repeats its three escalating attack patterns", () => {
   assert.equal(goblin.actions[2].attacks[0].value, 8);
   assert.equal(goblin.actions[2].strengthGain, 2);
   assert.equal(chooseNextIntent(goblin.actions, 2), 0);
+});
+
+test("small wizard always attacks with 8 magic damage", () => {
+  const wizard = createSewerEncounterByIndex(0)[0];
+  assert.equal(wizard.hp, 30);
+  assert.deepEqual(wizard.actions[0].attacks, [{ type: "magic", value: 8 }]);
+});
+
+test("three rats are 10-health enemies with fixed 5 damage", () => {
+  const rats = createSewerEncounterByIndex(5);
+  assert.equal(rats.length, 3);
+  assert.ok(rats.every((rat) => rat.hp === 10 && rat.actions[0].attacks[0].value === 5));
+});
+
+test("warlock curses, then attacks twice", () => {
+  const warlock = createSewerEncounterByIndex(6)[0];
+  assert.equal(warlock.hp, 50);
+  assert.equal(warlock.actions[0].physicalVulnerabilityGain, 3);
+  assert.equal(warlock.actions[1].attacks[0].value, 10);
+  assert.equal(warlock.actions[2].attacks[0].value, 10);
+});
+
+test("green slime randomly chooses either 8-damage pattern", () => {
+  const slime = createSewerEncounterByIndex(7)[0];
+  assert.equal(slime.hp, 40);
+  assert.equal(slime.givesToxicSlime, undefined);
+  assert.equal(chooseNextIntent(slime.actions, 0, () => 0), 0);
+  assert.equal(chooseNextIntent(slime.actions, 0, () => 0.99), 1);
 });
