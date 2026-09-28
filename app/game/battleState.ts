@@ -32,7 +32,7 @@ export type GameState = {
   necromancyResearchUses: number;
   pendingDiscards: number;
   pendingSweep: boolean;
-  pendingPileOperation: "discardTop" | "moveTopToBottom" | "discardAll" | null;
+  pendingPileOperation: "discardTop" | "moveTopToBottom" | null;
   turn: number;
   playerHp: number;
   playerPhysicalBlock: number;

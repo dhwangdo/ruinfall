@@ -1451,8 +1451,6 @@ function CardFace({
         return <span><strong className="effect-keyword">힘</strong>과 <strong className="effect-keyword">강인함</strong>을 {card.value} 얻습니다.</span>;
       case "fileDraw":
         return <span>{card.forged ? "모든 파일에서 카드를 1장씩 뽑습니다." : "파일 하나를 선택해 위에서부터 카드를 3장 뽑습니다."}</span>;
-      case "elimination":
-        return <span>파일 하나를 선택해서 전부 버립니다.</span>;
       case "starGuard":
         return <><span><span className="effect-type physical">방어</span>를 {defenseNumber} 얻습니다.</span><span><span className="effect-star">★</span>을 얻습니다.</span></>;
       case "starArk":
@@ -6282,12 +6280,10 @@ export default function Home() {
         : card.effect === "prepare"
         ? (canDraw || remainingHand.length > 0 ? 1 : 0)
         : card.effect === "focus" && remainingHand.length > 0 ? 1 : 0;
-      const pendingSweep = (card.effect === "boomerang" && canDraw) || card.effect === "elimination";
-      const pendingPileOperation = card.effect === "elimination"
-        ? "discardAll" as const
-        : card.effect === "boomerang"
-          ? card.name === "정리 타격" ? "discardTop" as const : "moveTopToBottom" as const
-          : null;
+      const pendingSweep = card.effect === "boomerang" && canDraw;
+      const pendingPileOperation = card.effect === "boomerang"
+        ? card.name === "정리 타격" ? "discardTop" as const : "moveTopToBottom" as const
+        : null;
       const action = (() => {
         if (isShockwave || isSweepAttack) return `${card.name}: 적 전체 공격`;
         if (isOdinSpear) return `오딘의 창: 적 전체에게 피해 ${damage} · 방어 ${blockGained}`;
@@ -6335,7 +6331,6 @@ export default function Home() {
         if (card.effect === "rapidFire") return "이번 턴 다음 공격 카드가 2회 발동";
         if (card.effect === "ventilate") return "환기: 에너지 획득";
         if (card.effect === "fileDraw") return card.forged ? "모든 파일에서 1장씩 뽑음" : "드로우할 파일을 선택하세요.";
-        if (card.effect === "elimination") return "소거법: 버릴 파일을 선택하세요.";
         if (card.effect === "starGuard") return "별의 장막: 방어와 ★ 획득";
         if (card.effect === "charge") return "충전: 에너지 획득";
         if (card.effect === "plateArmor") return `낡은 노심: 에너지 ${card.forged ? 3 : 1} 획득`;
@@ -6826,24 +6821,10 @@ export default function Home() {
   const takeSelectedPile = (pileIndex: number) => {
     if (!game.pendingSweep || game.pendingResearchDraw !== null || phase !== "playing" || game.status !== "playing") return;
     const pile = game.piles[pileIndex];
-    const isDiscardAll = game.pendingPileOperation === "discardAll";
-    if (!pile?.length && !isDiscardAll) return;
+    if (!pile?.length) return;
     setGame((current) => {
       const currentPile = current.piles[pileIndex] ?? [];
-      const discardAll = current.pendingPileOperation === "discardAll";
-      if (!current.pendingSweep || current.pendingResearchDraw !== null || (!currentPile.length && !discardAll)) return current;
-      if (discardAll) {
-        const discardedCards = [...currentPile];
-        const nextPiles = current.piles.map((currentPile, index) => index === pileIndex ? [] : [...currentPile]);
-        return {
-          ...current,
-          piles: nextPiles,
-          discard: [...current.discard, ...discardedCards],
-          pendingSweep: false,
-          pendingPileOperation: null,
-          message: `${pileIndex + 1}번 파일 ${discardedCards.length}장 버림`,
-        };
-      }
+      if (!current.pendingSweep || current.pendingResearchDraw !== null || !currentPile.length) return current;
       const nextPiles = current.piles.map((currentPile) => [...currentPile]);
       const top = nextPiles[pileIndex].pop();
       if (!top) return current;
@@ -10748,7 +10729,7 @@ className={`deck-editor-card deck-list-entry rarity-${card.rarity} ${card.rarity
               <strong>{game.pendingResearchDraw === "astronomy"
                 ? "파일 선택"
                 : game.pendingSweep
-                ? game.pendingPileOperation === "discardTop" || game.pendingPileOperation === "discardAll" ? "버릴 파일 선택" : "효과 적용 파일 선택"
+                ? game.pendingPileOperation === "discardTop" ? "버릴 파일 선택" : "효과 적용 파일 선택"
                 : "드로우할 파일 선택"}</strong>
             </div>
           )}

@@ -16,10 +16,10 @@ import {
 test("card pools preserve the current content counts", () => {
   assert.equal(STARTER_CARD_POOL.length, 3);
   assert.equal(BASIC_CARD_POOL.length, 6);
-  assert.equal(SPECIAL_CARD_POOL.length, 31);
+  assert.equal(SPECIAL_CARD_POOL.length, 30);
   assert.equal(RARE_CARD_POOL.length, 16);
   assert.equal(LEGENDARY_CARD_POOL.length, 6);
-  assert.equal(ALL_CARD_BLUEPRINTS.length, 63);
+  assert.equal(ALL_CARD_BLUEPRINTS.length, 62);
 });
 
 test("radiance is treated as an attack card", () => {
@@ -36,7 +36,6 @@ test("current card data keeps key balance values and removed systems absent", ()
     ],
   );
   assert.equal(SPECIAL_CARD_POOL.find((card) => card.name === "별의 방주")?.value, 10);
-  assert.equal(SPECIAL_CARD_POOL.find((card) => card.name === "소거법")?.cost, 0);
   assert.deepEqual(
     SPECIAL_CARD_POOL.find((card) => card.name === "가지치기") && (() => {
       const card = SPECIAL_CARD_POOL.find((item) => item.name === "가지치기");
