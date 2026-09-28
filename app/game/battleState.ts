@@ -2,6 +2,7 @@ import { dealCardsEvenlyToPiles, dealCardsToFixedPiles } from "./cardRules";
 import { createAdrenalineCard, createRelicCard, type Card } from "./cards";
 import { createSewerEncounter, type EnemyState } from "./enemies";
 import { createDeck, type DeckEdition } from "./rewards";
+import { attachBattleGems } from "./gemRules";
 
 export const MAX_PLAYER_HP = 50;
 
@@ -237,7 +238,8 @@ export function dealtState(
   deckEditions: DeckEdition[] = [],
   randomFaceUpChance = 0,
 ): GameState {
-  const preparedDeck = prepareDeckForPiles(deck);
+  const gemmedDeck = attachBattleGems(deck);
+  const preparedDeck = prepareDeckForPiles(gemmedDeck);
   const initialPiles = buildPiles(
     preparedDeck,
     deckEditions.includes("fantastic") ? 4 : 5,
@@ -262,7 +264,7 @@ export function dealtState(
       ...startingDraw.hand,
       ...(deckEditions.includes("lively") ? [createAdrenalineCard()] : []),
     ],
-    initialDeck: [...deck, ...encounterTokens].map((card) => ({ ...card, revealed: false })),
+    initialDeck: [...gemmedDeck, ...encounterTokens].map((card) => ({ ...card, revealed: false })),
     energy: (deckEditions.includes("rampaging") ? 4 : 3)
       + (deckEditions.includes("energyPlus") ? 1 : 0)
       + (deckEditions.includes("energyThree") ? 3 : 0),

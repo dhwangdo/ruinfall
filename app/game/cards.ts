@@ -2,6 +2,8 @@ export type CardKind = "strike" | "skill";
 export type DamageType = "physical" | "magic";
 export type CardRarity = "status" | "starter" | "basic" | "special" | "rare" | "legendary";
 export type SolitaireRule = "top" | "bottom" | "spell";
+export type GemColor = "white" | "blue" | "black" | "red" | "green";
+export type GemRequirementSize = 1 | 2 | 3;
 
 export type CardEffect =
   | "strike"
@@ -117,6 +119,12 @@ export type Card = {
   enemyToken?: boolean;
   /** Power-like rule card marker shown on the card face. */
   rule?: boolean;
+  /** Number of ordered, distinct gems rolled when this card instance is created. */
+  gemRequirementSize?: GemRequirementSize;
+  /** Ordered gem formula belonging to this concrete card instance. */
+  gemFormula?: GemColor[];
+  /** Battle-only gem attached to this non-gem card. */
+  attachedGem?: GemColor;
 };
 
 export type CardBlueprint = Omit<Card, "id" | "revealed">;
@@ -196,16 +204,16 @@ export const SPECIAL_CARD_POOL: CardBlueprint[] = [
 
 export const RARE_CARD_POOL: CardBlueprint[] = [
   { kind: "strike", effect: "obsidianDagger", rarity: "rare", name: "흑요석 단검", cost: 3, value: 1, draw: 0, damageType: "physical" },
-  { kind: "skill", effect: "steelHeart", rarity: "rare", name: "강철심장", cost: 1, value: 2, draw: 0, damageType: "physical", exhaust: true },
-  { kind: "skill", effect: "rapidFire", rarity: "rare", name: "연사", cost: 1, value: 0, draw: 0, damageType: "physical" },
+  { kind: "skill", effect: "steelHeart", rarity: "rare", name: "강철심장", cost: 1, value: 2, draw: 0, damageType: "physical", exhaust: true, gemRequirementSize: 2 },
+  { kind: "skill", effect: "rapidFire", rarity: "rare", name: "연사", cost: 0, value: 0, draw: 0, damageType: "physical", exhaust: true, gemRequirementSize: 1 },
   { kind: "skill", effect: "superStrategist", rarity: "rare", name: "전술가", cost: 1, value: 5, draw: 0, damageType: "physical", exhaust: true },
   { kind: "skill", effect: "grimoire", rarity: "rare", name: "마도서", value: 1, draw: 0, damageType: "physical" },
-  { kind: "skill", effect: "supernova", rarity: "rare", name: "초신성", cost: 0, value: 3, draw: 0, damageType: "physical", exhaust: true },
+  { kind: "skill", effect: "supernova", rarity: "rare", name: "초신성", cost: 0, value: 3, draw: 0, damageType: "physical", exhaust: true, gemRequirementSize: 1 },
   { kind: "strike", effect: "meteor", rarity: "rare", name: "유성우", cost: 2, value: 9, draw: 0, damageType: "physical" },
   { kind: "skill", effect: "massDeal", rarity: "rare", name: "대분배", cost: 1, value: 0, draw: 0, damageType: "physical", forgeCost: 3, exhaust: true, rule: true },
   { kind: "skill", effect: "sturdyStance", rarity: "rare", name: "견고한 태세", cost: 2, value: 0, draw: 0, damageType: "physical", exhaust: true, rule: true },
   { kind: "skill", effect: "lawResearch", rarity: "rare", name: "법학 연구", cost: 1, value: 1, draw: 0, damageType: "physical", exhaust: true, rule: true },
-  { kind: "skill", effect: "economicsResearch", rarity: "rare", name: "경제학 연구", cost: 3, value: 3, draw: 0, damageType: "physical", exhaust: true, rule: true },
+  { kind: "skill", effect: "economicsResearch", rarity: "rare", name: "경제학 연구", cost: 3, value: 3, draw: 0, damageType: "physical", exhaust: true, rule: true, gemRequirementSize: 3 },
   { kind: "skill", effect: "opticsResearch", rarity: "rare", name: "광학 연구", cost: 1, value: 1, draw: 0, damageType: "physical", exhaust: true, rule: true },
   { kind: "skill", effect: "lightTravelTime", rarity: "rare", name: "광행시간", cost: 1, value: 2, draw: 0, damageType: "physical" },
   { kind: "strike", effect: "odinSpear", rarity: "rare", name: "오딘의 창", cost: 6, value: 40, draw: 0, damageType: "physical" },

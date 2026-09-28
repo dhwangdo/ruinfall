@@ -3437,6 +3437,53 @@ h1 { margin: 0; font-size: 25px; font-weight: 600; }
 .card-face > * { z-index: 1; }
 .card-face > .card-watermark { z-index: 0; }
 
+.gem-formula {
+  position: absolute;
+  z-index: 7;
+  top: 8px;
+  right: 9px;
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+}
+.gem-diamond {
+  display: inline-block;
+  width: 9px;
+  height: 15px;
+  flex: 0 0 auto;
+  border: 1px solid rgba(255, 255, 255, .8);
+  background: var(--gem-color);
+  clip-path: polygon(50% 0, 100% 50%, 50% 100%, 0 50%);
+  filter: drop-shadow(0 0 2px rgba(0, 0, 0, .75));
+}
+.gem-white { --gem-color: #f8f4df; }
+.gem-blue { --gem-color: #2d8cff; }
+.gem-black { --gem-color: #17141f; }
+.gem-red { --gem-color: #ef3d4f; }
+.gem-green { --gem-color: #3ac46d; }
+.card-face > .gem-diamond.is-attached,
+.stacked-card > .gem-diamond.is-attached {
+  position: absolute;
+  z-index: 8;
+  top: 8px;
+  right: 10px;
+  width: 12px;
+  height: 20px;
+  filter: drop-shadow(0 0 4px var(--gem-color));
+}
+.deck-editor-card .gem-formula,
+.deck-list-entry .gem-formula {
+  top: auto;
+  right: 5px;
+  bottom: 4px;
+  gap: 2px;
+}
+.deck-editor-card .gem-diamond,
+.deck-list-entry .gem-diamond {
+  width: 7px;
+  height: 11px;
+}
+
 .stacked-card.card-face {
   position: absolute;
 }

@@ -59,7 +59,11 @@ test("current card data keeps key balance values and removed systems absent", ()
     },
     { effect: "obsidianDagger", rarity: "rare", cost: 3, value: 1 },
   );
-  assert.equal(RARE_CARD_POOL.find((card) => card.name === "초신성")?.value, 3);
+  const supernova = RARE_CARD_POOL.find((card) => card.name === "초신성");
+  assert.deepEqual(
+    supernova && { value: supernova.value, gemRequirementSize: supernova.gemRequirementSize },
+    { value: 3, gemRequirementSize: 1 },
+  );
   const oldCore = SPECIAL_CARD_POOL.find((card) => card.name === "낡은 노심");
   assert.equal(oldCore?.cost, 1);
   assert.equal(oldCore?.exhaust, undefined);
@@ -80,7 +84,13 @@ test("current card data keeps key balance values and removed systems absent", ()
       { name: "광학 연구", cost: 1, rule: true },
     ],
   );
-  assert.equal(RARE_CARD_POOL.find((card) => card.name === "연사")?.cost, 1);
+  const rapidFire = RARE_CARD_POOL.find((card) => card.name === "연사");
+  assert.deepEqual(
+    rapidFire && { cost: rapidFire.cost, exhaust: rapidFire.exhaust, gemRequirementSize: rapidFire.gemRequirementSize },
+    { cost: 0, exhaust: true, gemRequirementSize: 1 },
+  );
+  assert.equal(RARE_CARD_POOL.find((card) => card.name === "강철심장")?.gemRequirementSize, 2);
+  assert.equal(RARE_CARD_POOL.find((card) => card.name === "경제학 연구")?.gemRequirementSize, 3);
   assert.equal(createAdrenalineCard().value, 2);
   const radiance = createRadianceCard(99);
   assert.deepEqual(

@@ -1,4 +1,5 @@
 import { BASIC_CARD_POOL, RARE_CARD_POOL, SPECIAL_CARD_POOL, type Card } from "./cards";
+import { instantiateCardBlueprint } from "./gemRules";
 import {
   SEWER_ENCOUNTER_COUNT,
   getBossEncounterIndex,
@@ -470,7 +471,7 @@ export function createMapFloorDropsForPositions(
         : SPECIAL_CARD_POOL.filter((card) => card.rarity === "special");
       const blueprint = pool[Math.floor(seededRoll(position, seed, 7204) * pool.length)];
       const cellId = (position.y * MAP_COLUMNS) + (position.x - DUNGEON_MIN_X);
-      cards[roomKey] = [{ ...blueprint, id: 1_000_000 + cellId, revealed: false }];
+      cards[roomKey] = [instantiateCardBlueprint(blueprint, 1_000_000 + cellId)];
     } else {
       const ticketRoll = seededRoll(position, seed, 7203);
       const type = consumableTypeFromRoll(ticketRoll);

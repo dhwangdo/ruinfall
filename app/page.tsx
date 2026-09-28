@@ -42,6 +42,7 @@ import {
   type CardEffect,
   type CardRarity,
   type DamageType,
+  type GemColor,
 } from "./game/cards";
 import {
   IRON_WALL_COST,
@@ -59,6 +60,18 @@ import {
   type CardKeywordInfo,
 } from "./game/cardEffects";
 import { cardCostAfterForgePlacement } from "./game/forgeRules";
+import {
+  GEM_COLOR_LABELS,
+  canAddGemCardToDeck,
+  canPayGemFormula,
+  cardGemFormula,
+  instantiateCardBlueprint,
+  instantiateCardBlueprintForDeck,
+  isGemCard,
+  pileContainsGemFormula,
+  removeConsumedGems,
+  removeConsumedGemsFromPiles,
+} from "./game/gemRules";
 import { calculateDefenseGain, getDefenseBaseValue } from "./game/defenseRules";
 import {
   canPayEnergyCost,
@@ -1211,6 +1224,22 @@ function starIcons(amount: number) {
   return <span className="effect-star">{"★".repeat(Math.max(0, amount))}</span>;
 }
 
+function GemDiamond({ color, attached = false }: { color: GemColor; attached?: boolean }) {
+  return <span
+    className={`gem-diamond gem-${color} ${attached ? "is-attached" : ""}`}
+    aria-label={`${GEM_COLOR_LABELS[color]} 보석`}
+    title={`${GEM_COLOR_LABELS[color]} 보석`}
+  />;
+}
+
+function GemFormula({ card }: { card: Pick<Card, "id" | "gemRequirementSize" | "gemFormula"> }) {
+  const formula = cardGemFormula(card);
+  if (formula.length === 0) return null;
+  return <span className="gem-formula" aria-label={`보석식 ${formula.map((color) => GEM_COLOR_LABELS[color]).join("-")}`}>
+    {formula.map((color, index) => <GemDiamond color={color} key={`${color}-${index}`} />)}
+  </span>;
+}
+
 function enemyIntentEffectDescription(action: EnemyAction, firstActionCompleted = true) {
   const rockCount = action.firstActionRockCount !== undefined && !firstActionCompleted
     ? action.firstActionRockCount
@@ -1464,7 +1493,7 @@ function CardFace({
       case "metallurgyResearch":
         return <span>카드를 <strong className="effect-keyword">재련</strong>할 때마다 <strong className="effect-keyword">재련</strong>된 카드를 가져옵니다.</span>;
       case "economicsResearch":
-        return <span>에너지가 -3이 될 때까지 카드를 사용할 수 있습니다. 이 효과는 중첩됩니다.</span>;
+        return <span>에너지가 -5가 될 때까지 카드를 사용할 수 있습니다.</span>;
       case "opticsResearch":
         return <span>매 플레이어 턴 시작 시 <strong className="effect-keyword">광채</strong>를 1장 가져옵니다.</span>;
       case "radiance":
@@ -1524,7 +1553,7 @@ function CardFace({
       case "rock":
         return <span><strong className="effect-keyword">사용 불가</strong>.</span>;
       case "supernova":
-        return <span><span className="effect-star">★★★★</span>을 잃습니다. <strong className="effect-keyword">에너지</strong>를 3 얻습니다.</span>;
+        return <span><span className="effect-star">★★★</span>을 잃습니다. <strong className="effect-keyword">에너지</strong>를 3 얻습니다.</span>;
       case "combatManual":
         return <span><strong className="effect-keyword">사용 불가</strong>. 손패에 있는 동안 <strong className="effect-keyword">힘</strong>과 <strong className="effect-keyword">강인함</strong>을 2 얻습니다.</span>;
       case "grimoire":
@@ -1558,6 +1587,8 @@ function CardFace({
           style={{ "--card-name-watermark-image": cardNameConstellationImage(card.name) } as CSSProperties}
         />
       )}
+      <GemFormula card={card} />
+      {card.attachedGem && <GemDiamond color={card.attachedGem} attached />}
       {!UNPLAYABLE_CARD_EFFECTS.has(card.effect) && <span className={`card-cost ${costChangeClass}`}>{displayedCost}</span>}
       <strong className={`card-name rarity-${card.rarity} watermark-category-${cardWatermarkCategory(card)} ${UNPLAYABLE_CARD_EFFECTS.has(card.effect) ? "is-unplayable" : ""} ${card.rarity === "legendary" ? "is-painted is-legendary" : ""}`}>
         {card.name}{card.effect === "obsidianDagger" && cardForgeCount(card) > 0 ? ` +${cardForgeCount(card)}` : card.forged && !["astronomyResearch", "necromancyResearch"].includes(card.effect) ? "+" : ""}
@@ -1607,7 +1638,8 @@ function CardKeywordSections({ keywords }: { keywords: CardKeywordInfo[] }) {
   </>;
 }
 
-type DeckEditorCardIconData = Pick<Card, "effect" | "name" | "cost" | "forged" | "colored" | "forgeCostsCompleted">;
+type DeckEditorCardIconData = Pick<Card, "effect" | "name" | "cost" | "forged" | "colored" | "forgeCostsCompleted" | "gemRequirementSize" | "gemFormula">
+  & { id?: number };
 
 function DeckEditorCardIcon({ card, count = 1, showNewBadge = false }: {
   card: DeckEditorCardIconData;
@@ -1621,6 +1653,7 @@ function DeckEditorCardIcon({ card, count = 1, showNewBadge = false }: {
     <>
       {cost !== "" && cost !== undefined && <span className="editor-card-cost">{cost}</span>}
       <strong className="editor-card-name">{card.name}{card.effect === "obsidianDagger" && cardForgeCount(card) > 0 ? ` +${cardForgeCount(card)}` : card.forged && !["astronomyResearch", "necromancyResearch"].includes(card.effect) ? "+" : ""}</strong>
+      {card.id !== undefined && <GemFormula card={{ ...card, id: card.id }} />}
       {card.colored && <em className="deck-card-painted">색칠</em>}
       {showNewBadge && <em className="deck-card-new">NEW!</em>}
       {count > 1 && <span className="inventory-card-count">x{count}</span>}
@@ -2209,7 +2242,7 @@ export default function Home() {
     const card = rarity === "adrenaline"
       ? { ...createAdrenalineCard(), id: nextCardIdRef.current, revealed: false }
       : blueprint
-        ? { ...blueprint, id: nextCardIdRef.current, revealed: false }
+        ? instantiateCardBlueprint(blueprint, nextCardIdRef.current)
         : null;
     if (!card) return;
     nextCardIdRef.current += 1;
@@ -2323,7 +2356,7 @@ export default function Home() {
     const specialCards = Array.from({ length: 3 }, (_, slot) => {
       const blueprintIndex = Math.floor(Math.random() * specialBlueprints.length);
       const blueprint = specialBlueprints.splice(blueprintIndex, 1)[0];
-      const card = { ...blueprint, id: nextCardIdRef.current, revealed: false };
+      const card = instantiateCardBlueprint(blueprint, nextCardIdRef.current);
       nextCardIdRef.current += 1;
       return {
         id: `shop-special-${depth}-${slot}-${card.id}`,
@@ -2334,7 +2367,7 @@ export default function Home() {
     });
     const makeRareCardOffer = (slot: number): ShopOffer => {
       const blueprint = RARE_CARD_POOL[Math.floor(Math.random() * RARE_CARD_POOL.length)];
-      const card = { ...blueprint, id: nextCardIdRef.current, revealed: false };
+      const card = instantiateCardBlueprint(blueprint, nextCardIdRef.current);
       nextCardIdRef.current += 1;
       return {
         id: `shop-card-${depth}-${slot}-${card.id}`,
@@ -2427,7 +2460,7 @@ export default function Home() {
     });
     if (blessings.includes("packInsurance") && !cards.some((card) => card.rarity === "rare")) {
       const last = cards.at(-1)!;
-      cards[cards.length - 1] = { ...randomItem(RARE_CARD_POOL), id: last.id, revealed: false };
+      cards[cards.length - 1] = instantiateCardBlueprint(randomItem(RARE_CARD_POOL), last.id);
       rareChance = .05;
     }
     ensureTelemetryRun();
@@ -3568,11 +3601,7 @@ export default function Home() {
     if (selectedCards.length !== 5 || selectedCards.some((card) => card.rarity !== "special")) return;
     const selectedIds = new Set(selectedCards.map((card) => card.id));
     const remainingCards = inventoryCards.filter((card) => !selectedIds.has(card.id));
-    const rareCard: Card = {
-      ...randomItem(RARE_CARD_POOL),
-      id: nextCardIdRef.current,
-      revealed: false,
-    };
+    const rareCard = instantiateCardBlueprint(randomItem(RARE_CARD_POOL), nextCardIdRef.current);
     nextCardIdRef.current += 1;
     const usedSlots = remainingCards.length + inventoryConsumablesRef.current.filter((item) =>
       !blessings.includes("lightTicket") || item.type === "cardPack").length;
@@ -3631,10 +3660,10 @@ export default function Home() {
         nextCardIdRef.current += deck.cards.length;
         rewardDecks.push(deck);
       } else if (roll < 0.4) {
-        rewardCards.push({ ...randomItem(SPECIAL_CARD_POOL), id: nextCardIdRef.current, revealed: false });
+        rewardCards.push(instantiateCardBlueprint(randomItem(SPECIAL_CARD_POOL), nextCardIdRef.current));
         nextCardIdRef.current += 1;
       } else if (roll < 0.6) {
-        rewardCards.push({ ...randomItem(RARE_CARD_POOL), id: nextCardIdRef.current, revealed: false });
+        rewardCards.push(instantiateCardBlueprint(randomItem(RARE_CARD_POOL), nextCardIdRef.current));
         nextCardIdRef.current += 1;
       } else if (roll < 0.9) {
         rewardConsumables.push(nextConsumable(randomItem(TICKET_TYPES)));
@@ -4529,6 +4558,7 @@ export default function Home() {
   const deckEditorMoveErrorMessage = (reason: DeckEditorMoveBlockReason, targetDeck?: DeckCase) => {
     if (reason === "inventory-full") return "인벤토리가 가득 찼습니다.";
     if (reason === "deck-full") return `${targetDeck?.name ?? "현재 덱"}에는 더 이상 카드를 넣을 수 없습니다.`;
+    if (reason === "gem-conflict") return "서로 상위·하위 관계인 보석식 카드는 같은 덱에 넣을 수 없습니다.";
     if (reason === "extract-original-only") return "추출 티켓은 편집 시작 당시 덱에 있던 카드에만 사용할 수 있습니다.";
     if (reason === "origin-locked") return "현재 위치에서는 편집 시작 당시의 원래 덱으로만 되돌릴 수 있습니다.";
     return "이미 같은 위치에 있습니다.";
@@ -4585,6 +4615,11 @@ export default function Home() {
       inventoryCapacity,
       inventorySlotsFreed,
       viaExtractionTicket,
+      movingGemFormula: cardGemFormula(card),
+      targetDeckGemFormulas: targetDeck?.cards
+        .filter((item) => item.id !== card.id && isGemCard(item))
+        .map(cardGemFormula),
+      ignoreGemFormulaLimit: targetDeck?.editions.includes("debug"),
     });
     if (!validation.allowed) {
       if (validation.reason !== "same-location") {
@@ -5253,15 +5288,26 @@ export default function Home() {
     setDeckEditorMessage(`${card.name}을(를) 덱에서 추출했습니다.`);
   };
 
-  const transformedCard = (card: Card) => {
+  const transformedCard = (card: Card, targetDeck?: DeckCase) => {
     if (card.rarity === "legendary") return null;
     const pool = card.rarity === "starter"
       ? STARTER_CARD_POOL
       : card.rarity === "basic" ? BASIC_CARD_POOL : card.rarity === "special" ? SPECIAL_CARD_POOL : RARE_CARD_POOL;
+    const otherDeckCards = targetDeck?.cards.filter((item) => item.id !== card.id) ?? [];
     const candidates = pool.filter((blueprint) => blueprint.name !== card.name);
     if (candidates.length === 0) return null;
-    const blueprint = randomItem(candidates);
-    return { ...blueprint, id: card.id, revealed: card.revealed } as Card;
+    const shuffled = [...candidates].sort(() => Math.random() - 0.5);
+    for (const blueprint of shuffled) {
+      const transformed = instantiateCardBlueprintForDeck(
+        blueprint,
+        card.id,
+        card.revealed,
+        otherDeckCards,
+        targetDeck?.editions.includes("debug") ?? true,
+      );
+      if (transformed) return transformed;
+    }
+    return null;
   };
 
   const transformCardWithTicket = (card: Card, area: "deck" | "inventory" | "floor", deckId?: string, ticketId = pendingTransformTicketId) => {
@@ -5274,7 +5320,7 @@ export default function Home() {
         ? inventoryCards.find((item) => item.id === card.id)
         : (roomDrops[roomKey] ?? []).find((item) => item.id === card.id);
     if (!ticket || !targetCard) return;
-    const transformed = transformedCard(targetCard);
+    const transformed = transformedCard(targetCard, area === "deck" ? ownedDecks.find((deck) => deck.id === deckId) : undefined);
     if (!transformed) {
       setDeckEditorMessage(targetCard.rarity === "legendary" ? "전설 카드는 변화시킬 수 없습니다." : "변환할 다른 카드가 없습니다.");
       return;
@@ -6070,6 +6116,10 @@ export default function Home() {
       if (energyCost === undefined) {
         return { ...current, message: `${card.name}은(는) 에너지 비용이 없는 카드입니다.` };
       }
+      const gemFormula = cardGemFormula(card);
+      if (gemFormula.length > 0 && !canPayGemFormula(gemFormula, current.hand, current.piles)) {
+        return { ...current, message: `${card.name}: 필요한 보석이 손패나 파일에 없습니다.` };
+      }
       const economicsResearchCount = current.activeRuleCards.filter((ruleCard) => ruleCard.effect === "economicsResearch").length;
       if (!canPayEnergyCost(current.energy, energyCost, economicsResearchCount)) {
         return { ...current, message: `${card.name}: 에너지가 ${energyCost} 필요합니다.` };
@@ -6077,8 +6127,8 @@ export default function Home() {
       if (card.effect === "endStart" && current.piles.some((pile) => pile.length > 0)) {
         return { ...current, message: "끝의 시작은 모든 파일이 비어 있을 때만 사용할 수 있습니다." };
       }
-      if (card.effect === "supernova" && current.stars < 4) {
-        return { ...current, message: "초신성: ★★★★가 필요합니다." };
+      if (card.effect === "supernova" && current.stars < 3) {
+        return { ...current, message: "초신성: ★★★가 필요합니다." };
       }
       const isIronRampage = card.effect === "ironRampage";
       const isShockwave = card.effect === "shockwave";
@@ -6301,7 +6351,7 @@ export default function Home() {
         if (card.effect === "astronomyResearch") return "천문학 연구: ★★로 파일 드로우";
         if (card.effect === "necromancyResearch") return "강령학 연구: ★★★로 버린 카드 드로우";
         if (card.effect === "metallurgyResearch") return "금속학 연구: 재련된 카드 가져옴";
-        if (card.effect === "economicsResearch") return "경제학 연구: 에너지 하한 -3 추가";
+        if (card.effect === "economicsResearch") return "경제학 연구: 에너지 하한 -5";
         if (card.effect === "opticsResearch") return "광학 연구: 턴 시작마다 광채 생성";
         if (card.effect === "lightCluster") return "빛무리: 광채 1장 획득";
         if (card.effect === "largePrism") return "대형 프리즘: 광채 3장 획득";
@@ -6340,7 +6390,7 @@ export default function Home() {
         if (card.effect === "starlight") return "별빛: ★ 획득";
         if (card.effect === "augment") return "증강: 힘과 강인함 획득";
         if (card.effect === "relic") return "유물: 도깨비의 힘 -4";
-        if (card.effect === "supernova") return "★★★★을 잃습니다 · 에너지를 3 얻습니다";
+        if (card.effect === "supernova") return "★★★을 잃습니다 · 에너지를 3 얻습니다";
         return card.name;
       })();
       const drawMessage = card.draw > 0
@@ -6348,9 +6398,14 @@ export default function Home() {
           ? " · 드로우할 파일을 선택하세요."
           : " · 드로우할 카드가 없습니다."
         : "";
+      const consumedGemColors = new Set(gemFormula);
+      const nextHand = [...handAfterPruning, ...(automaticDrawnCards ?? []), ...generatedRadiances];
+      const gemPaidHand = removeConsumedGems(nextHand, consumedGemColors);
+      const gemPaidPiles = removeConsumedGemsFromPiles(massDealPiles, consumedGemColors);
+      const gemPaidInitialDeck = removeConsumedGems(current.initialDeck, consumedGemColors);
       return {
         ...current,
-        hand: [...handAfterPruning, ...(automaticDrawnCards ?? []), ...generatedRadiances],
+        hand: gemPaidHand,
         // 강화는 사용 후에도 다음 셔플 전까지 유지된다. 셔플 때 prepareDeckForPiles가 해제한다.
         discard: card.exhaust || card.token
           ? current.discard
@@ -6380,7 +6435,7 @@ export default function Home() {
               : card.effect === "flood"
                     ? 2
               : 0
-        ) + grimoireBonus - (card.effect === "supernova" ? 4 : 0) - meteorStars,
+        ) + grimoireBonus - (card.effect === "supernova" ? 3 : 0) - meteorStars,
         pendingDraws: drawsAdded,
         pendingPileDrawCount,
         pendingDashRandomDraws,
@@ -6400,13 +6455,16 @@ export default function Home() {
         strength: current.strength + (card.effect === "orion" ? 10 : card.effect === "warmUp" ? card.value + 1 : card.effect === "augment" || card.effect === "weaponSharpen" ? card.value : 0),
         temporaryStrength: current.temporaryStrength + (card.effect === "warmUp" ? card.value : 0),
         agility: current.agility + (card.effect === "augment" || card.effect === "armorSharpen" ? card.value : 0),
-        piles: massDealPiles,
+        piles: gemPaidPiles,
+        initialDeck: gemPaidInitialDeck,
         reflectDamage: card.effect === "counter" ? 1 : current.reflectDamage,
         defenseMultiplier: current.defenseMultiplier,
         evenDealOnReshuffle: current.evenDealOnReshuffle || isMassDeal,
         preserveDefenseOnTurnEnd: current.preserveDefenseOnTurnEnd || isSturdyStance,
         activeRuleCards: card.rule
-          ? [...current.activeRuleCards, { ...card }]
+          ? card.effect === "economicsResearch" && current.activeRuleCards.some((ruleCard) => ruleCard.effect === "economicsResearch")
+            ? current.activeRuleCards
+            : [...current.activeRuleCards, { ...card }]
           : current.activeRuleCards,
         damageTakenMultiplier: current.damageTakenMultiplier,
         invulnerable: current.invulnerable,
@@ -6436,12 +6494,14 @@ export default function Home() {
       game.activeRuleCards.filter((ruleCard) => ruleCard.effect === "lawResearch").length,
       game.forgeCount,
     );
+    const gemFormula = cardGemFormula(card);
     const shouldAnimate = sourceCard
       && screen === "battle"
       && phase === "playing"
       && game.status === "playing"
       && !UNPLAYABLE_CARD_EFFECTS.has(card.effect)
       && energyCost !== undefined
+      && (gemFormula.length === 0 || canPayGemFormula(gemFormula, game.hand, game.piles))
       && canPayEnergyCost(
         game.energy,
         energyCost,
@@ -6938,7 +6998,6 @@ export default function Home() {
       if (drag.source.type === "pile" && drag.source.pileIndex === targetPileIndex) return current;
       const targetCard = current.piles[targetPileIndex].at(-1);
       const lawResearchCount = current.activeRuleCards.filter((card) => card.effect === "lawResearch").length;
-      const effectiveMovingCost = cardEnergyCost(drag.card, lawResearchCount, current.forgeCount);
       const effectiveTargetCost = targetCard === undefined
         ? undefined
         : cardEnergyCost(targetCard, lawResearchCount, current.forgeCount);
@@ -6953,11 +7012,26 @@ export default function Home() {
       if (current.stars < 1) {
         return { ...current, message: "솔리테어 행동에 필요한 ★가 없습니다." };
       }
-      const isObsidianForge = drag.cards.length === 1
-        && drag.card.effect === "obsidianDagger"
-        && canForgeCardOnto(drag.card, targetCard, lawResearchCount, current.forgeCount);
+      const forgeResults = drag.cards.map((card) => {
+        const obsidian = card.effect === "obsidianDagger"
+          && canForgeCardOnto(card, targetCard, lawResearchCount, current.forgeCount);
+        const exchange = card.effect === "exchange"
+          && !card.forged
+          && Boolean(targetCard)
+          && card.cost !== undefined
+          && targetCard?.cost !== undefined;
+        const regular = !obsidian
+          && !exchange
+          && card.effect !== "exchange"
+          && !card.forged
+          && canForgeCardOnto(card, targetCard, lawResearchCount, current.forgeCount);
+        return { obsidian, exchange, regular, applied: obsidian || exchange || regular };
+      });
+      const forgeAppliedCount = forgeResults.filter((result) => result.applied).length;
+      const obsidianForgeCount = forgeResults.filter((result) => result.obsidian).length;
+      const forgeApplied = forgeAppliedCount > 0;
 
-      const nextPiles = current.piles.map((pile) => [...pile]);
+      let nextPiles = current.piles.map((pile) => [...pile]);
       if (drag.source.type === "pile") {
         const sourcePile = nextPiles[drag.source.pileIndex];
         const movingCards = sourcePile.slice(drag.source.cardIndex);
@@ -6973,7 +7047,7 @@ export default function Home() {
         return current;
       }
 
-      if (isObsidianForge && targetCard) {
+      if (obsidianForgeCount > 0 && targetCard) {
         const consumed = nextPiles[targetPileIndex].pop();
         if (!consumed || consumed.id !== targetCard.id) return current;
         if (nextPiles[targetPileIndex].length > 0) {
@@ -6982,38 +7056,27 @@ export default function Home() {
         }
       }
 
-      const isExchangeForge = drag.cards.length === 1
-        && drag.card.effect === "exchange"
-        && !drag.card.forged
-        && Boolean(targetCard)
-        && drag.card.cost !== undefined
-        && targetCard?.cost !== undefined;
-      const isRegularForge = !isObsidianForge
-        && drag.card.effect !== "exchange"
-        && !drag.card.forged
-        && canForgeCardOnto(drag.card, targetCard, lawResearchCount, current.forgeCount);
-      const forgeApplied = isObsidianForge || isRegularForge;
       const battleLongCardUpdates = new Map<number, Card>();
-      if (isExchangeForge && targetCard) {
+      const topmostExchangeIndex = forgeResults.findLastIndex((result) => result.exchange);
+      if (topmostExchangeIndex >= 0 && targetCard && obsidianForgeCount === 0) {
         const targetIndex = nextPiles[targetPileIndex].length - 1;
+        const exchangeCard = drag.cards[topmostExchangeIndex];
         nextPiles[targetPileIndex][targetIndex] = {
           ...targetCard,
           baseCost: targetCard.baseCost ?? targetCard.cost,
-          cost: effectiveMovingCost,
+          cost: cardEnergyCost(exchangeCard, lawResearchCount, current.forgeCount),
         };
         battleLongCardUpdates.set(targetCard.id, nextPiles[targetPileIndex][targetIndex]);
       }
       const placedCards = drag.cards.map((card, index) => {
-        const daggerForgeApplied = isObsidianForge && index === 0;
-        const becomesForged = card.effect === "obsidianDagger"
-          ? daggerForgeApplied
-          : card.effect === "exchange"
-            ? isExchangeForge && index === 0
-          : !card.forged && index === 0 && canForgeCardOnto(card, targetCard, lawResearchCount, current.forgeCount);
+        const forgeResult = forgeResults[index];
+        const daggerForgeApplied = forgeResult.obsidian;
+        const exchangeForgeApplied = forgeResult.exchange;
+        const becomesForged = forgeResult.applied;
         const nextForgeCostsCompleted = !daggerForgeApplied
           ? card.forgeCostsCompleted
           : Array.from({ length: cardForgeCount(card) + 1 }, (_, forgeIndex) => forgeIndex + 1);
-        const baseCost = isExchangeForge && index === 0
+        const baseCost = exchangeForgeApplied
           ? (card.baseCost ?? card.cost)
           : card.baseCost;
         const placedCard = {
@@ -7021,7 +7084,7 @@ export default function Home() {
           baseCost,
           cost: cardCostAfterForgePlacement(
             card,
-            isExchangeForge && index === 0 && targetCard
+            exchangeForgeApplied && targetCard
               ? effectiveTargetCost ?? targetCard.cost
               : undefined,
           ),
@@ -7037,29 +7100,74 @@ export default function Home() {
       const metallurgyResearchCount = forgeApplied
         ? current.activeRuleCards.filter((card) => card.effect === "metallurgyResearch").length
         : 0;
-      const forgedCardToRetrieve = metallurgyResearchCount > 0 && forgeApplied
-        ? placedCards[0]
-        : undefined;
-      if (forgedCardToRetrieve) {
-        const retrievedIndex = nextPiles[targetPileIndex].findIndex((card) => card.id === forgedCardToRetrieve.id);
-        if (retrievedIndex >= 0) nextPiles[targetPileIndex].splice(retrievedIndex, 1);
+      const forgedCardsToRetrieve = metallurgyResearchCount > 0
+        ? placedCards.filter((_, index) => forgeResults[index].applied)
+        : [];
+      if (forgedCardsToRetrieve.length > 0) {
+        const retrievedIds = new Set(forgedCardsToRetrieve.map((card) => card.id));
+        nextPiles[targetPileIndex] = nextPiles[targetPileIndex].filter((card) => !retrievedIds.has(card.id));
         if (nextPiles[targetPileIndex].length > 0) {
           const topIndex = nextPiles[targetPileIndex].length - 1;
           nextPiles[targetPileIndex][topIndex] = { ...nextPiles[targetPileIndex][topIndex], revealed: true };
         }
       }
-      const nextInitialDeck = battleLongCardUpdates.size > 0
+      let nextInitialDeck = battleLongCardUpdates.size > 0
         ? current.initialDeck.map((card) => battleLongCardUpdates.get(card.id) ?? card)
         : current.initialDeck;
+      let nextEnergy = current.energy;
+      let nextStars = current.stars - 1;
+      let nextActiveRuleCards = current.activeRuleCards;
+      let nextPhysicalResistance = current.playerPhysicalResistance;
+      let nextPhysicalVulnerability = current.playerPhysicalVulnerability;
+      let nextMagicResistance = current.playerMagicResistance;
+      let nextMagicVulnerability = current.playerMagicVulnerability;
+      let nextDoubleNextAttack = current.doubleNextAttack;
+      const gemSequenceSnapshot = [...nextPiles[targetPileIndex]];
+      const activatedGemCards: Card[] = [];
+      const consumedGemColors = new Set<GemColor>();
+      for (const gemCard of [...placedCards].reverse()) {
+        const formula = cardGemFormula(gemCard);
+        if (formula.length === 0 || !pileContainsGemFormula(gemSequenceSnapshot, formula)) continue;
+        if (gemCard.effect === "supernova" && nextStars < 3) continue;
+        if (gemCard.effect === "economicsResearch") {
+          if (!nextActiveRuleCards.some((ruleCard) => ruleCard.effect === "economicsResearch")) {
+            nextActiveRuleCards = [...nextActiveRuleCards, { ...gemCard }];
+          }
+        } else if (gemCard.effect === "rapidFire") {
+          nextDoubleNextAttack = true;
+        } else if (gemCard.effect === "steelHeart" && !blessings.includes("glassCannon")) {
+          const physical = addResistance({
+            resistance: nextPhysicalResistance,
+            vulnerability: nextPhysicalVulnerability,
+          }, gemCard.value);
+          const magic = addResistance({
+            resistance: nextMagicResistance,
+            vulnerability: nextMagicVulnerability,
+          }, gemCard.value);
+          nextPhysicalResistance = physical.resistance;
+          nextPhysicalVulnerability = physical.vulnerability;
+          nextMagicResistance = magic.resistance;
+          nextMagicVulnerability = magic.vulnerability;
+        } else if (gemCard.effect === "supernova") {
+          nextStars -= 3;
+          nextEnergy += gemCard.value;
+        }
+        activatedGemCards.push(gemCard);
+        formula.forEach((color) => consumedGemColors.add(color));
+      }
+      const activatedGemCardIds = new Set(activatedGemCards.map((card) => card.id));
+      if (activatedGemCards.length > 0) {
+        nextPiles[targetPileIndex] = nextPiles[targetPileIndex].filter((card) => !activatedGemCardIds.has(card.id));
+        nextPiles = removeConsumedGemsFromPiles(nextPiles, consumedGemColors);
+        nextInitialDeck = removeConsumedGems(nextInitialDeck, consumedGemColors);
+      }
       const spellStraight = getSpellStraight(nextPiles[targetPileIndex]);
       const floodPyramid = spellStraight ? null : getFloodPyramid(nextPiles[targetPileIndex]);
       let nextEnemies = current.enemies;
-      let nextEnergy = current.energy;
-      let nextStars = current.stars - 1;
       const blacksmithTriggered = forgeApplied && blessings.includes("blacksmith") && !current.blacksmithForgeUsedThisTurn;
       const hammeringTriggered = forgeApplied && current.deckEditions.includes("hammering");
       if (blacksmithTriggered) nextStars += 1;
-      if (hammeringTriggered) nextStars += 1;
+      if (hammeringTriggered) nextStars += forgeAppliedCount;
       let autoDiscard: Card[] = [];
       let autoDraws = 0;
       if (spellStraight) {
@@ -7113,31 +7221,56 @@ export default function Home() {
       const action = drag.source.type === "hand"
         ? `${drag.card.name} 카드를 손패에서 ${targetPileIndex + 1}번 파일로 이동`
         : `${drag.source.pileIndex + 1}번 파일의 ${cardLabel}을(를) ${targetPileIndex + 1}번 파일로 이동`;
-      const forgeAction = isObsidianForge && targetCard
-        ? `${drag.card.name} 재련: ${targetCard.name} 소멸 · 피해 ${targetCard.value} 추가`
+      const forgeAction = forgeAppliedCount > 0
+        ? `${action} · ${forgeAppliedCount}장 재련${obsidianForgeCount > 0 && targetCard ? `: ${targetCard.name} 소멸` : ""}`
         : action;
-      const finalAction = forgedCardToRetrieve
-        ? `${forgeAction} · 금속학 연구: 재련된 카드 가져옴`
+      const gemAction = activatedGemCards.length > 0
+        ? `${forgeAction} · ${activatedGemCards.map((card) => card.name).join(", ")} 보석식 발동`
         : forgeAction;
+      const finalAction = forgedCardsToRetrieve.length > 0
+        ? `${gemAction} · 금속학 연구: 재련된 카드 ${forgedCardsToRetrieve.length}장 가져옴`
+        : gemAction;
+      let nextHand = drag.source.type === "hand"
+        ? current.hand.filter((card) => card.id !== drag.card.id)
+        : current.hand;
+      if (forgedCardsToRetrieve.length > 0) {
+        nextHand = [
+          ...nextHand,
+          ...forgedCardsToRetrieve
+            .filter((card) => !activatedGemCardIds.has(card.id))
+            .map((card) => ({ ...card, revealed: true })),
+        ];
+      }
+      if (consumedGemColors.size > 0) {
+        nextHand = removeConsumedGems(nextHand, consumedGemColors);
+      }
+      const gemCardsToDiscard = activatedGemCards.filter((card) => !card.exhaust && !card.rule);
+      const removedFromReshuffleIds = new Set(current.removedFromReshuffleIds);
+      if (obsidianForgeCount > 0 && targetCard) removedFromReshuffleIds.add(targetCard.id);
+      activatedGemCards
+        .filter((card) => card.exhaust || card.rule)
+        .forEach((card) => removedFromReshuffleIds.add(card.id));
 
       return {
         ...current,
         piles: nextPiles,
         initialDeck: nextInitialDeck,
-        hand: drag.source.type === "hand"
-          ? [...current.hand.filter((card) => card.id !== drag.card.id), ...(forgedCardToRetrieve ? [{ ...forgedCardToRetrieve, revealed: true }] : [])]
-          : forgedCardToRetrieve
-            ? [...current.hand, { ...forgedCardToRetrieve, revealed: true }]
-            : current.hand,
-        discard: spellStraight || floodPyramid ? [...current.discard, ...autoDiscard] : current.discard,
+        hand: nextHand,
+        discard: autoDiscard.length > 0 || gemCardsToDiscard.length > 0
+          ? [...current.discard, ...autoDiscard, ...gemCardsToDiscard]
+          : current.discard,
+        activeRuleCards: nextActiveRuleCards,
         enemies: nextEnemies,
         energy: nextEnergy,
         stars: nextStars,
-        forgeCount: current.forgeCount + (forgeApplied ? 1 : 0),
+        playerPhysicalResistance: nextPhysicalResistance,
+        playerPhysicalVulnerability: nextPhysicalVulnerability,
+        playerMagicResistance: nextMagicResistance,
+        playerMagicVulnerability: nextMagicVulnerability,
+        doubleNextAttack: nextDoubleNextAttack,
+        forgeCount: current.forgeCount + forgeAppliedCount,
         blacksmithForgeUsedThisTurn: current.blacksmithForgeUsedThisTurn || blacksmithTriggered,
-        removedFromReshuffleIds: isObsidianForge && targetCard
-          ? [...new Set([...current.removedFromReshuffleIds, targetCard.id])]
-          : current.removedFromReshuffleIds,
+        removedFromReshuffleIds: [...removedFromReshuffleIds],
         pendingDraws: floodPyramid ? current.pendingDraws + autoDraws : current.pendingDraws,
         starsSpent: current.starsSpent + 1,
         status: spellStraight && nextEnemies.every((enemy) => enemy.hp === 0) ? "won" : current.status,
@@ -7889,7 +8022,7 @@ export default function Home() {
     const groupAndSortCards = (cards: Card[]) => Array.from(cards.reduce((groups, card) => {
       const groupKey = [card.name, card.effect, card.damageType, card.cost, card.value, card.rarity,
         card.colored ? "painted" : "plain", card.forged ? "forged" : "normal", card.enemyToken ? "token" : "card",
-        card.forgeCostsCompleted?.join(",") ?? "",
+        card.forgeCostsCompleted?.join(",") ?? "", cardGemFormula(card).join(","),
         transformedCardNewIds.has(card.id) ? "transformed-new" : "regular"].join(":");
       const current = groups.get(groupKey);
       if (current) current.cardIds.push(card.id);
@@ -10157,7 +10290,7 @@ className={`deck-editor-card deck-list-entry rarity-${card.rarity} ${card.rarity
   };
   const battleCardViewCards = battleCardView ? battleCardCollections[battleCardView] : [];
   const battleCardViewGroups = Array.from(battleCardViewCards.reduce((groups, card) => {
-    const key = `${card.name}:${card.effect}:${card.value}:${card.forgeCostsCompleted?.join(",") ?? ""}:${card.forged ? "forged" : "normal"}:${card.colored ? "colored" : "plain"}`;
+    const key = `${card.name}:${card.effect}:${card.value}:${card.forgeCostsCompleted?.join(",") ?? ""}:${card.forged ? "forged" : "normal"}:${card.colored ? "colored" : "plain"}:${cardGemFormula(card).join(",")}:${card.attachedGem ?? "no-gem"}`;
     const current = groups.get(key);
     if (current) {
       current.count += 1;
@@ -10643,8 +10776,11 @@ className={`deck-editor-card deck-list-entry rarity-${card.rarity} ${card.rarity
               const isForgeDrop = activeDrag !== null
                 && isValidSolitaireDrop
                 && targetCard !== undefined
-                && canForgeCardOnto(activeDrag.card, targetCard, lawResearchCount, game.forgeCount)
-                && (activeDrag.card.effect !== "obsidianDagger" || activeDrag.cards.length === 1);
+                && activeDrag.cards.some((card) => (
+                  card.effect === "exchange"
+                    ? !card.forged && card.cost !== undefined && targetCard.cost !== undefined
+                    : !card.forged && canForgeCardOnto(card, targetCard, lawResearchCount, game.forgeCount)
+                ));
               const isHoveredSolitaireDrop = isValidSolitaireDrop && dragOverDropTarget === `pile:${index}`;
               return (
                 <div
@@ -10705,7 +10841,10 @@ className={`deck-editor-card deck-list-entry rarity-${card.rarity} ${card.rarity
                       onMouseLeave={faceUp ? () => { setHoveredDeckCard(null); clearCardKeywordHover(); } : undefined}
                       onBlur={faceUp ? () => { setHoveredDeckCard(null); clearCardKeywordHover(); } : undefined}
                     >
-                      {faceUp ? <CardFace card={card} strength={game.strength + combatManualBonus + backToBasicsBonus(card)} agility={game.agility + combatManualBonus + backToBasicsBonus(card)} defenseMultiplier={game.defenseMultiplier} ruleCostReduction={lawResearchCount} forgeCount={game.forgeCount} radiancePlayedThisTurn={game.radiancePlayedThisTurn} /> : <span className={`card-back-pattern ${card.colored ? "is-painted" : ""}`} />}
+                      {faceUp ? <CardFace card={card} strength={game.strength + combatManualBonus + backToBasicsBonus(card)} agility={game.agility + combatManualBonus + backToBasicsBonus(card)} defenseMultiplier={game.defenseMultiplier} ruleCostReduction={lawResearchCount} forgeCount={game.forgeCount} radiancePlayedThisTurn={game.radiancePlayedThisTurn} /> : <>
+                        <span className={`card-back-pattern ${card.colored ? "is-painted" : ""}`} />
+                        {card.attachedGem && <GemDiamond color={card.attachedGem} attached />}
+                      </>}
                     </div>
                   );
                 })}

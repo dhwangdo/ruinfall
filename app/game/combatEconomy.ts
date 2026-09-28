@@ -7,7 +7,7 @@ export function recoverBattleEnergy(currentEnergy: number, maximumEnergy: number
 }
 
 export function economicResearchEnergyFloor(activeCopies: number) {
-  return activeCopies <= 0 ? 0 : -3 * activeCopies;
+  return activeCopies <= 0 ? 0 : -5;
 }
 
 export function canPayEnergyCost(currentEnergy: number, cost: number, activeEconomicResearchCopies: number) {

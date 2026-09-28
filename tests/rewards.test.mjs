@@ -10,6 +10,7 @@ import {
   getAvailableDeckEditions,
   generateDebugDecksByScore,
   createBattleReward,
+  createDebugAllCardsDeck,
 } from "../app/game/rewards.ts";
 import {
   TICKET_TYPES,
@@ -85,6 +86,15 @@ test("recycling editions are mutually exclusive", () => {
   assert.equal(getAvailableDeckEditions(["frugalPlus"]).includes("frugal"), false);
   assert.equal(getAvailableDeckEditions([]).includes("frugal"), true);
   assert.equal(getAvailableDeckEditions([]).includes("frugalPlus"), true);
+  assert.equal(getAvailableDeckEditions([]).includes("debug"), false);
+});
+
+test("the ALL deck has the non-natural debug edition and concrete gem formulas", () => {
+  const { deck } = createDebugAllCardsDeck(1000);
+  assert.deepEqual(deck.editions, ["debug"]);
+  const gemCards = deck.cards.filter((card) => card.gemRequirementSize);
+  assert.equal(gemCards.length, 4);
+  assert.ok(gemCards.every((card) => card.gemFormula?.length === card.gemRequirementSize));
 });
 
 test("debug score generation creates the requested number of start-score decks", () => {
