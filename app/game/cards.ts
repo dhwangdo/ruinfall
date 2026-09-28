@@ -50,6 +50,7 @@ export type CardEffect =
   | "plateArmor"
   | "plateArmorDefense"
   | "elimination"
+  | "pruning"
   | "warmUp"
   | "ironWall"
   | "fourHit"
@@ -177,7 +178,8 @@ export const SPECIAL_CARD_POOL: CardBlueprint[] = [
   { kind: "skill", effect: "battlePlan", rarity: "special", name: "전략가", cost: 1, value: 2, draw: 1, damageType: "physical" },
   { kind: "skill", effect: "plateArmor", rarity: "special", name: "낡은 노심", cost: 1, value: 1, draw: 0, damageType: "physical", forgeCost: 3 },
   { kind: "skill", effect: "plateArmorDefense", rarity: "special", name: "판금 갑옷", cost: 1, value: 8, draw: 0, damageType: "physical", forgeCost: 3 },
-  { kind: "skill", effect: "elimination", rarity: "special", name: "소거법", cost: 1, value: 0, draw: 0, damageType: "physical" },
+  { kind: "skill", effect: "elimination", rarity: "special", name: "소거법", cost: 0, value: 0, draw: 0, damageType: "physical" },
+  { kind: "skill", effect: "pruning", rarity: "special", name: "가지치기", cost: 0, value: 2, draw: 0, damageType: "physical" },
   { kind: "skill", effect: "weaponSharpen", rarity: "special", name: "무기 연마", cost: 1, value: 2, draw: 0, damageType: "physical", exhaust: true },
   { kind: "skill", effect: "armorSharpen", rarity: "special", name: "방어구 연마", cost: 1, value: 2, draw: 0, damageType: "physical", exhaust: true },
   { kind: "skill", effect: "dash", rarity: "special", name: "질주", cost: 1, value: 0, draw: 0, damageType: "physical", forgeCost: 3 },
@@ -254,13 +256,13 @@ export const CARD_POOL_DRAW_EFFECTS = new Set<CardEffect>([
   "pommel", "deflect", "prepare", "drawEachPile", "dash", "quickStep", "battlePlan", "fileDraw", "flood", "adrenaline", "astronomyResearch", "necromancyResearch",
 ]);
 export const CARD_POOL_ENERGY_EFFECTS = new Set<CardEffect>([
-  "focus", "adrenaline", "berserk", "ventilate", "plateArmor", "charge", "flood", "endStart", "supernova", "aries", "economicsResearch",
+  "focus", "adrenaline", "pruning", "berserk", "ventilate", "plateArmor", "charge", "flood", "endStart", "supernova", "aries", "economicsResearch",
 ]);
 export const CARD_POOL_DEFENSE_EFFECTS = new Set<CardEffect>([
   "defend", "deflect", "iceShield", "waterWave", "plateArmorDefense", "starGuard", "starArk", "ironWave", "ironRampage", "suppression", "odinSpear",
 ]);
 export const CARD_POOL_STAR_EFFECTS = new Set<CardEffect>([
-  "battlePlan", "rulerCompass", "starlight", "starGuard", "starArk", "superStrategist", "flood", "aries", "astronomyResearch", "necromancyResearch", "elimination", "nebula",
+  "battlePlan", "rulerCompass", "starlight", "starGuard", "starArk", "superStrategist", "flood", "aries", "astronomyResearch", "necromancyResearch", "nebula",
 ]);
 export const CARD_POOL_STATUS_EFFECTS = new Set<CardEffect>([
   "steelHeart", "warmUp", "rapidFire", "counter", "weaponSharpen", "armorSharpen", "supernova", "blessing", "mirrorImage", "lightTravelTime", "wolfTalisman", "turtleTalisman",

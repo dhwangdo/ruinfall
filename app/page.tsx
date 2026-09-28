@@ -1403,6 +1403,8 @@ function CardFace({
         return <span>카드를 1장 뽑고 1장 버립니다.</span>;
       case "focus":
         return <span><strong className="effect-keyword">에너지</strong>를 1 얻습니다. 카드를 1장 버립니다.</span>;
+      case "pruning":
+        return <span>손패에서 원하는 카드를 최대 2장 버립니다. <strong className="effect-keyword">에너지</strong>를 2 얻습니다.</span>;
       case "adrenaline":
         return <span><strong className="effect-keyword">체력</strong>을 2 잃습니다. <strong className="effect-keyword">에너지</strong>를 {card.value} 얻습니다. 카드를 {card.draw}장 뽑습니다.</span>;
       case "sweep":
@@ -1450,7 +1452,7 @@ function CardFace({
       case "fileDraw":
         return <span>{card.forged ? "모든 파일에서 카드를 1장씩 뽑습니다." : "파일 하나를 선택해 위에서부터 카드를 3장 뽑습니다."}</span>;
       case "elimination":
-        return <span>파일 하나를 선택해서 전부 버립니다. 버린 만큼 <span className="effect-star">★</span>을 얻습니다.</span>;
+        return <span>파일 하나를 선택해서 전부 버립니다.</span>;
       case "starGuard":
         return <><span><span className="effect-type physical">방어</span>를 {defenseNumber} 얻습니다.</span><span><span className="effect-star">★</span>을 얻습니다.</span></>;
       case "starArk":
@@ -1524,7 +1526,7 @@ function CardFace({
       case "rock":
         return <span><strong className="effect-keyword">사용 불가</strong>.</span>;
       case "supernova":
-        return <span><span className="effect-star">★★★</span>을 잃습니다. <strong className="effect-keyword">에너지</strong>를 3 얻습니다.</span>;
+        return <span><span className="effect-star">★★★★</span>을 잃습니다. <strong className="effect-keyword">에너지</strong>를 3 얻습니다.</span>;
       case "combatManual":
         return <span><strong className="effect-keyword">사용 불가</strong>. 손패에 있는 동안 <strong className="effect-keyword">힘</strong>과 <strong className="effect-keyword">강인함</strong>을 2 얻습니다.</span>;
       case "grimoire":
@@ -6077,8 +6079,8 @@ export default function Home() {
       if (card.effect === "endStart" && current.piles.some((pile) => pile.length > 0)) {
         return { ...current, message: "끝의 시작은 모든 파일이 비어 있을 때만 사용할 수 있습니다." };
       }
-      if (card.effect === "supernova" && current.stars < 3) {
-        return { ...current, message: "초신성: ★★★가 필요합니다." };
+      if (card.effect === "supernova" && current.stars < 4) {
+        return { ...current, message: "초신성: ★★★★가 필요합니다." };
       }
       const isIronRampage = card.effect === "ironRampage";
       const isShockwave = card.effect === "shockwave";
@@ -6269,7 +6271,15 @@ export default function Home() {
         { length: radianceCount },
         () => createRadianceCard(nextCardIdRef.current++),
       );
-      const pendingDiscards = card.effect === "prepare"
+      const pruningAutoDiscard = card.effect === "pruning" && remainingHand.length <= 2
+        ? remainingHand
+        : [];
+      const handAfterPruning = pruningAutoDiscard.length > 0
+        ? remainingHand.filter((item) => !pruningAutoDiscard.some((discarded) => discarded.id === item.id))
+        : remainingHand;
+      const pendingDiscards = card.effect === "pruning"
+        ? remainingHand.length <= 2 ? 0 : 2
+        : card.effect === "prepare"
         ? (canDraw || remainingHand.length > 0 ? 1 : 0)
         : card.effect === "focus" && remainingHand.length > 0 ? 1 : 0;
       const pendingSweep = (card.effect === "boomerang" && canDraw) || card.effect === "elimination";
@@ -6313,6 +6323,9 @@ export default function Home() {
         if (card.effect === "battlePlan") return `★ ${card.value}개 획득 · 드로우 ${card.draw}`;
         if (card.effect === "prepare") return canDraw ? "드로우할 파일을 선택하세요." : "버릴 카드를 선택하세요.";
         if (card.effect === "focus") return "에너지를 1 얻습니다 · 버릴 카드를 선택하세요.";
+        if (card.effect === "pruning") return remainingHand.length <= 2
+          ? `가지치기: 카드 ${pruningAutoDiscard.length}장 버림 · 에너지 2 획득`
+          : "가지치기: 버릴 카드 2장을 선택하세요.";
         if (card.effect === "adrenaline") return `체력 2 감소 · 에너지 ${card.value} 획득 · 카드 ${card.draw}장 드로우`;
         if (card.effect === "sweep") return canDraw ? "가져올 파일을 선택하세요." : "가져올 카드가 없습니다.";
         if (card.effect === "drawEachPile") return `모든 파일에서 ${drawEachPileResult?.hand.length ?? 0}장 뽑음`;
@@ -6332,7 +6345,7 @@ export default function Home() {
         if (card.effect === "starlight") return "별빛: ★ 획득";
         if (card.effect === "augment") return "증강: 힘과 강인함 획득";
         if (card.effect === "relic") return "유물: 도깨비의 힘 -4";
-        if (card.effect === "supernova") return "★★★을 잃습니다 · 에너지를 3 얻습니다";
+        if (card.effect === "supernova") return "★★★★을 잃습니다 · 에너지를 3 얻습니다";
         return card.name;
       })();
       const drawMessage = card.draw > 0
@@ -6342,15 +6355,15 @@ export default function Home() {
         : "";
       return {
         ...current,
-        hand: [...remainingHand, ...(automaticDrawnCards ?? []), ...generatedRadiances],
+        hand: [...handAfterPruning, ...(automaticDrawnCards ?? []), ...generatedRadiances],
         // 강화는 사용 후에도 다음 셔플 전까지 유지된다. 셔플 때 prepareDeckForPiles가 해제한다.
         discard: card.exhaust || card.token
           ? current.discard
-          : [...current.discard, card],
+          : [...current.discard, card, ...pruningAutoDiscard],
         removedFromReshuffleIds: card.exhaust
           ? [...current.removedFromReshuffleIds, card.id]
           : current.removedFromReshuffleIds,
-        energy: current.energy - energyCost + (card.effect === "aries" ? 5 : card.effect === "berserk" ? 2 : card.effect === "plateArmor" ? (card.forged ? 3 : 1) : card.effect === "focus" || card.effect === "adrenaline" || card.effect === "charge" || card.effect === "endStart" || card.effect === "supernova" ? card.value : card.effect === "flood" ? 2 : card.effect === "ventilate" ? card.value : 0),
+        energy: current.energy - energyCost + (card.effect === "aries" ? 5 : card.effect === "berserk" ? 2 : card.effect === "plateArmor" ? (card.forged ? 3 : 1) : card.effect === "focus" || card.effect === "adrenaline" || card.effect === "pruning" || card.effect === "charge" || card.effect === "endStart" || card.effect === "supernova" ? card.value : card.effect === "flood" ? 2 : card.effect === "ventilate" ? card.value : 0),
         radiancePlayedThisTurn: current.radiancePlayedThisTurn + (isRadiance ? 1 : 0),
         stars: current.stars + (
           card.effect === "battlePlan"
@@ -6372,7 +6385,7 @@ export default function Home() {
               : card.effect === "flood"
                     ? 2
               : 0
-        ) + grimoireBonus - (card.effect === "supernova" ? 3 : 0) - meteorStars,
+        ) + grimoireBonus - (card.effect === "supernova" ? 4 : 0) - meteorStars,
         pendingDraws: drawsAdded,
         pendingPileDrawCount,
         pendingDashRandomDraws,
@@ -6785,7 +6798,7 @@ export default function Home() {
           : nextPendingDraws > 0
           ? "다음 드로우 파일을 선택하세요."
           : current.pendingDiscards > 0
-            ? "손에서 버릴 카드 1장을 클릭하세요."
+            ? `손에서 버릴 카드 ${current.pendingDiscards}장을 클릭하세요.`
             : action,
       };
     });
@@ -6796,7 +6809,10 @@ export default function Home() {
       if (current.pendingDiscards < 1 || current.pendingResearchDraw !== null || phase !== "playing") return current;
       const card = current.hand.find((item) => item.id === cardId);
       if (!card) return current;
-      const action = `${card.name} 버림`;
+      const remainingDiscards = current.pendingDiscards - 1;
+      const action = remainingDiscards > 0
+        ? `${card.name} 버림 · ${remainingDiscards}장 더 선택하세요.`
+        : `${card.name} 버림`;
       return {
         ...current,
         hand: current.hand.filter((item) => item.id !== cardId),
@@ -6823,10 +6839,9 @@ export default function Home() {
           ...current,
           piles: nextPiles,
           discard: [...current.discard, ...discardedCards],
-          stars: current.stars + discardedCards.length,
           pendingSweep: false,
           pendingPileOperation: null,
-          message: `${pileIndex + 1}번 파일 ${discardedCards.length}장 버림 · ★ ${discardedCards.length} 획득`,
+          message: `${pileIndex + 1}번 파일 ${discardedCards.length}장 버림`,
         };
       }
       const nextPiles = current.piles.map((currentPile) => [...currentPile]);
