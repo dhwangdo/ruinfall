@@ -1404,7 +1404,7 @@ function CardFace({
       case "focus":
         return <span><strong className="effect-keyword">에너지</strong>를 1 얻습니다. 카드를 1장 버립니다.</span>;
       case "pruning":
-        return <span>손패에서 원하는 카드를 최대 2장 버립니다. <strong className="effect-keyword">에너지</strong>를 2 얻습니다.</span>;
+        return <span>카드를 2장 버립니다. <strong className="effect-keyword">에너지</strong>를 2 얻습니다.</span>;
       case "adrenaline":
         return <span><strong className="effect-keyword">체력</strong>을 2 잃습니다. <strong className="effect-keyword">에너지</strong>를 {card.value} 얻습니다. 카드를 {card.draw}장 뽑습니다.</span>;
       case "sweep":
