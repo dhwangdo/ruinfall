@@ -1225,11 +1225,18 @@ function starIcons(amount: number) {
 }
 
 function GemDiamond({ color, attached = false }: { color: GemColor; attached?: boolean }) {
-  return <span
+  return <svg
     className={`gem-diamond gem-${color} ${attached ? "is-attached" : ""}`}
+    viewBox="0 0 18 30"
+    role="img"
     aria-label={`${GEM_COLOR_LABELS[color]} 보석`}
     title={`${GEM_COLOR_LABELS[color]} 보석`}
-  />;
+  >
+      <path
+        d="M9 1 17 15 9 29 1 15Z"
+        fill="var(--gem-color)"
+      />
+  </svg>;
 }
 
 function GemFormula({ card }: { card: Pick<Card, "id" | "gemRequirementSize" | "gemFormula"> }) {
@@ -1587,13 +1594,13 @@ function CardFace({
           style={{ "--card-name-watermark-image": cardNameConstellationImage(card.name) } as CSSProperties}
         />
       )}
-      <GemFormula card={card} />
       {card.attachedGem && <GemDiamond color={card.attachedGem} attached />}
       {!UNPLAYABLE_CARD_EFFECTS.has(card.effect) && <span className={`card-cost ${costChangeClass}`}>{displayedCost}</span>}
       <strong className={`card-name rarity-${card.rarity} watermark-category-${cardWatermarkCategory(card)} ${UNPLAYABLE_CARD_EFFECTS.has(card.effect) ? "is-unplayable" : ""} ${card.rarity === "legendary" ? "is-painted is-legendary" : ""}`}>
         {card.name}{card.effect === "obsidianDagger" && cardForgeCount(card) > 0 ? ` +${cardForgeCount(card)}` : card.forged && !["astronomyResearch", "necromancyResearch"].includes(card.effect) ? "+" : ""}
       </strong>
       <span ref={cardEffectRef} className="card-effect">{emphasizeEffectNumbers(<>
+        {cardGemFormula(card).length > 0 && <GemFormula card={card} />}
         <span className="card-effect-copy">
           {card.rule && <strong className="solitaire-rule effect-keyword rule-keyword">룰.</strong>}
           {card.solitaireRule && <strong className="solitaire-rule solitaire-keyword">{card.solitaireRule === "top" ? "윗패" : card.solitaireRule === "bottom" ? "밑패" : "주문"}</strong>}
@@ -10809,7 +10816,7 @@ className={`deck-editor-card deck-list-entry rarity-${card.rarity} ${card.rarity
                     && cardIndex >= dragging.source.cardIndex;
                   return (
                     <div
-                      className={`stacked-card ${faceUp ? `card-face face-up pile-draggable-card ${card.kind} ${card.damageType}` : "face-down"} ${isMoving ? "is-dragging" : ""} ${isTop && isValidSolitaireDrop ? isForgeDrop ? "is-forge-drop-target" : "is-solitaire-drop-target" : ""} ${isHoveredSolitaireDrop && isTop ? "is-hovered-solitaire-drop-target" : ""}`}
+                      className={`stacked-card ${faceUp ? `card-face face-up pile-draggable-card ${card.kind} ${card.damageType}` : "face-down"} ${isTop ? "is-top" : ""} ${isMoving ? "is-dragging" : ""} ${isTop && isValidSolitaireDrop ? isForgeDrop ? "is-forge-drop-target" : "is-solitaire-drop-target" : ""} ${isHoveredSolitaireDrop && isTop ? "is-hovered-solitaire-drop-target" : ""}`}
                       style={{
                         top: `${cardIndex * stackOffset}px`,
                         "--stack-index": cardIndex,

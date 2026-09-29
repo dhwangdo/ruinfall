@@ -3443,47 +3443,44 @@ h1 { margin: 0; font-size: 25px; font-weight: 600; }
   top: 8px;
   right: 9px;
   display: inline-flex;
+  flex-direction: row;
   align-items: center;
   gap: 4px;
 }
 .gem-diamond {
   display: inline-block;
-  width: 9px;
-  height: 15px;
+  width: 15px;
+  height: 25px;
   flex: 0 0 auto;
-  border: 1px solid rgba(255, 255, 255, .8);
-  background: var(--gem-color);
-  clip-path: polygon(50% 0, 100% 50%, 50% 100%, 0 50%);
-  filter: drop-shadow(0 0 2px rgba(0, 0, 0, .75));
+  overflow: visible;
 }
-.gem-white { --gem-color: #f8f4df; }
-.gem-blue { --gem-color: #2d8cff; }
-.gem-black { --gem-color: #17141f; }
-.gem-red { --gem-color: #ef3d4f; }
-.gem-green { --gem-color: #3ac46d; }
+.gem-white { --gem-color: #bd8500; }
+.gem-blue { --gem-color: #145fbd; }
+.gem-black { --gem-color: #7934b5; }
+.gem-red { --gem-color: #d3233d; }
+.gem-green { --gem-color: #168644; }
 .card-face > .gem-diamond.is-attached,
 .stacked-card > .gem-diamond.is-attached {
   position: absolute;
   z-index: 8;
-  top: 8px;
-  right: 10px;
-  width: 12px;
-  height: 20px;
-  filter: drop-shadow(0 0 4px var(--gem-color));
+  top: 3.5px;
+  right: 4px;
+  width: 15px;
+  height: 25px;
 }
 .deck-editor-card .gem-formula,
 .deck-list-entry .gem-formula {
-  top: auto;
+  top: 5px;
   right: 5px;
-  bottom: 4px;
+  bottom: auto;
+  flex-direction: row;
   gap: 2px;
 }
 .deck-editor-card .gem-diamond,
 .deck-list-entry .gem-diamond {
-  width: 7px;
-  height: 11px;
+  width: 8px;
+  height: 13px;
 }
-
 .stacked-card.card-face {
   position: absolute;
 }
@@ -3641,6 +3638,7 @@ h1 { margin: 0; font-size: 25px; font-weight: 600; }
   display: flex;
   flex-direction: column;
   align-items: center;
+  justify-content: center;
   gap: 4px;
   grid-column: 1 / -1;
   grid-row: 2;
@@ -3657,6 +3655,17 @@ h1 { margin: 0; font-size: 25px; font-weight: 600; }
   text-wrap: balance;
   hyphens: none;
   transform: translateY(var(--card-effect-shift, 0px));
+}
+.card-effect > .gem-formula {
+  position: relative;
+  top: auto;
+  right: auto;
+  bottom: auto;
+  display: flex;
+  flex-direction: row;
+  align-self: center;
+  gap: 4px;
+  margin-bottom: 6px;
 }
 
 .card-effect-copy > span {
