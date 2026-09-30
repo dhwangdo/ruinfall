@@ -59,7 +59,7 @@ import {
   getSpellStraight,
   type CardKeywordInfo,
 } from "./game/cardEffects";
-import { cardCostAfterForgePlacement } from "./game/forgeRules";
+import { cardCostAfterForgePlacement, obsidianDaggerForgesRemaining } from "./game/forgeRules";
 import {
   GEM_COLOR_LABELS,
   canAddGemCardToDeck,
@@ -1230,13 +1230,23 @@ function GemDiamond({ color, attached = false }: { color: GemColor; attached?: b
     viewBox="0 0 18 30"
     role="img"
     aria-label={`${GEM_COLOR_LABELS[color]} 보석`}
-    title={`${GEM_COLOR_LABELS[color]} 보석`}
   >
+      <title>{`${GEM_COLOR_LABELS[color]} 보석`}</title>
       <path
-        d="M9 1 17 15 9 29 1 15Z"
-        fill="var(--gem-color)"
+        d={attached ? "M9 1 17 15 9 29 1 15Z" : "M9 2.2 15.8 15 9 27.8 2.2 15Z"}
+        fill={attached ? "var(--gem-color)" : "none"}
+        stroke={attached ? "none" : "var(--gem-color)"}
+        strokeWidth={attached ? undefined : 2.4}
+        strokeLinejoin="round"
       />
   </svg>;
+}
+
+function AttachedGemMarker({ color }: { color: GemColor }) {
+  return <span className="attached-gem-marker">
+    <span className="attached-gem-plus" aria-hidden="true" />
+    <GemDiamond color={color} attached />
+  </span>;
 }
 
 function GemFormula({ card }: { card: Pick<Card, "id" | "gemRequirementSize" | "gemFormula"> }) {
@@ -1245,6 +1255,20 @@ function GemFormula({ card }: { card: Pick<Card, "id" | "gemRequirementSize" | "
   return <span className="gem-formula" aria-label={`보석식 ${formula.map((color) => GEM_COLOR_LABELS[color]).join("-")}`}>
     {formula.map((color, index) => <GemDiamond color={color} key={`${color}-${index}`} />)}
   </span>;
+}
+
+function GemCardTint({ card }: { card: Pick<Card, "id" | "gemRequirementSize" | "gemFormula"> }) {
+  const formula = cardGemFormula(card);
+  if (formula.length === 0) return null;
+  const stops = formula.map((color) => `color-mix(in srgb, var(--gem-${color}-color) 20%, transparent)`);
+  const singleColor = formula.every((color) => color === formula[0]);
+  return <span
+    className="card-gem-tint"
+    aria-hidden="true"
+    style={{ backgroundImage: singleColor
+      ? `linear-gradient(270deg, ${stops[0]}, transparent)`
+      : `linear-gradient(115deg, ${stops.join(", ")})` }}
+  />;
 }
 
 function enemyIntentEffectDescription(action: EnemyAction, firstActionCompleted = true) {
@@ -1402,25 +1426,37 @@ function CardFace({
         : card.cost < card.baseCost ? "is-positive" : card.cost > card.baseCost ? "is-negative" : "";
   useLayoutEffect(() => {
     const effect = cardEffectRef.current;
-    if (!effect) return;
-    const updateEffectShift = () => {
-      const lineHeight = Number.parseFloat(getComputedStyle(effect).lineHeight);
-      if (!Number.isFinite(lineHeight) || lineHeight <= 0) return;
-      const segments = [
-        effect.querySelector<HTMLElement>(".card-effect-copy"),
-        ...Array.from(effect.querySelectorAll<HTMLElement>(".forge-rule")),
-      ].filter((segment): segment is HTMLElement => Boolean(segment));
-      const lineCount = segments.reduce((total, segment) => (
-        total + Math.max(1, Math.round(segment.getBoundingClientRect().height / lineHeight))
-      ), 0);
-      const shift = Math.min(8, Math.max(0, lineCount - 1) * 1.2);
-      effect.style.setProperty("--card-effect-shift", `${shift}px`);
+    const cardFace = effect?.parentElement;
+    if (!effect || !cardFace) return;
+    let active = true;
+    const fitEffect = () => {
+      if (!active) return;
+      const cardStyle = getComputedStyle(cardFace);
+      const titleRow = Number.parseFloat(cardStyle.getPropertyValue("--card-title-row"));
+      const availableHeight = cardFace.clientHeight
+        - Number.parseFloat(cardStyle.paddingTop)
+        - Number.parseFloat(cardStyle.paddingBottom)
+        - titleRow;
+      if (!Number.isFinite(availableHeight) || availableHeight <= 0) return;
+
+      // Keep gems and copy in the same flow, then tighten only when their real height needs it.
+      effect.style.removeProperty("--card-effect-scale");
+      effect.dataset.fit = "normal";
+      if (effect.offsetHeight > availableHeight) effect.dataset.fit = "compact";
+      if (effect.offsetHeight > availableHeight) effect.dataset.fit = "tight";
+      if (effect.offsetHeight > availableHeight) {
+        effect.style.setProperty("--card-effect-scale", String(availableHeight / effect.offsetHeight));
+      }
     };
-    updateEffectShift();
-    const observer = new ResizeObserver(updateEffectShift);
-    observer.observe(effect);
-    return () => observer.disconnect();
-  }, [card.id, card.effect, card.value, card.forged, card.forgeCostsCompleted?.join(","), starsSpent, strength, agility, defenseMultiplier, radiancePlayedThisTurn]);
+    fitEffect();
+    const observer = new ResizeObserver(fitEffect);
+    observer.observe(cardFace);
+    document.fonts.ready.then(fitEffect);
+    return () => {
+      active = false;
+      observer.disconnect();
+    };
+  }, [card, starsSpent, strength, agility, defenseMultiplier, ruleCostReduction, forgeCount, radiancePlayedThisTurn]);
   const effectText = (() => {
     switch (card.effect) {
       case "strike":
@@ -1442,7 +1478,7 @@ function CardFace({
       case "pruning":
         return <span>카드를 2장 버립니다. <strong className="effect-keyword">에너지</strong>를 2 얻습니다.</span>;
       case "adrenaline":
-        return <span><strong className="effect-keyword">체력</strong>을 2 잃습니다. <strong className="effect-keyword">에너지</strong>를 {card.value} 얻습니다. 카드를 {card.draw}장 뽑습니다.</span>;
+        return <><span className="effect-sentence"><strong className="effect-keyword">체력</strong>을 2 잃습니다.</span><span className="effect-sentence"><strong className="effect-keyword">에너지</strong>를 {card.value} 얻습니다.</span><span className="effect-sentence">카드를 {card.draw}장 뽑습니다.</span></>;
       case "sweep":
         return <span>모든 적에게 <span className="effect-type damage">피해</span>를 {damageNumber} 줍니다.</span>;
       case "drawEachPile":
@@ -1492,7 +1528,7 @@ function CardFace({
       case "starArk":
         return <><span><span className="effect-type physical">방어</span>를 {defenseNumber} 얻습니다.</span><span><span className="effect-type magic">마법 방어</span>를 {defenseNumber} 얻습니다.</span><span><span className="effect-star">★</span>을 얻습니다.</span></>;
       case "obsidianDagger":
-        return <><span><span className="effect-type damage">피해</span>를 {damageNumber} 줍니다.</span><span>[밑패를 <strong className="effect-keyword">소멸</strong>시키고 피해량을 이 카드에 추가합니다.]</span><span>무한히 <strong className="effect-keyword">재련</strong>할 수 있습니다.</span></>;
+        return <><span><span className="effect-type damage">피해</span>를 {damageNumber} 줍니다.</span><span>[밑패를 <strong className="effect-keyword">소멸</strong>시키고 이 카드를 강화합니다]</span></>;
       case "astronomyResearch":
         return <span>한 턴에 한 번, <span className="effect-star">★★</span>을 지불하고 원하는 파일의 맨 위 카드를 손패로 가져옵니다.</span>;
       case "necromancyResearch":
@@ -1587,6 +1623,7 @@ function CardFace({
   })();
   return (
     <>
+      <GemCardTint card={card} />
       {!card.enemyToken && (
         <span
           className="card-watermark"
@@ -1594,31 +1631,33 @@ function CardFace({
           style={{ "--card-name-watermark-image": cardNameConstellationImage(card.name) } as CSSProperties}
         />
       )}
-      {card.attachedGem && <GemDiamond color={card.attachedGem} attached />}
       {!UNPLAYABLE_CARD_EFFECTS.has(card.effect) && <span className={`card-cost ${costChangeClass}`}>{displayedCost}</span>}
       <strong className={`card-name rarity-${card.rarity} watermark-category-${cardWatermarkCategory(card)} ${UNPLAYABLE_CARD_EFFECTS.has(card.effect) ? "is-unplayable" : ""} ${card.rarity === "legendary" ? "is-painted is-legendary" : ""}`}>
         {card.name}{card.effect === "obsidianDagger" && cardForgeCount(card) > 0 ? ` +${cardForgeCount(card)}` : card.forged && !["astronomyResearch", "necromancyResearch"].includes(card.effect) ? "+" : ""}
       </strong>
-      <span ref={cardEffectRef} className="card-effect">{emphasizeEffectNumbers(<>
-        {cardGemFormula(card).length > 0 && <GemFormula card={card} />}
-        <span className="card-effect-copy">
-          {card.rule && <strong className="solitaire-rule effect-keyword rule-keyword">룰.</strong>}
-          {card.solitaireRule && <strong className="solitaire-rule solitaire-keyword">{card.solitaireRule === "top" ? "윗패" : card.solitaireRule === "bottom" ? "밑패" : "주문"}</strong>}
-          {effectText}
-          {card.token && <strong className="solitaire-rule token-rule effect-keyword">토큰.</strong>}
-          {card.exhaust && !card.rule && <strong className="solitaire-rule effect-keyword">소멸.</strong>}
-        </span>
-        {card.effect === "obsidianDagger"
-          ? <>
-            {cardForgeCount(card) > 0 && <strong className="solitaire-rule forge-rule effect-keyword">재련됨.</strong>}
-            <strong className="solitaire-rule forge-rule"><span className="effect-keyword">재련</span>: [공격]</strong>
-          </>
-          : card.forged && !["astronomyResearch", "necromancyResearch"].includes(card.effect)
-            ? <strong className="solitaire-rule forge-rule effect-keyword">재련됨.</strong>
-            : !["astronomyResearch", "necromancyResearch"].includes(card.effect)
-              && (card.forgeCost !== undefined || card.forgeCosts || card.forgeTargetName || card.forgeAny)
-              && <strong className="solitaire-rule forge-rule"><span className="effect-keyword">재련</span>: {forgeConditionText(card)}</strong>}
-      </>)}</span>
+      <span ref={cardEffectRef} className="card-effect">
+        <GemFormula card={card} />
+        {card.attachedGem && <AttachedGemMarker color={card.attachedGem} />}
+        {emphasizeEffectNumbers(<>
+          <span className="card-effect-copy">
+            {card.rule && <strong className="solitaire-rule effect-keyword rule-keyword">룰.</strong>}
+            {card.solitaireRule && <strong className="solitaire-rule solitaire-keyword">{card.solitaireRule === "top" ? "윗패" : card.solitaireRule === "bottom" ? "밑패" : "주문"}</strong>}
+            {effectText}
+            {card.token && <strong className="solitaire-rule token-rule effect-keyword">토큰.</strong>}
+            {card.exhaust && !card.rule && <strong className="solitaire-rule effect-keyword">소멸.</strong>}
+          </span>
+          {card.effect === "obsidianDagger"
+            ? <>
+              {cardForgeCount(card) > 0 && <strong className="solitaire-rule forge-rule effect-keyword">재련됨.</strong>}
+              <strong className="solitaire-rule forge-rule"><span className="effect-keyword">재련</span> x{obsidianDaggerForgesRemaining(cardForgeCount(card))} : [공격]</strong>
+            </>
+            : card.forged && !["astronomyResearch", "necromancyResearch"].includes(card.effect)
+              ? <strong className="solitaire-rule forge-rule effect-keyword">재련됨.</strong>
+              : !["astronomyResearch", "necromancyResearch"].includes(card.effect)
+                && (card.forgeCost !== undefined || card.forgeCosts || card.forgeTargetName || card.forgeAny)
+                && <strong className="solitaire-rule forge-rule"><span className="effect-keyword">재련</span>: {forgeConditionText(card)}</strong>}
+        </>)}
+      </span>
     </>
   );
 }
@@ -1646,21 +1685,24 @@ function CardKeywordSections({ keywords }: { keywords: CardKeywordInfo[] }) {
 }
 
 type DeckEditorCardIconData = Pick<Card, "effect" | "name" | "cost" | "forged" | "colored" | "forgeCostsCompleted" | "gemRequirementSize" | "gemFormula">
-  & { id?: number };
+  & { id?: number; attachedGem?: Card["attachedGem"] };
 
-function DeckEditorCardIcon({ card, count = 1, showNewBadge = false }: {
+function DeckEditorCardIcon({ card, count = 1, showNewBadge = false, showAttachedGem = false }: {
   card: DeckEditorCardIconData;
   count?: number;
   showNewBadge?: boolean;
+  showAttachedGem?: boolean;
 }) {
   const cost = UNPLAYABLE_CARD_EFFECTS.has(card.effect)
     ? ""
     : card.effect === "ironWall" ? IRON_WALL_COST : card.cost;
   return (
     <>
+      {card.id !== undefined && <GemCardTint card={{ ...card, id: card.id }} />}
       {cost !== "" && cost !== undefined && <span className="editor-card-cost">{cost}</span>}
       <strong className="editor-card-name">{card.name}{card.effect === "obsidianDagger" && cardForgeCount(card) > 0 ? ` +${cardForgeCount(card)}` : card.forged && !["astronomyResearch", "necromancyResearch"].includes(card.effect) ? "+" : ""}</strong>
       {card.id !== undefined && <GemFormula card={{ ...card, id: card.id }} />}
+      {showAttachedGem && card.attachedGem && <AttachedGemMarker color={card.attachedGem} />}
       {card.colored && <em className="deck-card-painted">색칠</em>}
       {showNewBadge && <em className="deck-card-new">NEW!</em>}
       {count > 1 && <span className="inventory-card-count">x{count}</span>}
@@ -10413,7 +10455,7 @@ className={`deck-editor-card deck-list-entry rarity-${card.rarity} ${card.rarity
               className={`deck-editor-card battle-ledger-card rarity-${researchDragPreview.card.rarity} ${researchDragPreview.card.rarity === "legendary" ? "is-painted" : ""}`}
               style={{ width: "74px", height: "76px", margin: 0 }}
             >
-              <DeckEditorCardIcon card={researchDragPreview.card} count={researchDragPreview.count} />
+              <DeckEditorCardIcon card={researchDragPreview.card} count={researchDragPreview.count} showAttachedGem />
             </div>
           </div>
         )}
@@ -10635,7 +10677,7 @@ className={`deck-editor-card deck-list-entry rarity-${card.rarity} ${card.rarity
                     onMouseMove={(event) => moveDeckCardPreview(event, card)}
                     onMouseLeave={() => { setHoveredDeckCard(null); clearCardKeywordHover(); }}
                   >
-                    <DeckEditorCardIcon card={card} count={count} />
+                    <DeckEditorCardIcon card={card} count={count} showAttachedGem />
                   </div>
                   </div>
                 ))
@@ -10786,7 +10828,7 @@ className={`deck-editor-card deck-list-entry rarity-${card.rarity} ${card.rarity
                 && activeDrag.cards.some((card) => (
                   card.effect === "exchange"
                     ? !card.forged && card.cost !== undefined && targetCard.cost !== undefined
-                    : !card.forged && canForgeCardOnto(card, targetCard, lawResearchCount, game.forgeCount)
+                    : canForgeCardOnto(card, targetCard, lawResearchCount, game.forgeCount)
                 ));
               const isHoveredSolitaireDrop = isValidSolitaireDrop && dragOverDropTarget === `pile:${index}`;
               return (

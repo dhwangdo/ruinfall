@@ -6,6 +6,7 @@ import {
   type Card,
   type CardBlueprint,
 } from "./cards";
+import { obsidianDaggerForgesRemaining } from "./forgeRules";
 
 export const IRON_WALL_COST = 2;
 export const IRON_WALL_RESISTANCE = 2;
@@ -135,7 +136,7 @@ export function canForgeCardOnto(movingCard: Card, targetCard?: Card, lawResearc
   if (movingCard.effect === "astronomyResearch" || movingCard.effect === "necromancyResearch") return false;
   if (!targetCard) return false;
   if (movingCard.effect === "obsidianDagger") {
-    return isAttackCard(targetCard);
+    return obsidianDaggerForgesRemaining(cardForgeCount(movingCard)) > 0 && isAttackCard(targetCard);
   }
   const targetCost = cardEnergyCost(targetCard, lawResearchCount, forgeCount);
   if (movingCard.forged) return false;

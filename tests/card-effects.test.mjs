@@ -3,7 +3,7 @@ import test from "node:test";
 
 import { RARE_CARD_POOL, SPECIAL_CARD_POOL } from "../app/game/cards.ts";
 import { calculateDefenseGain, getDefenseBaseValue } from "../app/game/defenseRules.ts";
-import { cardCostAfterForgePlacement } from "../app/game/forgeRules.ts";
+import { cardCostAfterForgePlacement, obsidianDaggerForgesRemaining } from "../app/game/forgeRules.ts";
 
 test("forging old core preserves its one energy cost and no exhaust", () => {
   const oldCore = SPECIAL_CARD_POOL.find((card) => card.name === "낡은 노심");
@@ -18,6 +18,13 @@ test("obsidian dagger stays at three energy after every forge", () => {
   assert.equal(cardCostAfterForgePlacement(dagger), 3);
   assert.equal(cardCostAfterForgePlacement({ ...dagger, forged: true }), 3);
   assert.equal(cardCostAfterForgePlacement({ ...dagger, forgeCostsCompleted: [1, 2, 3] }), 3);
+});
+
+test("obsidian dagger has exactly five forges", () => {
+  assert.equal(obsidianDaggerForgesRemaining(0), 5);
+  assert.equal(obsidianDaggerForgesRemaining(4), 1);
+  assert.equal(obsidianDaggerForgesRemaining(5), 0);
+  assert.equal(obsidianDaggerForgesRemaining(6), 0);
 });
 
 test("fixed defense gains add toughness before applying the defense multiplier", () => {

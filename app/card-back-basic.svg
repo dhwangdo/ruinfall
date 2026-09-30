@@ -8,5 +8,5 @@
 
   <rect width="120" height="169" rx="5" fill="url(#paper)"/>
   <path d="M4 160V9Q4 4 9 4H98 M116 24V160Q116 165 111 165H9Q4 165 4 160" fill="none" stroke="#40564a" stroke-width="1.4"/>
-  <circle cx="108.4" cy="13.4" r="1.8" fill="none" stroke="#40564a" stroke-width="1"/>
+  <circle cx="109" cy="11" r="1.8" fill="none" stroke="#40564a" stroke-width="1"/>
 </svg>

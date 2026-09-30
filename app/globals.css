@@ -15,6 +15,11 @@
   --card-effect-size: 9pt;
   --battle-cost-color: #17234f;
   --battle-cost-text-color: #ffd166;
+  --gem-white-color: #bd8500;
+  --gem-blue-color: #145fbd;
+  --gem-black-color: #7934b5;
+  --gem-red-color: #d3233d;
+  --gem-green-color: #168644;
 }
 
 * { box-sizing: border-box; }
@@ -3342,6 +3347,7 @@ h1 { margin: 0; font-size: 25px; font-weight: 600; }
 }
 .card-style-simple .card-back-pattern:not(.is-painted)::before,
 .card-style-simple .card-back-pattern:not(.is-painted)::after { display: none; }
+.stacked-card.face-down:has(> .gem-diamond.is-attached) { overflow: visible; }
 
 .card-back-pattern {
   position: relative;
@@ -3379,10 +3385,11 @@ h1 { margin: 0; font-size: 25px; font-weight: 600; }
 }
 
 .card-face {
+  --card-title-row: 32px;
   position: relative;
   display: grid;
   grid-template-columns: 25px 1fr 25px;
-  grid-template-rows: 32px 1fr 10px;
+  grid-template-rows: var(--card-title-row) minmax(0, 1fr) 10px;
   width: var(--card-w);
   height: var(--card-h);
   padding: 8px;
@@ -3436,6 +3443,17 @@ h1 { margin: 0; font-size: 25px; font-weight: 600; }
 .is-previewing-constellation .card-watermark { background-image: var(--card-watermark-preview-image) !important; }
 .card-face > * { z-index: 1; }
 .card-face > .card-watermark { z-index: 0; }
+.card-gem-tint {
+  position: absolute;
+  inset: 0;
+  border-radius: inherit;
+  pointer-events: none;
+}
+.card-face > .card-gem-tint { z-index: 0; }
+.card-style-simple .card-face:not(:has(.card-name.is-painted)) > .card-gem-tint {
+  top: var(--card-band-height);
+  border-radius: 0 0 6px 6px;
+}
 
 .gem-formula {
   position: absolute;
@@ -3449,24 +3467,49 @@ h1 { margin: 0; font-size: 25px; font-weight: 600; }
 }
 .gem-diamond {
   display: inline-block;
-  width: 15px;
-  height: 25px;
+  width: 13px;
+  height: 22px;
   flex: 0 0 auto;
   overflow: visible;
+  filter:
+    drop-shadow(0 0 3px color-mix(in srgb, var(--gem-color) 85%, transparent))
+    drop-shadow(0 0 7px color-mix(in srgb, var(--gem-color) 50%, transparent));
 }
-.gem-white { --gem-color: #bd8500; }
-.gem-blue { --gem-color: #145fbd; }
-.gem-black { --gem-color: #7934b5; }
-.gem-red { --gem-color: #d3233d; }
-.gem-green { --gem-color: #168644; }
-.card-face > .gem-diamond.is-attached,
+.gem-diamond:not(.is-attached) {
+  filter: none;
+}
+.attached-gem-plus {
+  position: relative;
+  display: block;
+  width: 20px;
+  height: 20px;
+  flex: 0 0 auto;
+  color: #252525;
+}
+.attached-gem-plus::before,
+.attached-gem-plus::after {
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  border-radius: 1px;
+  background: currentColor;
+  content: "";
+  transform: translate(-50%, -50%);
+}
+.attached-gem-plus::before { width: 16px; height: 5px; }
+.attached-gem-plus::after { width: 5px; height: 16px; }
+.gem-white { --gem-color: var(--gem-white-color); }
+.gem-blue { --gem-color: var(--gem-blue-color); }
+.gem-black { --gem-color: var(--gem-black-color); }
+.gem-red { --gem-color: var(--gem-red-color); }
+.gem-green { --gem-color: var(--gem-green-color); }
 .stacked-card > .gem-diamond.is-attached {
   position: absolute;
   z-index: 8;
-  top: 3.5px;
+  top: -3px;
   right: 4px;
-  width: 15px;
-  height: 25px;
+  width: 17px;
+  height: 28px;
 }
 .deck-editor-card .gem-formula,
 .deck-list-entry .gem-formula {
@@ -3478,9 +3521,32 @@ h1 { margin: 0; font-size: 25px; font-weight: 600; }
 }
 .deck-editor-card .gem-diamond,
 .deck-list-entry .gem-diamond {
-  width: 8px;
-  height: 13px;
+  width: 10px;
+  height: 16px;
 }
+.deck-editor-card .gem-diamond.is-attached,
+.deck-list-entry .gem-diamond.is-attached { filter: none; }
+.deck-editor-card > .attached-gem-marker,
+.deck-list-entry > .attached-gem-marker {
+  position: absolute;
+  z-index: 4;
+  top: 5px;
+  right: 5px;
+  left: auto;
+  display: inline-flex;
+  align-items: center;
+  gap: 1px;
+}
+.deck-editor-card .attached-gem-plus,
+.deck-list-entry .attached-gem-plus {
+  width: 12px;
+  height: 12px;
+  color: #252525;
+}
+.deck-editor-card .attached-gem-plus::before,
+.deck-list-entry .attached-gem-plus::before { width: 8px; height: 2.5px; }
+.deck-editor-card .attached-gem-plus::after,
+.deck-list-entry .attached-gem-plus::after { width: 2.5px; height: 8px; }
 .stacked-card.card-face {
   position: absolute;
 }
@@ -3539,11 +3605,10 @@ h1 { margin: 0; font-size: 25px; font-weight: 600; }
   align-self: stretch;
   padding: 3px;
 }
-.card-face:has(.card-name.is-costless) .card-effect {
-  transform: none;
-}
 /* Default card theme: token-card clarity with a rarity-colored title band. */
 .card-style-simple .card-face:not(:has(.card-name.is-painted)) {
+  --card-title-row: 26px;
+  --card-band-height: 37px;
   --battle-card-text-color: #252525;
   --battle-cost-text-color: #fff;
   overflow: hidden;
@@ -3559,7 +3624,7 @@ h1 { margin: 0; font-size: 25px; font-weight: 600; }
   top: 0;
   right: 0;
   left: 0;
-  height: 37px;
+  height: var(--card-band-height);
   border-radius: 6px 6px 0 0;
   content: "";
 }
@@ -3607,6 +3672,9 @@ h1 { margin: 0; font-size: 25px; font-weight: 600; }
   color: var(--battle-basic-band-color, #555B60);
   background: #fff;
 }
+.card-style-simple :is(.deck-editor-card, .deck-list-entry):has(> .card-gem-tint) .editor-card-name {
+  background: transparent;
+}
 .card-style-simple .deck-list-entry.rarity-special:not(.is-painted) strong { color: var(--battle-special-band-color, #3472a2); }
 .card-style-simple .deck-list-entry.rarity-status:not(.is-painted) strong { color: #e34b58; }
 .card-style-simple .deck-list-entry.rarity-starter:not(.is-painted) strong { color: #756A60; }
@@ -3635,16 +3703,17 @@ h1 { margin: 0; font-size: 25px; font-weight: 600; }
 
 .card-name.is-painted { background: transparent; }
 .card-effect {
+  position: relative;
   display: flex;
   flex-direction: column;
   align-items: center;
   justify-content: center;
   gap: 4px;
   grid-column: 1 / -1;
-  grid-row: 2;
+  grid-row: 2 / 4;
   place-self: center;
   width: calc(100% + 4px);
-  padding: 9px 4px;
+  padding: 0 4px;
   color: var(--battle-card-text-color, #f8f6ef);
   text-align: center;
   font-family: Pretendard, Arial, sans-serif;
@@ -3654,27 +3723,46 @@ h1 { margin: 0; font-size: 25px; font-weight: 600; }
   word-break: keep-all;
   text-wrap: balance;
   hyphens: none;
-  transform: translateY(var(--card-effect-shift, 0px));
+  transform: scale(var(--card-effect-scale, 1));
 }
+/* Gems take up real space, so long descriptions cannot slide underneath them. */
 .card-effect > .gem-formula {
-  position: relative;
-  top: auto;
-  right: auto;
-  bottom: auto;
+  position: static;
   display: flex;
   flex-direction: row;
-  align-self: center;
   gap: 4px;
-  margin-bottom: 6px;
+  transform: none;
 }
-
+.card-effect > .gem-formula .gem-diamond {
+  width: 17px;
+  height: 28px;
+}
+.card-effect > .attached-gem-marker {
+  position: static;
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  transform: none;
+}
+.card-effect .attached-gem-plus {
+  color: var(--battle-card-text-color, #252525);
+}
+.card-effect > .attached-gem-marker .gem-diamond {
+  width: 17px;
+  height: 28px;
+}
+.card-effect > :is(.gem-formula, .attached-gem-marker) + .card-effect-copy {
+  margin-top: 5px;
+}
 .card-effect-copy > span {
   display: inline;
 }
+.card-effect-copy > .effect-sentence { display: block; }
 
 .card-effect-copy > span + span::before {
   content: " ";
 }
+.card-effect-copy > .effect-sentence + .effect-sentence::before { content: none; }
 
 .solitaire-rule {
   display: inline;
@@ -4584,7 +4672,7 @@ h1 { margin: 0; font-size: 25px; font-weight: 600; }
   .deck-card-preview-floating .card-effect,
   .deck-viewer-card .card-effect {
     gap: 2px;
-    padding: 4px 1px;
+    padding: 0 1px;
     font-size: var(--card-effect-size);
   }
   .battlefield .face-down { padding: 0; }
@@ -4756,12 +4844,21 @@ h1 { margin: 0; font-size: 25px; font-weight: 600; }
 .solitaire-pile .card-effect,
 .drag-stack-preview .card-effect {
   gap: 1.78px;
-  padding: 3.56px .89px;
+  padding: 0 .89px;
+}
+.card-effect[data-fit="compact"] { gap: 2px; line-height: 1.3; }
+.card-effect[data-fit="tight"] { gap: 1px; line-height: 1.17; }
+.card-effect[data-fit="compact"] > .gem-formula .gem-diamond,
+.card-effect[data-fit="compact"] > .attached-gem-marker .gem-diamond { width: 15px; height: 25px; }
+.card-effect[data-fit="tight"] > .gem-formula .gem-diamond,
+.card-effect[data-fit="tight"] > .attached-gem-marker .gem-diamond { width: 14px; height: 22px; }
+.card-style-simple .solitaire-pile .card-face:not(:has(.card-name.is-painted)),
+.card-style-simple .drag-stack-preview .card-face:not(:has(.card-name.is-painted)) {
+  --card-band-height: 32.89px;
 }
 .card-style-simple .solitaire-pile .card-face:not(:has(.card-name.is-painted))::after,
 .card-style-simple .drag-stack-preview .card-face:not(:has(.card-name.is-painted))::after {
   top: 0;
-  height: 32.89px;
   border-radius: 5.33px 5.33px 0 0;
 }
 .card-style-simple .solitaire-pile .card-face:not(:has(.card-name.is-painted)) .card-name,
