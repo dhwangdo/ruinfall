@@ -1244,7 +1244,6 @@ function GemDiamond({ color, attached = false }: { color: GemColor; attached?: b
 
 function AttachedGemMarker({ color }: { color: GemColor }) {
   return <span className="attached-gem-marker">
-    <span className="attached-gem-plus" aria-hidden="true" />
     <GemDiamond color={color} attached />
   </span>;
 }
@@ -1624,6 +1623,7 @@ function CardFace({
   return (
     <>
       <GemCardTint card={card} />
+      {card.attachedGem && <AttachedGemMarker color={card.attachedGem} />}
       {!card.enemyToken && (
         <span
           className="card-watermark"
@@ -1637,7 +1637,6 @@ function CardFace({
       </strong>
       <span ref={cardEffectRef} className="card-effect">
         <GemFormula card={card} />
-        {card.attachedGem && <AttachedGemMarker color={card.attachedGem} />}
         {emphasizeEffectNumbers(<>
           <span className="card-effect-copy">
             {card.rule && <strong className="solitaire-rule effect-keyword rule-keyword">룰.</strong>}
