@@ -38,7 +38,6 @@ type BattleHandAreaProps = {
 const HAND_CARD_STEP = 96;
 const HAND_ARC_RADIUS = 850;
 const HAND_ANGLE_STEP = 6.5;
-const HAND_VISIBLE_ARC_RADIUS = 3;
 const HAND_WHEEL_STEP = 70;
 
 export function BattleHandArea({
@@ -75,6 +74,20 @@ export function BattleHandArea({
   const clampedWindowStart = Math.min(windowStart, maxWindowStart);
   const handCenterIndex = clampedWindowStart + (visibleCardCount - 1) / 2;
   const trackCenterOffset = handMetrics.cardWidth / 2 + handCenterIndex * HAND_CARD_STEP;
+  let edgeDistance = (visibleCardCount - 1) / 2;
+  for (let extra = 0; extra < Math.min(3, maxWindowStart); extra++) {
+    const nextDistance = edgeDistance + 1;
+    const angle = nextDistance * HAND_ANGLE_STEP * Math.PI / 180;
+    const innerEdge = HAND_ARC_RADIUS * Math.sin(angle) - handMetrics.cardWidth / 2 * Math.cos(angle);
+    if (innerEdge > handMetrics.width / 2 + 4) break;
+    edgeDistance = nextDistance;
+  }
+  const edgeAngle = edgeDistance * HAND_ANGLE_STEP * Math.PI / 180;
+  const handBottomClearance = Math.max(52, Math.ceil(
+    HAND_ARC_RADIUS * (1 - Math.cos(edgeAngle))
+    + handMetrics.cardWidth / 2 * Math.sin(edgeAngle)
+    + 16,
+  ));
   const selectedHandIndex = selectedHandCardId === null
     ? -1
     : displayedHand.findIndex((card) => card?.id === selectedHandCardId);
@@ -133,10 +146,14 @@ export function BattleHandArea({
 
   const handFanStyle = (index: number) => {
     const distanceFromCenter = index - handCenterIndex;
-    const arcDistance = Math.min(Math.abs(distanceFromCenter), HAND_VISIBLE_ARC_RADIUS);
+    const angle = distanceFromCenter * HAND_ANGLE_STEP * Math.PI / 180;
+    const xOffset = Math.abs(distanceFromCenter) <= edgeDistance
+      ? HAND_ARC_RADIUS * Math.sin(angle) - distanceFromCenter * HAND_CARD_STEP
+      : 0;
     return {
-      "--hand-angle": `${Math.max(-HAND_VISIBLE_ARC_RADIUS, Math.min(HAND_VISIBLE_ARC_RADIUS, distanceFromCenter)) * HAND_ANGLE_STEP}deg`,
-      "--hand-y": `${HAND_ARC_RADIUS * (1 - Math.cos(arcDistance * HAND_ANGLE_STEP * Math.PI / 180))}px`,
+      "--hand-x": `${xOffset}px`,
+      "--hand-angle": `${distanceFromCenter * HAND_ANGLE_STEP}deg`,
+      "--hand-y": `${HAND_ARC_RADIUS * (1 - Math.cos(angle))}px`,
     } as CSSProperties;
   };
 
@@ -145,6 +162,7 @@ export function BattleHandArea({
       <div
         ref={handRef}
         className={`hand ${phase === "discarding" ? "is-discarding" : ""} ${phase === "drawing" ? "is-drawing" : ""} ${game.pendingDiscards > 0 ? "is-discard-choice" : ""}`}
+        style={{ "--hand-bottom-clearance": `${handBottomClearance}px` } as CSSProperties}
         data-drop-target="hand"
         aria-label="손패"
         onDragOver={(event) => {

@@ -4095,8 +4095,10 @@ h1 { margin: 0; font-size: 25px; font-weight: 600; }
   justify-content: flex-start;
   align-items: end;
   gap: 0;
+  width: 100%;
+  max-width: 744px;
   min-width: 0;
-  padding: 12px 6px 52px;
+  padding: 12px 6px var(--hand-bottom-clearance, 52px);
   overflow-x: clip;
   overflow-y: visible;
 }
@@ -4116,7 +4118,7 @@ h1 { margin: 0; font-size: 25px; font-weight: 600; }
   -webkit-appearance: none;
   flex: 0 0 var(--card-w);
   margin-left: calc(var(--hand-card-step) - var(--card-w));
-  transform: translateY(var(--hand-y, 0px)) rotate(var(--hand-angle, 0deg));
+  transform: translateX(var(--hand-x, 0px)) translateY(var(--hand-y, 0px)) rotate(var(--hand-angle, 0deg));
   transform-origin: 50% 100%;
   cursor: grab;
   transition: transform .28s cubic-bezier(.2, .75, .25, 1);
@@ -4173,7 +4175,7 @@ h1 { margin: 0; font-size: 25px; font-weight: 600; }
 .hand-card-placeholder {
   flex: 0 0 var(--card-w);
   margin-left: calc(var(--hand-card-step) - var(--card-w));
-  transform: translateY(var(--hand-y, 0px)) rotate(var(--hand-angle, 0deg));
+  transform: translateX(var(--hand-x, 0px)) translateY(var(--hand-y, 0px)) rotate(var(--hand-angle, 0deg));
   transform-origin: 50% 100%;
   transition: transform .28s cubic-bezier(.2, .75, .25, 1);
   pointer-events: none;
@@ -4480,9 +4482,8 @@ h1 { margin: 0; font-size: 25px; font-weight: 600; }
     --card-h: 191px;
     display: grid;
     grid-template-columns: minmax(220px, .9fr) minmax(600px, 2.7fr) minmax(240px, 1fr);
-    grid-template-rows: minmax(310px, 1.3fr) minmax(72px, .3fr) minmax(220px, .9fr);
-    height: calc(100vh - 24px);
-    min-height: 600px;
+    grid-template-rows: minmax(310px, 1fr) 112px minmax(220px, auto);
+    min-height: max(600px, calc(100vh - 24px));
   }
 
   .enemy-zone {
@@ -4615,8 +4616,9 @@ h1 { margin: 0; font-size: 25px; font-weight: 600; }
     grid-column: 2;
     grid-row: 3;
     align-self: end;
+    justify-self: center;
     min-height: 205px;
-    padding: 22px 12px 52px;
+    padding: 22px 12px var(--hand-bottom-clearance, 52px);
   }
   .player-zone .hand .game-card:hover:not(:disabled),
   .player-zone .hand .game-card:focus-visible,
