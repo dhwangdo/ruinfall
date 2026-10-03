@@ -215,3 +215,5 @@ export function useMapCamera({ enabled, position, travelLocked }: MapCameraOptio
     stopFocus,
   };
 }
+
+export type MapCamera = ReturnType<typeof useMapCamera>;

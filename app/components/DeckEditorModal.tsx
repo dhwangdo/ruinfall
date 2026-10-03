@@ -1,6 +1,5 @@
+import { useEffect, useRef, useState } from "react";
 import type {
-  CSSProperties,
-  ComponentType,
   Dispatch,
   DragEvent,
   MouseEvent,
@@ -8,10 +7,12 @@ import type {
   WheelEvent,
 } from "react";
 import { DeckEditorCardIcon } from "./DeckEditorCardIcon";
+import { CardFace } from "./CardFace";
 import { DeckName } from "./DeckName";
+import { deckEditorCardStackStyle } from "./deckEditorCardStackStyle";
 import type { Card } from "../game/cards";
-import type { DeckEditorCardArea } from "../game/deckEditorRules";
-import type { CardFaceProps } from "./CardFace";
+import type { DeckEditorCardArea, DeckEditorCardLocation } from "../game/deckEditorRules";
+import { groupAndSortDeckEditorCards, type DeckEditorCardGroup } from "../game/deckEditorViews";
 import type { Consumable, DeckCase, DeckEdition } from "../game/rewards";
 
 type DeckEditorArea = DeckEditorCardArea;
@@ -19,190 +20,319 @@ type ConsumableArea = "inventory" | "floor";
 type ConsumableDrag = { id: string; source: ConsumableArea } | null;
 type CardDrag = { cardId: number; source: DeckEditorArea; deckId?: string } | null;
 type DeckDrag = { deckId: string; source: "floor" | "owned" } | null;
-type CardGroup = { card: Card; cardIds: number[] };
+type DeckEditorDragKind = "card" | "consumable";
+type CardGroup = DeckEditorCardGroup & { pendingRemoval?: boolean };
 type ConsumableGroup = { consumable: Consumable; consumableIds: string[] };
-type EditionTooltip = { edition: DeckEdition; x: number; y: number; width: number };
 
-export type DeckEditorModalProps = {
-  deckEditorOpen: boolean;
+type DeckEditorHeader = {
   deckEditorErrorMessage: string | null;
   deckEditorSort: "cost" | "rarity";
   setDeckEditorSort: Dispatch<SetStateAction<"cost" | "rarity">>;
-  deckEditorDropTarget: DeckEditorArea | null;
-  setDeckEditorDropTarget: Dispatch<SetStateAction<DeckEditorArea | null>>;
+  mapFeedback: { message: string; nonce: number };
+};
+
+type DeckEditorInventoryArea = {
   deckEditorInventoryItemCount: number;
   inventoryCapacity: number;
+  inventoryConsumableGroups: ConsumableGroup[];
+  inventoryCardGroups: CardGroup[];
+  moveInventoryConsumableToFloor: (id: string) => void;
+};
+
+type DeckEditorDeckArea = {
   maxOwnedDecks: number;
   ownedDecks: DeckCase[];
-  activeDeck?: DeckCase;
-  editingDeck?: DeckCase;
+  activeDeckId?: string;
   deckEditorDeckId: string;
   setDeckEditorDeckId: Dispatch<SetStateAction<string>>;
-  inventoryConsumableGroups: ConsumableGroup[];
-  removedInventoryCardGroups: CardGroup[];
-  inventoryCardGroups: CardGroup[];
-  currentFloorDecks: DeckCase[];
-  floorConsumableGroups: ConsumableGroup[];
-  removedFloorCardGroups: CardGroup[];
-  floorCardGroups: CardGroup[];
-  deckEditorDrag: CardDrag;
-  deckEditorDragRef: { current: CardDrag };
-  consumableDrag: ConsumableDrag;
-  consumableDragRef: { current: ConsumableDrag };
-  deckCaseDrag: DeckDrag;
-  deckCaseDragRef: { current: DeckDrag };
-  deckCaseDropSlot: number | null;
-  setDeckCaseDropSlot: Dispatch<SetStateAction<number | null>>;
-  ticketDropTarget: string | null;
-  pendingRemovalBlinkDim: boolean;
-  transformedCardNewIds: Set<number>;
-  pendingCloneTicketId: string | null;
-  pendingPaintTicketId: string | null;
-  pendingExtractTicketId: string | null;
-  pendingTransformTicketId: string | null;
-  hoveredDeckCard: Card | null;
-  hoveredConsumable: Consumable | null;
-  deckPreviewPosition: { x: number; y: number };
-  mapMessage: string;
-  mapMessageNonce: number;
-  CardFace: ComponentType<CardFaceProps>;
-  deckEditorCardStackStyle: (count: number) => CSSProperties | undefined;
-  isConsumableSelected: (consumable: Consumable) => boolean;
-  consumableDescription: (consumable: Consumable) => string;
-  beginConsumableDrag: (event: DragEvent<HTMLElement>, id: string, source: ConsumableArea) => void;
-  finishConsumableDrag: () => void;
-  showConsumablePreview: (consumable: Consumable, right: number, top: number) => void;
-  setHoveredConsumable: Dispatch<SetStateAction<Consumable | null>>;
-  selectExtractionTicket: (consumable: Consumable) => void;
-  moveInventoryConsumableToFloor: (id: string) => void;
-  beginDeckEditorDrag: (event: DragEvent<HTMLElement>, id: number, source: DeckEditorArea, deckId?: string) => void;
-  finishDeckEditorDrag: () => void;
-  moveDeckCardPreview: (event: MouseEvent<HTMLElement>, card: Card) => void;
-  setHoveredDeckCard: Dispatch<SetStateAction<Card | null>>;
-  clearCardKeywordHover: () => void;
-  ticketDropKey: (area: "inventory" | "deck" | "floor", id: number, deckId?: string) => string;
-  handleTicketDragOverCard: (event: DragEvent<HTMLElement>, card: Card, area: "inventory" | "deck" | "floor", deck: DeckCase | undefined, id: number) => void;
-  handleTicketDropOnCard: (event: DragEvent<HTMLElement>, card: Card, area: "inventory" | "deck" | "floor", deck: DeckCase | undefined, id: number) => void;
-  handleTicketDragLeave: (event: DragEvent<HTMLElement>, key: string) => void;
-  cloneCardWithTicket: (card: Card) => void;
-  transformCardWithTicket: (card: Card, area: "inventory" | "floor" | "deck", deckId?: string) => void;
-  moveInventoryCardToDeck: (id: number) => void;
-  moveInventoryCardToFloor: (id: number) => void;
-  beginDeckCaseDrag: (event: DragEvent<HTMLElement>, deckId: string, source: "floor" | "owned") => void;
-  finishDeckCaseDrag: () => void;
   pickUpFloorDeck: (deckId: string) => void;
   swapOwnedDecks: (sourceId: string, targetId: string) => void;
   dropOwnedDeck: (deckId: string) => void;
-  showDeckEditionTooltip: (event: MouseEvent<HTMLElement>, edition: DeckEdition) => void;
-  setHoveredDeckEditionTooltip: Dispatch<SetStateAction<EditionTooltip | null>>;
-  groupAndSortCards: (cards: Card[]) => CardGroup[];
-  effectiveOriginDeckIdForCard: (id: number) => string | null;
-  paintDeckCard: (cardId: number, ticketId: string, deckId: string) => void;
-  extractDeckCardWithTicket: (cardId: number, deckId: string) => void;
   canMoveDeckCardToInventory: boolean;
-  moveDeckCardToFloor: (cardId: number, deckId: string) => void;
-  moveDeckCardToInventory: (cardId: number, deckId: string) => void;
-  dropConsumable: (event: DragEvent<HTMLElement>, target: ConsumableArea) => void;
-  dropDeckEditorCard: (event: DragEvent<HTMLElement>, target: DeckEditorArea, deckId?: string) => void;
-  scrollDeckEditorCardsHorizontally: (event: WheelEvent<HTMLDivElement>) => void;
+};
+
+type DeckEditorFloorArea = {
+  currentFloorDecks: DeckCase[];
+  floorConsumableGroups: ConsumableGroup[];
+  floorCardGroups: CardGroup[];
   moveFloorConsumableToInventory: (id: string) => void;
-  restorePendingRemovedCardToDeck: (cardId: number) => void;
-  moveFloorCardToInventory: (id: number) => void;
-  confirmDeckEditor: () => void;
+};
+
+type DeckEditorTicketActions = {
+  isConsumableSelected: (consumable: Consumable) => boolean;
+  consumableDescription: (consumable: Consumable) => string;
+  selectExtractionTicket: (consumable: Consumable) => void;
+  applySelectedCardTicket: (
+    card: Card,
+    area: "inventory" | "floor" | "deck",
+    deckId?: string,
+    targetCardId?: number,
+  ) => boolean;
+  canApplyTicketToCard: (ticketId: string, card: Card, area: "inventory" | "deck" | "floor", deck?: DeckCase) => boolean;
+  applyTicketToCard: (ticketId: string, card: Card, area: "inventory" | "deck" | "floor", deck?: DeckCase, targetCardId?: number) => void;
+};
+
+type DeckEditorCardPreview = {
+  hoveredDeckCard: Card | null;
+  deckPreviewPosition: { x: number; y: number };
+  consumablePreview: {
+    hovered: Consumable | null;
+    show: (consumable: Consumable, right: number, top: number) => void;
+    clear: () => void;
+  };
+  moveDeckCardPreview: (event: MouseEvent<HTMLElement>, card: Card) => void;
+  clearCardPreview: () => void;
+  editionTooltip: {
+    show: (event: MouseEvent<HTMLElement>, edition: DeckEdition) => void;
+    clear: () => void;
+  };
   showDeckCardPreview: (card: Card, right: number, top: number) => void;
+};
+
+type DeckEditorBehavior = {
+  pendingRemovalBlinkDim: boolean;
+  transformedCardNewIds: Set<number>;
+  effectiveOriginDeckIdForCard: (id: number) => string | null;
+  scrollDeckEditorCardsHorizontally: (event: WheelEvent<HTMLDivElement>) => void;
+  onMoveCard: (move: { cardId: number; source: DeckEditorCardLocation; target: DeckEditorCardLocation }) => void;
+  onEditorDragActivityChange: (kind: DeckEditorDragKind, active: boolean) => void;
+  confirmDeckEditor: () => void;
+};
+
+export type DeckEditorModalProps = {
+  header: DeckEditorHeader;
+  inventoryArea: DeckEditorInventoryArea;
+  deckArea: DeckEditorDeckArea;
+  floorArea: DeckEditorFloorArea;
+  ticketActions: DeckEditorTicketActions;
+  cardPreview: DeckEditorCardPreview;
+  behavior: DeckEditorBehavior;
 };
 
 export function DeckEditorModal(props: DeckEditorModalProps) {
   const {
-    deckEditorOpen,
-    deckEditorErrorMessage,
-    deckEditorSort,
-    setDeckEditorSort,
-    deckEditorDropTarget,
-    setDeckEditorDropTarget,
-    deckEditorInventoryItemCount,
-    inventoryCapacity,
-    maxOwnedDecks,
-    ownedDecks,
-    activeDeck,
-    editingDeck,
-    deckEditorDeckId,
-    setDeckEditorDeckId,
-    inventoryConsumableGroups,
-    removedInventoryCardGroups,
-    inventoryCardGroups,
-    currentFloorDecks,
-    floorConsumableGroups,
-    removedFloorCardGroups,
-    floorCardGroups,
-    deckEditorDrag,
-    deckEditorDragRef,
-    consumableDrag,
-    consumableDragRef,
-    deckCaseDrag,
-    deckCaseDragRef,
-    deckCaseDropSlot,
-    setDeckCaseDropSlot,
-    ticketDropTarget,
-    pendingRemovalBlinkDim,
-    transformedCardNewIds,
-    pendingCloneTicketId,
-    pendingPaintTicketId,
-    pendingExtractTicketId,
-    pendingTransformTicketId,
-    hoveredDeckCard,
-    hoveredConsumable,
-    deckPreviewPosition,
-    mapMessage,
-    mapMessageNonce,
-    CardFace,
-    deckEditorCardStackStyle,
-    isConsumableSelected,
-    consumableDescription,
-    beginConsumableDrag,
-    finishConsumableDrag,
-    showConsumablePreview,
-    setHoveredConsumable,
-    selectExtractionTicket,
-    moveInventoryConsumableToFloor,
-    beginDeckEditorDrag,
-    finishDeckEditorDrag,
-    moveDeckCardPreview,
-    setHoveredDeckCard,
-    clearCardKeywordHover,
-    ticketDropKey,
-    handleTicketDragOverCard,
-    handleTicketDropOnCard,
-    handleTicketDragLeave,
-    cloneCardWithTicket,
-    transformCardWithTicket,
-    moveInventoryCardToDeck,
-    moveInventoryCardToFloor,
-    beginDeckCaseDrag,
-    finishDeckCaseDrag,
-    pickUpFloorDeck,
-    swapOwnedDecks,
-    dropOwnedDeck,
-    showDeckEditionTooltip,
-    setHoveredDeckEditionTooltip,
-    groupAndSortCards,
-    effectiveOriginDeckIdForCard,
-    paintDeckCard,
-    extractDeckCardWithTicket,
-    canMoveDeckCardToInventory,
-    moveDeckCardToFloor,
-    moveDeckCardToInventory,
-    dropConsumable,
-    dropDeckEditorCard,
-    scrollDeckEditorCardsHorizontally,
-    moveFloorConsumableToInventory,
-    restorePendingRemovedCardToDeck,
-    moveFloorCardToInventory,
-    confirmDeckEditor,
-    showDeckCardPreview,
+    header: { deckEditorErrorMessage, deckEditorSort, setDeckEditorSort, mapFeedback },
+    inventoryArea: {
+      deckEditorInventoryItemCount,
+      inventoryCapacity,
+      inventoryConsumableGroups,
+      inventoryCardGroups,
+      moveInventoryConsumableToFloor,
+    },
+    deckArea: {
+      maxOwnedDecks,
+      ownedDecks,
+      activeDeckId,
+      deckEditorDeckId,
+      setDeckEditorDeckId,
+      pickUpFloorDeck,
+      swapOwnedDecks,
+      dropOwnedDeck,
+      canMoveDeckCardToInventory,
+    },
+    floorArea: {
+      currentFloorDecks,
+      floorConsumableGroups,
+      floorCardGroups,
+      moveFloorConsumableToInventory,
+    },
+    ticketActions: {
+      isConsumableSelected,
+      consumableDescription,
+      selectExtractionTicket,
+      applySelectedCardTicket,
+      canApplyTicketToCard,
+      applyTicketToCard,
+    },
+    cardPreview: {
+      hoveredDeckCard,
+      deckPreviewPosition,
+      consumablePreview,
+      moveDeckCardPreview,
+      clearCardPreview,
+      editionTooltip,
+      showDeckCardPreview,
+    },
+    behavior: {
+      pendingRemovalBlinkDim,
+      transformedCardNewIds,
+      effectiveOriginDeckIdForCard,
+      scrollDeckEditorCardsHorizontally,
+      onMoveCard,
+      onEditorDragActivityChange,
+      confirmDeckEditor,
+    },
   } = props;
 
-  if (!deckEditorOpen) return null;
+  const mapMessage = mapFeedback.message;
+  const mapMessageNonce = mapFeedback.nonce;
+  const activeDeck = ownedDecks.find((deck) => deck.id === activeDeckId);
+  const editingDeck = ownedDecks.find((deck) => deck.id === deckEditorDeckId) ?? activeDeck;
+  const removedInventoryCardGroups = inventoryCardGroups.filter((group) => group.pendingRemoval);
+  const availableInventoryCardGroups = inventoryCardGroups.filter((group) => !group.pendingRemoval);
+  const removedFloorCardGroups = floorCardGroups.filter((group) => group.pendingRemoval);
+  const availableFloorCardGroups = floorCardGroups.filter((group) => !group.pendingRemoval);
+
+  const [deckEditorDrag, setDeckEditorDrag] = useState<CardDrag>(null);
+  const deckEditorDragRef = useRef<CardDrag>(null);
+  const [deckEditorDropTarget, setDeckEditorDropTarget] = useState<DeckEditorArea | null>(null);
+  const [consumableDrag, setConsumableDrag] = useState<ConsumableDrag>(null);
+  const consumableDragRef = useRef<ConsumableDrag>(null);
+  const [deckCaseDrag, setDeckCaseDrag] = useState<DeckDrag>(null);
+  const deckCaseDragRef = useRef<DeckDrag>(null);
+  const [deckCaseDropSlot, setDeckCaseDropSlot] = useState<number | null>(null);
+  const [ticketDropTarget, setTicketDropTarget] = useState<string | null>(null);
+  const previewReleaseTimerRef = useRef<number | null>(null);
+  const activityCallbackRef = useRef(onEditorDragActivityChange);
+
+  useEffect(() => {
+    activityCallbackRef.current = onEditorDragActivityChange;
+  }, [onEditorDragActivityChange]);
+
+  const groupAndSortCards = (cards: Card[]) =>
+    groupAndSortDeckEditorCards(cards, deckEditorSort, transformedCardNewIds);
+
+  useEffect(() => () => {
+    if (previewReleaseTimerRef.current !== null) window.clearTimeout(previewReleaseTimerRef.current);
+    activityCallbackRef.current("card", false);
+    activityCallbackRef.current("consumable", false);
+  }, []);
+
+  const beginDeckEditorDrag = (
+    event: DragEvent<HTMLElement>,
+    cardId: number,
+    source: DeckEditorArea,
+    deckId?: string,
+  ) => {
+    if (previewReleaseTimerRef.current !== null) window.clearTimeout(previewReleaseTimerRef.current);
+    previewReleaseTimerRef.current = null;
+    onEditorDragActivityChange("card", true);
+    event.dataTransfer.effectAllowed = "move";
+    event.dataTransfer.setData("text/plain", `${source}:${cardId}:${deckId ?? ""}`);
+    const drag = { cardId, source, deckId };
+    deckEditorDragRef.current = drag;
+    setDeckEditorDrag(drag);
+    setDeckEditorDropTarget(null);
+    clearCardPreview();
+    consumablePreview.clear();
+  };
+
+  const finishDeckEditorDrag = () => {
+    deckEditorDragRef.current = null;
+    setDeckEditorDrag(null);
+    setDeckEditorDropTarget(null);
+    clearCardPreview();
+    if (previewReleaseTimerRef.current !== null) window.clearTimeout(previewReleaseTimerRef.current);
+    previewReleaseTimerRef.current = window.setTimeout(() => {
+      onEditorDragActivityChange("card", false);
+      previewReleaseTimerRef.current = null;
+    }, 140);
+  };
+
+  const beginConsumableDrag = (event: DragEvent<HTMLElement>, id: string, source: ConsumableArea) => {
+    onEditorDragActivityChange("consumable", true);
+    setTicketDropTarget(null);
+    const drag = { id, source };
+    event.dataTransfer.effectAllowed = "move";
+    event.dataTransfer.setData("text/plain", `consumable:${source}:${id}`);
+    consumableDragRef.current = drag;
+    setConsumableDrag(drag);
+  };
+
+  const finishConsumableDrag = () => {
+    consumableDragRef.current = null;
+    setConsumableDrag(null);
+    setTicketDropTarget(null);
+    onEditorDragActivityChange("consumable", false);
+  };
+
+  const beginDeckCaseDrag = (event: DragEvent<HTMLElement>, deckId: string, source: "floor" | "owned") => {
+    const drag = { deckId, source };
+    event.dataTransfer.effectAllowed = "move";
+    event.dataTransfer.setData("text/plain", `deck-case:${source}:${deckId}`);
+    deckCaseDragRef.current = drag;
+    setDeckCaseDrag(drag);
+    setDeckCaseDropSlot(null);
+  };
+
+  const finishDeckCaseDrag = () => {
+    deckCaseDragRef.current = null;
+    setDeckCaseDrag(null);
+    setDeckCaseDropSlot(null);
+  };
+
+  const ticketDropKey = (area: "inventory" | "deck" | "floor", cardId: number, deckId?: string) =>
+    `${area}:${deckId ?? ""}:${cardId}`;
+
+  const handleTicketDragOverCard = (
+    event: DragEvent<HTMLElement>,
+    card: Card,
+    area: "inventory" | "deck" | "floor",
+    deck?: DeckCase,
+    targetCardId = card.id,
+  ) => {
+    const drag = consumableDragRef.current ?? consumableDrag;
+    if (!drag || !canApplyTicketToCard(drag.id, card, area, deck)) return;
+    event.preventDefault();
+    event.stopPropagation();
+    event.dataTransfer.dropEffect = "move";
+    setTicketDropTarget(ticketDropKey(area, targetCardId, deck?.id));
+  };
+
+  const handleTicketDragLeave = (event: DragEvent<HTMLElement>, targetKey: string) => {
+    const relatedTarget = event.relatedTarget;
+    if (relatedTarget instanceof Node && event.currentTarget.contains(relatedTarget)) return;
+    setTicketDropTarget((current) => current === targetKey ? null : current);
+  };
+
+  const handleTicketDropOnCard = (
+    event: DragEvent<HTMLElement>,
+    card: Card,
+    area: "inventory" | "deck" | "floor",
+    deck?: DeckCase,
+    targetCardId = card.id,
+  ) => {
+    const drag = consumableDragRef.current ?? consumableDrag;
+    if (!drag || !canApplyTicketToCard(drag.id, card, area, deck)) return;
+    event.preventDefault();
+    event.stopPropagation();
+    applyTicketToCard(drag.id, card, area, deck, targetCardId);
+    finishConsumableDrag();
+  };
+
+  const dropDeckEditorCard = (event: DragEvent<HTMLElement>, target: DeckEditorArea, targetDeckId?: string) => {
+    event.preventDefault();
+    // Nested deck rows also receive drop; stop bubbling to avoid moving the same card twice.
+    event.stopPropagation();
+    const [payloadSource, payloadId, payloadDeckId] = event.dataTransfer.getData("text/plain").split(":");
+    const drag = deckEditorDragRef.current ?? deckEditorDrag;
+    const source = drag?.source ?? (payloadSource as DeckEditorArea);
+    const cardId = drag?.cardId ?? Number(payloadId);
+    const sourceDeckId = drag?.deckId ?? (payloadDeckId || undefined);
+    if (Number.isInteger(cardId)) {
+      const sourceLocation: DeckEditorCardLocation = { area: source, ...(sourceDeckId ? { deckId: sourceDeckId } : {}) };
+      const targetLocation: DeckEditorCardLocation = { area: target, ...(targetDeckId ? { deckId: targetDeckId } : {}) };
+      const isValidSource = ["deck", "inventory", "floor", "pendingRemoval"].includes(source);
+      if (isValidSource && !(source === "deck" && target === "deck" && sourceDeckId === targetDeckId)) {
+        onMoveCard({ cardId, source: sourceLocation, target: targetLocation });
+      }
+    }
+    deckEditorDragRef.current = null;
+    setDeckEditorDrag(null);
+    setDeckEditorDropTarget(null);
+    onEditorDragActivityChange("card", false);
+  };
+
+  const dropConsumable = (event: DragEvent<HTMLElement>, target: ConsumableArea) => {
+    const drag = consumableDragRef.current ?? consumableDrag;
+    if (!drag || drag.source === target) return;
+    event.preventDefault();
+    event.stopPropagation();
+    if (drag.source === "floor" && target === "inventory") moveFloorConsumableToInventory(drag.id);
+    if (drag.source === "inventory" && target === "floor") moveInventoryConsumableToFloor(drag.id);
+    finishConsumableDrag();
+  };
+
   return (
     <div className="deck-editor-overlay" role="dialog" aria-modal="true" aria-labelledby="deck-editor-title">
 
@@ -266,18 +396,18 @@ export function DeckEditorModal(props: DeckEditorModalProps) {
                         onDragEnd={finishConsumableDrag}
                         onMouseEnter={(event) => {
                           const bounds = event.currentTarget.getBoundingClientRect();
-                          showConsumablePreview(consumable, bounds.right, bounds.top);
+                          consumablePreview.show(consumable, bounds.right, bounds.top);
                         }}
                         onMouseMove={(event) => {
                           const bounds = event.currentTarget.getBoundingClientRect();
-                          showConsumablePreview(consumable, bounds.right, bounds.top);
+                          consumablePreview.show(consumable, bounds.right, bounds.top);
                         }}
-                        onMouseLeave={() => setHoveredConsumable(null)}
+                        onMouseLeave={consumablePreview.clear}
                         onFocus={(event) => {
                           const bounds = event.currentTarget.getBoundingClientRect();
-                          showConsumablePreview(consumable, bounds.right, bounds.top);
+                          consumablePreview.show(consumable, bounds.right, bounds.top);
                         }}
-                         onBlur={() => setHoveredConsumable(null)}
+                         onBlur={consumablePreview.clear}
                          onClick={() => selectExtractionTicket(consumable)}
                          aria-pressed={isConsumableSelected(consumable)}
                          onContextMenu={(event) => {
@@ -302,7 +432,7 @@ className={`deck-editor-card is-pending-removal ${pendingRemovalBlinkDim ? "is-b
                         onDragEnd={finishDeckEditorDrag}
                         onMouseEnter={(event) => moveDeckCardPreview(event, card)}
                         onMouseMove={(event) => moveDeckCardPreview(event, card)}
-                        onMouseLeave={() => { setHoveredDeckCard(null); clearCardKeywordHover(); }}
+                        onMouseLeave={clearCardPreview}
                         aria-label={`${card.name} ${cardIds.length}장, 제거 예정`}
                       >
                         <DeckEditorCardIcon card={card} count={cardIds.length} showNewBadge={cardIds.some((id) => transformedCardNewIds.has(id))} />
@@ -311,7 +441,7 @@ className={`deck-editor-card is-pending-removal ${pendingRemovalBlinkDim ? "is-b
                         </span>
                       </div>
                     ))}
-                    {inventoryCardGroups.map(({ card, cardIds }) => (
+                    {availableInventoryCardGroups.map(({ card, cardIds }) => (
                       <button
                         type="button"
 className={`deck-editor-card rarity-${card.rarity} ${card.rarity === "legendary" ? "is-painted" : ""} ${deckEditorDrag?.cardId === cardIds.at(-1) ? "is-dragging" : ""} ${ticketDropTarget === ticketDropKey("inventory", cardIds.at(-1)!) ? "is-ticket-drop-target" : ""}`}
@@ -325,20 +455,26 @@ className={`deck-editor-card rarity-${card.rarity} ${card.rarity === "legendary"
                         onDragLeave={(event) => handleTicketDragLeave(event, ticketDropKey("inventory", cardIds.at(-1)!))}
                         onMouseEnter={(event) => moveDeckCardPreview(event, card)}
                         onMouseMove={(event) => moveDeckCardPreview(event, card)}
-                        onMouseLeave={() => { setHoveredDeckCard(null); clearCardKeywordHover(); }}
+                        onMouseLeave={clearCardPreview}
                         onFocus={(event) => {
                           const bounds = event.currentTarget.getBoundingClientRect();
                           showDeckCardPreview(card, bounds.right, bounds.top);
                         }}
-                        onBlur={() => { setHoveredDeckCard(null); clearCardKeywordHover(); }}
+                        onBlur={clearCardPreview}
                         onClick={() => {
-                          if (pendingCloneTicketId) cloneCardWithTicket(card);
-                          else if (pendingTransformTicketId) transformCardWithTicket(card, "inventory");
-                          else moveInventoryCardToDeck(cardIds.at(-1)!);
+                          if (!applySelectedCardTicket(card, "inventory")) onMoveCard({
+                            cardId: cardIds.at(-1)!,
+                            source: { area: "inventory" },
+                            target: { area: "deck", deckId: editingDeck?.id },
+                          });
                         }}
                         onContextMenu={(event) => {
                           event.preventDefault();
-                          moveInventoryCardToFloor(cardIds.at(-1)!);
+                          onMoveCard({
+                            cardId: cardIds.at(-1)!,
+                            source: { area: "inventory" },
+                            target: { area: "floor" },
+                          });
                         }}
                         aria-label={`${card.name}, 좌클릭하면 선택한 덱으로 이동, 우클릭하면 바닥으로 이동`}
                       >
@@ -437,8 +573,8 @@ className={`deck-editor-card rarity-${card.rarity} ${card.rarity === "legendary"
                           <strong>
                             <DeckName
                               deck={deck}
-                              onEditionTooltipHover={showDeckEditionTooltip}
-                              onEditionTooltipLeave={() => setHoveredDeckEditionTooltip(null)}
+                              onEditionTooltipHover={editionTooltip.show}
+                              onEditionTooltipLeave={editionTooltip.clear}
                             />
                           </strong>
                           <small>{deck.cards.length} / {deck.capacity}</small>
@@ -475,25 +611,22 @@ className={`deck-editor-card deck-list-entry rarity-${card.rarity} ${card.rarity
                                 onDragLeave={(event) => handleTicketDragLeave(event, ticketDropKey("deck", cardId, deck.id))}
                                 onMouseEnter={(event) => moveDeckCardPreview(event, card)}
                                 onMouseMove={(event) => moveDeckCardPreview(event, card)}
-                                onMouseLeave={() => { setHoveredDeckCard(null); clearCardKeywordHover(); }}
+                                onMouseLeave={clearCardPreview}
                                 onClick={() => {
                                   setDeckEditorDeckId(deck.id);
-                                  if (pendingCloneTicketId) cloneCardWithTicket(card);
-                                  else if (pendingPaintTicketId) paintDeckCard(cardId, pendingPaintTicketId, deck.id);
-                                  else if (pendingExtractTicketId) extractDeckCardWithTicket(cardId, deck.id);
-                                  else if (pendingTransformTicketId) transformCardWithTicket(card, "deck", deck.id);
+                                  applySelectedCardTicket(card, "deck", deck.id, cardId);
                                 }}
                                 onContextMenu={(event) => {
                                   event.preventDefault();
                                   const canMoveToInventory = canMoveDeckCardToInventory;
                                   if (canMoveToInventory) {
                                     if (deckEditorInventoryItemCount >= inventoryCapacity) {
-                                      moveDeckCardToFloor(cardId, deck.id);
+                                      onMoveCard({ cardId, source: { area: "deck", deckId: deck.id }, target: { area: "floor" } });
                                     } else {
-                                      moveDeckCardToInventory(cardId, deck.id);
+                                      onMoveCard({ cardId, source: { area: "deck", deckId: deck.id }, target: { area: "inventory" } });
                                     }
                                   } else {
-                                    moveDeckCardToFloor(cardId, deck.id);
+                                    onMoveCard({ cardId, source: { area: "deck", deckId: deck.id }, target: { area: "floor" } });
                                   }
                                 }}
                               >
@@ -591,18 +724,18 @@ className={`deck-editor-card deck-list-entry rarity-${card.rarity} ${card.rarity
                         onDragEnd={finishConsumableDrag}
                         onMouseEnter={(event) => {
                           const bounds = event.currentTarget.getBoundingClientRect();
-                          showConsumablePreview(consumable, bounds.right, bounds.top);
+                          consumablePreview.show(consumable, bounds.right, bounds.top);
                         }}
                         onMouseMove={(event) => {
                           const bounds = event.currentTarget.getBoundingClientRect();
-                          showConsumablePreview(consumable, bounds.right, bounds.top);
+                          consumablePreview.show(consumable, bounds.right, bounds.top);
                         }}
-                        onMouseLeave={() => setHoveredConsumable(null)}
+                        onMouseLeave={consumablePreview.clear}
                         onFocus={(event) => {
                           const bounds = event.currentTarget.getBoundingClientRect();
-                          showConsumablePreview(consumable, bounds.right, bounds.top);
+                          consumablePreview.show(consumable, bounds.right, bounds.top);
                         }}
-                        onBlur={() => setHoveredConsumable(null)}
+                        onBlur={consumablePreview.clear}
                         onClick={() => ["paintTicket", "cloneTicket", "extractTicket", "transformTicket", "bombTicket", "darkTicket"].includes(consumable.type)
                           ? selectExtractionTicket(consumable)
                           : moveFloorConsumableToInventory(consumableId)}
@@ -625,10 +758,17 @@ className={`deck-editor-card deck-list-entry rarity-${card.rarity} ${card.rarity
                         onDragEnd={finishDeckEditorDrag}
                         onMouseEnter={(event) => moveDeckCardPreview(event, card)}
                         onMouseMove={(event) => moveDeckCardPreview(event, card)}
-                        onMouseLeave={() => { setHoveredDeckCard(null); clearCardKeywordHover(); }}
+                        onMouseLeave={clearCardPreview}
                         onContextMenu={(event) => {
                           event.preventDefault();
-                          restorePendingRemovedCardToDeck(cardIds.at(-1)!);
+                          onMoveCard({
+                            cardId: cardIds.at(-1)!,
+                            source: { area: "pendingRemoval" },
+                            target: {
+                              area: "deck",
+                              deckId: effectiveOriginDeckIdForCard(cardIds.at(-1)!) ?? editingDeck?.id,
+                            },
+                          });
                         }}
                         aria-label={`${card.name} ${cardIds.length}장, 제거 예정, 우클릭하면 원래 덱으로 복귀`}
                       >
@@ -638,7 +778,7 @@ className={`deck-editor-card deck-list-entry rarity-${card.rarity} ${card.rarity
                         </span>
                       </div>
                     ))}
-                    {floorCardGroups.map(({ card, cardIds }) => (
+                    {availableFloorCardGroups.map(({ card, cardIds }) => (
                       <button
                         type="button"
                         className={`deck-editor-card rarity-${card.rarity} ${card.rarity === "legendary" ? "is-painted" : ""} ${deckEditorDrag?.cardId === cardIds.at(-1) ? "is-dragging" : ""} ${ticketDropTarget === ticketDropKey("floor", cardIds.at(-1)!) ? "is-ticket-drop-target" : ""}`}
@@ -652,16 +792,18 @@ className={`deck-editor-card deck-list-entry rarity-${card.rarity} ${card.rarity
                         onDragLeave={(event) => handleTicketDragLeave(event, ticketDropKey("floor", cardIds.at(-1)!))}
                         onMouseEnter={(event) => moveDeckCardPreview(event, card)}
                         onMouseMove={(event) => moveDeckCardPreview(event, card)}
-                        onMouseLeave={() => { setHoveredDeckCard(null); clearCardKeywordHover(); }}
+                        onMouseLeave={clearCardPreview}
                         onFocus={(event) => {
                           const bounds = event.currentTarget.getBoundingClientRect();
                           showDeckCardPreview(card, bounds.right, bounds.top);
                         }}
-                        onBlur={() => { setHoveredDeckCard(null); clearCardKeywordHover(); }}
+                        onBlur={clearCardPreview}
                         onClick={() => {
-                          if (pendingCloneTicketId) cloneCardWithTicket(card);
-                          else if (pendingTransformTicketId) transformCardWithTicket(card, "floor");
-                          else moveFloorCardToInventory(cardIds.at(-1)!);
+                          if (!applySelectedCardTicket(card, "floor")) onMoveCard({
+                            cardId: cardIds.at(-1)!,
+                            source: { area: "floor" },
+                            target: { area: "inventory" },
+                          });
                         }}
                         aria-label={`${card.name}, 인벤토리에 줍기`}
                       >
@@ -694,14 +836,14 @@ className={`deck-editor-card deck-list-entry rarity-${card.rarity} ${card.rarity
                   </div>
                 </aside>
               )}
-              {hoveredConsumable && !consumableDrag && (
+            {consumablePreview.hovered && !consumableDrag && (
                 <aside
-                  className={`deck-consumable-preview-floating ${hoveredConsumable.type}`}
+                  className={`deck-consumable-preview-floating ${consumablePreview.hovered.type}`}
                   style={{ left: deckPreviewPosition.x, top: deckPreviewPosition.y }}
                   aria-live="polite"
                 >
-                  <strong>{hoveredConsumable.name}</strong>
-                  <p>{hoveredConsumable.description}</p>
+                  <strong>{consumablePreview.hovered.name}</strong>
+                  <p>{consumablePreview.hovered.description}</p>
                 </aside>
               )}
             </div>

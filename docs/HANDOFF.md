@@ -105,19 +105,29 @@
 | 텔레메트리 저장 | 진행 저장과 별도로 브라우저 `localStorage` 사용 |
 | 서버/API | 게임 기능에는 사용하지 않음 |
 | 데이터베이스 | 예제 골격만 있고 게임에는 사용하지 않음 |
-| 핵심 화면과 React 상태 연결 | `app/page.tsx` |
+| 앱 상태 연결과 화면 조립 | `app/page.tsx` |
+| 지도판 계산과 표시 | `app/components/MapBoard.tsx` |
+| 추출·변환·조합 성소 선택 UI | `app/components/ExtractionShrineModal.tsx`, `app/components/CardConversionShrineModal.tsx` |
+| 전투 손패·파일 영역 표시와 입력 | `app/components/BattleHandArea.tsx`, `app/components/BattlePileZone.tsx` |
+| 전투 선택·드래그 상태와 포인터 입력 | `app/hooks/useBattleInteractionState.ts`, `app/hooks/useBattlePointerInput.ts` |
+| 탐험 진행 스냅샷 저장 주기와 타이머 | `app/hooks/useRunSaveLifecycle.ts` |
 | 카드 앞면과 효과 문구 표시 | `app/components/CardFace.tsx` |
 | 덱 이름·에디션 표시 컴포넌트 | `app/components/DeckName.tsx` |
 | 지도 상단 체력·골드·덱 조작 UI | `app/components/MapTopbar.tsx` |
 | 지도 카메라·뷰포트 상태와 동작 | `app/hooks/useMapCamera.ts` |
 | 지도 키보드 이동과 입력 타이머 | `app/hooks/useMapKeyboardMovement.ts` |
+| 지도 단축키와 방 행동 입력 | `app/hooks/useMapKeyboardShortcuts.ts` |
 | 저장·새 탐험 키 입력과 초기화 진행 표시 | `app/hooks/useRunKeyboardControls.ts` |
+| 덱 편집 세션의 스냅샷·열기·확정 상태 | `app/hooks/useDeckEditorSession.ts` |
+| 카드 미리보기·키워드 팝오버·툴팁 동작 | `app/hooks/useFloatingPreviews.ts` |
 | 지도 방 버튼·접근성 표기 | `app/components/MapRoomButton.tsx` |
 | 지도 전투 덱 선택 메뉴 | `app/components/MapDeckSelector.tsx` |
 | 지도 디버그 도구막대 | `app/components/MapDebugToolbar.tsx` |
 | 지도 폭탄·적·플레이어 표식 | `app/components/MapEntityMarkers.tsx` |
 | 방 행동 안내·바닥 아이템 빠른 줍기 | `app/components/MapRoomActions.tsx` |
 | 덱 보기 모달 | `app/components/DeckViewerModal.tsx` |
+| 전투 전 사용할 덱 확인 모달 | `app/components/BattleDeckCheckModal.tsx` |
+| 카드 키워드 팝오버 | `app/components/CardKeywordPopover.tsx`와 `app/components/CardKeywordSections.tsx` |
 | 적 의도 피해·상태 아이콘 | `app/components/EnemyIntentIcons.tsx` |
 | 전투 중 적 유닛 표시 | `app/components/BattleEnemyUnit.tsx` |
 | 전투 중 플레이어 상태 표시 | `app/components/BattlePlayerPanel.tsx` |
@@ -144,7 +154,11 @@
 | 적 전투 데이터 | `app/game/enemies.ts` |
 | 오버맵 적 | `app/game/mapEnemies.ts` |
 | 덱 편집 판정 | `app/game/deckEditorRules.ts` |
-| 탐험 진행 저장·복원 | `app/game/saveGame.ts`와 `app/page.tsx` |
+| 덱 편집 카드 이동 전이·보기 그룹화 | `app/game/deckEditorTransitions.ts`, `app/game/deckEditorViews.ts` |
+| 화면·탐험 데이터 공유 타입 | `app/game/runTypes.ts`, `app/components/overlayTypes.ts` |
+| 텔레메트리 스냅샷 생성 | `app/game/telemetrySnapshots.ts` |
+| 탐험 진행 직렬화·복원 | `app/game/saveGame.ts` |
+| 탐험 저장 스냅샷 구성 | `app/page.tsx` |
 | 전투 기록 | `app/game/telemetry.ts` |
 | Pages 정적 경로·Turbopack 루트 | `next.config.ts` |
 | 카드 설명 줄맞춤 | `app/cardTextLayout.ts` |
@@ -152,11 +166,11 @@
 | 카드 테마의 별자리 미리보기 | `app/components/ConstellationPreview.tsx` |
 | 배포 | GitHub Pages |
 
-카드 데이터, 덱·보상 생성, 지도·안전 지대 생성, 전투 초기 상태, 카드 사용·드로우·턴 종료·파일 이동 로직과 저장 규칙은 `app/game/` 아래로 분리되었다. 지도 카메라 상태와 확대·축소·이동 동작은 `app/hooks/useMapCamera.ts`에, WASD·방향키·숫자패드 이동 입력과 타이머는 `app/hooks/useMapKeyboardMovement.ts`에 있다. F8 저장과 R 키 길게 누르기 초기화 동작·진행 표시는 `app/hooks/useRunKeyboardControls.ts`에 있다. 카드 이동 애니메이션은 `app/components/cardAnimations.ts`에 있다. 카드 앞면, 덱 이름, 지도·전투 화면 요소와 모달도 작은 컴포넌트로 나뉘었다. 전투 결과·보상 화면은 `app/components/BattleResultOverlay.tsx`로 분리했다. `app/page.tsx`는 현재 282,706바이트(약 283KB)로, 이전 440,866바이트보다 158,160바이트 줄어 300,000바이트 목표를 넘겼다. 지도·덱 편집·상점 이벤트와 남은 화면 상태 연결은 계속 이 파일에 있다. 이 크기는 유지보수 부담을 나타내며, 실행 속도 문제로 측정된 것은 아니다.
+카드 데이터, 덱·보상 생성, 지도·안전 지대 생성, 전투 초기 상태, 카드 사용·드로우·턴 종료·파일 이동 로직은 `app/game/` 아래로 분리되었다. 지도 카메라, 지도 키 입력, 카드 미리보기와 툴팁은 각각 `app/hooks/`의 전용 훅이 맡는다. 지도판 계산과 표시, 성소 카드 선택 UI, 전투 손패·파일 영역도 책임별 컴포넌트로 분리했다. 저장 직렬화는 `saveGame.ts`, 지연·주기 저장은 `useRunSaveLifecycle.ts`가 맡고 전체 스냅샷은 `page.tsx`에서 구성한다. 덱 편집 이동은 판정·컬렉션 전이·목록 보기로 나뉘며, DOM 드래그 입력은 `DeckEditorModal.tsx`에서 처리한다. 덱 편집 모달은 일곱 개의 책임별 입력 그룹에 총 42개 값을 받는다. `app/page.tsx`는 현재 206,162바이트(약 201KiB), 4,646줄이다. 주요 탐험 상태와 게임 규칙 변경의 연결은 여전히 이 파일에 있어 다음 분리는 응집된 책임 단위를 기준으로 판단한다. 파일 크기는 유지보수 부담을 나타내며, 실행 속도 문제로 측정된 것은 아니다.
 
 ## 현재 주의점과 미완성 영역
 
-- 지도 방 버튼·표식·행동 안내와 덱 보기 모달 분리 뒤 `npm run lint`, `npm test`, GitHub Pages 빌드가 통과했다.
+- 이번 덱 편집·입력·미리보기 분리에서 `npx tsc --noEmit`, `npm run lint`, `npm test`, GitHub Pages 빌드가 통과했다. 린트에는 기존 미사용 코드·훅 의존성 경고가 남아 있다.
 - 4~7지역은 지도 틀만 있고 적 풀과 보스가 없다.
 - 전설 카드는 정의되어 있지만 일반 플레이 획득 경로가 없다.
 - 진행 저장은 맵 화면만 포함한다. 전투 상태와 덱 편집 상태는 새로고침 뒤 복원되지 않는다.
@@ -175,7 +189,7 @@
 4. 흙·돌·유독성 점액·파일 버리기·가호·가시가 리셔플과 애니메이션에서 일관적인지 확인한다.
 5. 전설 카드의 일반 획득 경로를 넣을지, 디버그·미래 콘텐츠로 유지할지 결정한다.
 6. 4지역을 추가하기 전에 카드 데이터와 전투 규칙 분리를 검토한다.
-7. `app/page.tsx`의 남은 지도·전투 화면과 이벤트 연결을 더 작은 모듈로 옮긴다. 덱 편집기와 지도·전투 보드는 상태·이벤트 의존성이 크므로 동작을 보존하며 나눈다.
+7. 지도·전투의 남은 이벤트 연결은 크기보다 상태와 동작의 소유권이 함께 이동하는지 살펴보고 분리한다.
 
 ## 확인 명령
 

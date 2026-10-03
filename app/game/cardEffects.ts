@@ -5,8 +5,8 @@ import {
   isAttackCard,
   type Card,
   type CardBlueprint,
-} from "./cards";
-import { obsidianDaggerForgesRemaining } from "./forgeRules";
+} from "./cards.ts";
+import { obsidianDaggerForgesRemaining } from "./forgeRules.ts";
 
 export const IRON_WALL_COST = 2;
 export const IRON_WALL_RESISTANCE = 2;

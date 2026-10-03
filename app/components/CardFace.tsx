@@ -25,6 +25,7 @@ import {
   type DamageType,
 } from "../game/cards";
 import { fittedEffectSentenceStyle, splitEffectSentences } from "../cardTextLayout";
+import { cardNameConstellationImage } from "../cardConstellations";
 
 export const DEFENSE_LABEL: Record<DamageType, string> = {
   physical: "방어",
@@ -80,6 +81,15 @@ export type CardFaceProps = {
   forgeCount?: number;
   radiancePlayedThisTurn?: number;
 };
+
+export function CardFace(props: CardFaceProps) {
+  return (
+    <CardFaceView
+      {...props}
+      cardNameWatermarkImage={cardNameConstellationImage(props.card.name)}
+    />
+  );
+}
 
 type CardFaceRendererProps = CardFaceProps & {
   cardNameWatermarkImage: string;

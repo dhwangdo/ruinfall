@@ -17,7 +17,7 @@ type Props = {
   showConsumablePreview: (consumable: Consumable, right: number, top: number) => void;
   setHoveredConsumable: Dispatch<SetStateAction<Consumable | null>>;
   hoveredConsumable: Consumable | null;
-  consumableDrag: { id: string; source: "inventory" | "floor" } | null;
+  consumableDragActive: boolean;
   deckPreviewPosition: { x: number; y: number };
 };
 
@@ -35,7 +35,7 @@ export function ShopModal({
   showConsumablePreview,
   setHoveredConsumable,
   hoveredConsumable,
-  consumableDrag,
+  consumableDragActive,
   deckPreviewPosition,
 }: Props) {
   if (!open) return null;
@@ -102,7 +102,7 @@ export function ShopModal({
           ))}
         </div>
       </section>
-      {hoveredConsumable && !consumableDrag && (
+      {hoveredConsumable && !consumableDragActive && (
         <aside
           className={`deck-consumable-preview-floating ${hoveredConsumable.type}`}
           style={{ left: deckPreviewPosition.x, top: deckPreviewPosition.y }}

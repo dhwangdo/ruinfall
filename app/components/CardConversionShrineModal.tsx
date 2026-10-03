@@ -1,4 +1,4 @@
-import type { Dispatch, DragEvent, SetStateAction } from "react";
+import { useState, type DragEvent } from "react";
 import type { Card } from "../game/cards";
 import type { ShrineCardConversionResult } from "../game/shrineRules";
 import { DeckEditorCardIcon } from "./DeckEditorCardIcon";
@@ -9,16 +9,8 @@ type CardConversionShrineModalProps = {
   mode: ShrineMode;
   open: boolean;
   inventoryCards: Card[];
-  selectedCardIds: number[];
-  setSelectedCardIds: Dispatch<SetStateAction<number[]>>;
-  draggedCardId: number | null;
-  setDraggedCardId: Dispatch<SetStateAction<number | null>>;
-  dropActive: boolean;
-  setDropActive: Dispatch<SetStateAction<boolean>>;
-  result: ShrineCardConversionResult | null;
-  setResult: Dispatch<SetStateAction<ShrineCardConversionResult | null>>;
-  setOpen: Dispatch<SetStateAction<boolean>>;
-  onConfirm: () => void;
+  onClose: () => void;
+  onConfirm: (selectedCardIds: number[]) => ShrineCardConversionResult | null;
 };
 
 const SHRINE_COPY = {
@@ -60,25 +52,34 @@ export function CardConversionShrineModal({
   mode,
   open,
   inventoryCards,
-  selectedCardIds,
-  setSelectedCardIds,
-  draggedCardId,
-  setDraggedCardId,
-  dropActive,
-  setDropActive,
-  result,
-  setResult,
-  setOpen,
+  onClose,
   onConfirm,
 }: CardConversionShrineModalProps) {
+  const [selectedCardIds, setSelectedCardIds] = useState<number[]>([]);
+  const [draggedCardId, setDraggedCardId] = useState<number | null>(null);
+  const [dropActive, setDropActive] = useState(false);
+  const [result, setResult] = useState<ShrineCardConversionResult | null>(null);
+
   if (!open) return null;
 
   const copy = SHRINE_COPY[mode];
   const eligibleCards = inventoryCards.filter(copy.eligible);
   const sourceCards = mode === "combination" ? eligibleCards : inventoryCards;
   const close = () => {
-    setOpen(false);
+    onClose();
     setResult(null);
+    setSelectedCardIds([]);
+    setDraggedCardId(null);
+    setDropActive(false);
+  };
+  const confirm = () => {
+    const nextResult = onConfirm(selectedCardIds);
+    if (nextResult) {
+      setSelectedCardIds([]);
+      setDraggedCardId(null);
+      setDropActive(false);
+      setResult(nextResult);
+    }
   };
   const handleSourceDrop = (event: DragEvent<HTMLElement>) => {
     event.preventDefault();
@@ -223,7 +224,7 @@ export function CardConversionShrineModal({
                 className="shrine-confirm-extract"
                 type="button"
                 disabled={selectedCardIds.length !== copy.maxCards}
-                onClick={onConfirm}
+                onClick={confirm}
               >
                 {copy.confirmLabel}
               </button>

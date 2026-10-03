@@ -5,6 +5,9 @@ import {
   createCardOriginDeckIds,
   validateDeckEditorCardMove,
 } from "../app/game/deckEditorRules.ts";
+import { transitionDeckEditorCardCollections } from "../app/game/deckEditorTransitions.ts";
+import { groupAndSortDeckEditorCards } from "../app/game/deckEditorViews.ts";
+import { createDeckEditorSnapshot } from "../app/hooks/useDeckEditorSession.ts";
 
 const baseRequest = {
   source: { area: "deck", deckId: "A" },
@@ -133,4 +136,106 @@ test("an inventory extraction ticket can free its occupied slot", () => {
     inventorySlotsFreed: 1,
     viaExtractionTicket: true,
   }), { allowed: true, action: "move" });
+});
+
+test("card collection transition moves a card between deck, inventory, and floor", () => {
+  const card = { id: 7, name: "Test card" };
+  const initial = {
+    ownedDecks: [
+      { id: "A", cards: [card], capacity: 10 },
+      { id: "B", cards: [], capacity: 10 },
+    ],
+    inventoryCards: [],
+    floorCards: [],
+    pendingRemovedCards: [],
+    pendingRemovedCardAreas: {},
+  };
+
+  const toInventory = transitionDeckEditorCardCollections(initial, {
+    cardId: card.id,
+    source: { area: "deck", deckId: "A" },
+    target: { area: "inventory" },
+    action: "move",
+  });
+  assert.equal(toInventory.card, card);
+  assert.deepEqual(toInventory.collections.ownedDecks[0].cards, []);
+  assert.deepEqual(toInventory.collections.inventoryCards, [card]);
+
+  const toFloor = transitionDeckEditorCardCollections(toInventory.collections, {
+    cardId: card.id,
+    source: { area: "inventory" },
+    target: { area: "floor" },
+    action: "move",
+  });
+  assert.deepEqual(toFloor.collections.inventoryCards, []);
+  assert.deepEqual(toFloor.collections.floorCards, [card]);
+
+  const toOtherDeck = transitionDeckEditorCardCollections(toFloor.collections, {
+    cardId: card.id,
+    source: { area: "floor" },
+    target: { area: "deck", deckId: "B" },
+    action: "move",
+  });
+  assert.deepEqual(toOtherDeck.collections.floorCards, []);
+  assert.deepEqual(toOtherDeck.collections.ownedDecks[1].cards, [card]);
+});
+
+test("collection transition schedules and restores a pending removal", () => {
+  const card = { id: 8, name: "Bound card" };
+  const initial = {
+    ownedDecks: [{ id: "A", cards: [card], capacity: 10 }],
+    inventoryCards: [],
+    floorCards: [],
+    pendingRemovedCards: [],
+    pendingRemovedCardAreas: {},
+  };
+  const scheduled = transitionDeckEditorCardCollections(initial, {
+    cardId: card.id,
+    source: { area: "deck", deckId: "A" },
+    target: { area: "floor" },
+    action: "schedule-removal",
+  });
+  assert.deepEqual(scheduled.collections.ownedDecks[0].cards, []);
+  assert.deepEqual(scheduled.collections.pendingRemovedCards, [card]);
+  assert.deepEqual(scheduled.collections.pendingRemovedCardAreas, { [card.id]: "floor" });
+
+  const restored = transitionDeckEditorCardCollections(scheduled.collections, {
+    cardId: card.id,
+    source: { area: "pendingRemoval" },
+    target: { area: "deck", deckId: "A" },
+    action: "restore-removal",
+  });
+  assert.deepEqual(restored.collections.ownedDecks[0].cards, [card]);
+  assert.deepEqual(restored.collections.pendingRemovedCards, []);
+  assert.deepEqual(restored.collections.pendingRemovedCardAreas, {});
+});
+
+test("opening an editor session snapshots card collections and origin deck ids", () => {
+  const card = { id: 9, name: "Snapshot card" };
+  const deck = { id: "A", cards: [card], capacity: 10 };
+  const snapshot = createDeckEditorSnapshot({
+    roomKey: "room-1",
+    decks: [deck],
+    activeDeckId: "A",
+    inventory: [],
+    consumables: [],
+    floorCards: [],
+    floorConsumables: [],
+    floorDecks: [],
+  });
+
+  assert.notEqual(snapshot.decks[0], deck);
+  assert.notEqual(snapshot.decks[0].cards, deck.cards);
+  assert.deepEqual(snapshot.originDeckIdsByCardId, { [card.id]: "A" });
+  snapshot.decks[0].cards.pop();
+  assert.deepEqual(deck.cards, [card]);
+});
+
+test("newly transformed cards stay separate from their matching stack", () => {
+  const cards = [
+    { id: 10, name: "Test", effect: "attack", damageType: "physical", cost: 1, rarity: "basic" },
+    { id: 11, name: "Test", effect: "attack", damageType: "physical", cost: 1, rarity: "basic" },
+  ];
+  const groups = groupAndSortDeckEditorCards(cards, "rarity", new Set([11]));
+  assert.deepEqual(groups.map((group) => group.cardIds), [[10], [11]]);
 });

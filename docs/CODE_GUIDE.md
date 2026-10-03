@@ -118,7 +118,15 @@ setGame((current) => ({ ...current, energy: 2 }));
 
 | 파일 | 게임에서 맡는 역할 |
 |---|---|
-| `app/page.tsx` | React 상태 연결, 지도·덱 편집·상점 이벤트와 화면 조립 |
+| `app/page.tsx` | 앱 상태 연결, 지도·전투 이벤트와 화면 조립 |
+| `app/components/MapBoard.tsx` | 지도 카메라를 연결하고 보이는 방·적·표식을 계산해 지도판 표시 |
+| `app/components/ExtractionShrineModal.tsx` | 추출 카드 선택·정렬·드래그·결과 표시 |
+| `app/components/CardConversionShrineModal.tsx` | 변환·조합 카드 선택·드래그·결과 상태와 화면 |
+| `app/components/BattleHandArea.tsx` | 손패 배치·카드 입력·버리기·연구 카드 회수 화면 |
+| `app/components/BattlePileZone.tsx` | 파일 배치·솔리테어 대상 강조·가로 이동 입력 화면 |
+| `app/hooks/useBattleInteractionState.ts` | 전투 카드 선택·드래그·중앙 드롭 상태 |
+| `app/hooks/useBattlePointerInput.ts` | 전투 포인터 드래그·파일 자동 스크롤·손패 키보드 입력 |
+| `app/hooks/useRunSaveLifecycle.ts` | 진행 스냅샷 저장, 지연 저장과 주기적 저장 타이머 |
 | `app/game/cards.ts` | 카드 타입, 카드 정의, 획득 풀, 전투 토큰 카드 생성 |
 | `app/game/cardEffects.ts` | 카드 비용, 키워드, 재련과 솔리테어 배치 판정 |
 | `app/cardTextLayout.ts` | 카드 효과 문장 나누기와 카드 너비에 맞춘 글자 크기 계산 |
@@ -128,13 +136,19 @@ setGame((current) => ({ ...current, energy: 2 }));
 | `app/components/MapTopbar.tsx` | 지도 상단 체력·골드·덱 보기·대기·덱 편집 UI |
 | `app/hooks/useMapCamera.ts` | 지도 뷰포트 크기, 확대·축소, 이동과 카메라 포커스 |
 | `app/hooks/useMapKeyboardMovement.ts` | WASD·방향키·숫자패드 지도 이동과 입력 타이머 |
+| `app/hooks/useMapKeyboardShortcuts.ts` | 지도 단축키, 방 행동, 오버레이 닫기 입력 |
 | `app/hooks/useRunKeyboardControls.ts` | F8 저장, R 길게 누르기 초기화와 진행 표시 |
+| `app/hooks/useDeckEditorSession.ts` | 덱 편집 세션의 원본 스냅샷과 시작·확정 처리 |
+| `app/hooks/useFloatingPreviews.ts` | 카드 키워드 팝오버와 카드·티켓·에디션 툴팁 동작 |
 | `app/components/MapRoomButton.tsx` | 지도 방 버튼, 접근성 이름과 방 유형 표시 |
 | `app/components/MapDeckSelector.tsx` | 지도 화면에서 전투 덱을 고르는 메뉴 |
 | `app/components/MapDebugToolbar.tsx` | 지도 디버그 아이템·덱 생성 도구와 적 도감 연결 |
 | `app/components/MapEntityMarkers.tsx` | 지도 폭탄·적·플레이어 표식 표시 |
 | `app/components/MapRoomActions.tsx` | 현재 방 행동 안내와 바닥 아이템 빠른 줍기 UI |
 | `app/components/DeckViewerModal.tsx` | 보유 덱·카드 목록을 보는 모달 |
+| `app/components/BattleDeckCheckModal.tsx` | 전투 전에 사용할 덱 선택과 구성 미리보기 |
+| `app/components/CardKeywordPopover.tsx` | 카드 키워드 팝오버 배치와 표시 |
+| `app/components/CardKeywordSections.tsx` | 키워드 설명을 유형별 구역으로 표시 |
 | `app/components/ConstellationPreview.tsx` | 카드 테마 설정의 별자리 SVG 미리보기 |
 | `app/components/EnemyIntentIcons.tsx` | 적 의도 피해·상태 표시 아이콘 |
 | `app/components/BattleEnemyUnit.tsx` | 전투 중 적 체력·상태·의도와 선택 버튼 표시 |
@@ -151,6 +165,11 @@ setGame((current) => ({ ...current, energy: 2 }));
 | `app/game/rewardRules.ts` | 희귀 카드 누적 확률 규칙 |
 | `app/game/battleState.ts` | 전투 초기 상태, 파일 배치와 드로우 전이 |
 | `app/game/battleUiTypes.ts` | 전투 단계, 드래그, 피해 팝업의 공유 타입 |
+| `app/game/deckEditorRules.ts` | 덱 편집 이동의 유효성 판정 |
+| `app/game/deckEditorTransitions.ts` | 덱·인벤토리·바닥 카드 컬렉션 이동 전이 |
+| `app/game/deckEditorViews.ts` | 덱 편집 카드 그룹화와 정렬 보기 |
+| `app/game/runTypes.ts` | 저장·전투·보상 흐름에서 공유하는 탐험 타입 |
+| `app/game/telemetrySnapshots.ts` | 카드·덱·적 텔레메트리 스냅샷 생성 |
 | `app/game/cardPlayAction.ts` | 카드 사용 시 효과·피해·상태 전이 처리 |
 | `app/game/drawCards.ts` | 턴 시작과 카드 효과에 따른 손패 드로우 처리 |
 | `app/game/endTurnAction.ts` | 턴 종료, 적 행동, 다음 턴 준비 처리 |
@@ -191,7 +210,7 @@ setGame((current) => ({ ...current, energy: 2 }));
 
 ## 5. 코드를 읽는 권장 순서
 
-`app/page.tsx`는 현재 295,254바이트(약 295KB)다. 이전 440,866바이트에서 145,612바이트 줄어 300,000바이트 목표를 넘겼다. 지도·덱 편집·상점 이벤트와 화면 연결은 여전히 이 파일에 남아 있다. 처음부터 끝까지 읽기보다 기능 단위로 코드 그래프나 TypeScript 언어 서버에서 정의와 호출 관계를 확인한다. 파일 크기는 우선 유지보수 문제를 뜻하며, 성능 저하가 측정된 것은 아니다.
+`app/page.tsx`는 현재 206,162바이트(약 201KiB), 4,646줄이다. 앱 상태 연결과 게임 규칙 변경은 이 파일에 남아 있고, 지도판, 성소 선택 UI, 전투 손패·파일 영역, 전투 포인터 입력, 저장 타이머는 각 책임 모듈로 나뉘었다. 진행 데이터의 전체 스냅샷은 아직 `page.tsx`가 조립한다. 다음 분리는 파일 크기만 줄이기보다 상태와 동작이 함께 바뀌는 책임 경계를 기준으로 검토한다. 파일 크기는 유지보수 부담을 가늠하는 값이며, 실행 속도 저하를 뜻하지 않는다.
 
 1. `docs/GAME_DESIGN.md`로 현재 규칙의 전체 모양을 본다.
 2. `app/game/cards.ts`에서 카드 타입과 카드 풀을 본다.
