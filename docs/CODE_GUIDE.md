@@ -178,10 +178,14 @@ setGame((current) => ({ ...current, energy: 2 }));
 | `app/game/mapEffects.ts` | 지도 폭탄의 이동 카운트와 피해 계산 |
 | `app/game/enemies.ts` | 1~3지역 일반 조우와 보스, 적 행동 선택, 피해·상태 보조 규칙 |
 | `app/game/mapEnemies.ts` | 지도 적 생성, 인식 상태, 시야 활성화, 거리장, 동시 이동과 충돌 |
+| `app/game/mapTurn.ts` | 한 지도 턴에서 적 이동과 플레이어 충돌 결과 계산 |
 | `app/game/cardRules.ts` | 리셔플 제외 카드 필터와 고정·균등 파일 분배 |
 | `app/game/statuses.ts` | 저항·취약 등 상태 계산 |
 | `app/game/deckEditorRules.ts` | 원래 덱, 안전 지대, 추출 티켓을 고려한 카드 이동 판정 |
 | `app/game/saveGame.ts` | 버전이 붙은 탐험 진행의 `localStorage` 읽기·쓰기·삭제 |
+| `app/game/runSaveState.ts` | 진행 스냅샷의 집합 직렬화와 구버전 저장 필드 정리 |
+| `tests/map-turn.test.mjs` | 지도 턴 적 이동과 충돌 결과 |
+| `tests/run-save-state.test.mjs` | 저장 스냅샷 직렬화와 복원값 정규화 |
 | `app/game/telemetry.ts` | 런·전투 통계, `localStorage` 저장, TXT 내보내기 데이터 |
 | `app/globals.css` | 카드, 지도, 팝업, 애니메이션과 반응형 화면 |
 | `app/layout.tsx` | 페이지 제목, 메타데이터, 전체 HTML 틀 |
@@ -210,7 +214,7 @@ setGame((current) => ({ ...current, energy: 2 }));
 
 ## 5. 코드를 읽는 권장 순서
 
-`app/page.tsx`는 현재 206,162바이트(약 201KiB), 4,646줄이다. 앱 상태 연결과 게임 규칙 변경은 이 파일에 남아 있고, 지도판, 성소 선택 UI, 전투 손패·파일 영역, 전투 포인터 입력, 저장 타이머는 각 책임 모듈로 나뉘었다. 진행 데이터의 전체 스냅샷은 아직 `page.tsx`가 조립한다. 다음 분리는 파일 크기만 줄이기보다 상태와 동작이 함께 바뀌는 책임 경계를 기준으로 검토한다. 파일 크기는 유지보수 부담을 가늠하는 값이며, 실행 속도 저하를 뜻하지 않는다.
+`app/page.tsx`는 현재 205,058바이트(약 200KiB), 4,636줄이다. 앱 상태 연결과 화면 이벤트는 이 파일이 맡고, 지도 턴의 적 이동·충돌 계산은 `mapTurn.ts`, 저장 집합 직렬화와 구버전 저장값 정리는 `runSaveState.ts`로 나뉘었다. 저장 대상 상태를 골라 스냅샷에 넣는 연결부와 복원한 값을 React 상태에 적용하는 부분은 `page.tsx`에 남아 있다. 다음 분리는 크기보다 상태와 동작이 함께 바뀌는 경계를 기준으로 검토한다. 파일 크기는 유지보수 부담을 가늠하는 값이며, 실행 속도 저하를 뜻하지 않는다.
 
 1. `docs/GAME_DESIGN.md`로 현재 규칙의 전체 모양을 본다.
 2. `app/game/cards.ts`에서 카드 타입과 카드 풀을 본다.

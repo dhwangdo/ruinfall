@@ -147,7 +147,6 @@ import {
   type EnemyState,
 } from "./game/enemies";
 import {
-  advanceMapEnemies,
   chebyshevDistance,
   clearMapEnemiesNear,
   MAP_ENEMY_DISTANCE_FIELD_RADIUS,
@@ -157,6 +156,7 @@ import {
   type MapEnemyCellMemory,
   type MapEnemyWorld,
 } from "./game/mapEnemies";
+import { resolveMapTurn as resolveMapTurnRules } from "./game/mapTurn";
 import {
   advanceBombs,
   applyBombDamage,
@@ -164,6 +164,7 @@ import {
   type MapBomb,
 } from "./game/mapEffects";
 import { RUN_SAVE_POLICY, clearRunSave, readRunSave } from "./game/saveGame";
+import { createRunSaveSnapshot, prepareRunRestore } from "./game/runSaveState";
 import {
   validateDeckEditorCardMove,
   type DeckEditorCardLocation,
@@ -1695,34 +1696,28 @@ export default function Home() {
     nextPosition: MapPosition,
     world: MapEnemyWorld,
   ) => {
-    const roomKey = mapRoomKey(nextPosition);
-    const enemyTurn = advanceMapEnemies(
-      world.enemies,
+    const result = resolveMapTurnRules({
       currentPosition,
       nextPosition,
-      (position) => isWalkableRoom(effectiveRoomType(position)) && !isSafeAreaPosition(position, mapSeed),
-      Math.random,
-      new Set(),
-      (blessings.includes("lightStep") ? 0.5 : 1) * (blessings.includes("bioluminescence") ? 1.5 : 1),
-      {
+      world,
+      isWalkable: (position) => isWalkableRoom(effectiveRoomType(position))
+        && !isSafeAreaPosition(position, mapSeed),
+      detectionMultiplier: (blessings.includes("lightStep") ? 0.5 : 1)
+        * (blessings.includes("bioluminescence") ? 1.5 : 1),
+      movementBounds: {
         minX: Math.max(DUNGEON_MIN_X, nextPosition.x - MAP_ENEMY_DISTANCE_FIELD_RADIUS),
         maxX: Math.min(DUNGEON_MAX_X, nextPosition.x + MAP_ENEMY_DISTANCE_FIELD_RADIUS),
         minY: Math.max(0, nextPosition.y - MAP_ENEMY_DISTANCE_FIELD_RADIUS),
         maxY: Math.min(MAP_ROWS - 1, nextPosition.y + MAP_ENEMY_DISTANCE_FIELD_RADIUS),
       },
-      darkTicketTurnsRemainingRef.current > 0 ? 1 : 0,
-    );
+      detectionDistanceReduction: darkTicketTurnsRemainingRef.current > 0 ? 1 : 0,
+    });
     setDarkTicketTurnsRemaining((current) => {
       const next = Math.max(0, current - 1);
       darkTicketTurnsRemainingRef.current = next;
       return next;
     });
-    const nextWorld = {
-      ...world,
-      enemies: enemyTurn.enemies,
-    };
-    const collisionEnemies = enemyTurn.enemies.filter((enemy) => mapRoomKey(enemy.position) === roomKey);
-    return { world: nextWorld, collisionEnemies };
+    return result;
   };
 
   const beginMapEnemyBattle = (
@@ -2332,7 +2327,7 @@ export default function Home() {
     const timer = window.setTimeout(() => {
       const saved = readRunSave<SavedRunState>();
       if (saved) {
-      const state = saved.state;
+      const state = prepareRunRestore(saved.state, isSafeAreaPosition);
       setPlayerName(state.playerName);
       setPlayerNameSetupOpen(false);
       setRunPlayerHp(state.runPlayerHp);
@@ -2352,26 +2347,22 @@ export default function Home() {
       mapBombsRef.current = state.mapBombs;
       setDestroyedShopRooms(new Set(state.destroyedShopRooms));
       setCollapsedShrineRooms(new Set(state.collapsedShrineRooms));
-      const legacyCollapsedHealthShrineRooms = state.collapsedHealthShrineRooms ?? [];
-      setCollapsedRecoveryShrineRooms(new Set(state.collapsedRecoveryShrineRooms ?? legacyCollapsedHealthShrineRooms));
-      setCollapsedVitalityShrineRooms(new Set(state.collapsedVitalityShrineRooms ?? legacyCollapsedHealthShrineRooms));
-      setCollapsedMindEyeShrineRooms(new Set(state.collapsedMindEyeShrineRooms ?? []));
-      setCollapsedTransformShrineRooms(new Set(state.collapsedTransformShrineRooms ?? []));
-      setCollapsedCombinationShrineRooms(new Set(state.collapsedCombinationShrineRooms ?? []));
-      setCollapsedTreasureChestRooms(new Set(state.collapsedTreasureChestRooms ?? []));
-      setVitalityShrineMaxHpBonus(state.vitalityShrineMaxHpBonus ?? state.healthShrineMaxHpBonus ?? 0);
+      setCollapsedRecoveryShrineRooms(new Set(state.collapsedRecoveryShrineRooms));
+      setCollapsedVitalityShrineRooms(new Set(state.collapsedVitalityShrineRooms));
+      setCollapsedMindEyeShrineRooms(new Set(state.collapsedMindEyeShrineRooms));
+      setCollapsedTransformShrineRooms(new Set(state.collapsedTransformShrineRooms));
+      setCollapsedCombinationShrineRooms(new Set(state.collapsedCombinationShrineRooms));
+      setCollapsedTreasureChestRooms(new Set(state.collapsedTreasureChestRooms));
+      setVitalityShrineMaxHpBonus(state.vitalityShrineMaxHpBonus);
       setUsedHealRooms(new Set(state.usedHealRooms));
       setUsedBlessingRooms(new Set(state.usedBlessingRooms));
       setRockBombHits(state.rockBombHits);
       setMindEyeMovesRemaining(state.mindEyeMovesRemaining);
       mindEyeMovesRemainingRef.current = state.mindEyeMovesRemaining;
-      const savedGodsLamentCharges = isSafeAreaPosition(state.mapPosition, state.mapSeed)
-        ? 0
-        : Math.max(0, Math.min(3, Number(state.godsLamentCharges ?? 3) || 0));
-      setGodsLamentCharges(savedGodsLamentCharges);
-      godsLamentChargesRef.current = savedGodsLamentCharges;
-      setDarkTicketTurnsRemaining(state.darkTicketTurnsRemaining ?? 0);
-      darkTicketTurnsRemainingRef.current = state.darkTicketTurnsRemaining ?? 0;
+      setGodsLamentCharges(state.godsLamentCharges);
+      godsLamentChargesRef.current = state.godsLamentCharges;
+      setDarkTicketTurnsRemaining(state.darkTicketTurnsRemaining);
+      darkTicketTurnsRemainingRef.current = state.darkTicketTurnsRemaining;
       const savedOwnedDecks = state.ownedDecks.map(removeDeletedDeckEditions);
       const savedRoomDeckDrops = Object.fromEntries(Object.entries(state.roomDeckDrops).map(([roomKey, decks]) => [
         roomKey,
@@ -2393,19 +2384,18 @@ export default function Home() {
       setMapEnemyWorld(restoredWorld);
       setRoomDeckDrops(savedRoomDeckDrops);
       setRoomShops(state.roomShops);
-      setBlessingOffers(state.blessingOffers ?? []);
-      setBlessingSeenOfferIds(new Set(state.blessingSeenOfferIds ?? []));
-      setBlessings(state.blessings.filter((id) => (id as string) !== "luck"));
-      const savedBlessingRerollCost = Math.max(5, Number(state.blessingRerollCost) || 5);
-      setBlessingRerollCost(5 + 2 * Math.ceil((savedBlessingRerollCost - 5) / 2));
-      setOneUpUsed(state.oneUpUsed ?? false);
-      oneUpUsedRef.current = state.oneUpUsed ?? false;
+      setBlessingOffers(state.blessingOffers);
+      setBlessingSeenOfferIds(new Set(state.blessingSeenOfferIds));
+      setBlessings(state.blessings);
+      setBlessingRerollCost(state.blessingRerollCost);
+      setOneUpUsed(state.oneUpUsed);
+      oneUpUsedRef.current = state.oneUpUsed;
       setGold(state.gold);
       nextCardIdRef.current = state.nextCardId;
       nextConsumableIdRef.current = state.nextConsumableId;
       deckDropChanceRef.current = state.deckDropChance;
       rareCardDropChanceRef.current = state.rareCardDropChance;
-      deckPityBattlesRemainingRef.current = Math.max(0, Math.min(3, state.deckPityBattlesRemaining ?? 3));
+      deckPityBattlesRemainingRef.current = state.deckPityBattlesRemaining;
       setGame(waitingState());
       setPhase("drawing");
         setScreen("map");
@@ -2416,28 +2406,28 @@ export default function Home() {
   }, []);
 
   useEffect(() => {
-    updateSaveSnapshot({
+    updateSaveSnapshot(createRunSaveSnapshot({
       playerName,
       runPlayerHp,
       mapSeed,
       mapPosition,
-      seenRooms: [...seenRooms],
-      safeAreaEntrySeenRooms: safeAreaEntrySeenRooms ? [...safeAreaEntrySeenRooms] : null,
+      seenRooms,
+      safeAreaEntrySeenRooms,
       mapEnemyWorld,
-      defeatedBossRegions: [...defeatedBossRegions],
+      defeatedBossRegions,
       mapEnemyCellMemory,
       mapBombs,
-      destroyedShopRooms: [...destroyedShopRooms],
-      collapsedShrineRooms: [...collapsedShrineRooms],
-      collapsedRecoveryShrineRooms: [...collapsedRecoveryShrineRooms],
-      collapsedVitalityShrineRooms: [...collapsedVitalityShrineRooms],
-      collapsedMindEyeShrineRooms: [...collapsedMindEyeShrineRooms],
-      collapsedTransformShrineRooms: [...collapsedTransformShrineRooms],
-      collapsedCombinationShrineRooms: [...collapsedCombinationShrineRooms],
-      collapsedTreasureChestRooms: [...collapsedTreasureChestRooms],
+      destroyedShopRooms,
+      collapsedShrineRooms,
+      collapsedRecoveryShrineRooms,
+      collapsedVitalityShrineRooms,
+      collapsedMindEyeShrineRooms,
+      collapsedTransformShrineRooms,
+      collapsedCombinationShrineRooms,
+      collapsedTreasureChestRooms,
       vitalityShrineMaxHpBonus,
-      usedHealRooms: [...usedHealRooms],
-      usedBlessingRooms: [...usedBlessingRooms],
+      usedHealRooms,
+      usedBlessingRooms,
       rockBombHits,
       mindEyeMovesRemaining,
       godsLamentCharges,
@@ -2451,7 +2441,7 @@ export default function Home() {
       roomDeckDrops,
       roomShops,
       blessingOffers,
-      blessingSeenOfferIds: [...blessingSeenOfferIds],
+      blessingSeenOfferIds,
       blessings,
       blessingRerollCost,
       oneUpUsed,
@@ -2461,7 +2451,7 @@ export default function Home() {
       deckDropChance: deckDropChanceRef.current,
       rareCardDropChance: rareCardDropChanceRef.current,
       deckPityBattlesRemaining: deckPityBattlesRemainingRef.current,
-    }, saveReady && !playerNameSetupOpen && screen === "map" && !mapTraveling && !deckEditorOpen);
+    }), saveReady && !playerNameSetupOpen && screen === "map" && !mapTraveling && !deckEditorOpen);
   }, [
     activeDeckId, blessingRerollCost, blessings,
     collapsedCombinationShrineRooms, collapsedMindEyeShrineRooms, collapsedRecoveryShrineRooms,

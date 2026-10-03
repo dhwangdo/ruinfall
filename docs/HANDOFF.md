@@ -150,6 +150,7 @@
 | 턴 종료와 적 행동 | `app/game/endTurnAction.ts` |
 | 파일 이동·선택 드로우·연구 드로우 | `app/game/pileActions.ts` |
 | 지도 노드·지역·안전 지대·바닥 드롭 | `app/game/mapRules.ts` |
+| 지도 한 턴의 적 이동과 충돌 판정 | `app/game/mapTurn.ts` |
 | 지도 폭탄 | `app/game/mapEffects.ts` |
 | 적 전투 데이터 | `app/game/enemies.ts` |
 | 오버맵 적 | `app/game/mapEnemies.ts` |
@@ -158,7 +159,7 @@
 | 화면·탐험 데이터 공유 타입 | `app/game/runTypes.ts`, `app/components/overlayTypes.ts` |
 | 텔레메트리 스냅샷 생성 | `app/game/telemetrySnapshots.ts` |
 | 탐험 진행 직렬화·복원 | `app/game/saveGame.ts` |
-| 탐험 저장 스냅샷 구성 | `app/page.tsx` |
+| 탐험 스냅샷 집합 직렬화와 구버전 복원값 정리 | `app/game/runSaveState.ts` |
 | 전투 기록 | `app/game/telemetry.ts` |
 | Pages 정적 경로·Turbopack 루트 | `next.config.ts` |
 | 카드 설명 줄맞춤 | `app/cardTextLayout.ts` |
@@ -166,7 +167,7 @@
 | 카드 테마의 별자리 미리보기 | `app/components/ConstellationPreview.tsx` |
 | 배포 | GitHub Pages |
 
-카드 데이터, 덱·보상 생성, 지도·안전 지대 생성, 전투 초기 상태, 카드 사용·드로우·턴 종료·파일 이동 로직은 `app/game/` 아래로 분리되었다. 지도 카메라, 지도 키 입력, 카드 미리보기와 툴팁은 각각 `app/hooks/`의 전용 훅이 맡는다. 지도판 계산과 표시, 성소 카드 선택 UI, 전투 손패·파일 영역도 책임별 컴포넌트로 분리했다. 저장 직렬화는 `saveGame.ts`, 지연·주기 저장은 `useRunSaveLifecycle.ts`가 맡고 전체 스냅샷은 `page.tsx`에서 구성한다. 덱 편집 이동은 판정·컬렉션 전이·목록 보기로 나뉘며, DOM 드래그 입력은 `DeckEditorModal.tsx`에서 처리한다. 덱 편집 모달은 일곱 개의 책임별 입력 그룹에 총 42개 값을 받는다. `app/page.tsx`는 현재 206,162바이트(약 201KiB), 4,646줄이다. 주요 탐험 상태와 게임 규칙 변경의 연결은 여전히 이 파일에 있어 다음 분리는 응집된 책임 단위를 기준으로 판단한다. 파일 크기는 유지보수 부담을 나타내며, 실행 속도 문제로 측정된 것은 아니다.
+카드 데이터, 덱·보상 생성, 지도·안전 지대 생성, 전투 초기 상태, 카드 사용·드로우·턴 종료·파일 이동 로직은 `app/game/` 아래로 분리되었다. 지도 한 턴의 적 이동과 충돌 판정은 `mapTurn.ts`, 저장 스냅샷의 집합 직렬화와 구버전 필드 정리는 `runSaveState.ts`가 맡는다. 지도 카메라, 지도 키 입력, 카드 미리보기와 툴팁은 각각 `app/hooks/`의 전용 훅이 맡는다. 지도판 계산과 표시, 성소 카드 선택 UI, 전투 손패·파일 영역도 책임별 컴포넌트로 분리했다. 저장 직렬화는 `saveGame.ts`, 지연·주기 저장은 `useRunSaveLifecycle.ts`가 맡는다. 덱 편집 이동은 판정·컬렉션 전이·목록 보기로 나뉘며, DOM 드래그 입력은 `DeckEditorModal.tsx`에서 처리한다. 덱 편집 모달은 일곱 개의 책임별 입력 그룹에 총 42개 값을 받는다. `app/page.tsx`의 크기와 줄 수는 `CODE_GUIDE.md`의 현재 파일 지도를 따른다. 파일 크기는 유지보수 부담을 가늠하는 값이며, 실행 속도 저하를 뜻하지 않는다.
 
 ## 현재 주의점과 미완성 영역
 
@@ -174,7 +175,7 @@
 - 4~7지역은 지도 틀만 있고 적 풀과 보스가 없다.
 - 전설 카드는 정의되어 있지만 일반 플레이 획득 경로가 없다.
 - 진행 저장은 맵 화면만 포함한다. 전투 상태와 덱 편집 상태는 새로고침 뒤 복원되지 않는다.
-- 저장 버전 검사와 복원 코드는 있지만, `saveGame.ts` 전용 자동 테스트는 없다.
+- 저장 스냅샷 직렬화와 구버전 복원값 정규화는 `tests/run-save-state.test.mjs`에서 확인한다.
 - 광범위한 카드 효과와 지도 노드 UI는 적·오버맵 규칙만큼 독립 테스트가 촘촘하지 않다.
 - `tests/deck-editor-rules.test.mjs`는 `npm test`의 규칙 테스트 묶음에 포함되어 있다.
 - 무작위 보상과 덱 생성은 `Math.random()` 의존 구간이 많아 재현 테스트가 어렵다.
