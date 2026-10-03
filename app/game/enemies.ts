@@ -85,6 +85,7 @@ export type EnemyAction = {
   randomNoRepeat?: boolean;
   strengthGain?: number;
   blockGain?: number;
+  healGain?: number;
   boonGain?: number;
   strengthLoss?: number;
   agilityLoss?: number;
@@ -99,6 +100,7 @@ export type EnemyAction = {
   /** Applied after status decay when the player's next turn begins. */
   nextTurnMagicVulnerabilityGain?: number;
   discardCount?: number;
+  discardPriority?: "rarity";
   /** After this action, continue from this zero-based action index. */
   loopTo?: number;
 };
@@ -171,10 +173,7 @@ const SEWER_ENCOUNTERS: EnemyBlueprint[][] = [
       name: "주황 슬라임",
       hp: 50,
       maxHp: 50,
-      actions: [
-        { name: "점액 충돌", attacks: [{ type: "physical", value: 9 }], cycle: true },
-        { name: "점액 방어", attacks: [{ type: "physical", value: 6 }], blockGain: 10, cycle: true },
-      ],
+      actions: [{ name: "점액 충돌", attacks: [{ type: "physical", value: 9 }], cycle: true }],
       strength: 0,
       physicalBlock: 0,
       variant: "slime",
@@ -212,9 +211,9 @@ const SEWER_ENCOUNTERS: EnemyBlueprint[][] = [
       hp: 50,
       maxHp: 50,
       actions: [
-        { name: "물어뜯기", attacks: [{ type: "physical", value: 5, hits: 2 }], discardCount: 1, cycle: true },
-        { name: "웅크리기", attacks: [{ type: "physical", value: 10 }], discardCount: 1, cycle: true },
-        { name: "광폭 질주", attacks: [], blockGain: 10, strengthGain: 3, discardCount: 1, cycle: true },
+        { name: "물어뜯기", attacks: [{ type: "physical", value: 5, hits: 2 }], discardCount: 1, discardPriority: "rarity", cycle: true },
+        { name: "웅크리기", attacks: [{ type: "physical", value: 10 }], discardCount: 1, discardPriority: "rarity", cycle: true },
+        { name: "재생", attacks: [], healGain: 5, strengthGain: 3, discardCount: 1, discardPriority: "rarity", cycle: true },
       ],
       strength: 0,
       physicalBlock: 0,
@@ -222,7 +221,7 @@ const SEWER_ENCOUNTERS: EnemyBlueprint[][] = [
       sturdyThreshold: 0,
       quicknessReady: false,
       nextAttackMagic: false,
-      trait: "버리기: 지정된 파일의 맨 위 카드 1장을 턴 종료 시 버립니다.",
+      trait: "버리기: 파일 맨 위 카드 중 희귀도가 높은 카드를 우선해 턴 종료 시 버립니다.",
     },
   ],
   [
@@ -638,7 +637,10 @@ export function actionSummary(action: EnemyAction, strength: number, forceMagic 
   if (action.physicalVulnerabilityGain) parts.push(`물리 취약 ${action.physicalVulnerabilityGain} 부여`);
   if (action.nextTurnPhysicalVulnerabilityGain) parts.push(`다음 턴 시작 시 물리 취약 ${action.nextTurnPhysicalVulnerabilityGain} 부여`);
   if (action.nextTurnMagicVulnerabilityGain) parts.push(`다음 턴 시작 시 마법 취약 ${action.nextTurnMagicVulnerabilityGain} 부여`);
-  if (action.discardCount) parts.push(`버리기 ${action.discardCount}`);
+  if (action.healGain) parts.push(`체력 ${action.healGain} 회복`);
+  if (action.discardCount) {
+    parts.push(`파일 맨 위 ${action.discardCount}장 버리기${action.discardPriority === "rarity" ? " (희귀도 높은 카드 우선)" : ""}`);
+  }
   return parts.join("\n");
 }
 

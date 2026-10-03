@@ -5,6 +5,7 @@ function debugEnemyActionText(action: EnemyAction) {
     const damageType = attack.type === "magic" ? "마법 피해" : "물리 피해";
     return `${damageType} ${attack.value}${(attack.hits ?? 1) > 1 ? ` × ${attack.hits}` : ""}`;
   });
+  if (action.healGain) parts.push(`체력 ${action.healGain} 회복`);
   if (action.strengthGain) parts.push(`힘 ${action.strengthGain} 획득`);
   if (action.blockGain) parts.push(`방어 ${action.blockGain} 획득`);
   if (action.boonGain) parts.push(`가호 ${action.boonGain} 획득`);
@@ -15,7 +16,7 @@ function debugEnemyActionText(action: EnemyAction) {
   if (action.physicalVulnerabilityGain) parts.push(`물리 취약 ${action.physicalVulnerabilityGain} 부여`);
   if (action.nextTurnPhysicalVulnerabilityGain) parts.push(`다음 턴 시작 시 물리 취약 ${action.nextTurnPhysicalVulnerabilityGain} 부여`);
   if (action.nextTurnMagicVulnerabilityGain) parts.push(`다음 턴 시작 시 마법 취약 ${action.nextTurnMagicVulnerabilityGain} 부여`);
-  if (action.discardCount) parts.push(`파일 맨 위 ${action.discardCount}장 버리기`);
+  if (action.discardCount) parts.push(`파일 맨 위 ${action.discardCount}장 버리기${action.discardPriority === "rarity" ? " (희귀도 높은 카드 우선)" : ""}`);
   return parts.length > 0 ? parts.join(" · ") : "대기";
 }
 

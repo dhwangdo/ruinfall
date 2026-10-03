@@ -308,7 +308,7 @@ export function createEndTurn(context: EndTurnContext) {
               : `${pileIndex + 1}번 파일은 비어 있음`,
           });
         }
-        if (action.strengthGain || action.blockGain) {
+        if (action.strengthGain || action.blockGain || action.healGain) {
           steps.push({
             enemy,
             action,
@@ -327,6 +327,7 @@ export function createEndTurn(context: EndTurnContext) {
         const nextIntentIndex = chooseNextIntent(enemy.actions, enemy.intentIndex);
         return {
           ...enemy,
+          hp: Math.min(enemy.maxHp, enemy.hp + (action.healGain ?? 0)),
           strength: enemy.strength + (action.strengthGain ?? 0),
           physicalBlock: enemy.physicalBlock + (action.blockGain ?? 0),
           boon: (enemy.boon ?? 0) + (action.boonGain ?? 0),

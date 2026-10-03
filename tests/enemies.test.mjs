@@ -90,18 +90,15 @@ test("each region has a three-percent chance to use the next region enemy pool",
   assert.equal(getEncounterRegionNumber(10), 3);
 });
 
-test("orange slime rolls 36 to 40 health and alternates its upgraded pattern", () => {
+test("orange slime repeats its 9-damage physical attack", () => {
   const slime = createSewerEncounterByIndex(1, () => 0)[0];
   const actions = slime.actions;
   assert.equal(slime.hp, 45);
   assert.equal(slime.intentIndex, 0);
-  assert.equal(actions.length, 2);
+  assert.equal(actions.length, 1);
   assert.equal(actions[0].attacks[0].value, 9);
   assert.equal(actions[0].blockGain, undefined);
-  assert.equal(actions[1].attacks[0].value, 6);
-  assert.equal(actions[1].blockGain, 10);
-  assert.equal(chooseNextIntent(actions, 0), 1);
-  assert.equal(chooseNextIntent(actions, 1), 0);
+  assert.equal(chooseNextIntent(actions, 0), 0);
 });
 
 test("golem deals 8 damage during its waits and 30 damage on attack turns", () => {
@@ -127,12 +124,16 @@ test("sewer rat uses the requested discard patterns", () => {
   assert.equal(rat.hp, 50);
   assert.deepEqual(rat.actions[0].attacks, [{ type: "physical", value: 5, hits: 2 }]);
   assert.equal(rat.actions[0].discardCount, 1);
+  assert.equal(rat.actions[0].discardPriority, "rarity");
   assert.deepEqual(rat.actions[1].attacks, [{ type: "physical", value: 10 }]);
   assert.equal(rat.actions[1].discardCount, 1);
+  assert.equal(rat.actions[1].discardPriority, "rarity");
   assert.deepEqual(rat.actions[2].attacks, []);
-  assert.equal(rat.actions[2].blockGain, 10);
+  assert.equal(rat.actions[2].healGain, 5);
   assert.equal(rat.actions[2].strengthGain, 3);
+  assert.equal(rat.actions[2].blockGain, undefined);
   assert.equal(rat.actions[2].discardCount, 1);
+  assert.equal(rat.actions[2].discardPriority, "rarity");
   assert.equal(rat.discardPileIndex, undefined);
 });
 

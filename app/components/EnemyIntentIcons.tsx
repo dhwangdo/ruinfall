@@ -5,6 +5,7 @@ export function enemyIntentEffectDescription(action: EnemyAction, firstActionCom
     ? action.firstActionRockCount
     : action.rockCount;
   const describedEffects = [
+    action.healGain && `체력 ${action.healGain} 회복`,
     action.strengthGain && `힘 ${action.strengthGain} 획득`,
     action.blockGain && `방어 ${action.blockGain} 획득`,
     action.boonGain && `가호 ${action.boonGain} 획득`,
@@ -16,7 +17,7 @@ export function enemyIntentEffectDescription(action: EnemyAction, firstActionCom
     action.physicalVulnerabilityGain && `물리 취약 ${action.physicalVulnerabilityGain} 부여`,
     action.nextTurnPhysicalVulnerabilityGain && `다음 턴 시작 시 물리 취약 ${action.nextTurnPhysicalVulnerabilityGain} 부여`,
     action.nextTurnMagicVulnerabilityGain && `다음 턴 시작 시 마법 취약 ${action.nextTurnMagicVulnerabilityGain} 부여`,
-    action.discardCount && `파일 맨 위 카드 ${action.discardCount}장 버리기`,
+    action.discardCount && `파일 맨 위 카드 ${action.discardCount}장 버리기${action.discardPriority === "rarity" ? " (희귀도 높은 카드 우선)" : ""}`,
   ].filter(Boolean).join(" · ");
   return describedEffects || (action.attacks.length === 0 ? action.name : "");
 }

@@ -4,6 +4,30 @@ import type { GameState } from "./battleState";
 import { createRadianceCard, createRockCard, createSlimeCard, createSoilCard, type Card } from "./cards";
 import { drawFromPiles, drawRandomFromPiles } from "./battleState";
 
+const CARD_RARITY_PRIORITY: Record<Card["rarity"], number> = {
+  status: 0,
+  starter: 1,
+  basic: 2,
+  special: 3,
+  rare: 4,
+  legendary: 5,
+};
+
+function prioritizeTopRarityPiles(piles: Card[][], pileIndexes: number[]) {
+  let highestRarity = -1;
+  const highestRarityPileIndexes: number[] = [];
+  for (const index of pileIndexes) {
+    const topCard = piles[index]?.at(-1);
+    const priority = topCard ? CARD_RARITY_PRIORITY[topCard.rarity] : -1;
+    if (priority > highestRarity) {
+      highestRarity = priority;
+      highestRarityPileIndexes.length = 0;
+    }
+    if (priority === highestRarity) highestRarityPileIndexes.push(index);
+  }
+  return highestRarityPileIndexes;
+}
+
 type BattlePhase = "drawing" | "playing" | "discarding" | "enemy-turn";
 
 type DrawCardsContext = {
@@ -170,8 +194,11 @@ export function createDrawCards(context: DrawCardsContext) {
         : drawPiles.map((_, index) => index);
       const enemiesAfterDiscardTargeting = current.enemies.map((enemy) => {
         const intent = enemy.actions[enemy.intentIndex];
+        const discardCandidates = intent.discardPriority === "rarity" && nonEmptyPileIndexes.length > 0
+          ? prioritizeTopRarityPiles(drawPiles, nonEmptyPileIndexes)
+          : discardPileCandidates;
         return intent.discardCount
-          ? { ...enemy, discardPileIndex: discardPileCandidates.length > 0 ? pickRandom(discardPileCandidates) : undefined }
+          ? { ...enemy, discardPileIndex: discardCandidates.length > 0 ? pickRandom(discardCandidates) : undefined }
           : { ...enemy, discardPileIndex: undefined };
       });
       const toxicSlimeSources = current.enemies.flatMap((enemy) => enemy.givesToxicSlime
