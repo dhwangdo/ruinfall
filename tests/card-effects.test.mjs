@@ -56,28 +56,28 @@ test("cards without ordinary defense values stay at zero without a base override
   assert.equal(calculateDefenseGain({ effect: "sturdyStance", value: 0 }, options), 0);
 });
 
-test("ritual and rank spell tooltips state their requirements and crystal cost", () => {
+test("sacrifice and rank spell tooltips keep the same explanation for every level", () => {
   const soulCollateralLoan = RARE_CARD_POOL.find((card) => card.name === "영혼담보대출");
   const sturdyStance = RARE_CARD_POOL.find((card) => card.name === "견고한 태세");
   assert.ok(soulCollateralLoan);
   assert.ok(sturdyStance);
 
-  assert.deepEqual(
-    getCardKeywordInfos(soulCollateralLoan).find((keyword) => keyword.name === "희생 2"),
-    {
-      name: "희생 2",
-      description: "손패에 제물이 2장 이상 있어야 사용할 수 있습니다. 사용할 때 손패의 제물 2장을 소멸시킵니다.",
-      preview: undefined,
-    },
-  );
-  assert.deepEqual(
-    getCardKeywordInfos(sturdyStance).find((keyword) => keyword.name === "Lv.3 마법"),
-    {
-      name: "Lv.3 마법",
-      description: "손패에 마력 결정 III 이상이 있으면 사용할 수 있습니다. 마력 결정은 소모되지 않습니다.",
-      preview: undefined,
-    },
-  );
+  const sacrificeDescription = "손패에 제물이 X장 이상 있어야 사용할 수 있습니다. 사용 시 손패의 제물 X장을 소멸시킵니다.";
+  const spellRankDescription = "손패에 X단계 이상의 마력 결정이 있어야 사용할 수 있습니다. 마력 결정은 소모되지 않습니다.";
+  const sacrificeTooltip = { name: "희생 X", description: sacrificeDescription, preview: undefined };
+  const spellRankTooltip = { name: "Lv.X 마법", description: spellRankDescription, preview: undefined };
+  for (const ritualCost of [1, 2]) {
+    assert.deepEqual(
+      getCardKeywordInfos({ ...soulCollateralLoan, ritualCost }).find((keyword) => keyword.name === "희생 X"),
+      sacrificeTooltip,
+    );
+  }
+  for (const spellRank of [3, 4]) {
+    assert.deepEqual(
+      getCardKeywordInfos({ ...sturdyStance, spellRank }).find((keyword) => keyword.name === "Lv.X 마법"),
+      spellRankTooltip,
+    );
+  }
   assert.equal(getCardKeywordInfos(createMagicCrystalCard(1, 2)).some((keyword) => keyword.name === "마력 결정"), true);
 });
 
