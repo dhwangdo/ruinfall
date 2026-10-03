@@ -40,6 +40,7 @@ export function useBattlePointerInput({
     setDragging,
     selectedHandCardId,
     setSelectedHandCardId,
+    setHoveredHandCardId,
   } = interaction;
   const dragRef = useRef<ActiveBattleDrag | null>(null);
   const pileAutoScrollRef = useRef<{ pointerX: number; frame: number | null }>({ pointerX: 0, frame: null });
@@ -124,23 +125,27 @@ export function useBattlePointerInput({
     };
     dragRef.current = nextDrag;
     setDragging(nextDrag);
+    setHoveredHandCardId(source.type === "hand" ? card.id : null);
   };
 
   const getDropZoneAtPoint = (clientX: number, clientY: number) => {
+    const pointedTarget = document
+      .elementFromPoint(clientX, clientY)
+      ?.closest<HTMLElement>("[data-drop-target]")
+      ?.dataset.dropTarget;
+    if (pointedTarget?.startsWith("enemy:") || pointedTarget?.startsWith("pile:")) return pointedTarget;
     const centerDropZone = centerDropZoneRef.current;
     if (centerDropZone) {
       const bounds = centerDropZone.getBoundingClientRect();
+      const horizontalReach = Math.min(180, bounds.width * 0.25);
       if (
-        clientX >= bounds.left
-        && clientX <= bounds.right
+        clientX >= bounds.left - horizontalReach
+        && clientX <= bounds.right + horizontalReach
         && clientY >= bounds.top
         && clientY <= bounds.bottom
       ) return "defend";
     }
-    return document
-      .elementFromPoint(clientX, clientY)
-      ?.closest<HTMLElement>("[data-drop-target]")
-      ?.dataset.dropTarget;
+    return pointedTarget;
   };
 
   const moveDrag = (event: PointerEvent<HTMLElement>) => {
@@ -150,6 +155,10 @@ export function useBattlePointerInput({
     const nextDrag = { ...current, x: event.clientX, y: event.clientY, moved };
     dragRef.current = nextDrag;
     setDragging(nextDrag);
+    const hoveredCard = document.elementsFromPoint(event.clientX, event.clientY)
+      .map((element) => element.closest<HTMLElement>(".hand .game-card"))
+      .find((element) => element && (!moved || Number(element.dataset.cardId) !== current.card.id));
+    setHoveredHandCardId(hoveredCard ? Number(hoveredCard.dataset.cardId) : null);
     if (!moved) setDragOverDropTarget(null);
     else setDragOverDropTarget(getDropZoneAtPoint(event.clientX, event.clientY) ?? null);
     if (moved) updatePileAutoScroll(event.clientX);
@@ -161,6 +170,7 @@ export function useBattlePointerInput({
     if (!current) return;
     stopPileAutoScroll();
     setDragOverDropTarget(null);
+    setHoveredHandCardId(null);
     if (current.moved) {
       const dropZone = getDropZoneAtPoint(event.clientX, event.clientY);
       const targetEnemyId = dropZone?.startsWith("enemy:") ? dropZone.slice(6) : undefined;
@@ -218,6 +228,7 @@ export function useBattlePointerInput({
     dragRef.current = null;
     setDragging(null);
     setDragOverDropTarget(null);
+    setHoveredHandCardId(null);
   };
 
   useEffect(() => {

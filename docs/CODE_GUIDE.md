@@ -129,6 +129,7 @@ setGame((current) => ({ ...current, energy: 2 }));
 | `app/hooks/useRunSaveLifecycle.ts` | 진행 스냅샷 저장, 지연 저장과 주기적 저장 타이머 |
 | `app/game/cards.ts` | 카드 타입, 카드 정의, 획득 풀, 전투 토큰 카드 생성 |
 | `app/game/cardEffects.ts` | 카드 비용, 키워드, 재련과 솔리테어 배치 판정 |
+| `app/game/battleHandRules.ts` | 전투 중 스페이스로 실행하는 손패 코스트·희귀도 정렬 |
 | `app/cardTextLayout.ts` | 카드 효과 문장 나누기와 카드 너비에 맞춘 글자 크기 계산 |
 | `app/cardConstellations.ts` | 카드 워터마크용 별자리 생성과 SVG 이미지 변환 |
 | `app/components/CardFace.tsx` | 카드 앞면, 효과 설명, 수치 강조와 글자 맞춤 표시 |

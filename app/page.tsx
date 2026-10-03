@@ -80,6 +80,7 @@ import {
   waitingState,
   type GameState,
 } from "./game/battleState";
+import { sortBattleHandByCost } from "./game/battleHandRules";
 import {
   CONSUMABLE_TYPES,
   DEBUG_ALL_CARDS_DECK_ID,
@@ -468,6 +469,7 @@ export default function Home() {
   const {
     selectedHandCardId,
     setSelectedHandCardId,
+    hoveredHandCardId,
     dragging,
     setDragging,
     dragOverDropTarget,
@@ -4748,6 +4750,7 @@ export default function Home() {
             phase={phase}
             dragging={dragging}
             selectedHandCardId={selectedHandCardId}
+            hoveredHandCardId={hoveredHandCardId}
             setSelectedHandCardId={setSelectedHandCardId}
             controlsLocked={controlsLocked}
             backToBasicsBonus={backToBasicsBonus}
@@ -4760,6 +4763,10 @@ export default function Home() {
             onRetrieveNecromancyResearchCard={retrieveNecromancyResearchCard}
             onDiscardSelectedCard={discardSelectedCard}
             onPlayHandCardOnDoubleClick={playHandCardOnDoubleClick}
+            onSortHand={() => setGame((current) => ({
+              ...current,
+              hand: sortBattleHandByCost(current.hand, lawResearchCount, current.forgeCount),
+            }))}
             onEndTurn={endTurn}
             onShowCardKeywordOnly={showCardKeywordOnly}
             onClearCardHover={() => { setHoveredDeckCard(null); clearCardKeywordHover(); }}

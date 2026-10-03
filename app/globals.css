@@ -4096,13 +4096,11 @@ h1 { margin: 0; font-size: 25px; font-weight: 600; }
   align-items: end;
   gap: 0;
   width: 100%;
-  max-width: 744px;
+  max-width: 1100px;
   min-width: 0;
   padding: 12px 6px var(--hand-bottom-clearance, 52px);
-  overflow-x: clip;
-  overflow-y: visible;
+  overflow: visible;
 }
-.hand.is-drawing { overflow-x: visible; }
 .hand-track {
   position: relative;
   left: 50%;
@@ -4121,7 +4119,7 @@ h1 { margin: 0; font-size: 25px; font-weight: 600; }
   transform: translateX(var(--hand-x, 0px)) translateY(var(--hand-y, 0px)) rotate(var(--hand-angle, 0deg));
   transform-origin: 50% 100%;
   cursor: grab;
-  transition: transform .28s cubic-bezier(.2, .75, .25, 1);
+  transition: transform .28s cubic-bezier(.2, .75, .25, 1), opacity .16s ease;
   touch-action: none;
   user-select: none;
   -webkit-user-select: none;
@@ -4177,12 +4175,13 @@ h1 { margin: 0; font-size: 25px; font-weight: 600; }
   margin-left: calc(var(--hand-card-step) - var(--card-w));
   transform: translateX(var(--hand-x, 0px)) translateY(var(--hand-y, 0px)) rotate(var(--hand-angle, 0deg));
   transform-origin: 50% 100%;
-  transition: transform .28s cubic-bezier(.2, .75, .25, 1);
+  transition: transform .28s cubic-bezier(.2, .75, .25, 1), opacity .16s ease;
   pointer-events: none;
 }
 
 .game-card:first-child { margin-left: 0; }
 .hand-card-placeholder:first-child { margin-left: 0; }
+.hand .is-outside-window { opacity: 0; pointer-events: none; }
 .game-card.has-hand-aura {
   border-color: #d6ad2f;
   box-shadow:
@@ -4194,9 +4193,10 @@ h1 { margin: 0; font-size: 25px; font-weight: 600; }
   border-color: #d95b5b;
   box-shadow: 0 0 4px rgba(237,98,98,.66), 0 0 12px rgba(219,60,60,.38), 0 0 18px rgba(219,60,60,.16);
 }
-.game-card:hover:not(:disabled),
-.game-card:focus-visible,
-.game-card.is-keyboard-selected:not(:disabled) {
+.hand:not(.is-pointer-dragging) .game-card:hover:not(:disabled),
+.hand:not(.is-pointer-dragging) .game-card:focus-visible,
+.hand:not(.is-pointer-dragging) .game-card.is-keyboard-selected:not(:disabled),
+.hand.is-pointer-dragging .game-card.is-pointer-hovered:not(:disabled) {
   z-index: 3;
   border-width: calc(1px / 1.3);
   outline: calc(2px / 1.3) solid #e3d49a;
@@ -4620,9 +4620,10 @@ h1 { margin: 0; font-size: 25px; font-weight: 600; }
     min-height: 205px;
     padding: 22px 12px var(--hand-bottom-clearance, 52px);
   }
-  .player-zone .hand .game-card:hover:not(:disabled),
-  .player-zone .hand .game-card:focus-visible,
-  .player-zone .hand .game-card.is-keyboard-selected:not(:disabled) {
+  .player-zone .hand:not(.is-pointer-dragging) .game-card:hover:not(:disabled),
+  .player-zone .hand:not(.is-pointer-dragging) .game-card:focus-visible,
+  .player-zone .hand:not(.is-pointer-dragging) .game-card.is-keyboard-selected:not(:disabled),
+  .player-zone .hand.is-pointer-dragging .game-card.is-pointer-hovered:not(:disabled) {
     transform: translateY(-14px) rotate(0deg) scale(1.3);
   }
   .player-zone .controls {

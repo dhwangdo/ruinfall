@@ -5,6 +5,7 @@ export type ActiveBattleDrag = DragState & { startX: number; startY: number };
 
 export function useBattleInteractionState() {
   const [selectedHandCardId, setSelectedHandCardId] = useState<number | null>(null);
+  const [hoveredHandCardId, setHoveredHandCardId] = useState<number | null>(null);
   const [dragging, setDragging] = useState<DragState | null>(null);
   const [dragOverDropTarget, setDragOverDropTarget] = useState<string | null>(null);
   const [centerDropPointerHover, setCenterDropPointerHover] = useState(false);
@@ -14,6 +15,8 @@ export function useBattleInteractionState() {
   return {
     selectedHandCardId,
     setSelectedHandCardId,
+    hoveredHandCardId,
+    setHoveredHandCardId,
     dragging,
     setDragging,
     dragOverDropTarget,

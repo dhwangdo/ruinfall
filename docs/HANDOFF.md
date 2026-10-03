@@ -110,6 +110,7 @@
 | 지도판 계산과 표시 | `app/components/MapBoard.tsx` |
 | 추출·변환·조합 성소 선택 UI | `app/components/ExtractionShrineModal.tsx`, `app/components/CardConversionShrineModal.tsx` |
 | 전투 손패·파일 영역 표시와 입력 | `app/components/BattleHandArea.tsx`, `app/components/BattlePileZone.tsx` |
+| 전투 손패 코스트 정렬 | `app/game/battleHandRules.ts` |
 | 전투 선택·드래그 상태와 포인터 입력 | `app/hooks/useBattleInteractionState.ts`, `app/hooks/useBattlePointerInput.ts` |
 | 탐험 진행 스냅샷 저장 주기와 타이머 | `app/hooks/useRunSaveLifecycle.ts` |
 | 카드 앞면과 효과 문구 표시 | `app/components/CardFace.tsx` |

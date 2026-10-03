@@ -18,6 +18,7 @@ type BattleHandAreaProps = {
   phase: Phase;
   dragging: DragState | null;
   selectedHandCardId: number | null;
+  hoveredHandCardId: number | null;
   setSelectedHandCardId: Dispatch<SetStateAction<number | null>>;
   controlsLocked: boolean;
   backToBasicsBonus: (card: Card) => number;
@@ -30,21 +31,24 @@ type BattleHandAreaProps = {
   onRetrieveNecromancyResearchCard: (cardId: number, allowAutoPay?: boolean) => void;
   onDiscardSelectedCard: (cardId: number) => void;
   onPlayHandCardOnDoubleClick: (card: Card) => void;
+  onSortHand: () => void;
   onEndTurn: () => void;
   onShowCardKeywordOnly: (card: Card, right: number, top: number) => void;
   onClearCardHover: () => void;
 };
 
 const HAND_CARD_STEP = 96;
-const HAND_ARC_RADIUS = 850;
-const HAND_ANGLE_STEP = 6.5;
+const HAND_ARC_RADIUS = 1700;
+const HAND_ANGLE_STEP = 3.25;
 const HAND_WHEEL_STEP = 70;
+const HAND_EDGE_MARGIN = 12;
 
 export function BattleHandArea({
   game,
   phase,
   dragging,
   selectedHandCardId,
+  hoveredHandCardId,
   setSelectedHandCardId,
   controlsLocked,
   backToBasicsBonus,
@@ -57,6 +61,7 @@ export function BattleHandArea({
   onRetrieveNecromancyResearchCard,
   onDiscardSelectedCard,
   onPlayHandCardOnDoubleClick,
+  onSortHand,
   onEndTurn,
   onShowCardKeywordOnly,
   onClearCardHover,
@@ -64,24 +69,24 @@ export function BattleHandArea({
   const displayedHand = useDisplayedHand(game, phase);
   const handRef = useRef<HTMLDivElement>(null);
   const wheelRemainderRef = useRef(0);
-  const [handMetrics, setHandMetrics] = useState({ width: 600, cardWidth: 136 });
+  const [handMetrics, setHandMetrics] = useState({ width: 600, cardWidth: 136, cardHeight: 191 });
   const [windowStart, setWindowStart] = useState(0);
+  const fittingCardCount = [9, 7, 5, 3, 1].find((count) => {
+    const angle = (count - 1) / 2 * HAND_ANGLE_STEP * Math.PI / 180;
+    const outerEdge = HAND_ARC_RADIUS * Math.sin(angle)
+      + handMetrics.cardWidth / 2 * Math.cos(angle)
+      + handMetrics.cardHeight * Math.sin(angle);
+    return outerEdge * 2 + HAND_EDGE_MARGIN * 2 <= handMetrics.width;
+  }) ?? 1;
   const visibleCardCount = Math.min(
     displayedHand.length,
-    Math.max(1, Math.min(7, Math.floor((handMetrics.width - handMetrics.cardWidth - 16) / HAND_CARD_STEP) + 1)),
+    fittingCardCount,
   );
   const maxWindowStart = Math.max(0, displayedHand.length - visibleCardCount);
   const clampedWindowStart = Math.min(windowStart, maxWindowStart);
-  const handCenterIndex = clampedWindowStart + (visibleCardCount - 1) / 2;
+  const handCenterIndex = clampedWindowStart + Math.max(0, (visibleCardCount - 1) / 2);
   const trackCenterOffset = handMetrics.cardWidth / 2 + handCenterIndex * HAND_CARD_STEP;
-  let edgeDistance = (visibleCardCount - 1) / 2;
-  for (let extra = 0; extra < Math.min(3, maxWindowStart); extra++) {
-    const nextDistance = edgeDistance + 1;
-    const angle = nextDistance * HAND_ANGLE_STEP * Math.PI / 180;
-    const innerEdge = HAND_ARC_RADIUS * Math.sin(angle) - handMetrics.cardWidth / 2 * Math.cos(angle);
-    if (innerEdge > handMetrics.width / 2 + 4) break;
-    edgeDistance = nextDistance;
-  }
+  const edgeDistance = Math.max(0, (visibleCardCount - 1) / 2);
   const edgeAngle = edgeDistance * HAND_ANGLE_STEP * Math.PI / 180;
   const handBottomClearance = Math.max(52, Math.ceil(
     HAND_ARC_RADIUS * (1 - Math.cos(edgeAngle))
@@ -96,11 +101,13 @@ export function BattleHandArea({
     const hand = handRef.current;
     if (!hand) return;
     const updateMetrics = () => {
-      const width = hand.clientWidth;
-      const cardWidth = Number.parseFloat(getComputedStyle(hand).getPropertyValue("--card-w")) || 136;
-      setHandMetrics((current) => current.width === width && current.cardWidth === cardWidth
+      const style = getComputedStyle(hand);
+      const width = hand.clientWidth - Number.parseFloat(style.paddingLeft) - Number.parseFloat(style.paddingRight);
+      const cardWidth = Number.parseFloat(style.getPropertyValue("--card-w")) || 136;
+      const cardHeight = Number.parseFloat(style.getPropertyValue("--card-h")) || 191;
+      setHandMetrics((current) => current.width === width && current.cardWidth === cardWidth && current.cardHeight === cardHeight
         ? current
-        : { width, cardWidth });
+        : { width, cardWidth, cardHeight });
     };
     updateMetrics();
     const observer = new ResizeObserver(updateMetrics);
@@ -144,12 +151,26 @@ export function BattleHandArea({
     return () => hand.removeEventListener("wheel", handleWheel);
   }, [dragging, maxWindowStart, onClearCardHover, setSelectedHandCardId]);
 
+  useEffect(() => {
+    const handleSortKey = (event: KeyboardEvent) => {
+      if (phase !== "playing" || game.status !== "playing" || dragging || event.repeat || event.code !== "Space") return;
+      if (event.altKey || event.ctrlKey || event.metaKey) return;
+      const target = event.target as HTMLElement | null;
+      if (target?.closest("input, textarea, select, [contenteditable='true']")) return;
+      event.preventDefault();
+      onSortHand();
+      setWindowStart(0);
+      setSelectedHandCardId(null);
+      onClearCardHover();
+    };
+    window.addEventListener("keydown", handleSortKey);
+    return () => window.removeEventListener("keydown", handleSortKey);
+  }, [dragging, game.status, onClearCardHover, onSortHand, phase, setSelectedHandCardId]);
+
   const handFanStyle = (index: number) => {
     const distanceFromCenter = index - handCenterIndex;
     const angle = distanceFromCenter * HAND_ANGLE_STEP * Math.PI / 180;
-    const xOffset = Math.abs(distanceFromCenter) <= edgeDistance
-      ? HAND_ARC_RADIUS * Math.sin(angle) - distanceFromCenter * HAND_CARD_STEP
-      : 0;
+    const xOffset = HAND_ARC_RADIUS * Math.sin(angle) - distanceFromCenter * HAND_CARD_STEP;
     return {
       "--hand-x": `${xOffset}px`,
       "--hand-angle": `${distanceFromCenter * HAND_ANGLE_STEP}deg`,
@@ -161,7 +182,7 @@ export function BattleHandArea({
     <>
       <div
         ref={handRef}
-        className={`hand ${phase === "discarding" ? "is-discarding" : ""} ${phase === "drawing" ? "is-drawing" : ""} ${game.pendingDiscards > 0 ? "is-discard-choice" : ""}`}
+        className={`hand ${phase === "discarding" ? "is-discarding" : ""} ${phase === "drawing" ? "is-drawing" : ""} ${game.pendingDiscards > 0 ? "is-discard-choice" : ""} ${dragging ? "is-pointer-dragging" : ""}`}
         style={{ "--hand-bottom-clearance": `${handBottomClearance}px` } as CSSProperties}
         data-drop-target="hand"
         aria-label="손패"
@@ -188,14 +209,16 @@ export function BattleHandArea({
         >
           {displayedHand.map((card, index) => card ? (
             <button
-              className={`game-card card-face ${card.kind} ${card.damageType} ${HAND_PASSIVE_EFFECTS.has(card.effect) ? "has-hand-aura" : card.effect === "slime" ? "has-danger-aura is-toxic-slime" : ""} ${dragging?.card.id === card.id ? "is-dragging" : ""} ${selectedHandCardId === card.id ? "is-keyboard-selected" : ""}`}
+              className={`game-card card-face ${card.kind} ${card.damageType} ${HAND_PASSIVE_EFFECTS.has(card.effect) ? "has-hand-aura" : card.effect === "slime" ? "has-danger-aura is-toxic-slime" : ""} ${dragging?.card.id === card.id ? "is-dragging" : ""} ${dragging && hoveredHandCardId === card.id ? "is-pointer-hovered" : ""} ${selectedHandCardId === card.id ? "is-keyboard-selected" : ""} ${index < clampedWindowStart || index >= clampedWindowStart + visibleCardCount ? "is-outside-window" : ""}`}
               key={card.id}
+              data-card-id={card.id}
               ref={(element) => {
                 if (element) handCardRefs.current.set(card.id, element);
                 else handCardRefs.current.delete(card.id);
               }}
               style={{ "--card-index": index, ...handFanStyle(index) } as CSSProperties}
               tabIndex={index >= clampedWindowStart && index < clampedWindowStart + visibleCardCount ? 0 : -1}
+              aria-hidden={index < clampedWindowStart || index >= clampedWindowStart + visibleCardCount}
               onPointerDown={(event) => {
                 setSelectedHandCardId(null);
                 dragHandlers.beginDrag(event, card, { type: "hand" });
@@ -204,6 +227,7 @@ export function BattleHandArea({
               onPointerUp={dragHandlers.finishDrag}
               onPointerCancel={dragHandlers.cancelDrag}
               onMouseEnter={(event) => {
+                if (dragging) return;
                 if (selectedHandCardId !== null && selectedHandCardId !== card.id) {
                   setSelectedHandCardId(null);
                 }
@@ -211,6 +235,7 @@ export function BattleHandArea({
                 onShowCardKeywordOnly(card, bounds.right, bounds.top);
               }}
               onMouseMove={(event) => {
+                if (dragging) return;
                 const bounds = event.currentTarget.getBoundingClientRect();
                 onShowCardKeywordOnly(card, bounds.right, bounds.top);
               }}
@@ -232,7 +257,7 @@ export function BattleHandArea({
                 radiancePlayedThisTurn={game.radiancePlayedThisTurn}
               />
             </button>
-          ) : <div className="hand-card-placeholder" aria-hidden="true" key={`clear-slot-${index}`} style={handFanStyle(index)} />)}
+          ) : <div className={`hand-card-placeholder ${index < clampedWindowStart || index >= clampedWindowStart + visibleCardCount ? "is-outside-window" : ""}`} aria-hidden="true" key={`clear-slot-${index}`} style={handFanStyle(index)} />)}
         </div>
         {game.hand.length === 0 && phase === "playing" && game.status === "playing" && (
           <div className="empty-hand">사용할 카드가 없습니다</div>
