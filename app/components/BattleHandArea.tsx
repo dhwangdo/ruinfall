@@ -152,20 +152,42 @@ export function BattleHandArea({
   }, [dragging, maxWindowStart, onClearCardHover, setSelectedHandCardId]);
 
   useEffect(() => {
-    const handleSortKey = (event: KeyboardEvent) => {
-      if (phase !== "playing" || game.status !== "playing" || dragging || event.repeat || event.code !== "Space") return;
+    const handleHandKey = (event: KeyboardEvent) => {
+      if (phase !== "playing" || game.status !== "playing" || dragging || event.repeat) return;
       if (event.altKey || event.ctrlKey || event.metaKey) return;
       const target = event.target as HTMLElement | null;
       if (target?.closest("input, textarea, select, [contenteditable='true']")) return;
+      if (event.code === "Space") {
+        event.preventDefault();
+        onSortHand();
+        setWindowStart(0);
+        setSelectedHandCardId(null);
+        onClearCardHover();
+        return;
+      }
+      const activateSelectedCard = (card: Card) => {
+        setSelectedHandCardId(null);
+        onPlayHandCardOnDoubleClick(card);
+      };
+      if (event.key === "Enter" && selectedHandCardId !== null) {
+        const card = game.hand.find((item) => item.id === selectedHandCardId);
+        if (!card) return;
+        event.preventDefault();
+        activateSelectedCard(card);
+        return;
+      }
+      if (!/^[1-9]$/.test(event.key)) return;
+      const visibleIndex = Number(event.key) - 1;
+      if (visibleIndex >= visibleCardCount) return;
+      const card = displayedHand[clampedWindowStart + visibleIndex];
+      if (!card) return;
       event.preventDefault();
-      onSortHand();
-      setWindowStart(0);
-      setSelectedHandCardId(null);
-      onClearCardHover();
+      if (selectedHandCardId === card.id) activateSelectedCard(card);
+      else setSelectedHandCardId(card.id);
     };
-    window.addEventListener("keydown", handleSortKey);
-    return () => window.removeEventListener("keydown", handleSortKey);
-  }, [dragging, game.status, onClearCardHover, onSortHand, phase, setSelectedHandCardId]);
+    window.addEventListener("keydown", handleHandKey);
+    return () => window.removeEventListener("keydown", handleHandKey);
+  }, [clampedWindowStart, displayedHand, dragging, game.hand, game.status, onClearCardHover, onPlayHandCardOnDoubleClick, onSortHand, phase, selectedHandCardId, setSelectedHandCardId, visibleCardCount]);
 
   const handFanStyle = (index: number) => {
     const distanceFromCenter = index - handCenterIndex;

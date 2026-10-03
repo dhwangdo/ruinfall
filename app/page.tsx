@@ -3363,17 +3363,25 @@ export default function Home() {
       return () => window.cancelAnimationFrame(frame);
     }
 
-    const hasEnemyTokenFlight = game.hand.some((card) => pendingEnemyTokenIdsRef.current.has(card.id));
+    const isOpeningDeal = phase === "drawing" && game.turn === 1;
+    let animatedPileCards = 0;
+    let finishDelay = 0;
     game.hand.forEach((card, index) => {
       const source = origins.get(card.id);
       const target = handCardRefs.current.get(card.id);
       if (!source || !target) return;
-      const targetRect = target.getBoundingClientRect();
-      target.style.zIndex = String(20 + index);
       if (pendingEnemyTokenIdsRef.current.has(card.id)) {
+        target.style.zIndex = String(20 + index);
         animateEnemyCardDelivery(target, source, index * 65);
+        finishDelay = Math.max(finishDelay, 860 + index * 65);
         return;
       }
+      if (isOpeningDeal && animatedPileCards >= 9) return;
+      const delay = isOpeningDeal ? animatedPileCards * 50 : index * 50;
+      animatedPileCards += 1;
+      finishDelay = Math.max(finishDelay, 320 + delay);
+      const targetRect = target.getBoundingClientRect();
+      target.style.zIndex = String(20 + index);
       target.animate(
         [
           {
@@ -3389,7 +3397,7 @@ export default function Home() {
         ],
         {
           duration: 300,
-          delay: index * 50,
+          delay,
           easing: "cubic-bezier(.2,.72,.25,1)",
           fill: "backwards",
         },
@@ -3398,15 +3406,12 @@ export default function Home() {
 
     origins.clear();
     pendingEnemyTokenIdsRef.current.clear();
-    const finishDelay = hasEnemyTokenFlight
-      ? 860 + Math.max(0, game.hand.length - 1) * 65
-      : 320 + Math.max(0, game.hand.length - 1) * 50;
     const timer = window.setTimeout(() => {
       handCardRefs.current.forEach((element) => { element.style.zIndex = ""; });
       if (!game.clearPlan) setPhase("playing");
     }, finishDelay);
     return () => window.clearTimeout(timer);
-  }, [game.hand, game.clearPlan]);
+  }, [game.hand, game.clearPlan, game.turn, phase]);
 
   useLayoutEffect(() => {
     if (screen !== "battle" || pendingPileTokenSourcesRef.current.size === 0) return;
@@ -3739,7 +3744,6 @@ export default function Home() {
     interaction: battleInteraction,
     game,
     phase,
-    screen,
     pileScrollRef,
     setGame,
     onClearPreviews: () => {
@@ -3751,7 +3755,6 @@ export default function Home() {
     onMoveCardToPile: moveCardToPile,
     onPlayCard: playCard,
     onResearchDraw: drawAstronomyResearchCard,
-    onPlayHandCardOnDoubleClick: playHandCardOnDoubleClick,
   });
 
   const endTurn = () => createEndTurn({

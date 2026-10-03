@@ -37,35 +37,29 @@ type BattlePointerInputOptions = {
   interaction: BattleInteractionState;
   game: GameState;
   phase: Phase;
-  screen: "map" | "battle";
   pileScrollRef: RefObject<HTMLDivElement | null>;
   setGame: Dispatch<SetStateAction<GameState>>;
   onClearPreviews: () => void;
   onMoveCardToPile: (drag: DragState, targetPileIndex: number) => void;
   onPlayCard: (card: Card, targetEnemyId?: string) => void;
   onResearchDraw: (pileIndex: number, allowAutoPay?: boolean) => void;
-  onPlayHandCardOnDoubleClick: (card: Card) => void;
 };
 
 export function useBattlePointerInput({
   interaction,
   game,
   phase,
-  screen,
   pileScrollRef,
   setGame,
   onClearPreviews,
   onMoveCardToPile,
   onPlayCard,
   onResearchDraw,
-  onPlayHandCardOnDoubleClick,
 }: BattlePointerInputOptions) {
   const {
     centerDropZoneRef,
     setDragOverDropTarget,
     setDragging,
-    selectedHandCardId,
-    setSelectedHandCardId,
     setHoveredHandCardId,
   } = interaction;
   const dragRef = useRef<ActiveBattleDrag | null>(null);
@@ -266,40 +260,6 @@ export function useBattlePointerInput({
     setDragOverDropTarget(null);
     setHoveredHandCardId(null);
   };
-
-  useEffect(() => {
-    const handleBattleCardKeyboard = (event: KeyboardEvent) => {
-      if (screen !== "battle" || phase !== "playing" || game.status !== "playing" || event.repeat) return;
-      const target = event.target as HTMLElement | null;
-      if (target?.closest("input, textarea, select, [contenteditable='true']")) return;
-
-      const activateSelectedCard = (card: Card) => {
-        setSelectedHandCardId(null);
-        onPlayHandCardOnDoubleClick(card);
-      };
-      const selectedId = selectedHandCardId;
-      if (event.key === "Enter" && selectedId !== null) {
-        const card = game.hand.find((item) => item.id === selectedId);
-        if (!card) return;
-        event.preventDefault();
-        activateSelectedCard(card);
-        return;
-      }
-      if (!/^\d$/.test(event.key)) return;
-      const handIndex = event.key === "0" ? 9 : Number(event.key) - 1;
-      const keyboardHand = [
-        ...game.hand.filter((card) => card.drawSlot !== undefined).sort((left, right) => left.drawSlot! - right.drawSlot!),
-        ...game.hand.filter((card) => card.drawSlot === undefined),
-      ];
-      const card = keyboardHand[handIndex];
-      if (!card) return;
-      event.preventDefault();
-      if (selectedId === card.id) activateSelectedCard(card);
-      else setSelectedHandCardId(card.id);
-    };
-    window.addEventListener("keydown", handleBattleCardKeyboard);
-    return () => window.removeEventListener("keydown", handleBattleCardKeyboard);
-  }, [game.hand, game.status, onPlayHandCardOnDoubleClick, phase, screen, selectedHandCardId, setSelectedHandCardId]);
 
   return { beginDrag, moveDrag, finishDrag, cancelDrag };
 }
