@@ -175,7 +175,7 @@ export function useBattlePointerInput({
     if (!current) return;
     stopPileAutoScroll();
     setDragOverDropTarget(null);
-    setHoveredHandCardId(null);
+    setHoveredHandCardId(handCardAtPointer(event.clientX, event.clientY));
     if (current.moved) {
       const dropZone = getDropZoneAtPoint(event.clientX, event.clientY);
       const targetEnemyId = dropZone?.startsWith("enemy:") ? dropZone.slice(6) : undefined;

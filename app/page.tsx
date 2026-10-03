@@ -3364,22 +3364,20 @@ export default function Home() {
       return () => window.cancelAnimationFrame(frame);
     }
 
-    const isOpeningDeal = phase === "drawing" && game.turn === 1;
-    let animatedPileCards = 0;
+    const cardsToAnimate = game.hand
+      .filter((card) => origins.has(card.id) && handCardRefs.current.has(card.id))
+      .slice(0, 9);
     let finishDelay = 0;
-    game.hand.forEach((card, index) => {
-      const source = origins.get(card.id);
-      const target = handCardRefs.current.get(card.id);
-      if (!source || !target) return;
+    cardsToAnimate.forEach((card, index) => {
+      const source = origins.get(card.id)!;
+      const target = handCardRefs.current.get(card.id)!;
+      const delay = index * 50;
       if (pendingEnemyTokenIdsRef.current.has(card.id)) {
         target.style.zIndex = String(20 + index);
-        animateEnemyCardDelivery(target, source, index * 65);
-        finishDelay = Math.max(finishDelay, 860 + index * 65);
+        animateEnemyCardDelivery(target, source, delay);
+        finishDelay = Math.max(finishDelay, 860 + delay);
         return;
       }
-      if (isOpeningDeal && animatedPileCards >= 9) return;
-      const delay = isOpeningDeal ? animatedPileCards * 50 : index * 50;
-      animatedPileCards += 1;
       finishDelay = Math.max(finishDelay, 320 + delay);
       const targetRect = target.getBoundingClientRect();
       target.style.zIndex = String(20 + index);
@@ -3412,7 +3410,7 @@ export default function Home() {
       if (!game.clearPlan) setPhase("playing");
     }, finishDelay);
     return () => window.clearTimeout(timer);
-  }, [game.hand, game.clearPlan, game.turn, phase]);
+  }, [game.hand, game.clearPlan]);
 
   useLayoutEffect(() => {
     if (screen !== "battle" || pendingPileTokenSourcesRef.current.size === 0) return;
