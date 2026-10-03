@@ -75,7 +75,7 @@ export function createEndTurn(context: EndTurnContext) {
     setPhase("discarding");
     setDragging(null);
 
-    const discardDelay = 180 + Math.max(0, game.hand.length - 1) * 25;
+    const discardDelay = game.preserveHandOnTurnEnd ? 0 : 180 + Math.max(0, game.hand.length - 1) * 25;
     later(() => {
       const enemiesAfterBlockDecay = game.enemies.map((enemy) => ({ ...enemy, physicalBlock: 0 }));
       const livingEnemies = enemiesAfterBlockDecay.filter((enemy) => enemy.hp > 0);
@@ -350,7 +350,7 @@ export function createEndTurn(context: EndTurnContext) {
       setGame({
         ...game,
         piles: pilesAfterSlime,
-        hand: [],
+        hand: retainedHand,
         discard: discarded,
         // 적이 행동하는 동안에는 방금 사용 중인 의도를 그대로 보여 준다.
         enemies: enemiesAfterBlockDecay,

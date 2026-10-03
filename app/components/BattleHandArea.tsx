@@ -72,6 +72,7 @@ export function BattleHandArea({
   const displayedHand = useDisplayedHand(game, phase);
   const handRef = useRef<HTMLDivElement>(null);
   const wheelRemainderRef = useRef(0);
+  const wheelSnapTimerRef = useRef<number | null>(null);
   const lastPointerRef = useRef<{ x: number; y: number } | null>(null);
   const [handMetrics, setHandMetrics] = useState({ width: 600, cardWidth: 136, cardHeight: 191 });
   const [windowStart, setWindowStart] = useState(0);
@@ -87,8 +88,10 @@ export function BattleHandArea({
     fittingCardCount,
   );
   const maxWindowStart = Math.max(0, displayedHand.length - visibleCardCount);
-  const clampedWindowStart = Math.min(windowStart, maxWindowStart);
-  const leftHiddenCount = displayedHand.slice(0, clampedWindowStart).filter(Boolean).length;
+  const overscrollLimit = Math.max(0, Math.floor((visibleCardCount - 1) / 2));
+  const clampedWindowStart = Math.max(-overscrollLimit, Math.min(windowStart, maxWindowStart + overscrollLimit));
+  const maxWindowStartRef = useRef(maxWindowStart);
+  const leftHiddenCount = displayedHand.slice(0, Math.max(0, clampedWindowStart)).filter(Boolean).length;
   const rightHiddenCount = displayedHand.slice(clampedWindowStart + visibleCardCount).filter(Boolean).length;
   const handCenterIndex = clampedWindowStart + Math.max(0, (visibleCardCount - 1) / 2);
   const trackCenterOffset = handMetrics.cardWidth / 2 + handCenterIndex * HAND_CARD_STEP;
@@ -102,6 +105,10 @@ export function BattleHandArea({
   const selectedHandIndex = selectedHandCardId === null
     ? -1
     : displayedHand.findIndex((card) => card?.id === selectedHandCardId);
+
+  useLayoutEffect(() => {
+    maxWindowStartRef.current = maxWindowStart;
+  }, [maxWindowStart]);
 
   useEffect(() => {
     const hand = handRef.current;
@@ -140,23 +147,32 @@ export function BattleHandArea({
     const hand = handRef.current;
     if (!hand) return;
     const handleWheel = (event: WheelEvent) => {
-      if (dragging || event.ctrlKey || maxWindowStart === 0) return;
+      if (dragging || event.ctrlKey || visibleCardCount <= 1) return;
       const rawDelta = Math.abs(event.deltaY) >= Math.abs(event.deltaX) ? event.deltaY : event.deltaX;
       if (rawDelta === 0) return;
       event.preventDefault();
+      if (wheelSnapTimerRef.current !== null) window.clearTimeout(wheelSnapTimerRef.current);
+      wheelSnapTimerRef.current = window.setTimeout(() => {
+        setWindowStart((current) => Math.max(0, Math.min(maxWindowStartRef.current, current)));
+        wheelSnapTimerRef.current = null;
+      }, 350);
       const delta = rawDelta * (event.deltaMode === 1 ? 16 : event.deltaMode === 2 ? hand.clientHeight : 1);
       if (Math.sign(delta) !== Math.sign(wheelRemainderRef.current)) wheelRemainderRef.current = 0;
       wheelRemainderRef.current += delta;
       if (Math.abs(wheelRemainderRef.current) < HAND_WHEEL_STEP) return;
       wheelRemainderRef.current = 0;
-      setWindowStart((current) => Math.max(0, Math.min(maxWindowStart, Math.min(current, maxWindowStart) + Math.sign(delta))));
+      setWindowStart((current) => Math.max(-overscrollLimit, Math.min(maxWindowStart + overscrollLimit, current + Math.sign(delta))));
       setSelectedHandCardId(null);
       setHoveredHandCardId(null);
       onClearCardHover();
     };
     hand.addEventListener("wheel", handleWheel, { passive: false });
     return () => hand.removeEventListener("wheel", handleWheel);
-  }, [dragging, maxWindowStart, onClearCardHover, setHoveredHandCardId, setSelectedHandCardId]);
+  }, [dragging, maxWindowStart, onClearCardHover, overscrollLimit, setHoveredHandCardId, setSelectedHandCardId, visibleCardCount]);
+
+  useEffect(() => () => {
+    if (wheelSnapTimerRef.current !== null) window.clearTimeout(wheelSnapTimerRef.current);
+  }, []);
 
   const updateHandHoverAtPoint = useCallback((clientX: number, clientY: number, refreshDetails = false) => {
     const cardId = handCardAtPointer(clientX, clientY);
@@ -278,7 +294,7 @@ export function BattleHandArea({
     <>
       <div
         ref={handRef}
-        className={`hand ${phase === "discarding" ? "is-discarding" : ""} ${phase === "drawing" ? "is-drawing" : ""} ${game.pendingDiscards > 0 ? "is-discard-choice" : ""} ${dragging ? "is-pointer-dragging" : ""}`}
+        className={`hand ${phase === "discarding" && !game.preserveHandOnTurnEnd ? "is-discarding" : ""} ${phase === "drawing" ? "is-drawing" : ""} ${game.pendingDiscards > 0 ? "is-discard-choice" : ""} ${dragging ? "is-pointer-dragging" : ""}`}
         style={{ "--hand-bottom-clearance": `${handBottomClearance}px` } as CSSProperties}
         data-drop-target="hand"
         aria-label="손패"
@@ -373,7 +389,7 @@ export function BattleHandArea({
 
 function useDisplayedHand(game: GameState, phase: Phase): Array<Card | null> {
   const hasClearHandSlots = game.hand.some((card) => card.drawSlot !== undefined);
-  const usesClearHandSlots = phase !== "playing" && hasClearHandSlots;
+  const usesClearHandSlots = phase !== "playing" && hasClearHandSlots && !game.preserveHandOnTurnEnd;
   const clearHandSlotCount = usesClearHandSlots
     ? Math.max(...game.hand.map((card) => card.drawSlotCount ?? 0), game.hand.length)
     : game.hand.length;
