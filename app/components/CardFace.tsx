@@ -366,14 +366,14 @@ export function CardFaceView({
   const effectSentences = splitEffectSentences(effectText);
   const unplayableLabel = ["slime", "soil", "rock", "combatManual", "grimoire"].includes(card.effect)
     ? <><strong className="effect-keyword">사용 불가</strong>.</>
-    : ["wolfTalisman", "turtleTalisman", "sacrifice", "magicCrystal"].includes(card.effect)
-      ? <strong className="effect-keyword">사용불가.</strong>
-      : null;
+      : ["wolfTalisman", "turtleTalisman", "sacrifice", "magicCrystal"].includes(card.effect)
+        ? <strong className="effect-keyword">사용 불가.</strong>
+        : null;
   const effectPrefix = <>
-    {card.rule && card.effect !== "massDeal" && <strong className="solitaire-rule effect-keyword rule-keyword">룰.</strong>}
-    {card.solitaireRule && <strong className="solitaire-rule solitaire-keyword">{card.solitaireRule === "top" ? "윗패" : card.solitaireRule === "bottom" ? "밑패" : "주문"}</strong>}
-    {card.ritualCost && <strong className="solitaire-rule effect-keyword">의식 {card.ritualCost}.</strong>}
-    {card.spellRank && <strong className="solitaire-rule effect-keyword">{card.spellRank}위계 마법.</strong>}
+    {card.rule && card.effect !== "massDeal" && <><strong className="solitaire-rule effect-prefix effect-keyword rule-keyword">룰.</strong>{" "}</>}
+    {card.solitaireRule && <><strong className="solitaire-rule effect-prefix solitaire-keyword">{card.solitaireRule === "top" ? "윗패" : card.solitaireRule === "bottom" ? "밑패" : "주문"}</strong>{" "}</>}
+    {card.ritualCost && <><strong className="solitaire-rule effect-prefix effect-keyword">희생 {card.ritualCost}.</strong>{" "}</>}
+    {card.spellRank && <><strong className="solitaire-rule effect-prefix effect-keyword">Lv.{card.spellRank} 마법.</strong>{" "}</>}
     {unplayableLabel}
     {unplayableLabel && effectSentences.length > 0 ? " " : null}
   </>;

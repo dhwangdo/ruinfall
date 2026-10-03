@@ -4,7 +4,7 @@ import type { GameState } from "./battleState";
 import type { EnemyState } from "./enemies";
 import type { Card } from "./cards";
 import type { Phase } from "./battleUiTypes";
-import { UNPLAYABLE_CARD_EFFECTS, cardGivesMagicDefense, cardGivesPhysicalDefense, createRadianceCard, isAttackCard } from "./cards";
+import { UNPLAYABLE_CARD_EFFECTS, cardGivesMagicDefense, cardGivesPhysicalDefense, createRadianceCard, isAttackCard, magicCrystalName } from "./cards";
 import { playerAttackThornHits, applyPlayerAttack, resolveEnemyHitAgainstPlayer } from "./enemies";
 import { canPayEnergyCost, calculateCardDamage } from "./combatEconomy";
 import { IRON_WALL_RESISTANCE, cardEnergyCost } from "./cardEffects";
@@ -221,7 +221,7 @@ export function createResolvePlayedCard(context: ResolvePlayedCardContext) {
       const hasRequiredCrystal = !card.spellRank || current.hand.some((item) =>
         item.effect === "magicCrystal" && (item.magicCrystalStage ?? 0) >= card.spellRank!);
       if (!hasRequiredCrystal) {
-        return { ...current, message: `${card.name}: 손패에 ${card.spellRank}단계 이상의 마력 결정이 필요합니다.` };
+        return { ...current, message: `${card.name}: 손패에 ${magicCrystalName(card.spellRank ?? 1)} 이상이 필요합니다.` };
       }
       if (!canPayEnergyCost(current.energy, energyCost, economicsResearchCount)) {
         return { ...current, message: `${card.name}: 에너지가 ${energyCost} 필요합니다.` };

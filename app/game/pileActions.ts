@@ -2,7 +2,7 @@ import type { Dispatch, RefObject, SetStateAction } from "react";
 import type { BlessingId } from "./blessingRules";
 import type { GameState } from "./battleState";
 import type { EnemyState } from "./enemies";
-import type { Card } from "./cards";
+import { magicCrystalName, type Card } from "./cards";
 import type { DragState, Phase } from "./battleUiTypes";
 import { cardEnergyCost, canForgeCardOnto, canPlaceBySolitaireRule, cardForgeCount, getFloodPyramid, getSpellStraight } from "./cardEffects";
 import { cardCostAfterForgePlacement } from "./forgeRules";
@@ -146,13 +146,16 @@ export function createMoveCardToPile(context: MoveCardToPileContext) {
         const nextMagicCrystalStage = magicCrystalForgeApplied
           ? (card.magicCrystalStage ?? 1) + 1
           : card.magicCrystalStage;
+        const nextMagicCrystalName = nextMagicCrystalStage === undefined
+          ? undefined
+          : magicCrystalName(nextMagicCrystalStage);
         const placedCard = {
           ...card,
           ...(nextMagicCrystalStage === undefined ? {} : {
             magicCrystalStage: nextMagicCrystalStage,
-            name: `${nextMagicCrystalStage}단계 마력 결정`,
+            name: nextMagicCrystalName,
             value: nextMagicCrystalStage,
-            forgeTargetName: `${nextMagicCrystalStage}단계 마력 결정`,
+            forgeTargetName: nextMagicCrystalName,
           }),
           baseCost,
           cost: cardCostAfterForgePlacement(

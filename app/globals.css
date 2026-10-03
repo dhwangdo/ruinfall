@@ -3659,6 +3659,7 @@ h1 { margin: 0; font-size: 25px; font-weight: 600; }
   color: inherit;
   font-weight: 400;
 }
+.card-effect .effect-prefix { margin: 0; }
 
 .rule-keyword {
   margin-left: 0;

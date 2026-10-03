@@ -1,7 +1,8 @@
 import assert from "node:assert/strict";
 import test from "node:test";
 
-import { RARE_CARD_POOL, SPECIAL_CARD_POOL } from "../app/game/cards.ts";
+import { RARE_CARD_POOL, SPECIAL_CARD_POOL, createMagicCrystalCard } from "../app/game/cards.ts";
+import { getCardKeywordInfos } from "../app/game/cardEffects.ts";
 import { calculateDefenseGain, getDefenseBaseValue } from "../app/game/defenseRules.ts";
 import { cardCostAfterForgePlacement, obsidianDaggerForgesRemaining } from "../app/game/forgeRules.ts";
 
@@ -53,6 +54,31 @@ test("cards without ordinary defense values stay at zero without a base override
 
   assert.equal(calculateDefenseGain({ effect: "suppression", value: 15 }, options), 0);
   assert.equal(calculateDefenseGain({ effect: "sturdyStance", value: 0 }, options), 0);
+});
+
+test("ritual and rank spell tooltips state their requirements and crystal cost", () => {
+  const soulCollateralLoan = RARE_CARD_POOL.find((card) => card.name === "영혼담보대출");
+  const sturdyStance = RARE_CARD_POOL.find((card) => card.name === "견고한 태세");
+  assert.ok(soulCollateralLoan);
+  assert.ok(sturdyStance);
+
+  assert.deepEqual(
+    getCardKeywordInfos(soulCollateralLoan).find((keyword) => keyword.name === "희생 2"),
+    {
+      name: "희생 2",
+      description: "손패에 제물이 2장 이상 있어야 사용할 수 있습니다. 사용할 때 손패의 제물 2장을 소멸시킵니다.",
+      preview: undefined,
+    },
+  );
+  assert.deepEqual(
+    getCardKeywordInfos(sturdyStance).find((keyword) => keyword.name === "Lv.3 마법"),
+    {
+      name: "Lv.3 마법",
+      description: "손패에 마력 결정 III 이상이 있으면 사용할 수 있습니다. 마력 결정은 소모되지 않습니다.",
+      preview: undefined,
+    },
+  );
+  assert.equal(getCardKeywordInfos(createMagicCrystalCard(1, 2)).some((keyword) => keyword.name === "마력 결정"), true);
 });
 
 test("suppression uses the shared defense calculation with dealt damage as its base", () => {

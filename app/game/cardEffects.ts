@@ -3,6 +3,7 @@ import {
   CARD_POOL_STAR_EFFECTS,
   UNPLAYABLE_CARD_EFFECTS,
   isAttackCard,
+  magicCrystalName,
   type Card,
   type CardBlueprint,
 } from "./cards.ts";
@@ -61,9 +62,7 @@ const CARD_KEYWORD_DESCRIPTIONS: Record<string, string> = {
   "재련": "조건을 만족하는 카드 위에 놓으면 강화 효과가 적용됩니다. 강화 효과는 전투 동안 유지됩니다.",
   "주문": "비용이 1 높은 주문 카드 위에 놓을 수 있습니다.",
   "사용 불가": "손패에서 사용할 수 없습니다. 옮길 수는 있습니다.",
-  "의식": "사용할 때 손패의 제물을 표시된 장수만큼 소멸시킵니다.",
-  "위계 마법": "손패에 표시된 위계 이상의 마력 결정이 있으면 사용할 수 있습니다. 마력 결정은 소모하지 않습니다.",
-  "마력 결정": "밑패의 같은 단계 마력 결정과 재련하면 다음 단계로 올라갑니다.",
+  "마력 결정": "같은 단계의 마력 결정 두 장을 재련하면 밑패는 소멸하고, 옮긴 결정의 숫자가 하나 올라갑니다.",
   "★": "솔리테어 행동 자원입니다. 사용하여 손패에서 파일로, 혹은 파일에서 다른 파일로 카드를 옮길 수 있습니다. 턴이 끝나도 사라지지 않습니다.",
   "에너지": "카드를 사용하는 데 필요한 자원입니다. 플레이어 턴 시작 시 최대 에너지만큼 회복되며 최대치를 넘지 않습니다.",
   "힘": "힘 X는 피해를 X만큼 증가시킵니다.",
@@ -92,8 +91,8 @@ export function getCardKeywordInfos(card: Card): CardKeywordInfo[] {
     && (card.forgeCost !== undefined || card.forgeCosts?.length || card.forgeTargetName || card.forgeAny)
   )) add("재련");
   if (card.solitaireRule === "spell") add("주문");
-  if (card.ritualCost) add("의식");
-  if (card.spellRank) add("위계 마법");
+  if (card.ritualCost) add(`희생 ${card.ritualCost}`);
+  if (card.spellRank) add(`Lv.${card.spellRank} 마법`);
   if (card.effect === "magicCrystal") add("마력 결정");
   if (UNPLAYABLE_CARD_EFFECTS.has(card.effect)) add("사용 불가");
   // 흙은 생성 경로와 무관하게 두 키워드를 항상 노출한다.
@@ -115,7 +114,11 @@ export function getCardKeywordInfos(card: Card): CardKeywordInfo[] {
   return keywords
     .map((name) => ({
       name,
-      description: CARD_KEYWORD_DESCRIPTIONS[name],
+      description: name === `희생 ${card.ritualCost}` && card.ritualCost
+        ? `손패에 제물이 ${card.ritualCost}장 이상 있어야 사용할 수 있습니다. 사용할 때 손패의 제물 ${card.ritualCost}장을 소멸시킵니다.`
+        : name === `Lv.${card.spellRank} 마법` && card.spellRank
+          ? `손패에 ${magicCrystalName(card.spellRank)} 이상이 있으면 사용할 수 있습니다. 마력 결정은 소모되지 않습니다.`
+          : CARD_KEYWORD_DESCRIPTIONS[name],
       preview: CARD_KEYWORD_PREVIEWS[name],
     }))
     .filter((keyword) => Boolean(keyword.description || keyword.preview));

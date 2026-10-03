@@ -148,9 +148,26 @@ export const UNPLAYABLE_CARD_EFFECTS = new Set<CardEffect>([
   "slime", "soil", "rock", "sacrifice", "magicCrystal", "combatManual", "grimoire", "wolfTalisman", "turtleTalisman",
 ]);
 
+const ROMAN_NUMERALS: ReadonlyArray<readonly [number, string]> = [
+  [1000, "M"], [900, "CM"], [500, "D"], [400, "CD"], [100, "C"], [90, "XC"],
+  [50, "L"], [40, "XL"], [10, "X"], [9, "IX"], [5, "V"], [4, "IV"], [1, "I"],
+];
+
+export function magicCrystalName(stage: number) {
+  let remainder = Math.max(1, Math.floor(Number.isFinite(stage) ? stage : 1));
+  let numeral = "";
+  for (const [value, symbol] of ROMAN_NUMERALS) {
+    while (remainder >= value) {
+      numeral += symbol;
+      remainder -= value;
+    }
+  }
+  return `마력 결정 ${numeral}`;
+}
+
 export const STATUS_CARD_POOL: CardBlueprint[] = [
   { kind: "skill", effect: "sacrifice", rarity: "status", name: "제물", value: 0, draw: 0, damageType: "magic" },
-  { kind: "skill", effect: "magicCrystal", rarity: "status", name: "1단계 마력 결정", value: 1, draw: 0, damageType: "magic", magicCrystalStage: 1, forgeTargetName: "1단계 마력 결정" },
+  { kind: "skill", effect: "magicCrystal", rarity: "status", name: magicCrystalName(1), value: 1, draw: 0, damageType: "magic", magicCrystalStage: 1, forgeTargetName: magicCrystalName(1) },
 ];
 
 export const STARTER_CARD_POOL: CardBlueprint[] = [
@@ -292,7 +309,7 @@ export function createSacrificeCard(id: number): Card {
 }
 
 export function createMagicCrystalCard(id: number, stage = 1): Card {
-  const name = `${stage}단계 마력 결정`;
+  const name = magicCrystalName(stage);
   return {
     id,
     kind: "skill",

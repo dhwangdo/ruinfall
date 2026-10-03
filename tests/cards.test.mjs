@@ -9,6 +9,7 @@ import {
   SPECIAL_CARD_POOL,
   STARTER_CARD_POOL,
   createAdrenalineCard,
+  createMagicCrystalCard,
   createRadianceCard,
   isAttackCard,
 } from "../app/game/cards.ts";
@@ -24,6 +25,12 @@ test("card pools preserve the current content counts", () => {
 
 test("radiance is treated as an attack card", () => {
   assert.equal(isAttackCard(createRadianceCard(100)), true);
+});
+
+test("magic crystal names use roman numerals", () => {
+  assert.equal(createMagicCrystalCard(1, 1).name, "마력 결정 I");
+  assert.equal(createMagicCrystalCard(2, 2).name, "마력 결정 II");
+  assert.equal(createMagicCrystalCard(3, 4).name, "마력 결정 IV");
 });
 
 test("current card data keeps key balance values and removed systems absent", () => {
