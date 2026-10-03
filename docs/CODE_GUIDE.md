@@ -1,6 +1,6 @@
 # Python 사용자를 위한 코드 가이드
 
-마지막 갱신: 2026-09-11
+마지막 갱신: 2026-10-03
 
 이 문서는 Python 문법에는 익숙하지만 TypeScript·React는 처음인 사람이 현재 DTTS 코드를 읽고 안전하게 수정할 수 있도록 쓴 안내서다.
 
@@ -118,43 +118,84 @@ setGame((current) => ({ ...current, energy: 2 }));
 
 | 파일 | 게임에서 맡는 역할 |
 |---|---|
-| `app/page.tsx` | React 상태 연결, 실제 카드·적 턴 처리, 상점·축복·성소·덱 편집 이벤트, 대부분의 UI |
+| `app/page.tsx` | React 상태 연결, 지도·덱 편집·상점 이벤트와 화면 조립 |
 | `app/game/cards.ts` | 카드 타입, 카드 정의, 획득 풀, 전투 토큰 카드 생성 |
 | `app/game/cardEffects.ts` | 카드 비용, 키워드, 재련과 솔리테어 배치 판정 |
-| `app/game/gemRules.ts` | 보석식 풀, 생성·덱 충돌·전투 부착·지불·파일 순서 판정 |
+| `app/cardTextLayout.ts` | 카드 효과 문장 나누기와 카드 너비에 맞춘 글자 크기 계산 |
+| `app/cardConstellations.ts` | 카드 워터마크용 별자리 생성과 SVG 이미지 변환 |
+| `app/components/CardFace.tsx` | 카드 앞면, 효과 설명, 수치 강조와 글자 맞춤 표시 |
+| `app/components/DeckName.tsx` | 덱 이름과 에디션을 표시하는 재사용 화면 컴포넌트 |
+| `app/components/MapTopbar.tsx` | 지도 상단 체력·골드·덱 보기·대기·덱 편집 UI |
+| `app/hooks/useMapCamera.ts` | 지도 뷰포트 크기, 확대·축소, 이동과 카메라 포커스 |
+| `app/hooks/useMapKeyboardMovement.ts` | WASD·방향키·숫자패드 지도 이동과 입력 타이머 |
+| `app/hooks/useRunKeyboardControls.ts` | F8 저장, R 길게 누르기 초기화와 진행 표시 |
+| `app/components/MapRoomButton.tsx` | 지도 방 버튼, 접근성 이름과 방 유형 표시 |
+| `app/components/MapDeckSelector.tsx` | 지도 화면에서 전투 덱을 고르는 메뉴 |
+| `app/components/MapDebugToolbar.tsx` | 지도 디버그 아이템·덱 생성 도구와 적 도감 연결 |
+| `app/components/MapEntityMarkers.tsx` | 지도 폭탄·적·플레이어 표식 표시 |
+| `app/components/MapRoomActions.tsx` | 현재 방 행동 안내와 바닥 아이템 빠른 줍기 UI |
+| `app/components/DeckViewerModal.tsx` | 보유 덱·카드 목록을 보는 모달 |
+| `app/components/ConstellationPreview.tsx` | 카드 테마 설정의 별자리 SVG 미리보기 |
+| `app/components/EnemyIntentIcons.tsx` | 적 의도 피해·상태 표시 아이콘 |
+| `app/components/BattleEnemyUnit.tsx` | 전투 중 적 체력·상태·의도와 선택 버튼 표시 |
+| `app/components/BattlePlayerPanel.tsx` | 전투 중 플레이어 체력·방어·상태 표시 |
+| `app/components/BattleResultOverlay.tsx` | 전투 승패와 보상, 다음 진행 버튼 표시 |
+| `app/components/DebugEnemyCodex.tsx` | 디버그 적 도감 화면 |
+| `app/components/DeckEditorCardIcon.tsx` | 덱 편집·통계 화면에서 재사용하는 카드 요약 표시 |
+| `app/components/CardPoolStatsPanel.tsx` | 카드 풀 통계 계산과 디버그 패널 |
+| `app/components/cardAnimations.ts` | 카드가 전투 화면 사이를 이동하는 DOM 애니메이션 |
 | `app/game/defenseRules.ts` | 강인함·방어 배율을 포함한 공통 방어 획득 계산 |
 | `app/game/ticketRules.ts` | 인벤토리·바닥 티켓의 존재·종류 확인과 소모 판정 |
+| `app/game/shopRules.ts` | 티켓 종류·등급과 기준 가격 |
 | `app/game/rewards.ts` | 덱 케이스, 에디션, 티켓, 전투 보상 생성 |
+| `app/game/rewardRules.ts` | 희귀 카드 누적 확률 규칙 |
 | `app/game/battleState.ts` | 전투 초기 상태, 파일 배치와 드로우 전이 |
+| `app/game/battleUiTypes.ts` | 전투 단계, 드래그, 피해 팝업의 공유 타입 |
+| `app/game/cardPlayAction.ts` | 카드 사용 시 효과·피해·상태 전이 처리 |
+| `app/game/drawCards.ts` | 턴 시작과 카드 효과에 따른 손패 드로우 처리 |
+| `app/game/endTurnAction.ts` | 턴 종료, 적 행동, 다음 턴 준비 처리 |
+| `app/game/pileActions.ts` | 파일 이동, 파일 선택 드로우와 연구 드로우 처리 |
 | `app/game/mapRules.ts` | 지도 지역·노드·안전 지대·보스 위치·바닥 드롭 생성 |
+| `app/game/mapEffects.ts` | 지도 폭탄의 이동 카운트와 피해 계산 |
 | `app/game/enemies.ts` | 1~3지역 일반 조우와 보스, 적 행동 선택, 피해·상태 보조 규칙 |
 | `app/game/mapEnemies.ts` | 지도 적 생성, 인식 상태, 시야 활성화, 거리장, 동시 이동과 충돌 |
 | `app/game/cardRules.ts` | 리셔플 제외 카드 필터와 고정·균등 파일 분배 |
 | `app/game/statuses.ts` | 저항·취약 등 상태 계산 |
 | `app/game/deckEditorRules.ts` | 원래 덱, 안전 지대, 추출 티켓을 고려한 카드 이동 판정 |
+| `app/game/saveGame.ts` | 버전이 붙은 탐험 진행의 `localStorage` 읽기·쓰기·삭제 |
 | `app/game/telemetry.ts` | 런·전투 통계, `localStorage` 저장, TXT 내보내기 데이터 |
 | `app/globals.css` | 카드, 지도, 팝업, 애니메이션과 반응형 화면 |
 | `app/layout.tsx` | 페이지 제목, 메타데이터, 전체 HTML 틀 |
 | `tests/card-rules.test.mjs` | 리셔플 카드 필터와 파일 분배 |
-| `tests/deck-editor-rules.test.mjs` | 덱 편집 이동 권한과 제한. 현재 `npm test`에는 미포함 |
+| `tests/card-text-layout.test.mjs` | 카드 효과 문장 배치와 줄맞춤 계산 |
+| `tests/cards.test.mjs` | 카드 정의와 카드 풀 |
+| `tests/card-effects.test.mjs` | 카드 비용·재련·배치 규칙 |
+| `tests/combat-economy.test.mjs` | 에너지 지불·회복과 공격 계산 |
+| `tests/deck-editor-rules.test.mjs` | 덱 편집 이동 권한과 제한. `npm test`에 포함 |
+| `tests/blessing-rules.test.mjs` | 축복 선택, 피해 처리, 중복 효과 판정 |
 | `tests/enemies.test.mjs` | 적 수치, 행동, 특수 상태와 피해 규칙 |
 | `tests/map-effects.test.mjs` | 지도 티켓·폭탄·시야 등 효과 |
 | `tests/map-enemies.test.mjs` | 인식 상태, 거리장, 다중 적 이동과 충돌 |
+| `tests/rewards.test.mjs` | 보상·덱 생성 규칙 |
 | `tests/statuses.test.mjs` | 저항·취약 상쇄와 피해 계산 |
+| `tests/ticket-rules.test.mjs` | 티켓 찾기·소모·그룹 처리 |
+| `tests/telemetry.test.mjs` | 텔레메트리 기록·내보내기. 현재 `npm test`에는 미포함 |
 | `tests/rendered-html.test.mjs` | 첫 화면 서버 렌더링 |
 | `package.json` | 실행·검사 명령과 라이브러리 |
-| `next.config.ts` | GitHub Pages 정적 경로 설정 |
+| `next.config.ts` | GitHub Pages 정적 경로와 Turbopack 프로젝트 루트 설정 |
 | `.github/workflows/deploy-pages.yml` | `main` push 뒤 Pages 배포 절차 |
+
+카드 효과 문장을 수정할 때는 대괄호 `[ ... ]` 안에 재련 후 효과를 미리 표시한다. 대괄호 밖에는 현재 효과를 적고, 재련 전에도 괄호 안 효과가 발동하는 것처럼 설명하지 않는다.
 
 `db/`, `drizzle/`, `examples/`는 현재 게임 플레이에 쓰지 않는 예제 골격이다. `.next/`, `dist/`, `out/`, `node_modules/`는 생성물 또는 외부 코드이므로 직접 편집하지 않는다.
 
 ## 5. 코드를 읽는 권장 순서
 
-`app/page.tsx`는 매우 크다. 처음부터 끝까지 읽기보다 기능 단위로 검색한다.
+`app/page.tsx`는 현재 295,254바이트(약 295KB)다. 이전 440,866바이트에서 145,612바이트 줄어 300,000바이트 목표를 넘겼다. 지도·덱 편집·상점 이벤트와 화면 연결은 여전히 이 파일에 남아 있다. 처음부터 끝까지 읽기보다 기능 단위로 코드 그래프나 TypeScript 언어 서버에서 정의와 호출 관계를 확인한다. 파일 크기는 우선 유지보수 문제를 뜻하며, 성능 저하가 측정된 것은 아니다.
 
 1. `docs/GAME_DESIGN.md`로 현재 규칙의 전체 모양을 본다.
 2. `app/game/cards.ts`에서 카드 타입과 카드 풀을 본다.
-3. `app/game/mapRules.ts`, `app/game/rewards.ts`, `app/game/battleState.ts`에서 지도·보상·전투 시작 규칙을 본다.
+3. `app/game/mapRules.ts`, `app/game/rewards.ts`, `app/game/battleState.ts`, `app/game/saveGame.ts`에서 지도·보상·전투 시작·저장 규칙을 본다.
 4. `enemies.ts`의 `ENCOUNTERS`, `ENCOUNTER_INDICES_BY_REGION`, `BOSS_ENCOUNTER_INDICES`를 본다.
 5. `mapEnemies.ts`에서 적 인식과 이동 함수들을 본다.
 6. `rewards.ts`의 `createDeck`, `createRegionDeck`, `generateDebugDecksByScore`, `createBattleReward`를 찾아 덱과 보상 생성을 본다.
@@ -200,11 +241,10 @@ flowchart LR
 
 1. 손패 카드인지 파일 묶음인지 확인한다.
 2. `page.tsx`의 솔리테어 배치 규칙으로 대상 파일이 가능한지 검사한다.
-3. 이동 전 목적지 맨 위 카드를 기준으로 이동 카드 각각의 재련을 동시에 판정한다.
+3. 이동 전 목적지 맨 위 카드를 기준으로 이동 카드 각각의 재련 조건과 강화 횟수를 검사한다.
 4. 별 1개를 지불한다.
 5. 출발지와 목적지 파일을 새 배열로 만든다.
-6. 목적지의 보석 순서를 기준으로 이동한 보석 카드들을 위쪽부터 판정하고, 성공한 식의 보석을 한꺼번에 제거한다.
-7. 새로 드러난 파일 맨 위 카드를 앞면으로 표시한다.
+6. 새로 드러난 파일 맨 위 카드를 앞면으로 표시한다.
 
 ### 덱 편집 이동 한 번
 
@@ -215,15 +255,15 @@ flowchart LR
 
 ## 7. 게임 상태와 영구 저장은 다르다
 
-React의 `useState`는 현재 열린 페이지가 살아 있는 동안의 메모리다. 새로고침하면 런이 초기화된다.
+React의 `useState`는 현재 열린 페이지가 살아 있는 동안의 메모리다. 탐험 진행 일부는 별도의 저장 코드가 `localStorage`에서 복원한다. 저장 대상은 맵 화면 상태이며, 전투 중이거나 덱 편집 중인 상태는 저장하지 않는다. 패배하거나 새 탐험을 시작하면 진행 저장을 지운다.
 
-`telemetry.ts`가 쓰는 `localStorage`는 플레이 진행 저장이 아니라 통계 기록이다. 런 저장을 추가하려면 다음을 별도로 설계해야 한다.
+`saveGame.ts`는 버전 1 저장 봉투를 읽고 쓴다. 현재 진행 저장과 `telemetry.ts`의 전투 기록은 별도 항목이다. 진행 저장을 확장할 때는 다음을 검토한다.
 
 - 저장할 상태와 다시 계산할 상태의 구분
 - 카드·덱·적 ID의 안정성
 - 무작위 결과와 지도 생성 상태
 - 저장 버전과 이전 버전 마이그레이션
-- 전투 도중 저장 허용 여부
+- 전투 중 상태를 저장할지 여부
 
 ## 8. CSS와 화면 수정
 
@@ -294,8 +334,8 @@ $env:GITHUB_ACTIONS='true'; npm run build:pages
 ```
 
 - `npm run lint`: TypeScript·React 정적 검사
-- `npm test`: Vinext 빌드, 서버 렌더링, 게임 규칙 테스트
-- 별도 `node --test`: 현재 `npm test`에 아직 연결되지 않은 덱 편집 규칙 테스트
+- `npm test`: Vinext 빌드, 규칙 테스트 파일 13개, 첫 화면 서버 렌더링 검사
+- `tests/telemetry.test.mjs`는 파일로 존재하지만 현재 `npm test` 스크립트에는 포함되지 않는다.
 - `npm run build:pages`: GitHub Pages용 정적 빌드
 
 문서만 바꾼 경우에도 최소한 diff를 확인한다. 규칙과 코드를 함께 바꿨다면 관련 단위 테스트뿐 아니라 위 세 검사를 가능한 범위에서 모두 실행한다.

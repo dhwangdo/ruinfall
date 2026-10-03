@@ -134,19 +134,3 @@ test("an inventory extraction ticket can free its occupied slot", () => {
     viaExtractionTicket: true,
   }), { allowed: true, action: "move" });
 });
-
-test("gem cards with subset formulas cannot share a normal deck", () => {
-  assert.deepEqual(validateDeckEditorCardMove({
-    ...baseRequest,
-    safeArea: true,
-    movingGemFormula: ["red"],
-    targetDeckGemFormulas: [["red", "blue"]],
-  }), { allowed: false, reason: "gem-conflict" });
-  assert.deepEqual(validateDeckEditorCardMove({
-    ...baseRequest,
-    safeArea: true,
-    movingGemFormula: ["red"],
-    targetDeckGemFormulas: [["red", "blue"]],
-    ignoreGemFormulaLimit: true,
-  }), { allowed: true, action: "move" });
-});

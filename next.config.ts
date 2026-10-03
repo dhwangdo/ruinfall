@@ -19,6 +19,9 @@ const commitHash = readGitValue(["rev-parse", "--short=12", "HEAD"], "dev");
 const commitDate = readGitValue(["show", "-s", "--format=%cI", "HEAD"], "unknown");
 
 const nextConfig: NextConfig = {
+  turbopack: {
+    root: process.cwd(),
+  },
   env: {
     NEXT_PUBLIC_COMMIT_HASH: commitHash,
     NEXT_PUBLIC_COMMIT_DATE: commitDate,

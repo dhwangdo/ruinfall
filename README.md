@@ -27,7 +27,7 @@ $env:GITHUB_ACTIONS='true'; npm run build:pages
 ```
 
 - `npm run lint`: TypeScript와 React 코드 정적 검사
-- `npm test`: 프로덕션 빌드와 첫 화면 서버 렌더링 검사
+- `npm test`: Vinext 빌드, 게임 규칙 테스트, 첫 화면 서버 렌더링 검사
 - `npm run build:pages`: GitHub Pages용 정적 사이트 생성
 
-현재 게임은 데이터베이스나 외부 저장소를 사용하지 않으므로 브라우저를 새로고침하면 진행 상태가 초기화됩니다.
+탐험 진행은 브라우저 `localStorage`에 자동 저장되어 새로고침 뒤에도 이어집니다. 전투 중 상태와 덱 편집 중 상태는 저장하지 않습니다.

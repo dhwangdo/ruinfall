@@ -14,7 +14,6 @@ import {
   type CardBlueprint,
 } from "./cards.ts";
 import { createDeckName } from "./randomNames.ts";
-import { instantiateCardBlueprint, isGemCard } from "./gemRules.ts";
 import { TICKET_TIERS, TICKET_TYPES, type TicketType } from "./shopRules.ts";
 
 export type DeckEdition =
@@ -40,8 +39,7 @@ export type DeckEdition =
   | "hammering"
   | "deckHighlander"
   | "starFive"
-  | "energyThree"
-  | "debug";
+  | "energyThree";
 
 export type DeckCase = {
   id: string;
@@ -103,12 +101,12 @@ export function createBattleRewardCard(id: number, rareChance: number): Card {
   const roll = Math.random();
   if (roll < rareChance) {
     const selected = RARE_CARD_POOL[Math.floor(Math.random() * RARE_CARD_POOL.length)];
-    return instantiateCardBlueprint(selected, id);
+    return { ...selected, id, revealed: false };
   }
   const nonRareRoll = Math.random();
   const pool = nonRareRoll < 0.3 / 0.95 ? BASIC_CARD_POOL : SPECIAL_CARD_POOL;
   const selected = pool[Math.floor(Math.random() * pool.length)];
-  return instantiateCardBlueprint(selected, id);
+  return { ...selected, id, revealed: false };
 }
 
 export function createDeck(): Card[] {
@@ -138,17 +136,8 @@ export function createDeck(): Card[] {
 
 export function createDebugAllCardsDeck(startId: number): { deck: DeckCase; nextCardId: number } {
   let nextCardId = startId;
-  const debugGemFormulas: Partial<Record<Card["effect"], Card["gemFormula"]>> = {
-    rapidFire: ["white"],
-    supernova: ["green"],
-    steelHeart: ["blue", "black"],
-    economicsResearch: ["red", "blue", "green"],
-  };
   const cards = [
-    ...DEBUG_ALL_CARD_BLUEPRINTS.map((blueprint) => ({
-      ...instantiateCardBlueprint(blueprint, nextCardId++),
-      gemFormula: debugGemFormulas[blueprint.effect] ?? (blueprint.gemRequirementSize ? undefined : blueprint.gemFormula),
-    })),
+    ...DEBUG_ALL_CARD_BLUEPRINTS.map((blueprint) => ({ ...blueprint, id: nextCardId++, revealed: false })),
     { ...createAdrenalineCard(), id: nextCardId++, revealed: false },
     createRadianceCard(nextCardId++),
     createSlimeCard(nextCardId++),
@@ -162,8 +151,8 @@ export function createDebugAllCardsDeck(startId: number): { deck: DeckCase; next
       name: "ALL",
       capacity: cards.length,
       cards,
-      editions: ["debug"],
-      editionColors: { debug: getDeckEditionColor("debug") },
+      editions: [],
+      editionColors: {},
     },
     nextCardId,
   };
@@ -193,7 +182,6 @@ export const DECK_EDITION_INFO: Record<DeckEdition, { name: string; description:
   deckHighlander: { name: "하이랜더", description: "전투 시작 시 중복 카드 없이 덱이 가득 차 있으면 최대 에너지가 1 증가합니다." },
   starFive: { name: "별+++++", description: "전투 시작 시 ★ 5개를 획득합니다." },
   energyThree: { name: "에너지+++", description: "전투 시작 시 에너지가 3 증가합니다." },
-  debug: { name: "디버그", description: "보석식 제한을 무시합니다." },
 };
 
 export const DECK_EDITION_SCORES: Record<DeckEdition, number> = {
@@ -220,7 +208,6 @@ export const DECK_EDITION_SCORES: Record<DeckEdition, number> = {
   deckHighlander: 30,
   starFive: 50,
   energyThree: 50,
-  debug: 0,
 };
 
 const EDITION_COLORS: Record<DeckEdition, string> = {
@@ -247,7 +234,6 @@ const EDITION_COLORS: Record<DeckEdition, string> = {
   deckHighlander: "#a16207",
   starFive: "#15803d",
   energyThree: "#0f766e",
-  debug: "#f5f5f5",
 };
 
 export function getDeckEditionColor(edition: DeckEdition) {
@@ -258,8 +244,7 @@ export function getAvailableDeckEditions(selected: readonly DeckEdition[]): Deck
   const selectedSet = new Set(selected);
   const hasRecyclingEdition = selectedSet.has("frugal") || selectedSet.has("frugalPlus");
   return (Object.keys(DECK_EDITION_INFO) as DeckEdition[]).filter((edition) => (
-    edition !== "debug"
-      && !selectedSet.has(edition)
+    !selectedSet.has(edition)
       && (!hasRecyclingEdition || (edition !== "frugal" && edition !== "frugalPlus"))
   ));
 }
@@ -416,14 +401,9 @@ function sampleReducedCardBlueprints(pool: CardBlueprint[], count: number, rando
   ]);
 }
 
-function addDebugDeckCard(cards: Card[], blueprint: CardBlueprint, nextCardId: number, random: () => number) {
-  cards.push(instantiateCardBlueprint(blueprint, nextCardId, false, random));
+function addDebugDeckCard(cards: Card[], blueprint: CardBlueprint, nextCardId: number) {
+  cards.push({ ...blueprint, id: nextCardId, revealed: false });
   return nextCardId + 1;
-}
-
-function randomDeckBlueprint(pool: CardBlueprint[], cards: readonly Card[], random: () => number) {
-  const availablePool = cards.some(isGemCard) ? pool.filter((card) => !isGemCard(card)) : pool;
-  return randomItem(availablePool, random);
 }
 
 type DebugDeckGenerationAttempt = {
@@ -445,7 +425,7 @@ function generateDebugDeckAttempt(
   let nextCardId = startCardId;
   if (rareCount > capacity) return { deck: null, nextCardId };
   for (let index = 0; index < rareCount; index += 1) {
-    nextCardId = addDebugDeckCard(cards, randomDeckBlueprint(RARE_CARD_POOL, cards, random), nextCardId, random);
+    nextCardId = addDebugDeckCard(cards, randomItem(RARE_CARD_POOL, random), nextCardId);
   }
 
   let remainingScore = startScore
@@ -485,13 +465,13 @@ function generateDebugDeckAttempt(
   let basicIndex = 0;
   for (const fillerKind of fillerKinds) {
     if (fillerKind === "starter") {
-      nextCardId = addDebugDeckCard(cards, starterCards[starterIndex], nextCardId, random);
+      nextCardId = addDebugDeckCard(cards, starterCards[starterIndex], nextCardId);
       starterIndex += 1;
     } else if (fillerKind === "basic") {
-      nextCardId = addDebugDeckCard(cards, basicCards[basicIndex], nextCardId, random);
+      nextCardId = addDebugDeckCard(cards, basicCards[basicIndex], nextCardId);
       basicIndex += 1;
     } else if (fillerKind === "special") {
-      nextCardId = addDebugDeckCard(cards, randomDeckBlueprint(SPECIAL_CARD_POOL, cards, random), nextCardId, random);
+      nextCardId = addDebugDeckCard(cards, randomItem(SPECIAL_CARD_POOL, random), nextCardId);
     }
   }
 

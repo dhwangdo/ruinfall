@@ -1,6 +1,3 @@
-import type { GemColor } from "./cards";
-import { gemFormulasConflict } from "./gemRules";
-
 export type DeckEditorCardArea = "deck" | "inventory" | "floor" | "pendingRemoval";
 
 export type DeckEditorCardLocation = {
@@ -31,7 +28,6 @@ export type DeckEditorMoveBlockReason =
   | "same-location"
   | "inventory-full"
   | "deck-full"
-  | "gem-conflict"
   | "origin-locked"
   | "extract-original-only";
 
@@ -53,9 +49,6 @@ export type DeckEditorMoveRequest = {
   inventoryCapacity: number;
   inventorySlotsFreed?: number;
   viaExtractionTicket?: boolean;
-  movingGemFormula?: GemColor[];
-  targetDeckGemFormulas?: GemColor[][];
-  ignoreGemFormulaLimit?: boolean;
 };
 
 export function validateDeckEditorCardMove(request: DeckEditorMoveRequest): DeckEditorMoveValidation {
@@ -76,12 +69,6 @@ export function validateDeckEditorCardMove(request: DeckEditorMoveRequest): Deck
     && (request.source.area !== "deck" || request.source.deckId !== request.target.deckId)
     && (request.targetDeckCardCount ?? 0) >= (request.targetDeckCapacity ?? 0)) {
     return { allowed: false, reason: "deck-full" };
-  }
-  if (request.target.area === "deck"
-    && !request.ignoreGemFormulaLimit
-    && request.movingGemFormula?.length
-    && request.targetDeckGemFormulas?.some((formula) => gemFormulasConflict(request.movingGemFormula!, formula))) {
-    return { allowed: false, reason: "gem-conflict" };
   }
 
   if (request.viaExtractionTicket) {

@@ -10,13 +10,13 @@ import {
   recoverBattleEnergy,
 } from "../app/game/combatEconomy.ts";
 
-test("economic research enables a non-stacking minus-five energy floor", () => {
+test("economic research stacks a minus-three energy floor per copy", () => {
   assert.equal(economicResearchEnergyFloor(0), 0);
-  assert.equal(economicResearchEnergyFloor(1), -5);
-  assert.equal(economicResearchEnergyFloor(2), -5);
-  assert.equal(canPayEnergyCost(-4, 1, 1), true);
-  assert.equal(canPayEnergyCost(-5, 0, 2), true);
-  assert.equal(canPayEnergyCost(-5, 1, 1), false);
+  assert.equal(economicResearchEnergyFloor(1), -3);
+  assert.equal(economicResearchEnergyFloor(2), -6);
+  assert.equal(canPayEnergyCost(-2, 1, 1), true);
+  assert.equal(canPayEnergyCost(-3, 0, 1), true);
+  assert.equal(canPayEnergyCost(-3, 1, 1), false);
 });
 
 test("turn energy recovery adds the maximum before clamping", () => {
