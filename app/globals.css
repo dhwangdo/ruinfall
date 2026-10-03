@@ -4193,7 +4193,7 @@ h1 { margin: 0; font-size: 25px; font-weight: 600; }
   border-color: #d95b5b;
   box-shadow: 0 0 4px rgba(237,98,98,.66), 0 0 12px rgba(219,60,60,.38), 0 0 18px rgba(219,60,60,.16);
 }
-.hand:not(.is-pointer-dragging) .game-card:hover:not(:disabled),
+.hand:not(.is-pointer-dragging) .game-card.is-pointer-hovered:not(:disabled),
 .hand:not(.is-pointer-dragging) .game-card:focus-visible,
 .hand:not(.is-pointer-dragging) .game-card.is-keyboard-selected:not(:disabled),
 .hand.is-pointer-dragging .game-card.is-pointer-hovered:not(:disabled) {
@@ -4622,7 +4622,7 @@ h1 { margin: 0; font-size: 25px; font-weight: 600; }
     min-height: 205px;
     padding: 22px 12px var(--hand-bottom-clearance, 52px);
   }
-  .player-zone .hand:not(.is-pointer-dragging) .game-card:hover:not(:disabled),
+  .player-zone .hand:not(.is-pointer-dragging) .game-card.is-pointer-hovered:not(:disabled),
   .player-zone .hand:not(.is-pointer-dragging) .game-card:focus-visible,
   .player-zone .hand:not(.is-pointer-dragging) .game-card.is-keyboard-selected:not(:disabled),
   .player-zone .hand.is-pointer-dragging .game-card.is-pointer-hovered:not(:disabled) {

@@ -7,6 +7,7 @@ import { cardEnergyCost } from "../game/cardEffects";
 import type { GameState } from "../game/battleState";
 import type { DragState, Phase } from "../game/battleUiTypes";
 import type { useBattlePointerInput } from "../hooks/useBattlePointerInput";
+import { handCardAtPointer } from "./handHitTest";
 
 type BattleDragHandlers = Pick<
   ReturnType<typeof useBattlePointerInput>,
@@ -19,6 +20,7 @@ type BattleHandAreaProps = {
   dragging: DragState | null;
   selectedHandCardId: number | null;
   hoveredHandCardId: number | null;
+  setHoveredHandCardId: Dispatch<SetStateAction<number | null>>;
   setSelectedHandCardId: Dispatch<SetStateAction<number | null>>;
   controlsLocked: boolean;
   backToBasicsBonus: (card: Card) => number;
@@ -49,6 +51,7 @@ export function BattleHandArea({
   dragging,
   selectedHandCardId,
   hoveredHandCardId,
+  setHoveredHandCardId,
   setSelectedHandCardId,
   controlsLocked,
   backToBasicsBonus,
@@ -145,11 +148,33 @@ export function BattleHandArea({
       wheelRemainderRef.current = 0;
       setWindowStart((current) => Math.max(0, Math.min(maxWindowStart, Math.min(current, maxWindowStart) + Math.sign(delta))));
       setSelectedHandCardId(null);
+      setHoveredHandCardId(null);
       onClearCardHover();
     };
     hand.addEventListener("wheel", handleWheel, { passive: false });
     return () => hand.removeEventListener("wheel", handleWheel);
-  }, [dragging, maxWindowStart, onClearCardHover, setSelectedHandCardId]);
+  }, [dragging, maxWindowStart, onClearCardHover, setHoveredHandCardId, setSelectedHandCardId]);
+
+  useEffect(() => {
+    const updateHandHover = (event: globalThis.PointerEvent) => {
+      if (dragging || event.pointerType === "touch" || event.buttons !== 0) return;
+      const cardId = handCardAtPointer(event.clientX, event.clientY);
+      if (cardId === hoveredHandCardId) return;
+      setHoveredHandCardId(cardId);
+      if (cardId === null) {
+        if (hoveredHandCardId !== null) onClearCardHover();
+        return;
+      }
+      if (selectedHandCardId !== null && selectedHandCardId !== cardId) setSelectedHandCardId(null);
+      const card = game.hand.find((item) => item.id === cardId);
+      const element = handCardRefs.current.get(cardId);
+      if (!card || !element) return;
+      const bounds = element.getBoundingClientRect();
+      onShowCardKeywordOnly(card, bounds.right, bounds.top);
+    };
+    window.addEventListener("pointermove", updateHandHover, true);
+    return () => window.removeEventListener("pointermove", updateHandHover, true);
+  }, [dragging, game.hand, handCardRefs, hoveredHandCardId, onClearCardHover, onShowCardKeywordOnly, selectedHandCardId, setHoveredHandCardId, setSelectedHandCardId]);
 
   useEffect(() => {
     const handleHandKey = (event: KeyboardEvent) => {
@@ -162,6 +187,7 @@ export function BattleHandArea({
         onSortHand();
         setWindowStart(0);
         setSelectedHandCardId(null);
+        setHoveredHandCardId(null);
         onClearCardHover();
         return;
       }
@@ -187,7 +213,7 @@ export function BattleHandArea({
     };
     window.addEventListener("keydown", handleHandKey);
     return () => window.removeEventListener("keydown", handleHandKey);
-  }, [clampedWindowStart, displayedHand, dragging, game.hand, game.status, onClearCardHover, onPlayHandCardOnDoubleClick, onSortHand, phase, selectedHandCardId, setSelectedHandCardId, visibleCardCount]);
+  }, [clampedWindowStart, displayedHand, dragging, game.hand, game.status, onClearCardHover, onPlayHandCardOnDoubleClick, onSortHand, phase, selectedHandCardId, setHoveredHandCardId, setSelectedHandCardId, visibleCardCount]);
 
   const handFanStyle = (index: number) => {
     const distanceFromCenter = index - handCenterIndex;
@@ -231,7 +257,7 @@ export function BattleHandArea({
         >
           {displayedHand.map((card, index) => card ? (
             <button
-              className={`game-card card-face ${card.kind} ${card.damageType} ${HAND_PASSIVE_EFFECTS.has(card.effect) ? "has-hand-aura" : card.effect === "slime" ? "has-danger-aura is-toxic-slime" : ""} ${dragging?.card.id === card.id ? "is-dragging" : ""} ${dragging && hoveredHandCardId === card.id ? "is-pointer-hovered" : ""} ${selectedHandCardId === card.id ? "is-keyboard-selected" : ""} ${index < clampedWindowStart || index >= clampedWindowStart + visibleCardCount ? "is-outside-window" : ""}`}
+              className={`game-card card-face ${card.kind} ${card.damageType} ${HAND_PASSIVE_EFFECTS.has(card.effect) ? "has-hand-aura" : card.effect === "slime" ? "has-danger-aura is-toxic-slime" : ""} ${dragging?.card.id === card.id ? "is-dragging" : ""} ${hoveredHandCardId === card.id ? "is-pointer-hovered" : ""} ${selectedHandCardId === card.id ? "is-keyboard-selected" : ""} ${index < clampedWindowStart || index >= clampedWindowStart + visibleCardCount ? "is-outside-window" : ""}`}
               key={card.id}
               data-card-id={card.id}
               ref={(element) => {
@@ -242,29 +268,22 @@ export function BattleHandArea({
               tabIndex={index >= clampedWindowStart && index < clampedWindowStart + visibleCardCount ? 0 : -1}
               aria-hidden={index < clampedWindowStart || index >= clampedWindowStart + visibleCardCount}
               onPointerDown={(event) => {
+                if (handCardAtPointer(event.clientX, event.clientY) !== card.id) return;
                 setSelectedHandCardId(null);
                 dragHandlers.beginDrag(event, card, { type: "hand" });
               }}
               onPointerMove={dragHandlers.moveDrag}
               onPointerUp={dragHandlers.finishDrag}
               onPointerCancel={dragHandlers.cancelDrag}
-              onMouseEnter={(event) => {
-                if (dragging) return;
-                if (selectedHandCardId !== null && selectedHandCardId !== card.id) {
-                  setSelectedHandCardId(null);
-                }
-                const bounds = event.currentTarget.getBoundingClientRect();
-                onShowCardKeywordOnly(card, bounds.right, bounds.top);
-              }}
-              onMouseMove={(event) => {
-                if (dragging) return;
-                const bounds = event.currentTarget.getBoundingClientRect();
-                onShowCardKeywordOnly(card, bounds.right, bounds.top);
-              }}
-              onMouseLeave={onClearCardHover}
               onBlur={onClearCardHover}
-              onClick={() => game.pendingDiscards > 0 && onDiscardSelectedCard(card.id)}
-              onDoubleClick={() => onPlayHandCardOnDoubleClick(card)}
+              onClick={(event) => {
+                if (game.pendingDiscards > 0 && handCardAtPointer(event.clientX, event.clientY) === card.id) {
+                  onDiscardSelectedCard(card.id);
+                }
+              }}
+              onDoubleClick={(event) => {
+                if (handCardAtPointer(event.clientX, event.clientY) === card.id) onPlayHandCardOnDoubleClick(card);
+              }}
               disabled={controlsLocked && game.pendingDiscards === 0}
               aria-label={UNPLAYABLE_CARD_EFFECTS.has(card.effect) ? `${card.name}, 비용 -, 사용 불가` : `${card.name}, 에너지 ${cardEnergyCost(card, lawResearchCount, game.forgeCount)}`}
             >

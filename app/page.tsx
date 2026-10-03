@@ -470,6 +470,7 @@ export default function Home() {
     selectedHandCardId,
     setSelectedHandCardId,
     hoveredHandCardId,
+    setHoveredHandCardId,
     dragging,
     setDragging,
     dragOverDropTarget,
@@ -4755,6 +4756,7 @@ export default function Home() {
             dragging={dragging}
             selectedHandCardId={selectedHandCardId}
             hoveredHandCardId={hoveredHandCardId}
+            setHoveredHandCardId={setHoveredHandCardId}
             setSelectedHandCardId={setSelectedHandCardId}
             controlsLocked={controlsLocked}
             backToBasicsBonus={backToBasicsBonus}
