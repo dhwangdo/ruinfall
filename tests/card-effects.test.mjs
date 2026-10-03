@@ -2,7 +2,7 @@ import assert from "node:assert/strict";
 import test from "node:test";
 
 import { RARE_CARD_POOL, SPECIAL_CARD_POOL, createMagicCrystalCard } from "../app/game/cards.ts";
-import { getCardKeywordInfos } from "../app/game/cardEffects.ts";
+import { canForgeCardOnto, forgeConditionText, getCardKeywordInfos } from "../app/game/cardEffects.ts";
 import { calculateDefenseGain, getDefenseBaseValue } from "../app/game/defenseRules.ts";
 import { cardCostAfterForgePlacement, obsidianDaggerForgesRemaining } from "../app/game/forgeRules.ts";
 
@@ -26,6 +26,15 @@ test("obsidian dagger has exactly five forges", () => {
   assert.equal(obsidianDaggerForgesRemaining(4), 1);
   assert.equal(obsidianDaggerForgesRemaining(5), 0);
   assert.equal(obsidianDaggerForgesRemaining(6), 0);
+});
+
+test("higher stage magic crystals remain forgeable with their current stage shown", () => {
+  for (const stage of [2, 3, 4]) {
+    const crystal = { ...createMagicCrystalCard(stage, stage), forged: true };
+    assert.equal(canForgeCardOnto(crystal, createMagicCrystalCard(stage + 10, stage)), true);
+    assert.equal(canForgeCardOnto(crystal, createMagicCrystalCard(stage + 20, stage + 1)), false);
+    assert.equal(forgeConditionText(crystal), `[${crystal.name}]`);
+  }
 });
 
 test("fixed defense gains add toughness before applying the defense multiplier", () => {

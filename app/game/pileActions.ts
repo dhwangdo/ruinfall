@@ -154,7 +154,6 @@ export function createMoveCardToPile(context: MoveCardToPileContext) {
           ...(nextMagicCrystalStage === undefined ? {} : {
             magicCrystalStage: nextMagicCrystalStage,
             name: nextMagicCrystalName,
-            value: nextMagicCrystalStage,
             forgeTargetName: nextMagicCrystalName,
           }),
           baseCost,
@@ -164,7 +163,7 @@ export function createMoveCardToPile(context: MoveCardToPileContext) {
               ? effectiveTargetCost ?? targetCard.cost
               : undefined,
           ),
-          value: daggerForgeApplied ? card.value + targetCard!.value : card.value,
+          value: magicCrystalForgeApplied ? nextMagicCrystalStage! : daggerForgeApplied ? card.value + targetCard!.value : card.value,
           forgeCostsCompleted: nextForgeCostsCompleted,
           revealed: drag.source.type === "hand" ? true : card.revealed,
           forged: card.forged || becomesForged,

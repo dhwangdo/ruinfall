@@ -43,6 +43,7 @@ const HAND_CARD_STEP = 100;
 const HAND_ARC_RADIUS = 1700;
 const HAND_ANGLE_STEP = 3.4;
 const HAND_WHEEL_STEP = 70;
+const HAND_WHEEL_MIN_CARDS = 9;
 const HAND_EDGE_MARGIN = 12;
 
 export function BattleHandArea({
@@ -72,7 +73,9 @@ export function BattleHandArea({
   const displayedHand = useDisplayedHand(game, phase);
   const handRef = useRef<HTMLDivElement>(null);
   const wheelRemainderRef = useRef(0);
-  const wheelSnapTimerRef = useRef<number | null>(null);
+  const wheelSpringFrameRef = useRef<number | null>(null);
+  const windowStartRef = useRef(0);
+  const clearCardHoverRef = useRef(onClearCardHover);
   const lastPointerRef = useRef<{ x: number; y: number } | null>(null);
   const [handMetrics, setHandMetrics] = useState({ width: 600, cardWidth: 136, cardHeight: 191 });
   const [windowStart, setWindowStart] = useState(0);
@@ -90,7 +93,6 @@ export function BattleHandArea({
   const maxWindowStart = Math.max(0, displayedHand.length - visibleCardCount);
   const overscrollLimit = Math.max(0, Math.floor((visibleCardCount - 1) / 2));
   const clampedWindowStart = Math.max(-overscrollLimit, Math.min(windowStart, maxWindowStart + overscrollLimit));
-  const maxWindowStartRef = useRef(maxWindowStart);
   const leftHiddenCount = displayedHand.slice(0, Math.max(0, clampedWindowStart)).filter(Boolean).length;
   const rightHiddenCount = displayedHand.slice(clampedWindowStart + visibleCardCount).filter(Boolean).length;
   const handCenterIndex = clampedWindowStart + Math.max(0, (visibleCardCount - 1) / 2);
@@ -107,8 +109,12 @@ export function BattleHandArea({
     : displayedHand.findIndex((card) => card?.id === selectedHandCardId);
 
   useLayoutEffect(() => {
-    maxWindowStartRef.current = maxWindowStart;
-  }, [maxWindowStart]);
+    windowStartRef.current = windowStart;
+  }, [windowStart]);
+
+  useLayoutEffect(() => {
+    clearCardHoverRef.current = onClearCardHover;
+  }, [onClearCardHover]);
 
   useEffect(() => {
     const hand = handRef.current;
@@ -146,33 +152,74 @@ export function BattleHandArea({
   useEffect(() => {
     const hand = handRef.current;
     if (!hand) return;
+    if (displayedHand.length < HAND_WHEEL_MIN_CARDS) {
+      wheelRemainderRef.current = 0;
+      const frame = window.requestAnimationFrame(() => setWindowStart(0));
+      return () => window.cancelAnimationFrame(frame);
+    }
+
+    let previousFrameTime = 0;
+    let springTravel = 0;
+    let lastWheelTime = -Infinity;
+    const springFrame = (now: number) => {
+      const current = windowStartRef.current;
+      const distance = current < 0 ? -current : Math.max(0, current - maxWindowStart);
+      if (distance === 0) {
+        wheelSpringFrameRef.current = null;
+        return;
+      }
+      const elapsed = previousFrameTime === 0 ? 16 : Math.min(50, now - previousFrameTime);
+      previousFrameTime = now;
+      const wheelIsActive = now - lastWheelTime < 160;
+      const returnSpeed = wheelIsActive ? 0.35 + distance * 0.35 : 2.4 + distance * 1.8;
+      springTravel += elapsed * returnSpeed / 1000;
+      if (springTravel >= 1) {
+        springTravel -= 1;
+        const next = current + (current < 0 ? 1 : -1);
+        windowStartRef.current = next;
+        setWindowStart(next);
+      }
+      wheelSpringFrameRef.current = window.requestAnimationFrame(springFrame);
+    };
+    const startSpring = () => {
+      if (wheelSpringFrameRef.current !== null) return;
+      previousFrameTime = 0;
+      springTravel = 0;
+      wheelSpringFrameRef.current = window.requestAnimationFrame(springFrame);
+    };
+    if (windowStartRef.current < 0 || windowStartRef.current > maxWindowStart) startSpring();
+
     const handleWheel = (event: WheelEvent) => {
       if (dragging || event.ctrlKey || visibleCardCount <= 1) return;
       const rawDelta = Math.abs(event.deltaY) >= Math.abs(event.deltaX) ? event.deltaY : event.deltaX;
       if (rawDelta === 0) return;
       event.preventDefault();
-      if (wheelSnapTimerRef.current !== null) window.clearTimeout(wheelSnapTimerRef.current);
-      wheelSnapTimerRef.current = window.setTimeout(() => {
-        setWindowStart((current) => Math.max(0, Math.min(maxWindowStartRef.current, current)));
-        wheelSnapTimerRef.current = null;
-      }, 350);
+      lastWheelTime = performance.now();
       const delta = rawDelta * (event.deltaMode === 1 ? 16 : event.deltaMode === 2 ? hand.clientHeight : 1);
       if (Math.sign(delta) !== Math.sign(wheelRemainderRef.current)) wheelRemainderRef.current = 0;
       wheelRemainderRef.current += delta;
-      if (Math.abs(wheelRemainderRef.current) < HAND_WHEEL_STEP) return;
+      const current = windowStartRef.current;
+      const pullingPastEdge = delta < 0 && current <= 0
+        ? -current
+        : delta > 0 && current >= maxWindowStart ? current - maxWindowStart : 0;
+      if (Math.abs(wheelRemainderRef.current) < HAND_WHEEL_STEP * (1 + pullingPastEdge * 0.35)) return;
       wheelRemainderRef.current = 0;
-      setWindowStart((current) => Math.max(-overscrollLimit, Math.min(maxWindowStart + overscrollLimit, current + Math.sign(delta))));
+      const next = Math.max(-overscrollLimit, Math.min(maxWindowStart + overscrollLimit, current + Math.sign(delta)));
+      if (next === current) return;
+      windowStartRef.current = next;
+      setWindowStart(next);
+      if (next < 0 || next > maxWindowStart) startSpring();
       setSelectedHandCardId(null);
       setHoveredHandCardId(null);
-      onClearCardHover();
+      clearCardHoverRef.current();
     };
     hand.addEventListener("wheel", handleWheel, { passive: false });
-    return () => hand.removeEventListener("wheel", handleWheel);
-  }, [dragging, maxWindowStart, onClearCardHover, overscrollLimit, setHoveredHandCardId, setSelectedHandCardId, visibleCardCount]);
-
-  useEffect(() => () => {
-    if (wheelSnapTimerRef.current !== null) window.clearTimeout(wheelSnapTimerRef.current);
-  }, []);
+    return () => {
+      hand.removeEventListener("wheel", handleWheel);
+      if (wheelSpringFrameRef.current !== null) window.cancelAnimationFrame(wheelSpringFrameRef.current);
+      wheelSpringFrameRef.current = null;
+    };
+  }, [dragging, displayedHand.length, maxWindowStart, overscrollLimit, setHoveredHandCardId, setSelectedHandCardId, visibleCardCount]);
 
   const updateHandHoverAtPoint = useCallback((clientX: number, clientY: number, refreshDetails = false) => {
     const cardId = handCardAtPointer(clientX, clientY);

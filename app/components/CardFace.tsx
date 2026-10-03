@@ -393,7 +393,7 @@ export function CardFaceView({
       )}
       {!UNPLAYABLE_CARD_EFFECTS.has(card.effect) && <span className={`card-cost ${costChangeClass}`}>{displayedCost}</span>}
       <strong className={`card-name rarity-${card.rarity} watermark-category-${cardWatermarkCategory(card)} ${UNPLAYABLE_CARD_EFFECTS.has(card.effect) ? "is-unplayable" : ""} ${card.rarity === "legendary" ? "is-painted is-legendary" : ""}`}>
-        {card.name}{card.effect === "obsidianDagger" && cardForgeCount(card) > 0 ? ` +${cardForgeCount(card)}` : card.forged && !["astronomyResearch", "necromancyResearch"].includes(card.effect) ? "+" : ""}
+        {card.name}{card.effect === "obsidianDagger" && cardForgeCount(card) > 0 ? ` +${cardForgeCount(card)}` : card.forged && !["astronomyResearch", "necromancyResearch", "magicCrystal"].includes(card.effect) ? "+" : ""}
       </strong>
       <span ref={cardEffectRef} className="card-effect">{emphasizeEffectNumbers(<>
         <span className="card-effect-copy">
@@ -413,7 +413,7 @@ export function CardFaceView({
             {cardForgeCount(card) > 0 && <strong className="solitaire-rule forge-rule effect-keyword">재련됨.</strong>}
             <strong className="solitaire-rule forge-rule"><span className="effect-keyword">재련</span> x{obsidianDaggerForgesRemaining(cardForgeCount(card))}: [공격]</strong>
           </>
-          : card.forged && card.effect !== "massDeal" && !["astronomyResearch", "necromancyResearch"].includes(card.effect)
+          : card.forged && card.effect !== "massDeal" && !["astronomyResearch", "necromancyResearch", "magicCrystal"].includes(card.effect)
             ? <strong className="solitaire-rule forge-rule effect-keyword">재련됨.</strong>
             : !(card.forged && card.effect === "massDeal") && !["astronomyResearch", "necromancyResearch"].includes(card.effect)
               && (card.forgeCost !== undefined || card.forgeCosts || card.forgeTargetName || card.forgeAny)
