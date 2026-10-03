@@ -743,8 +743,8 @@ h1 { margin: 0; font-size: 25px; font-weight: 600; }
 .map-room.is-contaminated {
   border-color: #7e1825;
   color: #fff0e9;
-  background: radial-gradient(circle at 48% 52%, #f4493d 0 16%, #be222f 58%, #741826 100%);
-  box-shadow: inset 0 0 20px rgba(68, 0, 8, .42);
+  background: #f4493d;
+  box-shadow: none;
 }
 .map-room.is-altar {
   border-color: #4d3d37;
@@ -841,15 +841,16 @@ h1 { margin: 0; font-size: 25px; font-weight: 600; }
 .map-room.is-reachable:hover { transform: translateY(-2px); filter: brightness(1.12); }
 .map-room:focus-visible { outline: 3px solid #87958d; outline-offset: 2px; }
 .map-room.is-current { z-index: 2; border-color: #a7771f; background: #d9b852; box-shadow: none; }
-.map-room.is-contaminated.is-current {
-  border-color: #ffd07a;
-  color: #fff0e9;
-  background: radial-gradient(circle at 48% 52%, #f4493d 0 16%, #be222f 58%, #741826 100%);
-}
 /* 현재 플레이어 칸은 지역별 타일 색보다 항상 우선한다. */
 .map-room.is-region-2.is-current,
 .map-room.is-region-3.is-current,
 .map-room.is-region-4.is-current { border-color: #a7771f; background: #d9b852; }
+.map-room.is-contaminated.is-current {
+  border-color: #ffd07a;
+  color: #fff0e9;
+  background: #f4493d;
+  box-shadow: none;
+}
 .map-room.is-out-of-vision {
   filter: grayscale(1) contrast(1.05) brightness(.76);
 }

@@ -303,7 +303,11 @@ function getSpecialRoomType(position: MapPosition, seed: number): RoomType | nul
 
 function isNormalDungeonFloor(position: MapPosition, seed: number) {
   const regionIndex = getDungeonRegionIndex(position);
-  if (regionIndex === null || chebyshevDistance(position, MAP_START) <= 1) return false;
+  if (
+    regionIndex === null
+    || getFixedRoomType(position, seed) !== null
+    || chebyshevDistance(position, MAP_START) <= 1
+  ) return false;
   const localY = position.y - regionStartY(regionIndex);
   if (localY === 0 && position.x === 0) return false;
   if (localY === regionHeight(regionIndex) - 1 && isPortalColumn(position.x, regionIndex, seed)) return false;
@@ -353,6 +357,9 @@ export function getRoomType(position: MapPosition, seed: number): RoomType {
 
 type MagicContaminationCluster = { anchor: MapPosition; positions: MapPosition[] };
 
+const CARDINAL_DIRECTIONS = EIGHT_DIRECTIONS.filter((direction) =>
+  direction.x === 0 || direction.y === 0);
+
 function createMagicContaminationCluster(anchor: MapPosition, seed: number): MagicContaminationCluster | null {
   const regionIndex = getDungeonRegionIndex(anchor);
   if (regionIndex === null || getSpecialRoomType(anchor, seed) !== "contaminated") return null;
@@ -366,13 +373,36 @@ function createMagicContaminationCluster(anchor: MapPosition, seed: number): Mag
     }
   }
   const clusterSize = 12 + Math.floor(seededRoll(anchor, seed, 7302) * 9);
-  const randomizedNeighbors = eligible.sort((left, right) =>
-    seededRoll(left, seed, 7303) - seededRoll(right, seed, 7303)
-    || left.y - right.y
-    || left.x - right.x);
+  const eligibleByKey = new Map(eligible.map((position) => [mapRoomKey(position), position]));
+  const positions = [anchor];
+  const includedKeys = new Set([mapRoomKey(anchor)]);
+  const frontier = new Map<string, MapPosition>();
+  const addFrontier = (position: MapPosition) => {
+    for (const direction of CARDINAL_DIRECTIONS) {
+      const neighbor = { x: position.x + direction.x, y: position.y + direction.y };
+      const key = mapRoomKey(neighbor);
+      const eligiblePosition = eligibleByKey.get(key);
+      if (eligiblePosition && !includedKeys.has(key)) frontier.set(key, eligiblePosition);
+    }
+  };
+
+  addFrontier(anchor);
+  while (positions.length < clusterSize && frontier.size > 0) {
+    const nextPosition = Array.from(frontier.values()).sort((left, right) =>
+      seededRoll(left, seed, 7303) - seededRoll(right, seed, 7303)
+      || left.y - right.y
+      || left.x - right.x)[0];
+    const nextKey = mapRoomKey(nextPosition);
+    frontier.delete(nextKey);
+    if (includedKeys.has(nextKey)) continue;
+    positions.push(nextPosition);
+    includedKeys.add(nextKey);
+    addFrontier(nextPosition);
+  }
+
   return {
     anchor,
-    positions: [anchor, ...randomizedNeighbors].slice(0, clusterSize),
+    positions,
   };
 }
 
