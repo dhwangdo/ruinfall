@@ -201,6 +201,17 @@ export function BattleHandArea({
     const pointer = lastPointerRef.current;
     if (!pointer) return;
     updateHandHoverRef.current(pointer.x, pointer.y, true);
+    const startedAt = performance.now();
+    let frame = 0;
+    const followMovingHand = () => {
+      const latestPointer = lastPointerRef.current;
+      if (latestPointer) updateHandHoverRef.current(latestPointer.x, latestPointer.y);
+      if (performance.now() - startedAt < 320) {
+        frame = window.requestAnimationFrame(followMovingHand);
+      }
+    };
+    frame = window.requestAnimationFrame(followMovingHand);
+    return () => window.cancelAnimationFrame(frame);
   }, [dragging, game.hand, phase, controlsLocked, clampedWindowStart, visibleCardCount]);
 
   useEffect(() => {

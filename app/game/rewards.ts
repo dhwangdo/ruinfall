@@ -142,8 +142,8 @@ export function createStarterInventoryCards(startId: number): Card[] {
   if (!strike || !defense) throw new Error("Missing starting inventory cards.");
 
   return [
-    ...Array.from({ length: 5 }, (_, index) => ({ ...strike, id: startId + index, revealed: false })),
-    ...Array.from({ length: 5 }, (_, index) => ({ ...defense, id: startId + 5 + index, revealed: false })),
+    ...Array.from({ length: 3 }, (_, index) => ({ ...strike, id: startId + index, revealed: false })),
+    ...Array.from({ length: 3 }, (_, index) => ({ ...defense, id: startId + 3 + index, revealed: false })),
   ];
 }
 

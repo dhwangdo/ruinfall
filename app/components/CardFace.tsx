@@ -135,14 +135,15 @@ export function CardFaceView({
         sentence.style.removeProperty("letter-spacing");
         sentence.classList.remove("is-wrapped");
       });
-      const availableWidth = copy.getBoundingClientRect().width;
+      // Layout dimensions stay stable while the hand rotates or enlarges cards.
+      const availableWidth = copy.clientWidth;
       if (availableWidth <= 0) return;
       const minimumScale = Number.parseFloat(getComputedStyle(copy).getPropertyValue("--card-effect-minimum-scale"));
       const segments = Array.from(effect.querySelectorAll<HTMLElement>(".forge-rule"));
       const getLineCount = (element: HTMLElement) => {
         const lineHeight = Number.parseFloat(getComputedStyle(element).lineHeight);
         return Number.isFinite(lineHeight) && lineHeight > 0
-          ? Math.max(1, Math.round(element.getBoundingClientRect().height / lineHeight))
+          ? Math.max(1, Math.round(element.offsetHeight / lineHeight))
           : 0;
       };
       const hasCopyText = Boolean(copy.textContent?.trim());
@@ -157,11 +158,11 @@ export function CardFaceView({
         sentence.style.removeProperty("white-space");
         });
         const maxLetterSpacingReduction = baseLineCount >= 4 ? 0.12 : 0;
-        const widths = sentences.map((sentence) => sentence.getBoundingClientRect().width);
+        const widths = sentences.map((sentence) => sentence.offsetWidth);
         const fits = sentences.map((sentence, index) => fittedEffectSentenceStyle(widths[index], availableWidth, minimumScale, (scale, letterSpacing) => {
             sentence.style.setProperty("--effect-sentence-scale", String(scale));
             sentence.style.letterSpacing = `${letterSpacing}px`;
-            return sentence.getBoundingClientRect().width;
+            return sentence.offsetWidth;
           }, maxLetterSpacingReduction));
         const sharedScale = fits.length > 0 ? Math.min(...fits.map((fit) => fit.scale)) : 1;
         sentences.forEach((sentence, index) => {
@@ -170,14 +171,14 @@ export function CardFaceView({
           sentence.style.setProperty("--effect-sentence-scale", String(sharedScale));
           if (letterSpacing === 0) sentence.style.removeProperty("letter-spacing");
           else sentence.style.letterSpacing = `${letterSpacing}px`;
-          sentence.classList.toggle("is-wrapped", sentence.getBoundingClientRect().width > availableWidth);
+          sentence.classList.toggle("is-wrapped", sentence.offsetWidth > availableWidth);
         });
       const copyLineHeight = Number.parseFloat(getComputedStyle(copy).lineHeight);
       if (!Number.isFinite(copyLineHeight) || copyLineHeight <= 0) return;
-      const lineCount = (copy.textContent?.trim() ? Math.max(1, Math.round(copy.getBoundingClientRect().height / copyLineHeight)) : 0)
+      const lineCount = (copy.textContent?.trim() ? Math.max(1, Math.round(copy.offsetHeight / copyLineHeight)) : 0)
         + segments.reduce((total, segment) => {
           const lineHeight = Number.parseFloat(getComputedStyle(segment).lineHeight);
-          return total + Math.max(1, Math.round(segment.getBoundingClientRect().height / lineHeight));
+          return total + Math.max(1, Math.round(segment.offsetHeight / lineHeight));
         }, 0);
       const shift = Math.min(8, Math.max(0, lineCount - 1) * 1.2);
       effect.style.setProperty("--card-effect-shift", `${shift}px`);
