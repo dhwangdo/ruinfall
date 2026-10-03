@@ -4103,6 +4103,7 @@ h1 { margin: 0; font-size: 25px; font-weight: 600; }
 }
 .hand-track {
   position: relative;
+  z-index: 1;
   left: 50%;
   display: flex;
   flex: none;
@@ -4112,29 +4113,45 @@ h1 { margin: 0; font-size: 25px; font-weight: 600; }
 }
 .hand-overflow-card {
   position: absolute;
-  z-index: 2;
-  bottom: var(--hand-bottom-clearance, 52px);
+  z-index: 0;
+  bottom: calc(var(--hand-bottom-clearance, 52px) - 18px);
   display: flex;
   align-items: center;
   justify-content: center;
-  width: calc(var(--card-w) * .6);
-  height: calc(var(--card-h) * .66);
-  border: 2px solid #2b76a9;
-  border-radius: 2px;
-  background: #fff;
-  color: #111;
+  width: calc(var(--card-w) * .53);
+  height: calc(var(--card-h) * .55);
+  border: 1px solid var(--battle-card-border-color, #c28a00);
+  border-radius: 7px;
+  background: var(--battle-card-color, #17234f);
+  color: var(--battle-card-text-color, #f8f6ef);
   box-shadow: 0 2px 4px rgba(0, 0, 0, .24);
-  font: 30px/1 Arial, sans-serif;
+  font: 800 22px/1 Pretendard, Arial, sans-serif;
   pointer-events: none;
   user-select: none;
   transform-origin: 50% 100%;
 }
+.hand-overflow-card::before {
+  position: absolute;
+  top: 0;
+  right: 0;
+  left: 0;
+  height: 25%;
+  border-radius: 6px 6px 0 0;
+  background: var(--battle-special-band-color, #3472a2);
+  content: "";
+}
+.hand-overflow-card span { position: relative; }
+.card-style-simple .hand-overflow-card {
+  border-color: #111;
+  background: #fbfaf5;
+  color: #252525;
+}
 .hand-overflow-card.is-left {
-  left: 28px;
+  left: 0;
   transform: rotate(-24deg);
 }
 .hand-overflow-card.is-right {
-  right: 28px;
+  right: 0;
   transform: rotate(24deg);
 }
 .game-card {
@@ -4208,7 +4225,8 @@ h1 { margin: 0; font-size: 25px; font-weight: 600; }
 
 .game-card:first-child { margin-left: 0; }
 .hand-card-placeholder:first-child { margin-left: 0; }
-.hand .is-outside-window { opacity: 0; pointer-events: none; }
+.hand .is-outside-window { opacity: 0; visibility: hidden; pointer-events: none; }
+.hand .game-card.is-outside-window { opacity: 0; }
 .game-card.has-hand-aura {
   border-color: #d6ad2f;
   box-shadow:

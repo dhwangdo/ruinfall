@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useRef, useState, type CSSProperties, type Dispatch, type RefObject, type SetStateAction } from "react";
+import { useCallback, useEffect, useLayoutEffect, useRef, useState, type CSSProperties, type Dispatch, type RefObject, type SetStateAction } from "react";
 import { CardFace } from "./CardFace";
 import { HAND_PASSIVE_EFFECTS, UNPLAYABLE_CARD_EFFECTS, type Card } from "../game/cards";
 import { cardEnergyCost } from "../game/cardEffects";
@@ -72,6 +72,7 @@ export function BattleHandArea({
   const displayedHand = useDisplayedHand(game, phase);
   const handRef = useRef<HTMLDivElement>(null);
   const wheelRemainderRef = useRef(0);
+  const lastPointerRef = useRef<{ x: number; y: number } | null>(null);
   const [handMetrics, setHandMetrics] = useState({ width: 600, cardWidth: 136, cardHeight: 191 });
   const [windowStart, setWindowStart] = useState(0);
   const fittingCardCount = [9, 7, 5, 3, 1].find((count) => {
@@ -157,26 +158,62 @@ export function BattleHandArea({
     return () => hand.removeEventListener("wheel", handleWheel);
   }, [dragging, maxWindowStart, onClearCardHover, setHoveredHandCardId, setSelectedHandCardId]);
 
+  const updateHandHoverAtPoint = useCallback((clientX: number, clientY: number, refreshDetails = false) => {
+    const cardId = handCardAtPointer(clientX, clientY);
+    if (cardId === hoveredHandCardId && !refreshDetails) return;
+    if (cardId !== hoveredHandCardId) setHoveredHandCardId(cardId);
+    if (cardId === null) {
+      if (hoveredHandCardId !== null) onClearCardHover();
+      return;
+    }
+    if (selectedHandCardId !== null && selectedHandCardId !== cardId) setSelectedHandCardId(null);
+    const card = game.hand.find((item) => item.id === cardId);
+    const element = handCardRefs.current.get(cardId);
+    if (!card || !element) return;
+    const bounds = element.getBoundingClientRect();
+    onShowCardKeywordOnly(card, bounds.right, bounds.top);
+  }, [game.hand, handCardRefs, hoveredHandCardId, onClearCardHover, onShowCardKeywordOnly, selectedHandCardId, setHoveredHandCardId, setSelectedHandCardId]);
+  const updateHandHoverRef = useRef(updateHandHoverAtPoint);
+  useLayoutEffect(() => {
+    updateHandHoverRef.current = updateHandHoverAtPoint;
+  }, [updateHandHoverAtPoint]);
+
   useEffect(() => {
     const updateHandHover = (event: globalThis.PointerEvent) => {
-      if (dragging || event.pointerType === "touch" || event.buttons !== 0) return;
-      const cardId = handCardAtPointer(event.clientX, event.clientY);
-      if (cardId === hoveredHandCardId) return;
-      setHoveredHandCardId(cardId);
-      if (cardId === null) {
-        if (hoveredHandCardId !== null) onClearCardHover();
+      if (event.pointerType === "touch") {
+        lastPointerRef.current = null;
         return;
       }
-      if (selectedHandCardId !== null && selectedHandCardId !== cardId) setSelectedHandCardId(null);
-      const card = game.hand.find((item) => item.id === cardId);
-      const element = handCardRefs.current.get(cardId);
-      if (!card || !element) return;
-      const bounds = element.getBoundingClientRect();
-      onShowCardKeywordOnly(card, bounds.right, bounds.top);
+      lastPointerRef.current = { x: event.clientX, y: event.clientY };
+      if (dragging || event.buttons !== 0) return;
+      updateHandHoverAtPoint(event.clientX, event.clientY);
     };
     window.addEventListener("pointermove", updateHandHover, true);
-    return () => window.removeEventListener("pointermove", updateHandHover, true);
-  }, [dragging, game.hand, handCardRefs, hoveredHandCardId, onClearCardHover, onShowCardKeywordOnly, selectedHandCardId, setHoveredHandCardId, setSelectedHandCardId]);
+    window.addEventListener("pointerup", updateHandHover, true);
+    return () => {
+      window.removeEventListener("pointermove", updateHandHover, true);
+      window.removeEventListener("pointerup", updateHandHover, true);
+    };
+  }, [dragging, updateHandHoverAtPoint]);
+
+  useLayoutEffect(() => {
+    if (dragging) return;
+    const pointer = lastPointerRef.current;
+    if (!pointer) return;
+    updateHandHoverRef.current(pointer.x, pointer.y, true);
+  }, [dragging, game.hand, phase, controlsLocked, clampedWindowStart, visibleCardCount]);
+
+  useEffect(() => {
+    const track = handRef.current?.querySelector<HTMLElement>(".hand-track");
+    if (!track) return;
+    const updateAfterFanMoves = (event: TransitionEvent) => {
+      if (dragging || event.target !== track || event.propertyName !== "transform") return;
+      const pointer = lastPointerRef.current;
+      if (pointer) updateHandHoverRef.current(pointer.x, pointer.y, true);
+    };
+    track.addEventListener("transitionend", updateAfterFanMoves);
+    return () => track.removeEventListener("transitionend", updateAfterFanMoves);
+  }, [dragging]);
 
   useEffect(() => {
     const handleHandKey = (event: KeyboardEvent) => {
@@ -189,8 +226,6 @@ export function BattleHandArea({
         onSortHand();
         setWindowStart(0);
         setSelectedHandCardId(null);
-        setHoveredHandCardId(null);
-        onClearCardHover();
         return;
       }
       const activateSelectedCard = (card: Card) => {

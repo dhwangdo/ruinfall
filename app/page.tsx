@@ -4699,12 +4699,14 @@ export default function Home() {
           onMouseEnter={() => setCenterDropPointerHover(true)}
           onMouseLeave={() => setCenterDropPointerHover(false)}
         >
-          {(game.pendingResearchDraw === "astronomy" || game.pendingSweep || game.pendingDraws > 0 || game.pendingPileDrawCount > 0) && (
+          {(game.pendingResearchDraw === "astronomy" || game.pendingSweep || game.pendingDraws > 0 || game.pendingPileDrawCount > 0 || game.pendingDiscards > 0) && (
             <div className="center-choice-prompt" role="status" aria-live="polite">
               <strong>{game.pendingResearchDraw === "astronomy"
                 ? "파일 선택"
                 : game.pendingSweep
                 ? game.pendingPileOperation === "discardTop" ? "버릴 파일 선택" : "효과 적용 파일 선택"
+                : game.pendingDiscards > 0
+                ? "버릴 카드 선택"
                 : "드로우할 파일 선택"}</strong>
             </div>
           )}
