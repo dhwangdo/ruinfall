@@ -223,7 +223,7 @@ export function CardFaceView({
       case "quickStep":
         return <span>카드를 {card.draw}장 뽑습니다.</span>;
       case "rulerCompass":
-        return <><span><span className="effect-type damage">피해</span>를 {damageNumber} 줍니다.</span><span><span className="effect-star">★</span>을 얻습니다.</span></>;
+        return <><span><span className="effect-type damage">피해</span>를 {damageNumber} 줍니다.</span><span><span className="effect-star">★</span>을 얻습니다.</span>{card.draw > 0 && <span>카드를 {card.draw}장 뽑습니다.</span>}</>;
       case "suppression":
         return <><span><span className="effect-type damage">피해</span>를 13 줍니다.</span><span>막히지 않은 피해만큼 <span className="effect-type physical">방어</span>를 얻습니다.</span></>;
       case "berserk":
@@ -282,6 +282,8 @@ export function CardFaceView({
         return <span>에너지가 -3이 될 때까지 카드를 사용할 수 있습니다. 이 효과는 중첩됩니다.</span>;
       case "opticsResearch":
         return <span>매 플레이어 턴 시작 시 <strong className="effect-keyword">광채</strong>를 1장 가져옵니다.</span>;
+      case "osirisSun":
+        return <span>턴 시작 시 <span className="effect-star">★</span>를 얻습니다.</span>;
       case "radiance":
         return <span><span className="effect-type damage">피해</span>를 {damageNumber} 줍니다. 이번 턴 동안 <strong className="effect-keyword">광채</strong>의 피해량이 4 증가합니다.</span>;
       case "lightCluster":

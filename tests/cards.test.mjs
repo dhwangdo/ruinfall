@@ -17,10 +17,10 @@ import {
 test("card pools preserve the current content counts", () => {
   assert.equal(STARTER_CARD_POOL.length, 3);
   assert.equal(BASIC_CARD_POOL.length, 6);
-  assert.equal(SPECIAL_CARD_POOL.length, 31);
+  assert.equal(SPECIAL_CARD_POOL.length, 34);
   assert.equal(RARE_CARD_POOL.length, 18);
   assert.equal(LEGENDARY_CARD_POOL.length, 6);
-  assert.equal(ALL_CARD_BLUEPRINTS.length, 67);
+  assert.equal(ALL_CARD_BLUEPRINTS.length, 70);
 });
 
 test("radiance is treated as an attack card", () => {

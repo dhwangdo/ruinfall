@@ -39,7 +39,8 @@ export type DeckEdition =
   | "hammering"
   | "deckHighlander"
   | "starFive"
-  | "energyThree";
+  | "energyThree"
+  | "starThree";
 
 export type DeckCase = {
   id: string;
@@ -195,19 +196,20 @@ export const DECK_EDITION_INFO: Record<DeckEdition, { name: string; description:
   deckHighlander: { name: "하이랜더", description: "전투 시작 시 중복 카드 없이 덱이 가득 차 있으면 최대 에너지가 1 증가합니다." },
   starFive: { name: "별+++++", description: "전투 시작 시 ★ 5개를 획득합니다." },
   energyThree: { name: "에너지+++", description: "전투 시작 시 에너지가 3 증가합니다." },
+  starThree: { name: "별+++", description: "전투 시작 시 ★ 3개를 획득합니다." },
 };
 
 export const DECK_EDITION_SCORES: Record<DeckEdition, number> = {
-  clever: 20,
+  clever: 10,
   roomy: 5,
   lively: 50,
   fantastic: 60,
   rampaging: 50,
   greedy: 20,
   frugal: 5,
-  drawPlus: 10,
-  starPlus: 10,
-  energyPlus: 20,
+  drawPlus: 5,
+  starPlus: 5,
+  energyPlus: 10,
   persistentDraw: 40,
   frugalPlus: 40,
   defensiveStance: 5,
@@ -219,8 +221,9 @@ export const DECK_EDITION_SCORES: Record<DeckEdition, number> = {
   invincible: 100,
   hammering: 30,
   deckHighlander: 30,
-  starFive: 50,
-  energyThree: 50,
+  starFive: 40,
+  energyThree: 40,
+  starThree: 20,
 };
 
 const EDITION_COLORS: Record<DeckEdition, string> = {
@@ -247,6 +250,7 @@ const EDITION_COLORS: Record<DeckEdition, string> = {
   deckHighlander: "#a16207",
   starFive: "#15803d",
   energyThree: "#0f766e",
+  starThree: "#d4a017",
 };
 
 export function getDeckEditionColor(edition: DeckEdition) {

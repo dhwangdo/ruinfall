@@ -271,6 +271,7 @@ export function dealtState(
       + (deckEditions.includes("energyThree") ? 3 : 0),
     stars: (deckEditions.includes("clever") ? 4 : 2)
       + (deckEditions.includes("starPlus") ? 1 : 0)
+      + (deckEditions.includes("starThree") ? 3 : 0)
       + (deckEditions.includes("starFive") ? 5 : 0),
     deckEditions,
     evenDealOnReshuffle: false,

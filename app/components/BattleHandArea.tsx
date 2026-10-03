@@ -171,7 +171,7 @@ export function BattleHandArea({
       const elapsed = previousFrameTime === 0 ? 16 : Math.min(50, now - previousFrameTime);
       previousFrameTime = now;
       const wheelIsActive = now - lastWheelTime < 160;
-      const returnSpeed = wheelIsActive ? 0.35 + distance * 0.35 : 2.4 + distance * 1.8;
+      const returnSpeed = wheelIsActive ? 1.05 + distance * 1.4 : 7.2 + distance * 7.2;
       springTravel += elapsed * returnSpeed / 1000;
       if (springTravel >= 1) {
         springTravel -= 1;

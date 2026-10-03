@@ -197,6 +197,7 @@ export function createDrawCards(context: DrawCardsContext) {
         .filter((radiance) => radiance.turns <= 0)
         .reduce((total, radiance) => total + radiance.count, 0);
       const opticalResearchCount = current.activeRuleCards.filter((card) => card.effect === "opticsResearch").length;
+      const osirisSunStarCount = current.activeRuleCards.filter((card) => card.effect === "osirisSun").length;
       const lightLightLightCount = blessings.includes("lightLightLight") && current.turn === 3 ? 2 : 0;
       const nextTurnRadianceCount = opticalResearchCount + radianceArrivingThisTurn + lightLightLightCount;
       const opticalRadiances = Array.from(
@@ -236,6 +237,7 @@ export function createDrawCards(context: DrawCardsContext) {
         energy: current.energy
           + (blessings.includes("starlessAge") ? 1 : 0)
           + (blessings.includes("bloodConversion") && current.playerHp > 1 ? 1 : 0),
+        stars: current.stars + osirisSunStarCount,
         playerHp: blessings.includes("bloodConversion") && current.playerHp > 1
           ? current.playerHp - 1
           : current.playerHp,

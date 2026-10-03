@@ -32,6 +32,7 @@ export type CardEffect =
   | "metallurgyResearch"
   | "economicsResearch"
   | "opticsResearch"
+  | "osirisSun"
   | "lawResearch"
   | "radiance"
   | "lightCluster"
@@ -194,6 +195,9 @@ export const SPECIAL_CARD_POOL: CardBlueprint[] = [
   { kind: "skill", effect: "astronomyResearch", rarity: "special", name: "천문학 연구", cost: 0, value: 3, draw: 0, damageType: "physical", exhaust: true, rule: true },
   { kind: "skill", effect: "necromancyResearch", rarity: "special", name: "강령학 연구", cost: 0, value: 3, draw: 0, damageType: "physical", exhaust: true, rule: true },
   { kind: "skill", effect: "metallurgyResearch", rarity: "special", name: "금속학 연구", cost: 1, value: 1, draw: 0, damageType: "physical", exhaust: true, rule: true },
+  { kind: "skill", effect: "osirisSun", rarity: "special", name: "오시리스 선", cost: 1, value: 1, draw: 0, damageType: "physical", exhaust: true, rule: true },
+  { kind: "skill", effect: "starGuard", rarity: "special", name: "재주넘기", cost: 1, value: 9, draw: 0, damageType: "physical" },
+  { kind: "strike", effect: "rulerCompass", rarity: "special", name: "갈라치기", cost: 1, value: 9, draw: 1, damageType: "physical" },
   { kind: "skill", effect: "lightCluster", rarity: "special", name: "빛무리", cost: 0, value: 1, draw: 0, damageType: "physical" },
   { kind: "skill", effect: "largePrism", rarity: "special", name: "대형 프리즘", cost: 3, value: 3, draw: 0, damageType: "physical" },
   { kind: "skill", effect: "nebula", rarity: "special", name: "성운", cost: 1, value: 2, draw: 0, damageType: "physical" },
