@@ -87,6 +87,8 @@ export function BattleHandArea({
   );
   const maxWindowStart = Math.max(0, displayedHand.length - visibleCardCount);
   const clampedWindowStart = Math.min(windowStart, maxWindowStart);
+  const leftHiddenCount = displayedHand.slice(0, clampedWindowStart).filter(Boolean).length;
+  const rightHiddenCount = displayedHand.slice(clampedWindowStart + visibleCardCount).filter(Boolean).length;
   const handCenterIndex = clampedWindowStart + Math.max(0, (visibleCardCount - 1) / 2);
   const trackCenterOffset = handMetrics.cardWidth / 2 + handCenterIndex * HAND_CARD_STEP;
   const edgeDistance = Math.max(0, (visibleCardCount - 1) / 2);
@@ -300,6 +302,16 @@ export function BattleHandArea({
             </button>
           ) : <div className={`hand-card-placeholder ${index < clampedWindowStart || index >= clampedWindowStart + visibleCardCount ? "is-outside-window" : ""}`} aria-hidden="true" key={`clear-slot-${index}`} style={handFanStyle(index)} />)}
         </div>
+        {leftHiddenCount > 0 && (
+          <div className="hand-overflow-card is-left" role="status" aria-label={`왼쪽에 카드 ${leftHiddenCount}장 더 있음`}>
+            <span aria-hidden="true">+{leftHiddenCount}</span>
+          </div>
+        )}
+        {rightHiddenCount > 0 && (
+          <div className="hand-overflow-card is-right" role="status" aria-label={`오른쪽에 카드 ${rightHiddenCount}장 더 있음`}>
+            <span aria-hidden="true">+{rightHiddenCount}</span>
+          </div>
+        )}
         {game.hand.length === 0 && phase === "playing" && game.status === "playing" && (
           <div className="empty-hand">사용할 카드가 없습니다</div>
         )}

@@ -4110,6 +4110,33 @@ h1 { margin: 0; font-size: 25px; font-weight: 600; }
   width: max-content;
   transition: transform .28s cubic-bezier(.2, .75, .25, 1);
 }
+.hand-overflow-card {
+  position: absolute;
+  z-index: 2;
+  bottom: var(--hand-bottom-clearance, 52px);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: calc(var(--card-w) * .6);
+  height: calc(var(--card-h) * .66);
+  border: 2px solid #2b76a9;
+  border-radius: 2px;
+  background: #fff;
+  color: #111;
+  box-shadow: 0 2px 4px rgba(0, 0, 0, .24);
+  font: 30px/1 Arial, sans-serif;
+  pointer-events: none;
+  user-select: none;
+  transform-origin: 50% 100%;
+}
+.hand-overflow-card.is-left {
+  left: 28px;
+  transform: rotate(-24deg);
+}
+.hand-overflow-card.is-right {
+  right: 28px;
+  transform: rotate(24deg);
+}
 .game-card {
   position: relative;
   appearance: none;
