@@ -80,9 +80,10 @@ export function createEndTurn(context: EndTurnContext) {
       const enemiesAfterBlockDecay = game.enemies.map((enemy) => ({ ...enemy, physicalBlock: 0 }));
       const livingEnemies = enemiesAfterBlockDecay.filter((enemy) => enemy.hp > 0);
       const toxicSlimeDamage = game.hand.filter((card) => card.effect === "slime").length * 12;
+      const retainedHand = game.preserveHandOnTurnEnd ? game.hand : [];
       const discarded = [
         ...game.discard,
-        ...game.hand,
+        ...(game.preserveHandOnTurnEnd ? [] : game.hand),
       ];
       const pilesAfterSlime = game.piles.map((pile) => [...pile]);
       let remainingPhysicalBlock = game.playerPhysicalBlock;
@@ -145,7 +146,7 @@ export function createEndTurn(context: EndTurnContext) {
         setGame({
           ...game,
           piles: pilesAfterSlime,
-          hand: [],
+          hand: retainedHand,
           discard: discarded,
           energy: recoverBattleEnergy(game.energy, maximumEnergyForGame(game, blessings.includes("glassCannon"))),
           radiancePlayedThisTurn: 0,
@@ -166,7 +167,8 @@ export function createEndTurn(context: EndTurnContext) {
           defenseMultiplier: 1,
           damageTakenMultiplier: 1,
           invulnerable: false,
-          doubleNextAttack: false,
+          doubleNextAttack: game.doubleNextAttack,
+          preserveHandOnTurnEnd: false,
           enemies: enemiesAfterBlockDecay.map(applyPlayerTurnStart),
           status: remainingHp === 0 ? "lost" : "playing",
           message: remainingHp === 0 ? "유독성 점액의 마법 피해로 쓰러졌습니다." : "추가 턴을 시작합니다.",
@@ -459,7 +461,10 @@ export function createEndTurn(context: EndTurnContext) {
         const clearPlan = willClearAfterNextDraw
           ? (() => {
             const emptyIndexes = pilesAfterSlime.map((pile, index) => pile.length === 0 ? index : -1).filter((index) => index >= 0);
-            const cardsDrawnBeforeClear = new Set(pilesAfterSlime.flatMap((pile) => pile.map((card) => card.id)));
+            const cardsDrawnBeforeClear = new Set([
+              ...pilesAfterSlime.flatMap((pile) => pile.map((card) => card.id)),
+              ...retainedHand.map((card) => card.id),
+            ]);
             const cards = cardsForNextShuffle(
               game.initialDeck,
               new Set(game.removedFromReshuffleIds),
@@ -498,7 +503,7 @@ export function createEndTurn(context: EndTurnContext) {
           ...game,
           piles: pilesAfterSlime,
           clearPlan,
-          hand: [],
+          hand: retainedHand,
           discard: discarded,
           energy: recoverBattleEnergy(game.energy, maximumEnergyForGame(game, blessings.includes("glassCannon"))),
           radiancePlayedThisTurn: 0,
@@ -523,7 +528,8 @@ export function createEndTurn(context: EndTurnContext) {
           defenseMultiplier: 1,
           damageTakenMultiplier: 1,
           invulnerable: false,
-          doubleNextAttack: false,
+          doubleNextAttack: game.doubleNextAttack,
+          preserveHandOnTurnEnd: false,
           enemies: enemiesAtPlayerTurnStart,
           message: "적의 턴이 끝났습니다.",
         });

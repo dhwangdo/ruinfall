@@ -67,9 +67,9 @@ export function BattlePlayerPanel({
           {game.damageTakenMultiplier > 1 && <span className="is-debuff">받는 피해 ×{game.damageTakenMultiplier}</span>}
           {game.invulnerable && <span className="is-buff">피해 면역</span>}
           {game.doubleNextAttack && <span className="is-buff">다음 공격 2회</span>}
-          {game.pendingRadiance.map((turns, index) => (
+          {game.pendingRadiance.map(({ turns, count }, index) => (
             <span className="is-buff" key={`light-travel-time-${index}`}>
-              광행시간({turns})
+              광행시간 {turns}턴 · 광채 {count}장
             </span>
           ))}
           {game.playerPhysicalResistance > 0 && <span className="is-buff">물리 저항 {game.playerPhysicalResistance}</span>}

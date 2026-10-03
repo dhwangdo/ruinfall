@@ -24,6 +24,7 @@ export type SavedRunState = {
   collapsedTransformShrineRooms?: string[];
   collapsedCombinationShrineRooms?: string[];
   collapsedTreasureChestRooms?: string[];
+  collapsedAltarRooms?: string[];
   vitalityShrineMaxHpBonus?: number;
   collapsedHealthShrineRooms?: string[];
   healthShrineMaxHpBonus?: number;

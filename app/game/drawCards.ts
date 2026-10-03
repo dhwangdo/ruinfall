@@ -189,10 +189,13 @@ export function createDrawCards(context: DrawCardsContext) {
         origins.set(card.id, source);
         pendingEnemyTokenIdsRef.current.add(card.id);
       });
-      const pendingRadianceAfterTurn = current.pendingRadiance.map((turns) => turns - 1);
+      const pendingRadianceAfterTurn = current.pendingRadiance.map((radiance) => ({
+        ...radiance,
+        turns: radiance.turns - 1,
+      }));
       const radianceArrivingThisTurn = pendingRadianceAfterTurn
-        .filter((turns) => turns <= 0)
-        .length * 2;
+        .filter((radiance) => radiance.turns <= 0)
+        .reduce((total, radiance) => total + radiance.count, 0);
       const opticalResearchCount = current.activeRuleCards.filter((card) => card.effect === "opticsResearch").length;
       const lightLightLightCount = blessings.includes("lightLightLight") && current.turn === 3 ? 2 : 0;
       const nextTurnRadianceCount = opticalResearchCount + radianceArrivingThisTurn + lightLightLightCount;
@@ -220,7 +223,7 @@ export function createDrawCards(context: DrawCardsContext) {
         pendingDraws: 0,
         pendingPileDrawCount: 0,
         pendingDashRandomDraws: 0,
-        pendingRadiance: pendingRadianceAfterTurn.filter((turns) => turns > 0),
+        pendingRadiance: pendingRadianceAfterTurn.filter((radiance) => radiance.turns > 0),
         pendingResearchDraw: null,
         pendingDiscards: 0,
         pendingSweep: false,

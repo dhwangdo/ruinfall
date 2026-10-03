@@ -17,6 +17,7 @@ test("run save snapshots serialize set-backed state without changing the source"
     collapsedTransformShrineRooms: new Set(),
     collapsedCombinationShrineRooms: new Set(),
     collapsedTreasureChestRooms: new Set(),
+    collapsedAltarRooms: new Set(),
     usedHealRooms: new Set(["9:10"]),
     usedBlessingRooms: new Set(["11:12"]),
     blessingSeenOfferIds: new Set(["ironWill"]),
@@ -56,6 +57,7 @@ test("run save snapshots serialize set-backed state without changing the source"
   assert.equal(snapshot.safeAreaEntrySeenRooms, null);
   assert.deepEqual(snapshot.defeatedBossRegions, [0, 2]);
   assert.deepEqual(snapshot.blessingSeenOfferIds, ["ironWill"]);
+  assert.deepEqual(snapshot.collapsedAltarRooms, []);
   seenRooms.add("13:14");
   assert.deepEqual(snapshot.seenRooms, ["1:2", "3:4"]);
 });
@@ -74,6 +76,7 @@ test("restore preparation fills legacy fields and normalizes saved values", () =
   assert.deepEqual(prepared.collapsedRecoveryShrineRooms, ["1:2"]);
   assert.deepEqual(prepared.collapsedVitalityShrineRooms, ["1:2"]);
   assert.deepEqual(prepared.collapsedMindEyeShrineRooms, []);
+  assert.deepEqual(prepared.collapsedAltarRooms, []);
   assert.equal(prepared.vitalityShrineMaxHpBonus, 0);
   assert.equal(prepared.darkTicketTurnsRemaining, 0);
   assert.deepEqual(prepared.blessingOffers, []);

@@ -72,20 +72,26 @@ export function createMoveCardToPile(context: MoveCardToPileContext) {
       const forgeResults = drag.cards.map((card) => {
         const obsidian = card.effect === "obsidianDagger"
           && canForgeCardOnto(card, targetCard, lawResearchCount, current.forgeCount);
+        const magicCrystal = drag.cards.length === 1
+          && card.effect === "magicCrystal"
+          && canForgeCardOnto(card, targetCard, lawResearchCount, current.forgeCount);
         const exchange = card.effect === "exchange"
           && !card.forged
           && Boolean(targetCard)
           && card.cost !== undefined
           && targetCard?.cost !== undefined;
         const regular = !obsidian
+          && !magicCrystal
           && !exchange
           && card.effect !== "exchange"
+          && card.effect !== "magicCrystal"
           && !card.forged
           && canForgeCardOnto(card, targetCard, lawResearchCount, current.forgeCount);
-        return { obsidian, exchange, regular, applied: obsidian || exchange || regular };
+        return { obsidian, magicCrystal, exchange, regular, applied: obsidian || magicCrystal || exchange || regular };
       });
       const forgeAppliedCount = forgeResults.filter((result) => result.applied).length;
       const obsidianForgeCount = forgeResults.filter((result) => result.obsidian).length;
+      const magicCrystalForgeCount = forgeResults.filter((result) => result.magicCrystal).length;
       const forgeApplied = forgeAppliedCount > 0;
 
       const nextPiles = current.piles.map((pile) => [...pile]);
@@ -104,7 +110,7 @@ export function createMoveCardToPile(context: MoveCardToPileContext) {
         return current;
       }
 
-      if (obsidianForgeCount > 0 && targetCard) {
+      if ((obsidianForgeCount > 0 || magicCrystalForgeCount > 0) && targetCard) {
         const consumed = nextPiles[targetPileIndex].pop();
         if (!consumed || consumed.id !== targetCard.id) return current;
         if (nextPiles[targetPileIndex].length > 0) {
@@ -128,6 +134,7 @@ export function createMoveCardToPile(context: MoveCardToPileContext) {
       const placedCards = drag.cards.map((card, index) => {
         const forgeResult = forgeResults[index];
         const daggerForgeApplied = forgeResult.obsidian;
+        const magicCrystalForgeApplied = forgeResult.magicCrystal;
         const exchangeForgeApplied = forgeResult.exchange;
         const becomesForged = forgeResult.applied;
         const nextForgeCostsCompleted = !daggerForgeApplied
@@ -136,8 +143,17 @@ export function createMoveCardToPile(context: MoveCardToPileContext) {
         const baseCost = exchangeForgeApplied
           ? (card.baseCost ?? card.cost)
           : card.baseCost;
+        const nextMagicCrystalStage = magicCrystalForgeApplied
+          ? (card.magicCrystalStage ?? 1) + 1
+          : card.magicCrystalStage;
         const placedCard = {
           ...card,
+          ...(nextMagicCrystalStage === undefined ? {} : {
+            magicCrystalStage: nextMagicCrystalStage,
+            name: `${nextMagicCrystalStage}단계 마력 결정`,
+            value: nextMagicCrystalStage,
+            forgeTargetName: `${nextMagicCrystalStage}단계 마력 결정`,
+          }),
           baseCost,
           cost: cardCostAfterForgePlacement(
             card,
@@ -150,7 +166,7 @@ export function createMoveCardToPile(context: MoveCardToPileContext) {
           revealed: drag.source.type === "hand" ? true : card.revealed,
           forged: card.forged || becomesForged,
         };
-        if (placedCard.forged) battleLongCardUpdates.set(placedCard.id, placedCard);
+        if (placedCard.forged || magicCrystalForgeApplied) battleLongCardUpdates.set(placedCard.id, placedCard);
         return placedCard;
       });
       nextPiles[targetPileIndex].push(...placedCards);
@@ -234,7 +250,7 @@ export function createMoveCardToPile(context: MoveCardToPileContext) {
         ? `${drag.card.name} 카드를 손패에서 ${targetPileIndex + 1}번 파일로 이동`
         : `${drag.source.pileIndex + 1}번 파일의 ${cardLabel}을(를) ${targetPileIndex + 1}번 파일로 이동`;
       const forgeAction = forgeAppliedCount > 0
-        ? `${action} · ${forgeAppliedCount}장 재련${obsidianForgeCount > 0 && targetCard ? `: ${targetCard.name} 소멸` : ""}`
+        ? `${action} · ${forgeAppliedCount}장 재련${(obsidianForgeCount > 0 || magicCrystalForgeCount > 0) && targetCard ? `: ${targetCard.name} 소멸` : ""}`
         : action;
       const finalAction = forgedCardsToRetrieve.length > 0
         ? `${forgeAction} · 금속학 연구: 재련된 카드 ${forgedCardsToRetrieve.length}장 가져옴`
@@ -261,7 +277,7 @@ export function createMoveCardToPile(context: MoveCardToPileContext) {
         stars: nextStars,
         forgeCount: current.forgeCount + forgeAppliedCount,
         blacksmithForgeUsedThisTurn: current.blacksmithForgeUsedThisTurn || blacksmithTriggered,
-        removedFromReshuffleIds: obsidianForgeCount > 0 && targetCard
+        removedFromReshuffleIds: (obsidianForgeCount > 0 || magicCrystalForgeCount > 0) && targetCard
           ? [...new Set([...current.removedFromReshuffleIds, targetCard.id])]
           : current.removedFromReshuffleIds,
         pendingDraws: floodPyramid ? current.pendingDraws + autoDraws : current.pendingDraws,

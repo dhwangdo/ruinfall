@@ -230,7 +230,15 @@ export function CardFaceView({
       case "transcend":
         return <span>이번 턴 피해에 <strong className="effect-keyword">면역</strong>이 됩니다. <strong className="effect-keyword">힘</strong>을 5 얻습니다.</span>;
       case "rapidFire":
-        return <span>이번 턴에 사용하는 다음 공격 카드가 한 번 더 발동합니다.</span>;
+        return <span>다음에 사용하는 공격 카드가 2번 발동합니다.</span>;
+      case "delay":
+        return <span>이번 턴 종료 시 손패의 카드를 버리지 않습니다.</span>;
+      case "boneArmor":
+        return <span><strong className="effect-keyword">강인함</strong>을 5 얻습니다. <strong className="effect-keyword">물리 저항</strong>을 1 얻습니다.</span>;
+      case "magicCrystal":
+        return <span>[밑패와 합쳐 다음 단계의 마력 결정이 됩니다.]</span>;
+      case "sacrifice":
+        return null;
       case "iceShield":
         return <span><span className="effect-type magic">마법 방어</span>를 {defenseNumber} 얻습니다.</span>;
       case "magicStrike":
@@ -238,7 +246,7 @@ export function CardFaceView({
       case "shockwave":
         return <span>모든 적에게 <span className="effect-type damage">피해</span>를 {damageNumber} 줍니다.</span>;
       case "ventilate":
-        return <span><strong className="effect-keyword">에너지</strong>를 {card.value} 얻습니다.</span>;
+        return <><span><strong className="effect-keyword">에너지</strong>를 {card.value} 얻습니다.</span><span>카드를 {card.draw}장 뽑습니다.</span></>;
       case "plateArmor":
         return <span><strong className="effect-keyword">에너지</strong>를 {card.forged ? 3 : "1[3]"} 얻습니다.</span>;
       case "plateArmorDefense":
@@ -282,7 +290,7 @@ export function CardFaceView({
       case "nebula":
         return <><span><strong className="effect-keyword">광채</strong>를 1장 가져옵니다.</span><span><span className="effect-star">★★</span>를 얻습니다.</span></>;
       case "lightTravelTime":
-        return <span>다다음 턴 시작 시 <strong className="effect-keyword">광채</strong>를 2장 가져옵니다.</span>;
+        return <span>다다음 턴 시작 시 <strong className="effect-keyword">광채</strong>를 {card.value}장 가져옵니다.</span>;
       case "wolfTalisman":
         return <span>지니고 있는 동안 <strong className="effect-keyword">힘</strong>을 1 얻습니다. (중복 불가)</span>;
       case "turtleTalisman":
@@ -330,7 +338,7 @@ export function CardFaceView({
       case "rock":
         return null;
       case "supernova":
-        return <span><span className="effect-star">★★★★</span>을 잃습니다. <strong className="effect-keyword">에너지</strong>를 3 얻습니다.</span>;
+        return <span><span className="effect-star">★★</span>를 잃습니다. <strong className="effect-keyword">에너지</strong>를 3 얻습니다.</span>;
       case "combatManual":
         return <span>손패에 있는 동안 <strong className="effect-keyword">힘</strong>과 <strong className="effect-keyword">강인함</strong>을 2 얻습니다.</span>;
       case "grimoire":
@@ -358,12 +366,14 @@ export function CardFaceView({
   const effectSentences = splitEffectSentences(effectText);
   const unplayableLabel = ["slime", "soil", "rock", "combatManual", "grimoire"].includes(card.effect)
     ? <><strong className="effect-keyword">사용 불가</strong>.</>
-    : ["wolfTalisman", "turtleTalisman"].includes(card.effect)
+    : ["wolfTalisman", "turtleTalisman", "sacrifice", "magicCrystal"].includes(card.effect)
       ? <strong className="effect-keyword">사용불가.</strong>
       : null;
   const effectPrefix = <>
     {card.rule && card.effect !== "massDeal" && <strong className="solitaire-rule effect-keyword rule-keyword">룰.</strong>}
     {card.solitaireRule && <strong className="solitaire-rule solitaire-keyword">{card.solitaireRule === "top" ? "윗패" : card.solitaireRule === "bottom" ? "밑패" : "주문"}</strong>}
+    {card.ritualCost && <strong className="solitaire-rule effect-keyword">의식 {card.ritualCost}.</strong>}
+    {card.spellRank && <strong className="solitaire-rule effect-keyword">{card.spellRank}위계 마법.</strong>}
     {unplayableLabel}
     {unplayableLabel && effectSentences.length > 0 ? " " : null}
   </>;

@@ -63,6 +63,7 @@ import {
   STARTER_CARD_POOL,
   UNPLAYABLE_CARD_EFFECTS,
   createAdrenalineCard,
+  createSacrificeCard,
   isAttackCard,
   type Card,
   type CardBlueprint,
@@ -328,6 +329,7 @@ export default function Home() {
   const [collapsedTransformShrineRooms, setCollapsedTransformShrineRooms] = useState<Set<string>>(() => new Set());
   const [collapsedCombinationShrineRooms, setCollapsedCombinationShrineRooms] = useState<Set<string>>(() => new Set());
   const [collapsedTreasureChestRooms, setCollapsedTreasureChestRooms] = useState<Set<string>>(() => new Set());
+  const [collapsedAltarRooms, setCollapsedAltarRooms] = useState<Set<string>>(() => new Set());
   const [treasureChestReward, setTreasureChestReward] = useState<TreasureChestReward | null>(null);
   const [vitalityShrineMaxHpBonus, setVitalityShrineMaxHpBonus] = useState(0);
   const [shrineOpen, setShrineOpen] = useState(false);
@@ -677,6 +679,7 @@ export default function Home() {
     if (baseType === "transformShrine" && collapsedTransformShrineRooms.has(roomKey)) return "empty";
     if (baseType === "combinationShrine" && collapsedCombinationShrineRooms.has(roomKey)) return "empty";
     if (baseType === "treasureChest" && collapsedTreasureChestRooms.has(roomKey)) return "empty";
+    if (baseType === "altar" && collapsedAltarRooms.has(roomKey)) return "empty";
     if (baseType === "heal" && usedHealRooms.has(roomKey)) return "empty";
     if (baseType === "blessing" && usedBlessingRooms.has(roomKey)) return "empty";
     if (baseType === "rock" && (rockBombHits[roomKey] ?? 0) >= 3) return "empty";
@@ -2148,7 +2151,18 @@ export default function Home() {
   const returnToMap = () => {
     const battleRoom = activeBattleRoom;
     if (battleRoom) {
-      const landingDrops = [...(roomDrops[battleRoom] ?? []), ...battleRewards];
+      const altarRewardCards = game.status === "won"
+        && effectiveRoomType(mapPosition) === "altar"
+        && !collapsedAltarRooms.has(battleRoom)
+        ? Array.from(
+          { length: getRegionNumber(mapPosition, mapSeed) + 1 + Math.floor(Math.random() * 2) },
+          () => createSacrificeCard(nextCardIdRef.current++),
+        )
+        : [];
+      if (altarRewardCards.length > 0) {
+        setCollapsedAltarRooms((current) => new Set(current).add(battleRoom));
+      }
+      const landingDrops = [...(roomDrops[battleRoom] ?? []), ...battleRewards, ...altarRewardCards];
       setRoomDrops((current) => ({
         ...current,
         [battleRoom]: landingDrops,
@@ -2267,6 +2281,7 @@ export default function Home() {
     setCollapsedTransformShrineRooms(new Set());
     setCollapsedCombinationShrineRooms(new Set());
     setCollapsedTreasureChestRooms(new Set());
+    setCollapsedAltarRooms(new Set());
     setTreasureChestReward(null);
     setVitalityShrineMaxHpBonus(0);
     setShrineOpen(false);
@@ -2353,6 +2368,7 @@ export default function Home() {
       setCollapsedTransformShrineRooms(new Set(state.collapsedTransformShrineRooms));
       setCollapsedCombinationShrineRooms(new Set(state.collapsedCombinationShrineRooms));
       setCollapsedTreasureChestRooms(new Set(state.collapsedTreasureChestRooms));
+      setCollapsedAltarRooms(new Set(state.collapsedAltarRooms));
       setVitalityShrineMaxHpBonus(state.vitalityShrineMaxHpBonus);
       setUsedHealRooms(new Set(state.usedHealRooms));
       setUsedBlessingRooms(new Set(state.usedBlessingRooms));
@@ -2425,6 +2441,7 @@ export default function Home() {
       collapsedTransformShrineRooms,
       collapsedCombinationShrineRooms,
       collapsedTreasureChestRooms,
+      collapsedAltarRooms,
       vitalityShrineMaxHpBonus,
       usedHealRooms,
       usedBlessingRooms,
@@ -2457,6 +2474,7 @@ export default function Home() {
     collapsedCombinationShrineRooms, collapsedMindEyeShrineRooms, collapsedRecoveryShrineRooms,
     collapsedShrineRooms, collapsedTransformShrineRooms, collapsedTreasureChestRooms,
     collapsedVitalityShrineRooms,
+    collapsedAltarRooms,
     deckEditorOpen, defeatedBossRegions,
     destroyedShopRooms, gold, inventoryCards, inventoryConsumables, vitalityShrineMaxHpBonus,
     mapBombs, mapEnemyCellMemory, mapEnemyWorld, mapPosition, mapSeed, mapTraveling,

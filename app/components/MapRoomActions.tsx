@@ -45,6 +45,7 @@ export function MapRoomActions({
   return (
     <div className="room-action-notices">
       {message && <p key={messageNonce} className="map-message" role="status" aria-live="polite">{message}</p>}
+      {roomType === "altar" && <p className="room-floor-notice altar-inscription">피를 바쳐라.</p>}
       {roomType === "shop" && (
         <button type="button" className="room-floor-notice room-action-notice is-shop simple-room-action-notice" onClick={onEnterShop}>
           <strong>상점 들어가기</strong>

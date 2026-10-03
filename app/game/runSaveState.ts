@@ -13,6 +13,7 @@ type SetBackedRunStateFields =
   | "collapsedTransformShrineRooms"
   | "collapsedCombinationShrineRooms"
   | "collapsedTreasureChestRooms"
+  | "collapsedAltarRooms"
   | "usedHealRooms"
   | "usedBlessingRooms"
   | "blessingSeenOfferIds";
@@ -29,6 +30,7 @@ export type RunSaveSnapshotSource = Omit<SavedRunState, SetBackedRunStateFields>
   collapsedTransformShrineRooms: ReadonlySet<string>;
   collapsedCombinationShrineRooms: ReadonlySet<string>;
   collapsedTreasureChestRooms: ReadonlySet<string>;
+  collapsedAltarRooms: ReadonlySet<string>;
   usedHealRooms: ReadonlySet<string>;
   usedBlessingRooms: ReadonlySet<string>;
   blessingSeenOfferIds: ReadonlySet<BlessingId>;
@@ -50,6 +52,7 @@ export function createRunSaveSnapshot(source: RunSaveSnapshotSource): SavedRunSt
     collapsedTransformShrineRooms: [...source.collapsedTransformShrineRooms],
     collapsedCombinationShrineRooms: [...source.collapsedCombinationShrineRooms],
     collapsedTreasureChestRooms: [...source.collapsedTreasureChestRooms],
+    collapsedAltarRooms: [...source.collapsedAltarRooms],
     usedHealRooms: [...source.usedHealRooms],
     usedBlessingRooms: [...source.usedBlessingRooms],
     blessingSeenOfferIds: [...source.blessingSeenOfferIds],
@@ -63,6 +66,7 @@ type NormalizedRunRestoreFields =
   | "collapsedTransformShrineRooms"
   | "collapsedCombinationShrineRooms"
   | "collapsedTreasureChestRooms"
+  | "collapsedAltarRooms"
   | "vitalityShrineMaxHpBonus"
   | "godsLamentCharges"
   | "darkTicketTurnsRemaining"
@@ -96,6 +100,7 @@ export function prepareRunRestore(
     collapsedTransformShrineRooms: state.collapsedTransformShrineRooms ?? [],
     collapsedCombinationShrineRooms: state.collapsedCombinationShrineRooms ?? [],
     collapsedTreasureChestRooms: state.collapsedTreasureChestRooms ?? [],
+    collapsedAltarRooms: state.collapsedAltarRooms ?? [],
     vitalityShrineMaxHpBonus: state.vitalityShrineMaxHpBonus ?? state.healthShrineMaxHpBonus ?? 0,
     godsLamentCharges,
     darkTicketTurnsRemaining: state.darkTicketTurnsRemaining ?? 0,
