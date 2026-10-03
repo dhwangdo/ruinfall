@@ -37,9 +37,9 @@ type BattleHandAreaProps = {
   onClearCardHover: () => void;
 };
 
-const HAND_CARD_STEP = 96;
+const HAND_CARD_STEP = 100;
 const HAND_ARC_RADIUS = 1700;
-const HAND_ANGLE_STEP = 3.25;
+const HAND_ANGLE_STEP = 3.4;
 const HAND_WHEEL_STEP = 70;
 const HAND_EDGE_MARGIN = 12;
 

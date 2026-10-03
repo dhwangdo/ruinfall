@@ -7,6 +7,32 @@ import { useBattleInteractionState } from "./useBattleInteractionState";
 
 type BattleInteractionState = ReturnType<typeof useBattleInteractionState>;
 
+function handCardAtPointer(clientX: number, clientY: number, excludedCardId: number | null) {
+  const cards = document.querySelectorAll<HTMLButtonElement>(".hand .game-card:not(.is-outside-window)");
+  for (let index = cards.length - 1; index >= 0; index -= 1) {
+    const card = cards[index];
+    const cardId = Number(card.dataset.cardId);
+    if (cardId === excludedCardId || card.disabled) continue;
+    const track = card.closest<HTMLElement>(".hand-track");
+    if (!track) continue;
+
+    // Use the resting fan geometry. A highlighted card grows over its neighbors,
+    // so hit-testing its animated rectangle can keep the old highlight stuck.
+    const trackRect = track.getBoundingClientRect();
+    const x = Number.parseFloat(card.style.getPropertyValue("--hand-x")) || 0;
+    const y = Number.parseFloat(card.style.getPropertyValue("--hand-y")) || 0;
+    const angle = (Number.parseFloat(card.style.getPropertyValue("--hand-angle")) || 0) * Math.PI / 180;
+    const dx = clientX - (trackRect.left + card.offsetLeft + card.offsetWidth / 2 + x);
+    const dy = clientY - (trackRect.top + card.offsetTop + card.offsetHeight + y);
+    const localX = dx * Math.cos(angle) + dy * Math.sin(angle);
+    const localY = -dx * Math.sin(angle) + dy * Math.cos(angle);
+    if (Math.abs(localX) <= card.offsetWidth / 2 && localY >= -card.offsetHeight && localY <= 0) {
+      return cardId;
+    }
+  }
+  return null;
+}
+
 type BattlePointerInputOptions = {
   interaction: BattleInteractionState;
   game: GameState;
@@ -93,6 +119,18 @@ export function useBattlePointerInput({
     if (frame !== null) window.cancelAnimationFrame(frame);
   }, []);
 
+  useEffect(() => {
+    const updateHandHover = (event: globalThis.PointerEvent) => {
+      const current = dragRef.current;
+      if (!current) return;
+      const moved = current.moved || Math.hypot(event.clientX - current.startX, event.clientY - current.startY) > 7;
+      const hoveredId = handCardAtPointer(event.clientX, event.clientY, moved ? current.card.id : null);
+      setHoveredHandCardId((previous) => previous === hoveredId ? previous : hoveredId);
+    };
+    window.addEventListener("pointermove", updateHandHover, true);
+    return () => window.removeEventListener("pointermove", updateHandHover, true);
+  }, [setHoveredHandCardId]);
+
   const beginDrag = (
     event: PointerEvent<HTMLElement>,
     card: Card,
@@ -155,10 +193,8 @@ export function useBattlePointerInput({
     const nextDrag = { ...current, x: event.clientX, y: event.clientY, moved };
     dragRef.current = nextDrag;
     setDragging(nextDrag);
-    const hoveredCard = document.elementsFromPoint(event.clientX, event.clientY)
-      .map((element) => element.closest<HTMLElement>(".hand .game-card"))
-      .find((element) => element && (!moved || Number(element.dataset.cardId) !== current.card.id));
-    setHoveredHandCardId(hoveredCard ? Number(hoveredCard.dataset.cardId) : null);
+    const hoveredId = handCardAtPointer(event.clientX, event.clientY, moved ? current.card.id : null);
+    setHoveredHandCardId((previous) => previous === hoveredId ? previous : hoveredId);
     if (!moved) setDragOverDropTarget(null);
     else setDragOverDropTarget(getDropZoneAtPoint(event.clientX, event.clientY) ?? null);
     if (moved) updatePileAutoScroll(event.clientX);

@@ -4613,10 +4613,12 @@ h1 { margin: 0; font-size: 25px; font-weight: 600; }
     margin-top: 8px;
   }
   .player-zone .hand {
-    grid-column: 2;
+    grid-column: 1 / -1;
     grid-row: 3;
     align-self: end;
     justify-self: center;
+    width: min(1100px, calc(100% - 24px));
+    z-index: 6;
     min-height: 205px;
     padding: 22px 12px var(--hand-bottom-clearance, 52px);
   }
