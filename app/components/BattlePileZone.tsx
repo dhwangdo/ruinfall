@@ -101,7 +101,7 @@ export function BattlePileZone({
 
   return (
     <div className="pile-zone">
-      {pileClearNotice && <div className="pile-clear-notice">CLEAR!</div>}
+      {pileClearNotice && game.clearPlan && <div className="pile-clear-notice">CLEAR!</div>}
       <div
         className={`piles-scroll ${pilePanning ? "is-panning" : ""}`}
         ref={pileScrollRef}

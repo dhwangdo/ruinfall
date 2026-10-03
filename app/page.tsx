@@ -1231,6 +1231,7 @@ export default function Home() {
       ...encounters.map((encounter) => getEncounterRegionNumber(encounter.encounterIndex)),
     );
     clearBattleTimers();
+    setPileClearNotice(false);
     clearMapTravel();
     finishDeckEditorSession();
     setDeckViewerOpen(false);
