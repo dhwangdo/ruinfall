@@ -12,7 +12,7 @@ const rarityOrder: Record<Card["rarity"], number> = {
 
 export function sortBattleHandByCost(hand: Card[], lawResearchCount: number, forgeCount: number): Card[] {
   const sortCost = (card: Card) => UNPLAYABLE_CARD_EFFECTS.has(card.effect)
-    ? Number.POSITIVE_INFINITY
+    ? -999
     : cardEnergyCost(card, lawResearchCount, forgeCount) ?? Number.POSITIVE_INFINITY;
 
   const displayedHand = [
