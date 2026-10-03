@@ -1,6 +1,6 @@
 "use client";
 
-import type { CSSProperties, Dispatch, RefObject, SetStateAction } from "react";
+import { useEffect, useRef, useState, type CSSProperties, type Dispatch, type RefObject, type SetStateAction } from "react";
 import { CardFace } from "./CardFace";
 import { HAND_PASSIVE_EFFECTS, UNPLAYABLE_CARD_EFFECTS, type Card } from "../game/cards";
 import { cardEnergyCost } from "../game/cardEffects";
@@ -35,6 +35,12 @@ type BattleHandAreaProps = {
   onClearCardHover: () => void;
 };
 
+const HAND_CARD_STEP = 96;
+const HAND_ARC_RADIUS = 850;
+const HAND_ANGLE_STEP = 6.5;
+const HAND_VISIBLE_ARC_RADIUS = 3;
+const HAND_WHEEL_STEP = 70;
+
 export function BattleHandArea({
   game,
   phase,
@@ -57,19 +63,88 @@ export function BattleHandArea({
   onClearCardHover,
 }: BattleHandAreaProps) {
   const displayedHand = useDisplayedHand(game, phase);
-  const handCenterIndex = (displayedHand.length - 1) / 2;
+  const handRef = useRef<HTMLDivElement>(null);
+  const wheelRemainderRef = useRef(0);
+  const [handMetrics, setHandMetrics] = useState({ width: 600, cardWidth: 136 });
+  const [windowStart, setWindowStart] = useState(0);
+  const visibleCardCount = Math.min(
+    displayedHand.length,
+    Math.max(1, Math.min(7, Math.floor((handMetrics.width - handMetrics.cardWidth - 16) / HAND_CARD_STEP) + 1)),
+  );
+  const maxWindowStart = Math.max(0, displayedHand.length - visibleCardCount);
+  const clampedWindowStart = Math.min(windowStart, maxWindowStart);
+  const handCenterIndex = clampedWindowStart + (visibleCardCount - 1) / 2;
+  const trackCenterOffset = handMetrics.cardWidth / 2 + handCenterIndex * HAND_CARD_STEP;
+  const selectedHandIndex = selectedHandCardId === null
+    ? -1
+    : displayedHand.findIndex((card) => card?.id === selectedHandCardId);
+
+  useEffect(() => {
+    const hand = handRef.current;
+    if (!hand) return;
+    const updateMetrics = () => {
+      const width = hand.clientWidth;
+      const cardWidth = Number.parseFloat(getComputedStyle(hand).getPropertyValue("--card-w")) || 136;
+      setHandMetrics((current) => current.width === width && current.cardWidth === cardWidth
+        ? current
+        : { width, cardWidth });
+    };
+    updateMetrics();
+    const observer = new ResizeObserver(updateMetrics);
+    observer.observe(hand);
+    return () => observer.disconnect();
+  }, []);
+
+  useEffect(() => {
+    if (selectedHandIndex < 0 || maxWindowStart === 0) return;
+    const frame = window.requestAnimationFrame(() => {
+      setWindowStart((current) => {
+        const start = Math.min(current, maxWindowStart);
+        if (selectedHandIndex < start) return selectedHandIndex;
+        if (selectedHandIndex >= start + visibleCardCount) {
+          return Math.min(maxWindowStart, selectedHandIndex - visibleCardCount + 1);
+        }
+        return start;
+      });
+    });
+    return () => window.cancelAnimationFrame(frame);
+  }, [selectedHandIndex, visibleCardCount, maxWindowStart]);
+
+  useEffect(() => {
+    const hand = handRef.current;
+    if (!hand) return;
+    const handleWheel = (event: WheelEvent) => {
+      if (dragging || event.ctrlKey || maxWindowStart === 0) return;
+      const rawDelta = Math.abs(event.deltaY) >= Math.abs(event.deltaX) ? event.deltaY : event.deltaX;
+      if (rawDelta === 0) return;
+      event.preventDefault();
+      const delta = rawDelta * (event.deltaMode === 1 ? 16 : event.deltaMode === 2 ? hand.clientHeight : 1);
+      if (Math.sign(delta) !== Math.sign(wheelRemainderRef.current)) wheelRemainderRef.current = 0;
+      wheelRemainderRef.current += delta;
+      if (Math.abs(wheelRemainderRef.current) < HAND_WHEEL_STEP) return;
+      wheelRemainderRef.current = 0;
+      setWindowStart((current) => Math.max(0, Math.min(maxWindowStart, Math.min(current, maxWindowStart) + Math.sign(delta))));
+      setSelectedHandCardId(null);
+      onClearCardHover();
+    };
+    hand.addEventListener("wheel", handleWheel, { passive: false });
+    return () => hand.removeEventListener("wheel", handleWheel);
+  }, [dragging, maxWindowStart, onClearCardHover, setSelectedHandCardId]);
+
   const handFanStyle = (index: number) => {
     const distanceFromCenter = index - handCenterIndex;
+    const arcDistance = Math.min(Math.abs(distanceFromCenter), HAND_VISIBLE_ARC_RADIUS);
     return {
-      "--hand-angle": `${distanceFromCenter * 3.5}deg`,
-      "--hand-y": `${Math.min(28, Math.pow(Math.abs(distanceFromCenter), 1.55) * 5)}px`,
+      "--hand-angle": `${Math.max(-HAND_VISIBLE_ARC_RADIUS, Math.min(HAND_VISIBLE_ARC_RADIUS, distanceFromCenter)) * HAND_ANGLE_STEP}deg`,
+      "--hand-y": `${HAND_ARC_RADIUS * (1 - Math.cos(arcDistance * HAND_ANGLE_STEP * Math.PI / 180))}px`,
     } as CSSProperties;
   };
 
   return (
     <>
       <div
-        className={`hand ${phase === "discarding" ? "is-discarding" : ""} ${game.pendingDiscards > 0 ? "is-discard-choice" : ""} ${displayedHand.length >= 5 ? "is-crowded" : ""}`}
+        ref={handRef}
+        className={`hand ${phase === "discarding" ? "is-discarding" : ""} ${phase === "drawing" ? "is-drawing" : ""} ${game.pendingDiscards > 0 ? "is-discard-choice" : ""}`}
         data-drop-target="hand"
         aria-label="손패"
         onDragOver={(event) => {
@@ -89,52 +164,58 @@ export function BattleHandArea({
           }
         }}
       >
-        {displayedHand.map((card, index) => card ? (
-          <button
-            className={`game-card card-face ${card.kind} ${card.damageType} ${HAND_PASSIVE_EFFECTS.has(card.effect) ? "has-hand-aura" : card.effect === "slime" ? "has-danger-aura is-toxic-slime" : ""} ${dragging?.card.id === card.id ? "is-dragging" : ""} ${selectedHandCardId === card.id ? "is-keyboard-selected" : ""}`}
-            key={card.id}
-            ref={(element) => {
-              if (element) handCardRefs.current.set(card.id, element);
-              else handCardRefs.current.delete(card.id);
-            }}
-            style={{ "--card-index": index, ...handFanStyle(index) } as CSSProperties}
-            onPointerDown={(event) => {
-              setSelectedHandCardId(null);
-              dragHandlers.beginDrag(event, card, { type: "hand" });
-            }}
-            onPointerMove={dragHandlers.moveDrag}
-            onPointerUp={dragHandlers.finishDrag}
-            onPointerCancel={dragHandlers.cancelDrag}
-            onMouseEnter={(event) => {
-              if (selectedHandCardId !== null && selectedHandCardId !== card.id) {
+        <div
+          className="hand-track"
+          style={{ "--hand-card-step": `${HAND_CARD_STEP}px`, transform: `translateX(-${trackCenterOffset}px)` } as CSSProperties}
+        >
+          {displayedHand.map((card, index) => card ? (
+            <button
+              className={`game-card card-face ${card.kind} ${card.damageType} ${HAND_PASSIVE_EFFECTS.has(card.effect) ? "has-hand-aura" : card.effect === "slime" ? "has-danger-aura is-toxic-slime" : ""} ${dragging?.card.id === card.id ? "is-dragging" : ""} ${selectedHandCardId === card.id ? "is-keyboard-selected" : ""}`}
+              key={card.id}
+              ref={(element) => {
+                if (element) handCardRefs.current.set(card.id, element);
+                else handCardRefs.current.delete(card.id);
+              }}
+              style={{ "--card-index": index, ...handFanStyle(index) } as CSSProperties}
+              tabIndex={index >= clampedWindowStart && index < clampedWindowStart + visibleCardCount ? 0 : -1}
+              onPointerDown={(event) => {
                 setSelectedHandCardId(null);
-              }
-              const bounds = event.currentTarget.getBoundingClientRect();
-              onShowCardKeywordOnly(card, bounds.right, bounds.top);
-            }}
-            onMouseMove={(event) => {
-              const bounds = event.currentTarget.getBoundingClientRect();
-              onShowCardKeywordOnly(card, bounds.right, bounds.top);
-            }}
-            onMouseLeave={onClearCardHover}
-            onBlur={onClearCardHover}
-            onClick={() => game.pendingDiscards > 0 && onDiscardSelectedCard(card.id)}
-            onDoubleClick={() => onPlayHandCardOnDoubleClick(card)}
-            disabled={controlsLocked && game.pendingDiscards === 0}
-            aria-label={UNPLAYABLE_CARD_EFFECTS.has(card.effect) ? `${card.name}, 비용 -, 사용 불가` : `${card.name}, 에너지 ${cardEnergyCost(card, lawResearchCount, game.forgeCount)}`}
-          >
-            <CardFace
-              card={card}
-              starsSpent={game.starsSpent}
-              strength={game.strength + combatManualBonus + backToBasicsBonus(card)}
-              agility={game.agility + combatManualBonus + backToBasicsBonus(card)}
-              defenseMultiplier={game.defenseMultiplier}
-              ruleCostReduction={lawResearchCount}
-              forgeCount={game.forgeCount}
-              radiancePlayedThisTurn={game.radiancePlayedThisTurn}
-            />
-          </button>
-        ) : <div className="hand-card-placeholder" aria-hidden="true" key={`clear-slot-${index}`} style={handFanStyle(index)} />)}
+                dragHandlers.beginDrag(event, card, { type: "hand" });
+              }}
+              onPointerMove={dragHandlers.moveDrag}
+              onPointerUp={dragHandlers.finishDrag}
+              onPointerCancel={dragHandlers.cancelDrag}
+              onMouseEnter={(event) => {
+                if (selectedHandCardId !== null && selectedHandCardId !== card.id) {
+                  setSelectedHandCardId(null);
+                }
+                const bounds = event.currentTarget.getBoundingClientRect();
+                onShowCardKeywordOnly(card, bounds.right, bounds.top);
+              }}
+              onMouseMove={(event) => {
+                const bounds = event.currentTarget.getBoundingClientRect();
+                onShowCardKeywordOnly(card, bounds.right, bounds.top);
+              }}
+              onMouseLeave={onClearCardHover}
+              onBlur={onClearCardHover}
+              onClick={() => game.pendingDiscards > 0 && onDiscardSelectedCard(card.id)}
+              onDoubleClick={() => onPlayHandCardOnDoubleClick(card)}
+              disabled={controlsLocked && game.pendingDiscards === 0}
+              aria-label={UNPLAYABLE_CARD_EFFECTS.has(card.effect) ? `${card.name}, 비용 -, 사용 불가` : `${card.name}, 에너지 ${cardEnergyCost(card, lawResearchCount, game.forgeCount)}`}
+            >
+              <CardFace
+                card={card}
+                starsSpent={game.starsSpent}
+                strength={game.strength + combatManualBonus + backToBasicsBonus(card)}
+                agility={game.agility + combatManualBonus + backToBasicsBonus(card)}
+                defenseMultiplier={game.defenseMultiplier}
+                ruleCostReduction={lawResearchCount}
+                forgeCount={game.forgeCount}
+                radiancePlayedThisTurn={game.radiancePlayedThisTurn}
+              />
+            </button>
+          ) : <div className="hand-card-placeholder" aria-hidden="true" key={`clear-slot-${index}`} style={handFanStyle(index)} />)}
+        </div>
         {game.hand.length === 0 && phase === "playing" && game.status === "playing" && (
           <div className="empty-hand">사용할 카드가 없습니다</div>
         )}
