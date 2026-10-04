@@ -1242,6 +1242,7 @@ h1 { margin: 0; font-size: 25px; font-weight: 600; }
   --card-name-size: 9.78pt;
 }
 .shrine-deck-card { cursor: grab; }
+.shrine-deck-card.is-extraction-locked { cursor: not-allowed; opacity: .55; }
 .shrine-deck-card:active { cursor: grabbing; }
 .shrine-deck-card.is-dragging { opacity: 1; }
 .shrine-deck-card.is-selected { animation: shrine-selected-card-blink .42s ease-in-out infinite alternate; }
@@ -5763,6 +5764,10 @@ h1 { margin: 0; font-size: 25px; font-weight: 600; }
 .deck-editor-card.is-ticket-drop-target {
   border-color: #8fc7ed !important;
   box-shadow: 0 0 0 2px rgba(143,199,237,.6), 0 0 15px rgba(143,199,237,.55);
+}
+.deck-editor-card.is-swap-source {
+  border-color: #f0ca6e !important;
+  box-shadow: 0 0 0 2px rgba(240, 202, 110, .75), 0 0 14px rgba(240, 202, 110, .55);
 }
 .deck-editor-card.is-temporary { transition: opacity .18s ease, filter .18s ease; }
 .deck-editor-card.is-pending-removal:active { cursor: grabbing; }

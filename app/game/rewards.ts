@@ -58,6 +58,7 @@ export type ConsumableType =
   | "bombTicket"
   | "cloneTicket"
   | "extractTicket"
+  | "swapTicket"
   | "transformTicket"
   | "mapTicket"
   | "cardPack";
@@ -306,64 +307,54 @@ export function calculateDeckScore(deck: Pick<DeckCase, "capacity" | "cards" | "
   };
 }
 
-const DEBUG_DECK_STARTING_CAPACITY = 15;
+const REGION_DECK_STARTING_CAPACITY = 15;
 
 function randomItem<T>(pool: T[], random: () => number) {
   const index = Math.min(pool.length - 1, Math.floor(Math.max(0, Math.min(0.999999999, random())) * pool.length));
   return pool[index];
 }
 
-function sampleBinomial(trials: number, probability: number, random: () => number) {
-  let successes = 0;
-  for (let trial = 0; trial < trials; trial += 1) {
-    if (random() < probability) successes += 1;
+export type RegionDeckShape = {
+  x: number;
+  y: number;
+  z: number;
+  sum: 0 | 1 | 2;
+  capacity: number;
+  rareCount: number;
+  editionBudget: number;
+};
+
+export function rollRegionDeckShape(regionNumber: number, random: () => number = Math.random): RegionDeckShape {
+  const region = Math.max(0, Math.floor(regionNumber));
+  const sumRoll = Math.max(0, Math.min(0.999999999, random()));
+  const sum: 0 | 1 | 2 = sumRoll < 0.8 ? 0 : sumRoll < 0.9 ? 1 : 2;
+  const candidates: { shape: RegionDeckShape; weight: number }[] = [];
+  let totalWeight = 0;
+  for (let x = -region; x <= sum + region * 2; x += 1) {
+    for (let y = -region; y <= sum + region * 2; y += 1) {
+      const z = sum - x - y;
+      if (z < -region) continue;
+      const capacity = REGION_DECK_STARTING_CAPACITY + (region + x) * 5;
+      const rareCount = region + y;
+      if (rareCount > capacity) continue;
+      const weight = 2 ** -(Math.abs(x) + Math.abs(y) + Math.abs(z));
+      totalWeight += weight;
+      candidates.push({ shape: {
+        x, y, z, sum, capacity, rareCount, editionBudget: (region + z) * 10,
+      }, weight });
+    }
   }
-  return successes;
+  let cursor = Math.max(0, Math.min(0.999999999, random())) * totalWeight;
+  for (const candidate of candidates) {
+    cursor -= candidate.weight;
+    if (cursor < 0) return candidate.shape;
+  }
+  return candidates.at(-1)!.shape;
 }
 
-function sampleRandomizedBinomialWithMean(mean: number, random: () => number) {
-  if (mean <= 0) return 0;
-  const expectedTrials = mean * 5;
-  const baseTrials = Math.floor(expectedTrials);
-  const extraTrialProbability = expectedTrials - baseTrials;
-  const trials = baseTrials + (random() < extraTrialProbability ? 1 : 0);
-  return sampleBinomial(trials, 1 / 5, random);
-}
+type RegionFillerKind = "empty" | "starter" | "basic" | "special";
 
-function sampleGeneralizedPoisson(mean: number, theta: number, random: () => number) {
-  if (mean <= 0) return 0;
-
-  // E[X] = lambda / (1 - theta), so choose lambda to preserve the target mean.
-  const lambda = mean * (1 - theta);
-  const logMasses = [-lambda];
-  let logFactorial = 0;
-  for (let value = 1; ; value += 1) {
-    const shiftedLambda = lambda + theta * value;
-    if (shiftedLambda < 0) break;
-    if (shiftedLambda === 0 && value > 1) break;
-    logFactorial += Math.log(value);
-    logMasses.push(
-      Math.log(lambda)
-      + (value - 1) * Math.log(Math.max(Number.MIN_VALUE, shiftedLambda))
-      - shiftedLambda
-      - logFactorial,
-    );
-  }
-
-  const maxLogMass = Math.max(...logMasses);
-  const masses = logMasses.map((logMass) => Math.exp(logMass - maxLogMass));
-  const totalMass = masses.reduce((total, mass) => total + mass, 0);
-  let cursor = Math.max(0, Math.min(0.999999999, random())) * totalMass;
-  for (let value = 0; value < masses.length; value += 1) {
-    cursor -= masses[value];
-    if (cursor < 0) return value;
-  }
-  return masses.length - 1;
-}
-
-type DebugFillerKind = "empty" | "starter" | "basic" | "special";
-
-function createDebugFillerBag(size: number): DebugFillerKind[] {
+function createRegionFillerBag(size: number): RegionFillerKind[] {
   return [
     ...Array.from({ length: size * 3 / 8 }, () => "empty" as const),
     ...Array.from({ length: size / 8 }, () => "starter" as const),
@@ -418,38 +409,24 @@ function sampleReducedCardBlueprints(pool: CardBlueprint[], count: number, rando
   ]);
 }
 
-function addDebugDeckCard(cards: Card[], blueprint: CardBlueprint, nextCardId: number) {
+function addRegionDeckCard(cards: Card[], blueprint: CardBlueprint, nextCardId: number) {
   cards.push({ ...blueprint, id: nextCardId, revealed: false });
   return nextCardId + 1;
 }
 
-type DebugDeckGenerationAttempt = {
-  deck: DeckCase | null;
-  nextCardId: number;
-};
-
-function generateDebugDeckAttempt(
-  startScore: number,
+function generateRegionDeck(
+  regionNumber: number,
   startCardId: number,
   random: () => number,
-  capacityBonus = 0,
-): DebugDeckGenerationAttempt {
-  const rareMean = startScore / 100 * Math.min((100 + startScore) / 130, 2);
-  const rareCount = sampleRandomizedBinomialWithMean(rareMean, random);
-  const capacityIncreaseCount = sampleGeneralizedPoisson(startScore / 30, -0.5, random);
-  const capacity = DEBUG_DECK_STARTING_CAPACITY + capacityIncreaseCount * 5 + capacityBonus;
+): { deck: DeckCase; nextCardId: number } {
+  const { capacity, rareCount, editionBudget } = rollRegionDeckShape(regionNumber, random);
   const cards: Card[] = [];
   let nextCardId = startCardId;
-  if (rareCount > capacity) return { deck: null, nextCardId };
   for (let index = 0; index < rareCount; index += 1) {
-    nextCardId = addDebugDeckCard(cards, randomItem(RARE_CARD_POOL, random), nextCardId);
+    nextCardId = addRegionDeckCard(cards, randomItem(RARE_CARD_POOL, random), nextCardId);
   }
 
-  let remainingScore = startScore
-    - rareCount * 8
-    - capacityIncreaseCount * 13;
-  if (remainingScore < -10) return { deck: null, nextCardId };
-
+  let remainingScore = editionBudget;
   const editions: DeckEdition[] = [];
   while (remainingScore >= 0) {
     const availableEditions = getAvailableDeckEditions(editions)
@@ -462,10 +439,10 @@ function generateDebugDeckAttempt(
 
   const remainingSlots = capacity - cards.length;
   const bagSize = Math.max(Math.floor((remainingSlots * 2) / 8) * 8, 8);
-  let fillerBag = createDebugFillerBag(bagSize);
-  const fillerKinds: DebugFillerKind[] = [];
+  let fillerBag = createRegionFillerBag(bagSize);
+  const fillerKinds: RegionFillerKind[] = [];
   for (let slot = 0; slot < remainingSlots; slot += 1) {
-    if (fillerBag.length === 0) fillerBag = createDebugFillerBag(bagSize);
+    if (fillerBag.length === 0) fillerBag = createRegionFillerBag(bagSize);
     fillerKinds.push(takeRandomBagItem(fillerBag, random));
   }
   const starterCards = sampleReducedCardBlueprints(
@@ -482,20 +459,20 @@ function generateDebugDeckAttempt(
   let basicIndex = 0;
   for (const fillerKind of fillerKinds) {
     if (fillerKind === "starter") {
-      nextCardId = addDebugDeckCard(cards, starterCards[starterIndex], nextCardId);
+      nextCardId = addRegionDeckCard(cards, starterCards[starterIndex], nextCardId);
       starterIndex += 1;
     } else if (fillerKind === "basic") {
-      nextCardId = addDebugDeckCard(cards, basicCards[basicIndex], nextCardId);
+      nextCardId = addRegionDeckCard(cards, basicCards[basicIndex], nextCardId);
       basicIndex += 1;
     } else if (fillerKind === "special") {
-      nextCardId = addDebugDeckCard(cards, randomItem(SPECIAL_CARD_POOL, random), nextCardId);
+      nextCardId = addRegionDeckCard(cards, randomItem(SPECIAL_CARD_POOL, random), nextCardId);
     }
   }
 
   return {
     nextCardId,
     deck: {
-      id: `debug-score-${startCardId}`,
+      id: `region-${regionNumber}-${startCardId}`,
       name: createDeckName(),
       capacity,
       cards,
@@ -505,54 +482,18 @@ function generateDebugDeckAttempt(
   };
 }
 
-export type DebugDeckGenerationResult = {
-  decks: DeckCase[];
-  attempted: number;
-  discarded: number;
-  nextCardId: number;
-};
-
-export function generateDebugDecksByScore(
-  startScore: number,
-  attemptCount: number,
-  startCardId: number,
-  random: () => number = Math.random,
-): DebugDeckGenerationResult {
-  const decks: DeckCase[] = [];
-  let nextCardId = startCardId;
-  let discarded = 0;
-  const attempted = Math.max(0, Math.floor(attemptCount));
-  const normalizedStartScore = Math.max(0, Math.floor(startScore));
-  for (let attempt = 0; attempt < attempted; attempt += 1) {
-    const result = generateDebugDeckAttempt(normalizedStartScore, nextCardId, random);
-    nextCardId = result.nextCardId;
-    if (!result.deck) {
-      discarded += 1;
-      continue;
-    }
-    decks.push(result.deck);
-  }
-  return { decks, attempted, discarded, nextCardId };
-}
-
 export function createRegionDeck(
   regionNumber: number,
   startId: number,
   capacityBonus = 0,
   random: () => number = Math.random,
 ): DeckCase {
-  const startScore = Math.max(0, regionNumber * 30 + Math.floor(random() * 11));
-  let nextCardId = startId;
-  for (;;) {
-    const result = generateDebugDeckAttempt(startScore, nextCardId, random, capacityBonus);
-    nextCardId = result.nextCardId;
-    if (result.deck) {
-      return {
-        ...result.deck,
-        id: `found-r${regionNumber}-${startId}-${Math.random().toString(36).slice(2, 8)}`,
-      };
-    }
-  }
+  const { deck } = generateRegionDeck(regionNumber, startId, random);
+  return {
+    ...deck,
+    id: `found-r${regionNumber}-${startId}-${Math.random().toString(36).slice(2, 8)}`,
+    capacity: deck.capacity + capacityBonus,
+  };
 }
 
 export function createConsumable(type: ConsumableType, id: string): Consumable {
@@ -570,6 +511,9 @@ export function createConsumable(type: ConsumableType, id: string): Consumable {
   }
   if (type === "extractTicket") {
     return { id, type, name: "추출 티켓", description: "장소와 관계없이 덱에서 카드 1장을 추출합니다." };
+  }
+  if (type === "swapTicket") {
+    return { id, type, name: "교환 티켓", description: "덱·인벤토리·바닥의 희귀 카드 두 장을 선택해 위치를 서로 바꿉니다." };
   }
   if (type === "transformTicket") {
     return { id, type, name: "변환 티켓", description: "카드는 같은 희귀도의 다른 카드로, 티켓은 티어와 관계없이 다른 무작위 티켓으로 바꿉니다." };

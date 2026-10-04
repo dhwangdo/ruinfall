@@ -29,6 +29,7 @@ export type DeckEditorMoveBlockReason =
   | "inventory-full"
   | "deck-full"
   | "origin-locked"
+  | "rare-locked"
   | "extract-original-only";
 
 export type DeckEditorMoveAction = "move" | "schedule-removal" | "restore-removal";
@@ -49,12 +50,14 @@ export type DeckEditorMoveRequest = {
   inventoryCapacity: number;
   inventorySlotsFreed?: number;
   viaExtractionTicket?: boolean;
+  isRare: boolean;
 };
 
 export function validateDeckEditorCardMove(request: DeckEditorMoveRequest): DeckEditorMoveValidation {
   const sameLocation = request.source.area === request.target.area
     && (request.source.area !== "deck" || request.source.deckId === request.target.deckId);
   if (sameLocation) return { allowed: false, reason: "same-location" };
+  if (request.isRare) return { allowed: false, reason: "rare-locked" };
 
   const inventoryItemCountAfterMove = Math.max(
     0,

@@ -5,7 +5,7 @@ import {
   createCardOriginDeckIds,
   validateDeckEditorCardMove,
 } from "../app/game/deckEditorRules.ts";
-import { transitionDeckEditorCardCollections } from "../app/game/deckEditorTransitions.ts";
+import { swapRareCardCollections, transitionDeckEditorCardCollections } from "../app/game/deckEditorTransitions.ts";
 import { groupAndSortDeckEditorCards } from "../app/game/deckEditorViews.ts";
 import { createDeckEditorSnapshot } from "../app/hooks/useDeckEditorSession.ts";
 
@@ -19,6 +19,7 @@ const baseRequest = {
   targetDeckCapacity: 10,
   inventoryItemCount: 0,
   inventoryCapacity: 10,
+  isRare: false,
 };
 
 test("editor snapshot records origins by card id and deck id", () => {
@@ -85,6 +86,51 @@ test("safe-area editing ignores origin deck restrictions", () => {
     safeArea: true,
     target: { area: "inventory" },
   }), { allowed: true, action: "move" });
+});
+
+test("rare cards cannot move, extract, or schedule removal in any area", () => {
+  for (const request of [
+    { ...baseRequest, safeArea: true },
+    { ...baseRequest, source: { area: "inventory" }, target: { area: "deck", deckId: "A" } },
+    { ...baseRequest, target: { area: "floor" } },
+    { ...baseRequest, target: { area: "inventory" }, viaExtractionTicket: true },
+  ]) {
+    assert.deepEqual(validateDeckEditorCardMove({ ...request, isRare: true }), {
+      allowed: false,
+      reason: "rare-locked",
+    });
+  }
+});
+
+test("swap ticket exchanges rare cards across deck, inventory, and floor", () => {
+  const deckCard = { id: 1, rarity: "rare" };
+  const inventoryCard = { id: 2, rarity: "rare" };
+  const floorCard = { id: 3, rarity: "rare" };
+  const collections = {
+    ownedDecks: [{ id: "A", capacity: 1, cards: [deckCard] }],
+    inventoryCards: [inventoryCard],
+    floorCards: [floorCard],
+    pendingRemovedCards: [],
+    pendingRemovedCardAreas: {},
+  };
+  const first = swapRareCardCollections(collections,
+    { cardId: 1, location: { area: "deck", deckId: "A" } },
+    { cardId: 2, location: { area: "inventory" } });
+  assert.equal(first.collections.ownedDecks[0].cards[0].id, 2);
+  assert.equal(first.collections.inventoryCards[0].id, 1);
+  const second = swapRareCardCollections(first.collections,
+    { cardId: 1, location: { area: "inventory" } },
+    { cardId: 3, location: { area: "floor" } });
+  assert.equal(second.collections.inventoryCards[0].id, 3);
+  assert.equal(second.collections.floorCards[0].id, 1);
+  const third = swapRareCardCollections(collections,
+    { cardId: 1, location: { area: "deck", deckId: "A" } },
+    { cardId: 3, location: { area: "floor" } });
+  assert.equal(third.collections.ownedDecks[0].cards[0].id, 3);
+  assert.equal(third.collections.floorCards[0].id, 1);
+  assert.equal(swapRareCardCollections(collections,
+    { cardId: 1, location: { area: "deck", deckId: "A" } },
+    { cardId: 1, location: { area: "deck", deckId: "A" } }), null);
 });
 
 test("extraction accepts only an unreleased card recorded in a deck at session start", () => {

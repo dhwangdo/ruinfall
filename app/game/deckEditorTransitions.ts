@@ -25,6 +25,38 @@ export type DeckEditorCardTransition = {
   collections: DeckEditorCardCollections;
 };
 
+export type RareCardLocation =
+  | { area: "deck"; deckId: string }
+  | { area: "inventory" | "floor" };
+
+/** Exchange two rare cards in place, without using inventory or deck capacity. */
+export function swapRareCardCollections(
+  collections: DeckEditorCardCollections,
+  first: { cardId: number; location: RareCardLocation },
+  second: { cardId: number; location: RareCardLocation },
+) {
+  const sameArea = first.location.area === second.location.area
+    && (first.location.area !== "deck"
+      || (second.location.area === "deck" && first.location.deckId === second.location.deckId));
+  if (first.cardId === second.cardId || sameArea) return null;
+  const firstCard = findCard(collections, first.location, first.cardId);
+  const secondCard = findCard(collections, second.location, second.cardId);
+  if (firstCard?.rarity !== "rare" || secondCard?.rarity !== "rare") return null;
+  const swapAt = (cards: Card[]) => cards.map((card) => card.id === first.cardId
+    ? secondCard
+    : card.id === second.cardId ? firstCard : card);
+  return {
+    firstCard,
+    secondCard,
+    collections: {
+      ...collections,
+      ownedDecks: collections.ownedDecks.map((deck) => ({ ...deck, cards: swapAt(deck.cards) })),
+      inventoryCards: swapAt(collections.inventoryCards),
+      floorCards: swapAt(collections.floorCards),
+    },
+  };
+}
+
 function findCard(
   collections: DeckEditorCardCollections,
   location: DeckEditorCardLocation,

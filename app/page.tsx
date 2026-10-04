@@ -172,7 +172,7 @@ import {
   type DeckEditorCardLocation,
   type DeckEditorMoveBlockReason,
 } from "./game/deckEditorRules";
-import { transitionDeckEditorCardCollections } from "./game/deckEditorTransitions";
+import { swapRareCardCollections, transitionDeckEditorCardCollections, type RareCardLocation } from "./game/deckEditorTransitions";
 import { groupAndSortDeckEditorCards } from "./game/deckEditorViews";
 import {
   BLESSING_INFO,
@@ -446,6 +446,8 @@ export default function Home() {
   const [pendingCloneTicketId, setPendingCloneTicketId] = useState<string | null>(null);
   const [pendingExtractTicketId, setPendingExtractTicketId] = useState<string | null>(null);
   const [pendingTransformTicketId, setPendingTransformTicketId] = useState<string | null>(null);
+  const [pendingSwapTicketId, setPendingSwapTicketId] = useState<string | null>(null);
+  const [swapSource, setSwapSource] = useState<{ cardId: number; location: RareCardLocation } | null>(null);
   const [armedBombTicketIds, setArmedBombTicketIds] = useState<Set<string>>(() => new Set());
   const [deckEditorMessage, setDeckEditorMessage] = useState("휴식 구역에서는 카드를 바닥으로 추출하고, 일반 구역에서는 제거 예정 상태로 만듭니다.");
   const [openedCardPack, setOpenedCardPack] = useState<Card[] | null>(null);
@@ -1968,7 +1970,7 @@ export default function Home() {
     if (!sourceDeck) return null;
     const selectedIds = new Set(cardIds);
     const selectedCards = sourceDeck.cards.filter((card) => selectedIds.has(card.id));
-    if (selectedCards.length === 0) return null;
+    if (selectedCards.length === 0 || selectedCards.some((card) => card.rarity === "rare")) return null;
     const roomKey = mapRoomKey(mapPosition);
     const extractedIds = new Set(selectedCards.map((card) => card.id));
     setOwnedDecks((current) => current.map((deck) => deck.id === sourceDeck.id
@@ -2525,6 +2527,7 @@ export default function Home() {
   };
 
   const deckEditorMoveErrorMessage = (reason: DeckEditorMoveBlockReason, targetDeck?: DeckCase) => {
+    if (reason === "rare-locked") return "희귀 카드는 교환 티켓으로만 위치를 바꿀 수 있습니다.";
     if (reason === "inventory-full") return "인벤토리가 가득 찼습니다.";
     if (reason === "deck-full") return `${targetDeck?.name ?? "현재 덱"}에는 더 이상 카드를 넣을 수 없습니다.`;
     if (reason === "extract-original-only") return "추출 티켓은 편집 시작 당시 덱에 있던 카드에만 사용할 수 있습니다.";
@@ -2584,6 +2587,7 @@ export default function Home() {
       inventoryCapacity,
       inventorySlotsFreed,
       viaExtractionTicket,
+      isRare: card.rarity === "rare",
     });
     if (!validation.allowed) {
       if (validation.reason !== "same-location") {
@@ -2665,6 +2669,10 @@ export default function Home() {
     if (pendingCloneTicketId === consumableId) setPendingCloneTicketId(null);
     if (pendingExtractTicketId === consumableId) setPendingExtractTicketId(null);
     if (pendingTransformTicketId === consumableId) setPendingTransformTicketId(null);
+    if (pendingSwapTicketId === consumableId) {
+      setPendingSwapTicketId(null);
+      setSwapSource(null);
+    }
     setArmedBombTicketIds((current) => {
       const next = new Set(current);
       next.delete(consumableId);
@@ -2713,16 +2721,81 @@ export default function Home() {
     && !blessings.includes("oneMore"),
   );
 
+  const applySwapTicketToCard = (
+    ticketId: string,
+    cardId: number,
+    area: "deck" | "inventory" | "floor",
+    deckId?: string,
+  ) => {
+    const ticket = findTicketById(ticketId, "swapTicket");
+    const location: RareCardLocation = area === "deck"
+      ? { area: "deck", deckId: deckId ?? "" }
+      : { area };
+    const roomKey = mapRoomKey(mapPosition);
+    const collections = {
+      ownedDecks,
+      inventoryCards,
+      floorCards: roomDrops[roomKey] ?? [],
+      pendingRemovedCards,
+      pendingRemovedCardAreas,
+    };
+    const card = area === "deck"
+      ? ownedDecks.find((deck) => deck.id === deckId)?.cards.find((item) => item.id === cardId)
+      : area === "inventory"
+        ? inventoryCards.find((item) => item.id === cardId)
+        : collections.floorCards.find((item) => item.id === cardId);
+    if (!ticket || card?.rarity !== "rare") {
+      setDeckEditorMessage("교환 티켓은 희귀 카드 두 장에만 사용할 수 있습니다.");
+      return;
+    }
+    if (pendingSwapTicketId !== ticketId || !swapSource) {
+      setPendingSwapTicketId(ticketId);
+      setSwapSource({ cardId, location });
+      setDeckEditorMessage(`${card.name} 선택. 위치를 바꿀 두 번째 희귀 카드를 클릭하세요.`);
+      return;
+    }
+    if (swapSource.cardId === cardId) {
+      setSwapSource(null);
+      setDeckEditorMessage("첫 번째 카드 선택을 취소했습니다. 희귀 카드 한 장을 선택하세요.");
+      return;
+    }
+    const swapped = swapRareCardCollections(collections, swapSource, { cardId, location });
+    if (!swapped) {
+      setDeckEditorMessage("서로 다른 위치의 희귀 카드 두 장을 선택하세요.");
+      return;
+    }
+    if (!consumeTicketById(ticketId, "swapTicket")) return;
+    if (swapSource.location.area === "floor") {
+      ensureTelemetryRun();
+      recordTelemetryCardAcquired(telemetry, telemetryCardSnapshot(swapped.firstCard), "floor");
+    }
+    if (location.area === "floor") {
+      ensureTelemetryRun();
+      recordTelemetryCardAcquired(telemetry, telemetryCardSnapshot(swapped.secondCard), "floor");
+    }
+    setOwnedDecks(swapped.collections.ownedDecks);
+    setInventoryCards(swapped.collections.inventoryCards);
+    setRoomDrops((current) => ({ ...current, [roomKey]: swapped.collections.floorCards }));
+    setPendingSwapTicketId(null);
+    setSwapSource(null);
+    setDeckEditorMessage(`${swapped.firstCard.name}과(와) ${swapped.secondCard.name}의 위치를 교환했습니다.`);
+    setHoveredDeckCard(null);
+    clearCardKeywordHover();
+    queueRunSave(RUN_SAVE_POLICY.stateChangeDelayMs);
+  };
+
   const canApplyTicketToCard = (
     ticket: Consumable | null,
     card: Card,
     area: TicketDropArea,
     deck?: DeckCase,
   ) => {
-    if (!ticket || !["paintTicket", "cloneTicket", "extractTicket", "transformTicket"].includes(ticket.type)) return false;
+    if (!ticket || !["paintTicket", "cloneTicket", "extractTicket", "transformTicket", "swapTicket"].includes(ticket.type)) return false;
     if (ticket.type === "paintTicket") return area === "deck";
+    if (ticket.type === "swapTicket") return card.rarity === "rare";
     if (ticket.type === "extractTicket") return area === "deck" && Boolean(
       deck
+      && card.rarity !== "rare"
       && deck.cards.length > 0
       && originalDeckIdForCard(card.id) !== null
       && effectiveOriginDeckIdForCard(card.id) !== null
@@ -2749,6 +2822,8 @@ export default function Home() {
       extractDeckCardWithTicket(targetCardId, deck.id, ticket.id);
     } else if (ticket.type === "transformTicket") {
       transformCardWithTicket(targetCard, area, deck?.id, ticket.id);
+    } else if (ticket.type === "swapTicket") {
+      applySwapTicketToCard(ticket.id, targetCardId, area, deck?.id);
     }
   };
 
@@ -2763,6 +2838,8 @@ export default function Home() {
     setPendingCloneTicketId(null);
     setPendingExtractTicketId(null);
     setPendingTransformTicketId(null);
+    setPendingSwapTicketId(null);
+    setSwapSource(null);
     setArmedBombTicketIds(new Set());
   };
 
@@ -2866,6 +2943,10 @@ export default function Home() {
       cloneConsumableWithTicket(consumable.id);
       return;
     }
+    if (consumable.type !== "swapTicket") {
+      setPendingSwapTicketId(null);
+      setSwapSource(null);
+    }
     if (consumable.type === "cardPack") {
       openCardPack(consumable.id);
       return;
@@ -2928,6 +3009,17 @@ export default function Home() {
       setDeckEditorMessage(
         pendingPaintTicketId === consumable.id ? "색칠을 취소했습니다." : "색칠할 덱 카드 1장을 클릭하세요.",
       );
+      return;
+    }
+    if (consumable.type === "swapTicket") {
+      const cancelling = pendingSwapTicketId === consumable.id;
+      setPendingSwapTicketId(cancelling ? null : consumable.id);
+      setSwapSource(null);
+      setPendingPaintTicketId(null);
+      setPendingCloneTicketId(null);
+      setPendingExtractTicketId(null);
+      setPendingTransformTicketId(null);
+      setDeckEditorMessage(cancelling ? "교환을 취소했습니다." : "첫 번째 희귀 카드를 클릭하세요.");
       return;
     }
     if (consumable.type === "extractTicket") {
@@ -3045,7 +3137,7 @@ export default function Home() {
     const floorConsumables = roomConsumableDrops[roomKey] ?? [];
     const floorDecks = roomDeckDrops[roomKey] ?? [];
     const freeItemSlots = Math.max(0, inventoryCapacity - inventoryItemCount);
-    const pickedCards = floorCards.slice(0, freeItemSlots);
+    const pickedCards = floorCards.filter((card) => card.rarity !== "rare").slice(0, freeItemSlots);
     const pickedConsumables = floorConsumables.slice(0, freeItemSlots - pickedCards.length);
     const pickedDecks = floorDecks.slice(0, Math.max(0, maxOwnedDecks - ownedDecks.length));
     if (pickedCards.length + pickedConsumables.length + pickedDecks.length > 0) ensureTelemetryRun();
@@ -3078,7 +3170,9 @@ export default function Home() {
       setOwnedDecks((current) => [...current, ...pickedDecks]);
       setDeckSelectionAttention(true);
     }
-    if (floorCards.length + floorConsumables.length > freeItemSlots) {
+    if (floorCards.some((card) => card.rarity === "rare")) {
+      showMapMessage("희귀 카드는 교환 티켓으로만 위치를 바꿀 수 있습니다.");
+    } else if (floorCards.length + floorConsumables.length > freeItemSlots) {
       showMapMessage("인벤토리가 가득찼습니다!");
     }
     if (pickedCards.length + pickedConsumables.length + pickedDecks.length > 0) queueRunSave();
@@ -3170,6 +3264,10 @@ export default function Home() {
     deckId?: string,
     targetCardId = card.id,
   ) => {
+    if (pendingSwapTicketId) {
+      applySwapTicketToCard(pendingSwapTicketId, targetCardId, area, deckId);
+      return true;
+    }
     if (pendingCloneTicketId) {
       cloneCardWithTicket(card);
       return true;
@@ -3231,6 +3329,8 @@ export default function Home() {
     setPendingCloneTicketId(null);
     setPendingExtractTicketId(null);
     setPendingTransformTicketId(null);
+    setPendingSwapTicketId(null);
+    setSwapSource(null);
     setArmedBombTicketIds(new Set());
     setPendingRemovedCards([]);
     setPendingRemovedCardAreas({});
@@ -3276,6 +3376,8 @@ export default function Home() {
     setPendingCloneTicketId(null);
     setPendingExtractTicketId(null);
     setPendingTransformTicketId(null);
+    setPendingSwapTicketId(null);
+    setSwapSource(null);
     setArmedBombTicketIds(new Set());
     queueRunSave();
   };
@@ -3854,6 +3956,7 @@ export default function Home() {
       || pendingCloneTicketId === consumable.id
       || pendingExtractTicketId === consumable.id
       || pendingTransformTicketId === consumable.id
+      || pendingSwapTicketId === consumable.id
       || consumable.armedMovesRemaining !== undefined
     );
     const inventoryConsumableGroups = groupConsumables(inventoryConsumables);
@@ -4280,6 +4383,7 @@ export default function Home() {
             moveFloorConsumableToInventory,
           }}
           ticketActions={{
+            swapSourceCardId: swapSource?.cardId ?? null,
             isConsumableSelected,
             consumableDescription,
             selectExtractionTicket,

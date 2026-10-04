@@ -8,7 +8,8 @@ import {
   calculateDeckCapacityScore,
   calculateDeckScore,
   getAvailableDeckEditions,
-  generateDebugDecksByScore,
+  createRegionDeck,
+  rollRegionDeckShape,
   createBattleReward,
 } from "../app/game/rewards.ts";
 import {
@@ -39,6 +40,7 @@ test("ticket tiers and base prices match the shop rules", () => {
     paintTicket: 1,
     bombTicket: 1,
     extractTicket: 1,
+    swapTicket: 1,
     mapTicket: 2,
     mindEyeTicket: 1,
     darkTicket: 1,
@@ -87,24 +89,31 @@ test("recycling editions are mutually exclusive", () => {
   assert.equal(getAvailableDeckEditions([]).includes("frugalPlus"), true);
 });
 
-test("debug score generation creates the requested number of start-score decks", () => {
-  const result = generateDebugDecksByScore(0, 3, 100, () => 0.7);
-  assert.equal(result.attempted, 3);
-  assert.equal(result.discarded, 0);
-  assert.equal(result.decks.length, 3);
-  assert.ok(result.decks.every((deck) => deck.capacity === 15 && deck.cards.length <= 15));
-  assert.ok(result.decks.every((deck) => calculateDeckScore(deck).total === 0));
+test("region deck shape keeps the chosen sum and rejects rare overflow", () => {
+  for (const [roll, expectedSum] of [[0.79, 0], [0.85, 1], [0.95, 2]]) {
+    const values = [roll, 0.37];
+    const shape = rollRegionDeckShape(7, () => values.shift());
+    assert.equal(shape.sum, expectedSum);
+    assert.equal(shape.x + shape.y + shape.z, expectedSum);
+    assert.ok([shape.x, shape.y, shape.z].every((value) => value >= -7));
+    assert.ok(shape.rareCount <= shape.capacity);
+    assert.equal(shape.editionBudget, (7 + shape.z) * 10);
+  }
 });
 
-test("special filler cards do not add debug deck score", () => {
-  const result = generateDebugDecksByScore(0, 1, 200, () => 0.999);
-  assert.equal(result.discarded, 0);
-  assert.equal(result.decks.length, 1);
-  assert.equal(calculateDeckScore(result.decks[0]).cardScore, 0);
+test("region deck uses its shape and adds deck-size blessing capacity last", () => {
+  const shape = rollRegionDeckShape(2, () => 0.5);
+  const base = createRegionDeck(2, 100, 0, () => 0.5);
+  const blessed = createRegionDeck(2, 100, 5, () => 0.5);
+  assert.equal(base.capacity, shape.capacity);
+  assert.equal(blessed.capacity, shape.capacity + 5);
+  assert.equal(base.cards.filter((card) => card.rarity === "rare").length, shape.rareCount);
+  assert.deepEqual(blessed.cards, base.cards);
+  assert.deepEqual(blessed.editions, base.editions);
 });
 
-test("debug filler bags use three eighths empty slots", () => {
-  const result = generateDebugDecksByScore(0, 1, 200, () => 0);
-  assert.equal(result.discarded, 0);
-  assert.equal(result.decks[0].cards.length, 6);
+test("region filler bags still leave three eighths of slots empty", () => {
+  const deck = createRegionDeck(0, 200, 0, () => 0);
+  assert.equal(deck.capacity, 15);
+  assert.equal(deck.cards.length, 6);
 });

@@ -68,7 +68,7 @@ export function ExtractionShrineModal({
         <header>
           <div>
             <h2 id="shrine-title">추출의 성소</h2>
-            <span>선택한 덱에서 카드를 최대 2장 영구적으로 추출합니다. 사용하면 추출의 성소는 붕괴합니다.</span>
+            <span>희귀 카드를 제외하고 최대 2장 추출합니다. 사용하면 추출의 성소는 붕괴합니다.</span>
           </div>
           <div className="shop-header-status">
             <button type="button" onClick={onClose}>나가기</button>
@@ -138,10 +138,11 @@ export function ExtractionShrineModal({
               <div className="shrine-deck-cards">
                 {deckCards.map((card) => (
                   <div
-                    className={`shrine-deck-card card-face ${card.kind} ${card.damageType} ${draggedCardId === card.id ? "is-dragging" : ""} ${pendingCardIds.includes(card.id) ? "is-selected" : ""}`}
+                    className={`shrine-deck-card card-face ${card.kind} ${card.damageType} ${card.rarity === "rare" ? "is-extraction-locked" : ""} ${draggedCardId === card.id ? "is-dragging" : ""} ${pendingCardIds.includes(card.id) ? "is-selected" : ""}`}
                     key={`shrine-${card.id}`}
-                    draggable={Boolean(deck?.cards.length)}
+                    draggable={card.rarity !== "rare" && Boolean(deck?.cards.length)}
                     onDragStart={(event) => {
+                      if (card.rarity === "rare") return;
                       event.dataTransfer.effectAllowed = "move";
                       event.dataTransfer.setData("text/plain", String(card.id));
                       setDraggedCardId(card.id);
@@ -150,7 +151,7 @@ export function ExtractionShrineModal({
                       setDraggedCardId(null);
                       setDropActive(false);
                     }}
-                    onClick={() => setPendingCardIds((current) => current.includes(card.id)
+                    onClick={() => card.rarity !== "rare" && setPendingCardIds((current) => current.includes(card.id)
                       ? current.filter((id) => id !== card.id)
                       : current.length < 2 ? [...current, card.id] : current)}
                   >
@@ -184,7 +185,7 @@ export function ExtractionShrineModal({
                   const transferredId = event.dataTransfer.getData("text/plain");
                   const cardId = transferredId ? Number(transferredId) : draggedCardId;
                   setDropActive(false);
-                  if (cardId !== null && Number.isFinite(cardId)) {
+                  if (cardId !== null && Number.isFinite(cardId) && deck?.cards.some((card) => card.id === cardId && card.rarity !== "rare")) {
                     setPendingCardIds((current) => current.includes(cardId) || current.length >= 2
                       ? current
                       : [...current, cardId]);

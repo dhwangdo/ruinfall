@@ -59,6 +59,7 @@ type DeckEditorFloorArea = {
 };
 
 type DeckEditorTicketActions = {
+  swapSourceCardId: number | null;
   isConsumableSelected: (consumable: Consumable) => boolean;
   consumableDescription: (consumable: Consumable) => string;
   selectExtractionTicket: (consumable: Consumable) => void;
@@ -137,6 +138,7 @@ export function DeckEditorModal(props: DeckEditorModalProps) {
       moveFloorConsumableToInventory,
     },
     ticketActions: {
+      swapSourceCardId,
       isConsumableSelected,
       consumableDescription,
       selectExtractionTicket,
@@ -444,7 +446,7 @@ className={`deck-editor-card is-pending-removal ${pendingRemovalBlinkDim ? "is-b
                     {availableInventoryCardGroups.map(({ card, cardIds }) => (
                       <button
                         type="button"
-className={`deck-editor-card rarity-${card.rarity} ${card.rarity === "legendary" ? "is-painted" : ""} ${deckEditorDrag?.cardId === cardIds.at(-1) ? "is-dragging" : ""} ${ticketDropTarget === ticketDropKey("inventory", cardIds.at(-1)!) ? "is-ticket-drop-target" : ""}`}
+className={`deck-editor-card rarity-${card.rarity} ${card.rarity === "legendary" ? "is-painted" : ""} ${deckEditorDrag?.cardId === cardIds.at(-1) ? "is-dragging" : ""} ${swapSourceCardId === cardIds.at(-1) ? "is-swap-source" : ""} ${ticketDropTarget === ticketDropKey("inventory", cardIds.at(-1)!) ? "is-ticket-drop-target" : ""}`}
                         key={`inventory-${cardIds.join("-")}`}
                         style={deckEditorCardStackStyle(cardIds.length)}
                         draggable
@@ -462,7 +464,7 @@ className={`deck-editor-card rarity-${card.rarity} ${card.rarity === "legendary"
                         }}
                         onBlur={clearCardPreview}
                         onClick={() => {
-                          if (!applySelectedCardTicket(card, "inventory")) onMoveCard({
+                          if (!applySelectedCardTicket(card, "inventory", undefined, cardIds.at(-1)!)) onMoveCard({
                             cardId: cardIds.at(-1)!,
                             source: { area: "inventory" },
                             target: { area: "deck", deckId: editingDeck?.id },
@@ -600,7 +602,7 @@ className={`deck-editor-card rarity-${card.rarity} ${card.rarity === "legendary"
                             return (
                               <button
                                 type="button"
-className={`deck-editor-card deck-list-entry rarity-${card.rarity} ${card.rarity === "legendary" ? "is-painted" : ""} ${isTemporary ? `is-temporary ${pendingRemovalBlinkDim ? "is-blink-dim" : ""}` : ""} ${ticketDropTarget === ticketDropKey("deck", cardId, deck.id) ? "is-ticket-drop-target" : ""}`}
+className={`deck-editor-card deck-list-entry rarity-${card.rarity} ${card.rarity === "legendary" ? "is-painted" : ""} ${isTemporary ? `is-temporary ${pendingRemovalBlinkDim ? "is-blink-dim" : ""}` : ""} ${swapSourceCardId === cardId ? "is-swap-source" : ""} ${ticketDropTarget === ticketDropKey("deck", cardId, deck.id) ? "is-ticket-drop-target" : ""}`}
                                 key={`${deck.id}-${cardIds.join("-")}`}
                                 style={deckEditorCardStackStyle(cardIds.length)}
                                 draggable
@@ -736,7 +738,7 @@ className={`deck-editor-card deck-list-entry rarity-${card.rarity} ${card.rarity
                           consumablePreview.show(consumable, bounds.right, bounds.top);
                         }}
                         onBlur={consumablePreview.clear}
-                        onClick={() => ["paintTicket", "cloneTicket", "extractTicket", "transformTicket", "bombTicket", "darkTicket"].includes(consumable.type)
+                        onClick={() => ["paintTicket", "cloneTicket", "extractTicket", "transformTicket", "swapTicket", "bombTicket", "darkTicket"].includes(consumable.type)
                           ? selectExtractionTicket(consumable)
                           : moveFloorConsumableToInventory(consumableId)}
                         aria-pressed={isConsumableSelected(consumable)}
@@ -781,7 +783,7 @@ className={`deck-editor-card deck-list-entry rarity-${card.rarity} ${card.rarity
                     {availableFloorCardGroups.map(({ card, cardIds }) => (
                       <button
                         type="button"
-                        className={`deck-editor-card rarity-${card.rarity} ${card.rarity === "legendary" ? "is-painted" : ""} ${deckEditorDrag?.cardId === cardIds.at(-1) ? "is-dragging" : ""} ${ticketDropTarget === ticketDropKey("floor", cardIds.at(-1)!) ? "is-ticket-drop-target" : ""}`}
+className={`deck-editor-card rarity-${card.rarity} ${card.rarity === "legendary" ? "is-painted" : ""} ${deckEditorDrag?.cardId === cardIds.at(-1) ? "is-dragging" : ""} ${swapSourceCardId === cardIds.at(-1) ? "is-swap-source" : ""} ${ticketDropTarget === ticketDropKey("floor", cardIds.at(-1)!) ? "is-ticket-drop-target" : ""}`}
                         key={`floor-${cardIds.join("-")}`}
                         style={deckEditorCardStackStyle(cardIds.length)}
                         draggable
@@ -799,7 +801,7 @@ className={`deck-editor-card deck-list-entry rarity-${card.rarity} ${card.rarity
                         }}
                         onBlur={clearCardPreview}
                         onClick={() => {
-                          if (!applySelectedCardTicket(card, "floor")) onMoveCard({
+                          if (!applySelectedCardTicket(card, "floor", undefined, cardIds.at(-1)!)) onMoveCard({
                             cardId: cardIds.at(-1)!,
                             source: { area: "floor" },
                             target: { area: "inventory" },
