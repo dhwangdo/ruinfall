@@ -513,7 +513,7 @@ export function createConsumable(type: ConsumableType, id: string): Consumable {
     return { id, type, name: "추출 티켓", description: "장소와 관계없이 덱에서 카드 1장을 추출합니다." };
   }
   if (type === "swapTicket") {
-    return { id, type, name: "교환 티켓", description: "덱·인벤토리·바닥의 희귀 카드 두 장을 선택해 위치를 서로 바꿉니다." };
+    return { id, type, name: "교환 티켓", description: "인벤토리에 있으면 희귀 카드끼리 드래그해 자동 사용합니다. 티켓을 누르고 두 장을 선택할 수도 있습니다." };
   }
   if (type === "transformTicket") {
     return { id, type, name: "변환 티켓", description: "카드는 같은 희귀도의 다른 카드로, 티켓은 티어와 관계없이 다른 무작위 티켓으로 바꿉니다." };

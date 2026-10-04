@@ -133,6 +133,24 @@ test("swap ticket exchanges rare cards across deck, inventory, and floor", () =>
     { cardId: 1, location: { area: "deck", deckId: "A" } }), null);
 });
 
+test("rare cards in the same location cannot be swapped", () => {
+  const rareA = { id: 1, rarity: "rare" };
+  const rareB = { id: 2, rarity: "rare" };
+  for (const area of ["inventory", "floor", "deck"]) {
+    const location = area === "deck" ? { area, deckId: "A" } : { area };
+    const collections = {
+      ownedDecks: [{ id: "A", cards: area === "deck" ? [rareA, rareB] : [], capacity: 10 }],
+      inventoryCards: area === "inventory" ? [rareA, rareB] : [],
+      floorCards: area === "floor" ? [rareA, rareB] : [],
+      pendingRemovedCards: [],
+      pendingRemovedCardAreas: {},
+    };
+    assert.equal(swapRareCardCollections(collections,
+      { cardId: 1, location }, { cardId: 2, location }), null);
+    assert.deepEqual(collections.ownedDecks[0].cards, area === "deck" ? [rareA, rareB] : []);
+  }
+});
+
 test("extraction accepts only an unreleased card recorded in a deck at session start", () => {
   assert.deepEqual(validateDeckEditorCardMove({
     ...baseRequest,

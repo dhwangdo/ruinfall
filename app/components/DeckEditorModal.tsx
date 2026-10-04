@@ -12,13 +12,14 @@ import { DeckName } from "./DeckName";
 import { deckEditorCardStackStyle } from "./deckEditorCardStackStyle";
 import type { Card } from "../game/cards";
 import type { DeckEditorCardArea, DeckEditorCardLocation } from "../game/deckEditorRules";
+import type { RareCardLocation } from "../game/deckEditorTransitions";
 import { groupAndSortDeckEditorCards, type DeckEditorCardGroup } from "../game/deckEditorViews";
 import type { Consumable, DeckCase, DeckEdition } from "../game/rewards";
 
 type DeckEditorArea = DeckEditorCardArea;
 type ConsumableArea = "inventory" | "floor";
 type ConsumableDrag = { id: string; source: ConsumableArea } | null;
-type CardDrag = { cardId: number; source: DeckEditorArea; deckId?: string } | null;
+type CardDrag = { cardId: number; source: DeckEditorArea; deckId?: string; isRare: boolean } | null;
 type DeckDrag = { deckId: string; source: "floor" | "owned" } | null;
 type DeckEditorDragKind = "card" | "consumable";
 type CardGroup = DeckEditorCardGroup & { pendingRemoval?: boolean };
@@ -60,6 +61,10 @@ type DeckEditorFloorArea = {
 
 type DeckEditorTicketActions = {
   swapSourceCardId: number | null;
+  swapRareCardsByDragging: (
+    first: { cardId: number; location: RareCardLocation },
+    second: { cardId: number; location: RareCardLocation },
+  ) => void;
   isConsumableSelected: (consumable: Consumable) => boolean;
   consumableDescription: (consumable: Consumable) => string;
   selectExtractionTicket: (consumable: Consumable) => void;
@@ -139,6 +144,7 @@ export function DeckEditorModal(props: DeckEditorModalProps) {
     },
     ticketActions: {
       swapSourceCardId,
+      swapRareCardsByDragging,
       isConsumableSelected,
       consumableDescription,
       selectExtractionTicket,
@@ -205,13 +211,14 @@ export function DeckEditorModal(props: DeckEditorModalProps) {
     cardId: number,
     source: DeckEditorArea,
     deckId?: string,
+    isRare = false,
   ) => {
     if (previewReleaseTimerRef.current !== null) window.clearTimeout(previewReleaseTimerRef.current);
     previewReleaseTimerRef.current = null;
     onEditorDragActivityChange("card", true);
     event.dataTransfer.effectAllowed = "move";
     event.dataTransfer.setData("text/plain", `${source}:${cardId}:${deckId ?? ""}`);
-    const drag = { cardId, source, deckId };
+    const drag = { cardId, source, deckId, isRare };
     deckEditorDragRef.current = drag;
     setDeckEditorDrag(drag);
     setDeckEditorDropTarget(null);
@@ -273,6 +280,14 @@ export function DeckEditorModal(props: DeckEditorModalProps) {
     deck?: DeckCase,
     targetCardId = card.id,
   ) => {
+    const cardDrag = deckEditorDragRef.current ?? deckEditorDrag;
+    if (cardDrag?.isRare && card.rarity === "rare") {
+      event.preventDefault();
+      event.stopPropagation();
+      event.dataTransfer.dropEffect = "move";
+      setTicketDropTarget(ticketDropKey(area, targetCardId, deck?.id));
+      return;
+    }
     const drag = consumableDragRef.current ?? consumableDrag;
     if (!drag || !canApplyTicketToCard(drag.id, card, area, deck)) return;
     event.preventDefault();
@@ -294,6 +309,24 @@ export function DeckEditorModal(props: DeckEditorModalProps) {
     deck?: DeckCase,
     targetCardId = card.id,
   ) => {
+    const cardDrag = deckEditorDragRef.current ?? deckEditorDrag;
+    if (cardDrag?.isRare && card.rarity === "rare" && cardDrag.source !== "pendingRemoval") {
+      event.preventDefault();
+      event.stopPropagation();
+      const sourceLocation: RareCardLocation = cardDrag.source === "deck"
+        ? { area: "deck", deckId: cardDrag.deckId ?? "" }
+        : { area: cardDrag.source };
+      const targetLocation: RareCardLocation = area === "deck"
+        ? { area: "deck", deckId: deck?.id ?? "" }
+        : { area };
+      swapRareCardsByDragging(
+        { cardId: cardDrag.cardId, location: sourceLocation },
+        { cardId: targetCardId, location: targetLocation },
+      );
+      setTicketDropTarget(null);
+      finishDeckEditorDrag();
+      return;
+    }
     const drag = consumableDragRef.current ?? consumableDrag;
     if (!drag || !canApplyTicketToCard(drag.id, card, area, deck)) return;
     event.preventDefault();
@@ -450,7 +483,7 @@ className={`deck-editor-card rarity-${card.rarity} ${card.rarity === "legendary"
                         key={`inventory-${cardIds.join("-")}`}
                         style={deckEditorCardStackStyle(cardIds.length)}
                         draggable
-                        onDragStart={(event) => beginDeckEditorDrag(event, cardIds.at(-1)!, "inventory")}
+                        onDragStart={(event) => beginDeckEditorDrag(event, cardIds.at(-1)!, "inventory", undefined, card.rarity === "rare")}
                         onDragEnd={finishDeckEditorDrag}
                         onDragOver={(event) => handleTicketDragOverCard(event, card, "inventory", undefined, cardIds.at(-1)!)}
                         onDrop={(event) => handleTicketDropOnCard(event, card, "inventory", undefined, cardIds.at(-1)!)}
@@ -606,7 +639,7 @@ className={`deck-editor-card deck-list-entry rarity-${card.rarity} ${card.rarity
                                 key={`${deck.id}-${cardIds.join("-")}`}
                                 style={deckEditorCardStackStyle(cardIds.length)}
                                 draggable
-                                onDragStart={(event) => beginDeckEditorDrag(event, cardId, "deck", deck.id)}
+                                onDragStart={(event) => beginDeckEditorDrag(event, cardId, "deck", deck.id, card.rarity === "rare")}
                                 onDragEnd={finishDeckEditorDrag}
                                 onDragOver={(event) => handleTicketDragOverCard(event, card, "deck", deck, cardId)}
                                 onDrop={(event) => handleTicketDropOnCard(event, card, "deck", deck, cardId)}
@@ -787,7 +820,7 @@ className={`deck-editor-card rarity-${card.rarity} ${card.rarity === "legendary"
                         key={`floor-${cardIds.join("-")}`}
                         style={deckEditorCardStackStyle(cardIds.length)}
                         draggable
-                        onDragStart={(event) => beginDeckEditorDrag(event, cardIds.at(-1)!, "floor")}
+                        onDragStart={(event) => beginDeckEditorDrag(event, cardIds.at(-1)!, "floor", undefined, card.rarity === "rare")}
                         onDragEnd={finishDeckEditorDrag}
                         onDragOver={(event) => handleTicketDragOverCard(event, card, "floor", undefined, cardIds.at(-1)!)}
                         onDrop={(event) => handleTicketDropOnCard(event, card, "floor", undefined, cardIds.at(-1)!)}

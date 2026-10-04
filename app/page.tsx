@@ -2721,6 +2721,57 @@ export default function Home() {
     && !blessings.includes("oneMore"),
   );
 
+  const completeRareSwap = (
+    ticketId: string | null,
+    first: { cardId: number; location: RareCardLocation },
+    second: { cardId: number; location: RareCardLocation },
+  ) => {
+    const roomKey = mapRoomKey(mapPosition);
+    const collections = {
+      ownedDecks,
+      inventoryCards,
+      floorCards: roomDrops[roomKey] ?? [],
+      pendingRemovedCards,
+      pendingRemovedCardAreas,
+    };
+    const swapped = swapRareCardCollections(collections, first, second);
+    if (!swapped) {
+      setDeckEditorMessage("서로 다른 위치의 희귀 카드 두 장을 선택하세요.");
+      return false;
+    }
+    if (!ticketId || !findTicketById(ticketId, "swapTicket")) {
+      setDeckEditorMessage(ticketId ? "교환 티켓을 찾을 수 없습니다." : "인벤토리에 교환 티켓이 없습니다.");
+      return false;
+    }
+    if (!consumeTicketById(ticketId, "swapTicket")) return false;
+    if (first.location.area === "floor") {
+      ensureTelemetryRun();
+      recordTelemetryCardAcquired(telemetry, telemetryCardSnapshot(swapped.firstCard), "floor");
+    }
+    if (second.location.area === "floor") {
+      ensureTelemetryRun();
+      recordTelemetryCardAcquired(telemetry, telemetryCardSnapshot(swapped.secondCard), "floor");
+    }
+    setOwnedDecks(swapped.collections.ownedDecks);
+    setInventoryCards(swapped.collections.inventoryCards);
+    setRoomDrops((current) => ({ ...current, [roomKey]: swapped.collections.floorCards }));
+    setPendingSwapTicketId(null);
+    setSwapSource(null);
+    setDeckEditorMessage(`${swapped.firstCard.name}과(와) ${swapped.secondCard.name}의 위치를 교환했습니다.`);
+    setHoveredDeckCard(null);
+    clearCardKeywordHover();
+    queueRunSave(RUN_SAVE_POLICY.stateChangeDelayMs);
+    return true;
+  };
+
+  const swapRareCardsByDragging = (
+    first: { cardId: number; location: RareCardLocation },
+    second: { cardId: number; location: RareCardLocation },
+  ) => {
+    const inventoryTicket = inventoryConsumablesRef.current.find((item) => item.type === "swapTicket");
+    completeRareSwap(inventoryTicket?.id ?? null, first, second);
+  };
+
   const applySwapTicketToCard = (
     ticketId: string,
     cardId: number,
@@ -2732,18 +2783,11 @@ export default function Home() {
       ? { area: "deck", deckId: deckId ?? "" }
       : { area };
     const roomKey = mapRoomKey(mapPosition);
-    const collections = {
-      ownedDecks,
-      inventoryCards,
-      floorCards: roomDrops[roomKey] ?? [],
-      pendingRemovedCards,
-      pendingRemovedCardAreas,
-    };
     const card = area === "deck"
       ? ownedDecks.find((deck) => deck.id === deckId)?.cards.find((item) => item.id === cardId)
       : area === "inventory"
         ? inventoryCards.find((item) => item.id === cardId)
-        : collections.floorCards.find((item) => item.id === cardId);
+        : (roomDrops[roomKey] ?? []).find((item) => item.id === cardId);
     if (!ticket || card?.rarity !== "rare") {
       setDeckEditorMessage("교환 티켓은 희귀 카드 두 장에만 사용할 수 있습니다.");
       return;
@@ -2759,29 +2803,7 @@ export default function Home() {
       setDeckEditorMessage("첫 번째 카드 선택을 취소했습니다. 희귀 카드 한 장을 선택하세요.");
       return;
     }
-    const swapped = swapRareCardCollections(collections, swapSource, { cardId, location });
-    if (!swapped) {
-      setDeckEditorMessage("서로 다른 위치의 희귀 카드 두 장을 선택하세요.");
-      return;
-    }
-    if (!consumeTicketById(ticketId, "swapTicket")) return;
-    if (swapSource.location.area === "floor") {
-      ensureTelemetryRun();
-      recordTelemetryCardAcquired(telemetry, telemetryCardSnapshot(swapped.firstCard), "floor");
-    }
-    if (location.area === "floor") {
-      ensureTelemetryRun();
-      recordTelemetryCardAcquired(telemetry, telemetryCardSnapshot(swapped.secondCard), "floor");
-    }
-    setOwnedDecks(swapped.collections.ownedDecks);
-    setInventoryCards(swapped.collections.inventoryCards);
-    setRoomDrops((current) => ({ ...current, [roomKey]: swapped.collections.floorCards }));
-    setPendingSwapTicketId(null);
-    setSwapSource(null);
-    setDeckEditorMessage(`${swapped.firstCard.name}과(와) ${swapped.secondCard.name}의 위치를 교환했습니다.`);
-    setHoveredDeckCard(null);
-    clearCardKeywordHover();
-    queueRunSave(RUN_SAVE_POLICY.stateChangeDelayMs);
+    completeRareSwap(ticketId, swapSource, { cardId, location });
   };
 
   const canApplyTicketToCard = (
@@ -4384,6 +4406,7 @@ export default function Home() {
           }}
           ticketActions={{
             swapSourceCardId: swapSource?.cardId ?? null,
+            swapRareCardsByDragging,
             isConsumableSelected,
             consumableDescription,
             selectExtractionTicket,
