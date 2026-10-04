@@ -3553,10 +3553,6 @@ h1 { margin: 0; font-size: 25px; font-weight: 600; }
   padding: 3px;
 }
 .card-style-simple .card-face:not(:has(.card-name.is-painted)) .card-cost { color: #fff; }
-.card-style-simple .card-face:not(:has(.card-name.is-painted)) .card-name.rarity-basic,
-.card-style-simple .card-face:not(:has(.card-name.is-painted)) .card-name.rarity-status,
-.card-style-simple .card-face:not(:has(.card-name.is-painted)) .card-name.rarity-starter,
-.card-style-simple .card-face:not(:has(.card-name.is-painted)) .card-name.rarity-special,
 .card-style-simple .card-face:not(:has(.card-name.is-painted)) .effect-keyword,
 .card-style-simple .card-face:not(:has(.card-name.is-painted)) .effect-star,
 .card-style-simple .card-face:not(:has(.card-name.is-painted)) .draw-effect {
