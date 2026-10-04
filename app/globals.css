@@ -3515,9 +3515,6 @@ h1 { margin: 0; font-size: 25px; font-weight: 600; }
   color: #252525;
   background: var(--card-paper);
 }
-.card-style-simple .card-face:not(:has(.card-name.is-painted)):has(.card-name.rarity-rare) {
-  border-color: var(--rare-border-color);
-}
 .card-style-simple .card-face:not(:has(.card-name.is-painted))::before { opacity: .08; }
 .card-style-simple .card-face:not(:has(.card-name.is-painted))::after {
   position: absolute;
@@ -5142,6 +5139,8 @@ h1 { margin: 0; font-size: 25px; font-weight: 600; }
   color: #272725;
   background: var(--card-paper);
 }
+.card-style-simple .deck-editor-card.rarity-rare,
+.card-style-simple .deck-list-entry.rarity-rare { --editor-rarity: var(--rare-color); }
 .deck-editor-card-list .consumable-ticket,
 .deck-editor-floor-cards .consumable-ticket {
   --editor-rarity: var(--ticket-border);
