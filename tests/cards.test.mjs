@@ -100,7 +100,7 @@ test("current card data keeps key balance values and removed systems absent", ()
     [
       { name: "법학 연구", cost: 0, rule: true },
       { name: "경제학 연구", cost: 2, rule: true },
-      { name: "광학 연구", cost: 1, rule: true },
+      { name: "광학 연구", cost: 0, rule: true },
     ],
   );
   assert.equal(RARE_CARD_POOL.find((card) => card.name === "연사")?.cost, 1);

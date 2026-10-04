@@ -307,7 +307,7 @@ export function CardFaceView({
       case "turtleTalisman":
         return <span>전투 덱에 있는 동안 <strong className="effect-keyword">강인함</strong>을 1 얻습니다.</span>;
       case "lawResearch":
-        return <span>내 <strong className="effect-keyword">룰</strong> 카드의 비용이 1 감소합니다. 비용은 0 이하가 될 수 있습니다.</span>;
+        return <span>내 <strong className="effect-keyword">룰</strong> 카드의 비용이 1 감소합니다.</span>;
       case "mirrorImage":
         return <span>내 <span className="effect-type physical">방어</span>와 <span className="effect-type magic">마법 방어</span> 수치를 서로 바꿉니다.</span>;
       case "blessing":
@@ -315,9 +315,9 @@ export function CardFaceView({
       case "odinSpear":
         return <><span>모든 적에게 <span className="effect-type damage">피해</span>를 {damageNumber} 줍니다.</span><span><span className="effect-type physical">방어</span>를 {defenseNumber} 얻습니다.</span><span>다른 카드를 <strong className="effect-keyword">재련</strong>할 때마다 비용이 1 감소합니다.</span></>;
       case "massDeal":
-        return <><span>빈 파일을 하나 만듭니다.</span><span>카드를 섞을 때마다 각 파일의 카드 수가 최대한 같도록 놓습니다.</span><span>{card.forged ? "즉시 파일을 다시 섞습니다." : "[즉시 파일을 다시 섞습니다.]"}</span></>;
+        return <><span>빈 파일을 하나 만듭니다.</span><span>카드를 섞을 때마다 각 파일의 카드 수가 최대한 같도록 놓습니다.</span></>;
       case "sturdyStance":
-        return <span>턴 종료 시 방어와 마법 방어를 절반 보존합니다. <span className="effect-type physical">방어</span>를 10 얻습니다.</span>;
+        return <span>턴 종료 시 <strong className="effect-type physical effect-type-bold">방어</strong>와 <strong className="effect-type magic effect-type-bold">마법 방어</strong>를 절반 보존합니다. <strong className="effect-type physical effect-type-bold">방어</strong>를 10 얻습니다.</span>;
       case "charge":
         return <span><strong className="effect-keyword">에너지</strong>를 {card.value} 얻습니다.</span>;
       case "weaponSharpen":
@@ -401,7 +401,7 @@ export function CardFaceView({
       )}
       {!UNPLAYABLE_CARD_EFFECTS.has(card.effect) && <span className={`card-cost ${costChangeClass}`}>{displayedCost}</span>}
       <strong className={`card-name rarity-${card.rarity} watermark-category-${cardWatermarkCategory(card)} ${UNPLAYABLE_CARD_EFFECTS.has(card.effect) ? "is-unplayable" : ""} ${card.rarity === "legendary" ? "is-painted is-legendary" : ""}`}>
-        {card.name}{card.effect === "obsidianDagger" && cardForgeCount(card) > 0 ? ` +${cardForgeCount(card)}` : card.forged && !["astronomyResearch", "necromancyResearch"].includes(card.effect) ? "+" : ""}
+        {card.name}{card.effect === "obsidianDagger" && cardForgeCount(card) > 0 ? ` +${cardForgeCount(card)}` : card.forged && !["astronomyResearch", "necromancyResearch", "massDeal"].includes(card.effect) ? "+" : ""}
       </strong>
       <span ref={cardEffectRef} className="card-effect">{emphasizeEffectNumbers(<>
         <span className="card-effect-copy">
@@ -421,9 +421,9 @@ export function CardFaceView({
             {cardForgeCount(card) > 0 && <strong className="solitaire-rule forge-rule effect-keyword">재련됨.</strong>}
             <strong className="solitaire-rule forge-rule"><span className="effect-keyword">재련</span> x{obsidianDaggerForgesRemaining(cardForgeCount(card))}: [공격]</strong>
           </>
-          : card.forged && card.effect !== "massDeal" && !["astronomyResearch", "necromancyResearch"].includes(card.effect)
+          : card.forged && !["astronomyResearch", "necromancyResearch", "massDeal"].includes(card.effect)
             ? <strong className="solitaire-rule forge-rule effect-keyword">재련됨.</strong>
-            : !(card.forged && card.effect === "massDeal") && !["astronomyResearch", "necromancyResearch"].includes(card.effect)
+            : card.effect !== "massDeal" && !["astronomyResearch", "necromancyResearch"].includes(card.effect)
               && (card.forgeCost !== undefined || card.forgeCosts || card.forgeTargetName || card.forgeAny)
               && <strong className="solitaire-rule forge-rule"><span className="effect-keyword">재련</span>: {forgeConditionText(card)}</strong>}
       </>)}</span>

@@ -136,19 +136,6 @@ export function createDeck(): Card[] {
   return blueprints.map((card, id) => ({ ...card, id, revealed: false }));
 }
 
-export function createStarterInventoryCards(startId: number): Card[] {
-  const strike = STARTER_CARD_POOL.find((card) => card.effect === "strike");
-  const defense = STARTER_CARD_POOL.find(
-    (card) => card.effect === "defend" && card.damageType === "physical",
-  );
-  if (!strike || !defense) throw new Error("Missing starting inventory cards.");
-
-  return [
-    ...Array.from({ length: 3 }, (_, index) => ({ ...strike, id: startId + index, revealed: false })),
-    ...Array.from({ length: 3 }, (_, index) => ({ ...defense, id: startId + 3 + index, revealed: false })),
-  ];
-}
-
 export function createDebugAllCardsDeck(startId: number): { deck: DeckCase; nextCardId: number } {
   let nextCardId = startId;
   const cards = [

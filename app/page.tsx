@@ -93,7 +93,6 @@ import {
   createDebugAllCardsDeck,
   createRegionDeck,
   createStarterDeck,
-  createStarterInventoryCards,
   getDeckEditionColor,
   type Consumable,
   type ConsumableType,
@@ -2233,7 +2232,6 @@ export default function Home() {
     setDebugMode(false);
     const nextSeed = createRandomMapSeed();
     const starterDeck = createStarterDeck();
-    const startingInventoryCards = createStarterInventoryCards(starterDeck.cards.length);
     setPlayerName(createRandomPlayerName());
     setPlayerNameSetupOpen(true);
     runPlayerHpRef.current = MAX_PLAYER_HP;
@@ -2291,7 +2289,7 @@ export default function Home() {
     setOwnedDecks([starterDeck]);
     setActiveDeckId(starterDeck.id);
     setDeckSelectionAttention(false);
-    setInventoryCards(startingInventoryCards);
+    setInventoryCards([]);
     nextConsumableIdRef.current = 1;
     setInventoryConsumables([nextConsumable("extractTicket")]);
     setRoomDeckDrops({});
@@ -2322,7 +2320,7 @@ export default function Home() {
     setPendingExtractTicketId(null);
     setPendingTransformTicketId(null);
       setArmedBombTicketIds(new Set());
-      nextCardIdRef.current = starterDeck.cards.length + startingInventoryCards.length;
+      nextCardIdRef.current = starterDeck.cards.length;
       setGame(waitingState());
     setPhase("drawing");
     setScreen("map");

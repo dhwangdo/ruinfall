@@ -398,18 +398,7 @@ export function createResolvePlayedCard(context: ResolvePlayedCardContext) {
         ?? dashRandomResult?.piles
         ?? current.piles;
       const massDealPiles = isMassDeal
-        ? card.forged
-          ? buildPiles(
-            prepareDeckForPiles(current.piles.flat()),
-            current.deckEditions.includes("fantastic") ? 4 : 5,
-            false,
-            0,
-            false,
-            current.piles.length + 1,
-            true,
-            current.clairvoyanceActive ? .25 : 0,
-          )
-          : [...current.piles.map((pile) => [...pile]), []]
+        ? [...current.piles.map((pile) => [...pile]), []]
         : pilesAfterCardDraw;
       const automaticDrawnCards = drawEachPileResult?.hand
         ?? pommelDrawResult?.hand
@@ -456,9 +445,7 @@ export function createResolvePlayedCard(context: ResolvePlayedCardContext) {
         if (isWave) return `${targetEnemy?.name}에게 피해 ${damage} · ${DEFENSE_LABEL[card.damageType]} ${blockGained}${repetitions > 1 ? " (2회 발동)" : ""}`;
         if (isSuppression) return `${targetEnemy?.name}에게 피해 ${damage} · 방어 ${blockGained} 획득`;
         if (isStarArk) return `방어 ${blockGained} · 마법 방어 ${blockGained} · ★ 획득`;
-        if (isMassDeal) return card.forged
-          ? "대분배: 파일을 균등하게 재분배하고 빈 파일을 추가"
-          : "대분배: 빈 파일을 추가";
+        if (isMassDeal) return "대분배: 빈 파일을 추가";
         if (isSturdyStance) return "견고한 태세: 턴 종료 시 방어 절반 보존";
         if (card.effect === "astronomyResearch") return "천문학 연구: ★★로 파일 드로우";
         if (card.effect === "necromancyResearch") return "강령학 연구: ★★★로 버린 카드 드로우";
