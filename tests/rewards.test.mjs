@@ -96,6 +96,8 @@ test("region deck shape keeps the chosen sum and rejects rare overflow", () => {
     assert.equal(shape.sum, expectedSum);
     assert.equal(shape.x + shape.y + shape.z, expectedSum);
     assert.ok([shape.x, shape.y, shape.z].every((value) => value >= -7));
+    assert.equal(shape.capacity, 20 + (7 + shape.x) * 5);
+    assert.equal(shape.rareCount, 7 + shape.y);
     assert.ok(shape.rareCount <= shape.capacity);
     assert.equal(shape.editionBudget, (7 + shape.z) * 10);
   }
@@ -114,6 +116,13 @@ test("region deck uses its shape and adds deck-size blessing capacity last", () 
 
 test("region filler bags still leave three eighths of slots empty", () => {
   const deck = createRegionDeck(0, 200, 0, () => 0);
-  assert.equal(deck.capacity, 15);
-  assert.equal(deck.cards.length, 6);
+  assert.equal(deck.capacity, 20);
+  assert.equal(deck.cards.length, 5);
+});
+
+test("region deck draws rare cards without repeating before exhausting the pool", () => {
+  const deck = createRegionDeck(7, 300, 0, () => 0.5);
+  const rareNames = deck.cards.filter((card) => card.rarity === "rare").map((card) => card.name);
+  assert.ok(rareNames.length > 1);
+  assert.equal(new Set(rareNames).size, rareNames.length);
 });

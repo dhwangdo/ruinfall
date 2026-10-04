@@ -245,12 +245,20 @@ export const ALL_CARD_BLUEPRINTS = uniqueCardBlueprints([
 ]);
 
 export const DEBUG_ALL_CARD_BLUEPRINTS: CardBlueprint[] = ALL_CARD_BLUEPRINTS;
+export const CARD_RARITY_SORT_RANK: Record<CardRarity, number> = {
+  legendary: 0,
+  rare: 1,
+  special: 2,
+  basic: 3,
+  starter: 4,
+  status: 5,
+};
 export const DEBUG_CARD_RARITIES: Array<{ rarity: CardRarity; label: string }> = [
-  { rarity: "starter", label: "시작 카드" },
-  { rarity: "basic", label: "일반 카드" },
-  { rarity: "special", label: "특별 카드" },
-  { rarity: "rare", label: "희귀 카드" },
   { rarity: "legendary", label: "전설 카드" },
+  { rarity: "rare", label: "희귀 카드" },
+  { rarity: "special", label: "특별 카드" },
+  { rarity: "basic", label: "일반 카드" },
+  { rarity: "starter", label: "시작 카드" },
   { rarity: "status", label: "상태이상 카드" },
 ];
 

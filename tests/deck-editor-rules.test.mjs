@@ -7,6 +7,7 @@ import {
 } from "../app/game/deckEditorRules.ts";
 import { swapRareCardCollections, transitionDeckEditorCardCollections } from "../app/game/deckEditorTransitions.ts";
 import { groupAndSortDeckEditorCards } from "../app/game/deckEditorViews.ts";
+import { sortBattleHandByCost } from "../app/game/battleHandRules.ts";
 import { createDeckEditorSnapshot } from "../app/hooks/useDeckEditorSession.ts";
 
 const baseRequest = {
@@ -302,4 +303,15 @@ test("newly transformed cards stay separate from their matching stack", () => {
   ];
   const groups = groupAndSortDeckEditorCards(cards, "rarity", new Set([11]));
   assert.deepEqual(groups.map((group) => group.cardIds), [[10], [11]]);
+});
+
+test("rarity sorting puts higher rarities first, including equal-cost ties", () => {
+  const cards = [
+    { id: 1, name: "Basic", effect: "strike", damageType: "physical", cost: 1, rarity: "basic" },
+    { id: 2, name: "Rare", effect: "strike", damageType: "physical", cost: 1, rarity: "rare" },
+    { id: 3, name: "Legendary", effect: "strike", damageType: "physical", cost: 2, rarity: "legendary" },
+  ];
+  assert.deepEqual(groupAndSortDeckEditorCards(cards, "rarity", new Set()).map(({ card }) => card.id), [3, 2, 1]);
+  assert.deepEqual(groupAndSortDeckEditorCards(cards, "cost", new Set()).map(({ card }) => card.id), [2, 1, 3]);
+  assert.deepEqual(sortBattleHandByCost(cards, 0, 0).map((card) => card.id), [2, 1, 3]);
 });

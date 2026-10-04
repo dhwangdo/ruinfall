@@ -57,6 +57,7 @@ import { MapTopbar } from "./components/MapTopbar";
 import {
   ALL_CARD_BLUEPRINTS,
   BASIC_CARD_POOL,
+  CARD_RARITY_SORT_RANK,
   DEBUG_CARD_RARITIES,
   RARE_CARD_POOL,
   SPECIAL_CARD_POOL,
@@ -3949,15 +3950,7 @@ export default function Home() {
       || currentFloorCards.length > 0
       || currentFloorConsumables.length > 0
       || currentFloorDecks.length > 0;
-    const rarityOrder: Record<Card["rarity"], number> = {
-      status: 0,
-      starter: 1,
-      basic: 2,
-      special: 3,
-      rare: 4,
-      legendary: 5,
-    };
-    const cardRarityRank = (card: Card) => rarityOrder[card.rarity];
+    const cardRarityRank = (card: Card) => CARD_RARITY_SORT_RANK[card.rarity];
     const cardSortCost = (card: Card) => UNPLAYABLE_CARD_EFFECTS.has(card.effect)
       ? -1
       : card.effect === "ironWall" ? IRON_WALL_COST : card.cost ?? -1;

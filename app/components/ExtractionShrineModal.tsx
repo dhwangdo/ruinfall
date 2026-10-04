@@ -3,7 +3,7 @@ import { CardFace } from "./CardFace";
 import { DeckName } from "./DeckName";
 import type { Card } from "../game/cards";
 import { IRON_WALL_COST } from "../game/cardEffects";
-import { UNPLAYABLE_CARD_EFFECTS } from "../game/cards";
+import { CARD_RARITY_SORT_RANK, UNPLAYABLE_CARD_EFFECTS } from "../game/cards";
 import type { DeckCase } from "../game/rewards";
 import type { ShrineResult } from "../game/runTypes";
 
@@ -35,15 +35,7 @@ export function ExtractionShrineModal({
 
   const deck = decks.find((item) => item.id === deckId) ?? decks[0];
   const pendingCards = deck?.cards.filter((card) => pendingCardIds.includes(card.id)) ?? [];
-  const rarityOrder: Record<Card["rarity"], number> = {
-    status: 0,
-    starter: 1,
-    basic: 2,
-    special: 3,
-    rare: 4,
-    legendary: 5,
-  };
-  const cardRarityRank = (card: Card) => rarityOrder[card.rarity];
+  const cardRarityRank = (card: Card) => CARD_RARITY_SORT_RANK[card.rarity];
   const cardSortCost = (card: Card) => UNPLAYABLE_CARD_EFFECTS.has(card.effect)
     ? -1
     : card.effect === "ironWall" ? IRON_WALL_COST : card.cost ?? -1;

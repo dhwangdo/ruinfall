@@ -1,14 +1,5 @@
-import { UNPLAYABLE_CARD_EFFECTS, type Card } from "./cards.ts";
+import { CARD_RARITY_SORT_RANK, UNPLAYABLE_CARD_EFFECTS, type Card } from "./cards.ts";
 import { cardEnergyCost } from "./cardEffects.ts";
-
-const rarityOrder: Record<Card["rarity"], number> = {
-  starter: 0,
-  basic: 1,
-  special: 2,
-  rare: 3,
-  legendary: 4,
-  status: 5,
-};
 
 export function sortBattleHandByCost(hand: Card[], lawResearchCount: number, forgeCount: number): Card[] {
   const sortCost = (card: Card) => UNPLAYABLE_CARD_EFFECTS.has(card.effect)
@@ -27,7 +18,7 @@ export function sortBattleHandByCost(hand: Card[], lawResearchCount: number, for
       const rightCost = sortCost(right.card);
       const costOrder = leftCost === rightCost ? 0 : leftCost - rightCost;
       return costOrder
-        || rarityOrder[left.card.rarity] - rarityOrder[right.card.rarity]
+        || CARD_RARITY_SORT_RANK[left.card.rarity] - CARD_RARITY_SORT_RANK[right.card.rarity]
         || left.index - right.index;
     })
     .map(({ card }) => ({ ...card, drawSlot: undefined, drawSlotCount: undefined }));

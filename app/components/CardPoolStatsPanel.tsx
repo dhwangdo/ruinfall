@@ -6,12 +6,12 @@ import {
   CARD_POOL_ENERGY_EFFECTS,
   CARD_POOL_STAR_EFFECTS,
   CARD_POOL_STATUS_EFFECTS,
+  CARD_RARITY_SORT_RANK,
   DEBUG_CARD_RARITIES,
   cardGivesMagicDefense,
   cardGivesPhysicalDefense,
   isAttackCard,
   type CardBlueprint,
-  type CardRarity,
 } from "../game/cards";
 import { cardPoolCost, cardPoolShare } from "../game/cardEffects";
 import { DeckEditorCardIcon } from "./DeckEditorCardIcon";
@@ -68,9 +68,8 @@ export function CardPoolStatsPanel({ onClose }: { onClose: () => void }) {
     label,
     cards: cards.filter(match),
   }));
-  const rarityOrder: Record<CardRarity, number> = { status: 0, starter: 1, basic: 2, special: 3, rare: 4, legendary: 5 };
   const sortedCards = (groupCards: CardBlueprint[]) => [...groupCards].sort((left, right) => (
-    rarityOrder[left.rarity] - rarityOrder[right.rarity]
+    CARD_RARITY_SORT_RANK[left.rarity] - CARD_RARITY_SORT_RANK[right.rarity]
     || cardPoolCost(left) - cardPoolCost(right)
     || left.name.localeCompare(right.name, "ko")
   ));

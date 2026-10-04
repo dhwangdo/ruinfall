@@ -1,17 +1,8 @@
 import type { Card } from "./cards.ts";
-import { UNPLAYABLE_CARD_EFFECTS } from "./cards.ts";
+import { CARD_RARITY_SORT_RANK, UNPLAYABLE_CARD_EFFECTS } from "./cards.ts";
 import { IRON_WALL_COST } from "./cardEffects.ts";
 
 export type DeckEditorCardGroup = { card: Card; cardIds: number[] };
-
-const rarityOrder: Record<Card["rarity"], number> = {
-  status: 0,
-  starter: 1,
-  basic: 2,
-  special: 3,
-  rare: 4,
-  legendary: 5,
-};
 
 function cardSortCost(card: Card) {
   return UNPLAYABLE_CARD_EFFECTS.has(card.effect)
@@ -46,9 +37,9 @@ export function groupAndSortDeckEditorCards(
   return [...groups.values()].sort((left, right) => {
     const primary = sort === "cost"
       ? cardSortCost(left.card) - cardSortCost(right.card)
-      : rarityOrder[left.card.rarity] - rarityOrder[right.card.rarity];
+      : CARD_RARITY_SORT_RANK[left.card.rarity] - CARD_RARITY_SORT_RANK[right.card.rarity];
     const secondary = sort === "cost"
-      ? rarityOrder[left.card.rarity] - rarityOrder[right.card.rarity]
+      ? CARD_RARITY_SORT_RANK[left.card.rarity] - CARD_RARITY_SORT_RANK[right.card.rarity]
       : cardSortCost(left.card) - cardSortCost(right.card);
     return primary || secondary || left.card.name.localeCompare(right.card.name, "ko");
   });

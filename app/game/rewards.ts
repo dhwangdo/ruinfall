@@ -307,7 +307,7 @@ export function calculateDeckScore(deck: Pick<DeckCase, "capacity" | "cards" | "
   };
 }
 
-const REGION_DECK_STARTING_CAPACITY = 15;
+const REGION_DECK_STARTING_CAPACITY = 20;
 
 function randomItem<T>(pool: T[], random: () => number) {
   const index = Math.min(pool.length - 1, Math.floor(Math.max(0, Math.min(0.999999999, random())) * pool.length));
@@ -337,7 +337,7 @@ export function rollRegionDeckShape(regionNumber: number, random: () => number =
       const capacity = REGION_DECK_STARTING_CAPACITY + (region + x) * 5;
       const rareCount = region + y;
       if (rareCount > capacity) continue;
-      const weight = 2 ** -(Math.abs(x) + Math.abs(y) + Math.abs(z));
+      const weight = 2 ** -(x * x + y * y + z * z);
       totalWeight += weight;
       candidates.push({ shape: {
         x, y, z, sum, capacity, rareCount, editionBudget: (region + z) * 10,
@@ -422,8 +422,10 @@ function generateRegionDeck(
   const { capacity, rareCount, editionBudget } = rollRegionDeckShape(regionNumber, random);
   const cards: Card[] = [];
   let nextCardId = startCardId;
+  let rareBag = [...RARE_CARD_POOL];
   for (let index = 0; index < rareCount; index += 1) {
-    nextCardId = addRegionDeckCard(cards, randomItem(RARE_CARD_POOL, random), nextCardId);
+    if (rareBag.length === 0) rareBag = [...RARE_CARD_POOL];
+    nextCardId = addRegionDeckCard(cards, takeRandomBagItem(rareBag, random), nextCardId);
   }
 
   let remainingScore = editionBudget;
