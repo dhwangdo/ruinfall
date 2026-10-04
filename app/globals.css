@@ -5215,6 +5215,21 @@ h1 { margin: 0; font-size: 25px; font-weight: 600; }
 .deck-editor-card .inventory-card-count,
 .deck-list-entry .inventory-card-count,
 .consumable-ticket .inventory-card-count { font-weight: 800; }
+.deck-editor-panel .deck-editor-card,
+.deck-editor-panel .consumable-ticket,
+.deck-editor-panel .deck-editor-empty-card-slot {
+  flex: 0 0 81.4px;
+  width: 81.4px;
+  height: 81.4px;
+  min-height: 81.4px;
+}
+.deck-editor-panel .deck-editor-card .editor-card-name,
+.deck-editor-panel .consumable-ticket > strong { font-size: 13.2px; }
+.deck-editor-panel .deck-editor-card .editor-card-cost { font-size: 16.5px; }
+.deck-editor-panel .deck-editor-card .inventory-card-count,
+.deck-editor-panel .consumable-ticket .inventory-card-count { font-size: 14.3px; }
+.deck-editor-panel .deck-card-new,
+.deck-editor-panel .deck-card-painted { font-size: 8.8px; }
 .deck-editor-trash-row .trash-card-preview > .editor-card-cost {
   display: block;
   width: auto;
