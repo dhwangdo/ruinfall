@@ -273,6 +273,14 @@ export function DeckEditorModal(props: DeckEditorModalProps) {
   const ticketDropKey = (area: "inventory" | "deck" | "floor", cardId: number, deckId?: string) =>
     `${area}:${deckId ?? ""}:${cardId}`;
 
+  const shouldSwapDraggedRareCard = (drag: CardDrag, targetArea: "inventory" | "deck" | "floor") => {
+    if (!drag?.isRare) return false;
+    const directInventoryFloorMove = (drag.source === "inventory" && targetArea === "floor")
+      || (drag.source === "floor" && targetArea === "inventory");
+    return !directInventoryFloorMove
+      || inventoryConsumableGroups.some(({ consumable }) => consumable.type === "swapTicket");
+  };
+
   const handleTicketDragOverCard = (
     event: DragEvent<HTMLElement>,
     card: Card,
@@ -281,7 +289,7 @@ export function DeckEditorModal(props: DeckEditorModalProps) {
     targetCardId = card.id,
   ) => {
     const cardDrag = deckEditorDragRef.current ?? deckEditorDrag;
-    if (cardDrag?.isRare && card.rarity === "rare") {
+    if (cardDrag?.isRare && card.rarity === "rare" && shouldSwapDraggedRareCard(cardDrag, area)) {
       event.preventDefault();
       event.stopPropagation();
       event.dataTransfer.dropEffect = "move";
@@ -310,7 +318,7 @@ export function DeckEditorModal(props: DeckEditorModalProps) {
     targetCardId = card.id,
   ) => {
     const cardDrag = deckEditorDragRef.current ?? deckEditorDrag;
-    if (cardDrag?.isRare && card.rarity === "rare" && cardDrag.source !== "pendingRemoval") {
+    if (cardDrag?.isRare && card.rarity === "rare" && shouldSwapDraggedRareCard(cardDrag, area) && cardDrag.source !== "pendingRemoval") {
       event.preventDefault();
       event.stopPropagation();
       const sourceLocation: RareCardLocation = cardDrag.source === "deck"

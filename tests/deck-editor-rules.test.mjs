@@ -89,10 +89,11 @@ test("safe-area editing ignores origin deck restrictions", () => {
   }), { allowed: true, action: "move" });
 });
 
-test("rare cards cannot move, extract, or schedule removal in any area", () => {
+test("rare cards cannot move into or out of decks, extract, or schedule removal", () => {
   for (const request of [
     { ...baseRequest, safeArea: true },
     { ...baseRequest, source: { area: "inventory" }, target: { area: "deck", deckId: "A" } },
+    { ...baseRequest, source: { area: "floor" }, target: { area: "deck", deckId: "A" } },
     { ...baseRequest, target: { area: "floor" } },
     { ...baseRequest, target: { area: "inventory" }, viaExtractionTicket: true },
   ]) {
@@ -101,6 +102,30 @@ test("rare cards cannot move, extract, or schedule removal in any area", () => {
       reason: "rare-locked",
     });
   }
+});
+
+test("rare cards move directly between inventory and floor while respecting inventory capacity", () => {
+  const inventoryToFloor = {
+    ...baseRequest,
+    isRare: true,
+    source: { area: "inventory" },
+    target: { area: "floor" },
+  };
+  assert.deepEqual(validateDeckEditorCardMove(inventoryToFloor), { allowed: true, action: "move" });
+  const floorToInventory = {
+    ...inventoryToFloor,
+    source: { area: "floor" },
+    target: { area: "inventory" },
+  };
+  assert.deepEqual(validateDeckEditorCardMove(floorToInventory), { allowed: true, action: "move" });
+  assert.deepEqual(validateDeckEditorCardMove({
+    ...floorToInventory,
+    inventoryItemCount: 10,
+  }), { allowed: false, reason: "inventory-full" });
+  assert.deepEqual(validateDeckEditorCardMove({
+    ...floorToInventory,
+    viaExtractionTicket: true,
+  }), { allowed: false, reason: "rare-locked" });
 });
 
 test("swap ticket exchanges rare cards across deck, inventory, and floor", () => {

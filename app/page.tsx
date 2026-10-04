@@ -2526,7 +2526,7 @@ export default function Home() {
   };
 
   const deckEditorMoveErrorMessage = (reason: DeckEditorMoveBlockReason, targetDeck?: DeckCase) => {
-    if (reason === "rare-locked") return "희귀 카드는 교환 티켓으로만 위치를 바꿀 수 있습니다.";
+    if (reason === "rare-locked") return "희귀 카드는 인벤토리와 바닥 사이에서만 직접 이동할 수 있습니다. 덱을 오갈 때는 교환 티켓을 쓰세요.";
     if (reason === "inventory-full") return "인벤토리가 가득 찼습니다.";
     if (reason === "deck-full") return `${targetDeck?.name ?? "현재 덱"}에는 더 이상 카드를 넣을 수 없습니다.`;
     if (reason === "extract-original-only") return "추출 티켓은 편집 시작 당시 덱에 있던 카드에만 사용할 수 있습니다.";
@@ -3158,7 +3158,7 @@ export default function Home() {
     const floorConsumables = roomConsumableDrops[roomKey] ?? [];
     const floorDecks = roomDeckDrops[roomKey] ?? [];
     const freeItemSlots = Math.max(0, inventoryCapacity - inventoryItemCount);
-    const pickedCards = floorCards.filter((card) => card.rarity !== "rare").slice(0, freeItemSlots);
+    const pickedCards = floorCards.slice(0, freeItemSlots);
     const pickedConsumables = floorConsumables.slice(0, freeItemSlots - pickedCards.length);
     const pickedDecks = floorDecks.slice(0, Math.max(0, maxOwnedDecks - ownedDecks.length));
     if (pickedCards.length + pickedConsumables.length + pickedDecks.length > 0) ensureTelemetryRun();
@@ -3191,9 +3191,7 @@ export default function Home() {
       setOwnedDecks((current) => [...current, ...pickedDecks]);
       setDeckSelectionAttention(true);
     }
-    if (floorCards.some((card) => card.rarity === "rare")) {
-      showMapMessage("희귀 카드는 교환 티켓으로만 위치를 바꿀 수 있습니다.");
-    } else if (floorCards.length + floorConsumables.length > freeItemSlots) {
+    if (floorCards.length + floorConsumables.length > freeItemSlots) {
       showMapMessage("인벤토리가 가득찼습니다!");
     }
     if (pickedCards.length + pickedConsumables.length + pickedDecks.length > 0) queueRunSave();

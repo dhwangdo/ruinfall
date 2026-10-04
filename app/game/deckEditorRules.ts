@@ -57,7 +57,11 @@ export function validateDeckEditorCardMove(request: DeckEditorMoveRequest): Deck
   const sameLocation = request.source.area === request.target.area
     && (request.source.area !== "deck" || request.source.deckId === request.target.deckId);
   if (sameLocation) return { allowed: false, reason: "same-location" };
-  if (request.isRare) return { allowed: false, reason: "rare-locked" };
+  const rareInventoryFloorMove = request.isRare
+    && !request.viaExtractionTicket
+    && ((request.source.area === "inventory" && request.target.area === "floor")
+      || (request.source.area === "floor" && request.target.area === "inventory"));
+  if (request.isRare && !rareInventoryFloorMove) return { allowed: false, reason: "rare-locked" };
 
   const inventoryItemCountAfterMove = Math.max(
     0,
@@ -68,6 +72,7 @@ export function validateDeckEditorCardMove(request: DeckEditorMoveRequest): Deck
     && inventoryItemCountAfterMove >= request.inventoryCapacity) {
     return { allowed: false, reason: "inventory-full" };
   }
+  if (rareInventoryFloorMove) return { allowed: true, action: "move" };
   if (request.target.area === "deck"
     && (request.source.area !== "deck" || request.source.deckId !== request.target.deckId)
     && (request.targetDeckCardCount ?? 0) >= (request.targetDeckCapacity ?? 0)) {
