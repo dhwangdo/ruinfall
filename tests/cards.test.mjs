@@ -80,7 +80,7 @@ test("current card data keeps key balance values and removed systems absent", ()
       cost: obsidianDagger.cost,
       value: obsidianDagger.value,
     },
-    { effect: "obsidianDagger", rarity: "rare", cost: 3, value: 1 },
+    { effect: "obsidianDagger", rarity: "rare", cost: 2, value: 1 },
   );
   assert.equal(RARE_CARD_POOL.find((card) => card.name === "초신성")?.value, 3);
   const oldCore = SPECIAL_CARD_POOL.find((card) => card.name === "낡은 노심");

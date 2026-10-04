@@ -5,7 +5,7 @@ import type { SavedRunState } from "./runTypes";
 const REMOVED_EFFECTS = new Set(["sacrifice", "magicCrystal", "delay", "boneArmor", "steelHeart"]);
 const REMOVED_CARD_NAMES = new Set(["불티", "잔바위", "유예", "뼈 갑옷", "환기"]);
 const RESTORED_EFFECTS = new Set([
-  "rapidFire", "supernova", "meteor", "sturdyStance", "lawResearch", "economicsResearch", "lightTravelTime", "wolfTalisman", "turtleTalisman",
+  "rapidFire", "supernova", "meteor", "sturdyStance", "lawResearch", "economicsResearch", "lightTravelTime", "wolfTalisman", "turtleTalisman", "obsidianDagger",
 ]);
 
 function restoreLegacyCard(card: Card): Card | null {

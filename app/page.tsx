@@ -253,7 +253,7 @@ const COMMIT_HASH = process.env.NEXT_PUBLIC_COMMIT_HASH ?? "dev";
 const COMMIT_DATE = process.env.NEXT_PUBLIC_COMMIT_DATE ?? "unknown";
 const INVENTORY_CAPACITY = 18;
 const MAX_OWNED_DECKS = 3;
-const DEBUG_MAX_OWNED_DECKS = 100;
+const DEBUG_MAX_OWNED_DECKS = 10;
 const MAP_TRAVEL_STEP_MS = 140;
 const MAP_COLLISION_OVERLAP_MS = 280;
 const MAP_BATTLE_FLASH_MS = 600;
@@ -550,8 +550,9 @@ export default function Home() {
     : consumable.description;
   const deckCards = activeDeck?.cards ?? [];
   const inventoryCapacity = INVENTORY_CAPACITY + (blessings.includes("bag") ? 18 : 0);
-  const maxOwnedDecks = (debugMode ? DEBUG_MAX_OWNED_DECKS : MAX_OWNED_DECKS)
-    + (blessings.includes("bag") ? 2 : 0);
+  const maxOwnedDecks = debugMode
+    ? DEBUG_MAX_OWNED_DECKS
+    : MAX_OWNED_DECKS + (blessings.includes("bag") ? 2 : 0);
   const calculatedMaxPlayerHp = debugMode
     ? DEBUG_PLAYER_HP
     : MAX_PLAYER_HP + (blessings.includes("sturdy") ? 20 : 0) + vitalityShrineMaxHpBonus;
