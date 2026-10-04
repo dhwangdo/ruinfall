@@ -494,7 +494,6 @@ export function createResolvePlayedCard(context: ResolvePlayedCardContext) {
         if (card.effect === "charge") return "충전: 에너지 획득";
         if (card.effect === "plateArmor") return `낡은 노심: 에너지 ${card.forged ? 3 : 1} 획득`;
         if (card.effect === "warmUp") return "준비 운동: 이번 턴 힘 획득";
-        if (card.effect === "fourHit") return "5연격";
         if (card.effect === "doubleHit") return `청동 철퇴: ${card.forged ? 2 : 1}회 공격`;
         if (card.effect === "starlight") return "별빛: ★ 획득";
         if (card.effect === "augment") return "증강: 힘과 강인함 획득";

@@ -130,10 +130,14 @@ export function CardFaceView({
     const fitEffectText = () => {
       if (!active) return;
       const sentences = Array.from(copy.querySelectorAll<HTMLElement>(".effect-sentence"));
-      sentences.forEach((sentence) => {
-        sentence.style.removeProperty("--effect-sentence-scale");
-        sentence.style.removeProperty("letter-spacing");
-        sentence.classList.remove("is-wrapped");
+      const keywordUnits = Array.from(copy.querySelectorAll<HTMLElement>(".effect-keyword-unit"));
+      const keywordFitTargets = Array.from(copy.querySelectorAll<HTMLElement>(".effect-keyword-unit, .effect-sentence-body"));
+      const allFitTargets = Array.from(copy.querySelectorAll<HTMLElement>(".effect-sentence, .effect-keyword-unit, .effect-sentence-body"));
+      copy.classList.remove("is-keyword-separated");
+      allFitTargets.forEach((target) => {
+        target.style.removeProperty("--effect-sentence-scale");
+        target.style.removeProperty("letter-spacing");
+        target.classList.remove("is-wrapped");
       });
       // Layout dimensions stay stable while the hand rotates or enlarges cards.
       const availableWidth = copy.clientWidth;
@@ -147,32 +151,44 @@ export function CardFaceView({
           : 0;
       };
       const hasCopyText = Boolean(copy.textContent?.trim());
-      sentences.forEach((sentence) => {
-        sentence.style.setProperty("display", "inline");
-        sentence.style.setProperty("white-space", "normal");
-      });
-      const baseCopyLineCount = hasCopyText ? getLineCount(copy) : 0;
+      let baseCopyLineCount = 0;
+      if (keywordUnits.length > 0) {
+        copy.classList.add("is-keyword-separated");
+        keywordFitTargets.forEach((target) => target.classList.toggle("is-wrapped", target.offsetWidth > availableWidth));
+        baseCopyLineCount = hasCopyText ? getLineCount(copy) : 0;
+        copy.classList.remove("is-keyword-separated");
+        keywordFitTargets.forEach((target) => target.classList.remove("is-wrapped"));
+      } else {
+        sentences.forEach((sentence) => {
+          sentence.style.setProperty("display", "inline");
+          sentence.style.setProperty("white-space", "normal");
+        });
+        baseCopyLineCount = hasCopyText ? getLineCount(copy) : 0;
+        sentences.forEach((sentence) => {
+          sentence.style.removeProperty("display");
+          sentence.style.removeProperty("white-space");
+        });
+      }
       const baseLineCount = baseCopyLineCount + segments.reduce((total, segment) => total + getLineCount(segment), 0);
-      sentences.forEach((sentence) => {
-        sentence.style.removeProperty("display");
-        sentence.style.removeProperty("white-space");
-        });
-        const maxLetterSpacingReduction = baseLineCount >= 4 ? 0.12 : 0;
-        const widths = sentences.map((sentence) => sentence.offsetWidth);
-        const fits = sentences.map((sentence, index) => fittedEffectSentenceStyle(widths[index], availableWidth, minimumScale, (scale, letterSpacing) => {
-            sentence.style.setProperty("--effect-sentence-scale", String(scale));
-            sentence.style.letterSpacing = `${letterSpacing}px`;
-            return sentence.offsetWidth;
-          }, maxLetterSpacingReduction));
-        const sharedScale = fits.length > 0 ? Math.min(...fits.map((fit) => fit.scale)) : 1;
-        sentences.forEach((sentence, index) => {
-          const fit = fits[index];
-          const letterSpacing = fit.scale === sharedScale ? fit.letterSpacing : 0;
-          sentence.style.setProperty("--effect-sentence-scale", String(sharedScale));
-          if (letterSpacing === 0) sentence.style.removeProperty("letter-spacing");
-          else sentence.style.letterSpacing = `${letterSpacing}px`;
-          sentence.classList.toggle("is-wrapped", sentence.offsetWidth > availableWidth);
-        });
+      const separateKeywords = keywordUnits.length > 0 && baseLineCount <= 4;
+      copy.classList.toggle("is-keyword-separated", separateKeywords);
+      const fitTargets = separateKeywords ? keywordFitTargets : sentences;
+      const maxLetterSpacingReduction = baseLineCount >= 4 ? 0.12 : 0;
+      const widths = fitTargets.map((target) => target.offsetWidth);
+      const fits = fitTargets.map((target, index) => fittedEffectSentenceStyle(widths[index], availableWidth, minimumScale, (scale, letterSpacing) => {
+        target.style.setProperty("--effect-sentence-scale", String(scale));
+        target.style.letterSpacing = `${letterSpacing}px`;
+        return target.offsetWidth;
+      }, maxLetterSpacingReduction));
+      const sharedScale = fits.length > 0 ? Math.min(...fits.map((fit) => fit.scale)) : 1;
+      fitTargets.forEach((target, index) => {
+        const fit = fits[index];
+        const letterSpacing = fit.scale === sharedScale ? fit.letterSpacing : 0;
+        target.style.setProperty("--effect-sentence-scale", String(sharedScale));
+        if (letterSpacing === 0) target.style.removeProperty("letter-spacing");
+        else target.style.letterSpacing = `${letterSpacing}px`;
+        target.classList.toggle("is-wrapped", target.offsetWidth > availableWidth);
+      });
       const copyLineHeight = Number.parseFloat(getComputedStyle(copy).lineHeight);
       if (!Number.isFinite(copyLineHeight) || copyLineHeight <= 0) return;
       const lineCount = (copy.textContent?.trim() ? Math.max(1, Math.round(copy.offsetHeight / copyLineHeight)) : 0)
@@ -370,21 +386,21 @@ export function CardFaceView({
   })();
   const effectSentences = splitEffectSentences(effectText);
   const unplayableLabel = ["slime", "soil", "rock", "combatManual", "grimoire"].includes(card.effect)
-    ? <><strong className="effect-keyword">사용 불가</strong>.</>
+    ? <span className="effect-keyword-unit"><strong className="effect-keyword">사용 불가</strong>.</span>
       : ["wolfTalisman", "turtleTalisman", "sacrifice", "magicCrystal"].includes(card.effect)
-        ? <strong className="effect-keyword">사용 불가.</strong>
+        ? <span className="effect-keyword-unit"><strong className="effect-keyword">사용 불가.</strong></span>
         : null;
   const effectPrefix = <>
-    {card.rule && card.effect !== "massDeal" && <><strong className="solitaire-rule effect-prefix effect-keyword rule-keyword">룰.</strong>{" "}</>}
-    {card.solitaireRule && <><strong className="solitaire-rule effect-prefix solitaire-keyword">{card.solitaireRule === "top" ? "윗패" : card.solitaireRule === "bottom" ? "밑패" : "주문"}</strong>{" "}</>}
-    {card.ritualCost && <><strong className="solitaire-rule effect-prefix effect-keyword">희생 {card.ritualCost}.</strong>{" "}</>}
-    {card.spellRank && <><strong className="solitaire-rule effect-prefix effect-keyword">Lv.{card.spellRank} 마법.</strong>{" "}</>}
+    {card.rule && card.effect !== "massDeal" && <><span className="effect-keyword-unit"><strong className="solitaire-rule effect-prefix effect-keyword rule-keyword">룰.</strong></span>{" "}</>}
+    {card.solitaireRule && <><span className="effect-keyword-unit"><strong className="solitaire-rule effect-prefix solitaire-keyword">{card.solitaireRule === "top" ? "윗패" : card.solitaireRule === "bottom" ? "밑패" : "주문"}</strong></span>{" "}</>}
+    {card.ritualCost && <><span className="effect-keyword-unit"><strong className="solitaire-rule effect-prefix effect-keyword">희생 {card.ritualCost}.</strong></span>{" "}</>}
+    {card.spellRank && <><span className="effect-keyword-unit"><strong className="solitaire-rule effect-prefix effect-keyword">Lv.{card.spellRank} 마법.</strong></span>{" "}</>}
     {unplayableLabel}
     {unplayableLabel && effectSentences.length > 0 ? " " : null}
   </>;
   const effectSuffix = <>
-    {card.token && <strong className="solitaire-rule token-rule effect-keyword">토큰.</strong>}
-    {card.exhaust && !card.rule && <strong className="solitaire-rule effect-keyword">소멸.</strong>}
+    {card.token && <span className="effect-keyword-unit"><strong className="solitaire-rule token-rule effect-keyword">토큰.</strong></span>}
+    {card.exhaust && !card.rule && <span className="effect-keyword-unit"><strong className="solitaire-rule effect-keyword">소멸.</strong></span>}
   </>;
   return (
     <>
@@ -401,12 +417,12 @@ export function CardFaceView({
       </strong>
       <span ref={cardEffectRef} className="card-effect">{emphasizeEffectNumbers(<>
         <span className="card-effect-copy">
-          {effectSentences.length === 0 && <>{effectPrefix}{effectSuffix}</>}
+          {effectSentences.length === 0 && <span className="effect-sentence">{effectPrefix}{effectSuffix}</span>}
           {effectSentences.map((sentence, index) => <Fragment key={index}>
             <span className="effect-sentence">
               {index === 0 && effectPrefix}
-              {index === 1 && card.effect === "massDeal" && card.rule && <strong className="solitaire-rule effect-keyword rule-keyword">룰.</strong>}
-              {sentence}
+              {index === 1 && card.effect === "massDeal" && card.rule && <span className="effect-keyword-unit"><strong className="solitaire-rule effect-keyword rule-keyword">룰.</strong></span>}
+              <span className="effect-sentence-body">{sentence}</span>
               {index === effectSentences.length - 1 && effectSuffix}
             </span>
             {index < effectSentences.length - 1 ? " " : null}

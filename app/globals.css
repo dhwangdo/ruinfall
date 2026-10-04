@@ -3654,6 +3654,25 @@ h1 { margin: 0; font-size: 25px; font-weight: 600; }
   overflow-wrap: anywhere;
   text-wrap: balance;
 }
+.card-effect-copy.is-keyword-separated .effect-sentence {
+  display: inline;
+  font-size: inherit;
+  white-space: normal;
+}
+.card-effect-copy.is-keyword-separated .effect-keyword-unit,
+.card-effect-copy.is-keyword-separated .effect-sentence-body {
+  display: inline-block;
+  font-size: calc(1em * var(--effect-sentence-scale, 1));
+  white-space: nowrap;
+}
+.card-effect-copy.is-keyword-separated .effect-keyword-unit.is-wrapped,
+.card-effect-copy.is-keyword-separated .effect-sentence-body.is-wrapped {
+  display: block;
+  width: 100%;
+  white-space: normal;
+  overflow-wrap: anywhere;
+  text-wrap: balance;
+}
 .solitaire-rule {
   display: inline;
   margin-left: 5px;
