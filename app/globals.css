@@ -5195,6 +5195,8 @@ h1 { margin: 0; font-size: 25px; font-weight: 600; }
 }
 .card-style-simple .deck-editor-card .editor-card-name,
 .card-style-simple .deck-list-entry .editor-card-name { color: #272725 !important; }
+.deck-editor-card .editor-card-name { font-size: 12px; }
+.card-pool-stat-cards .deck-editor-card .editor-card-name { font-size: 9px; }
 .deck-editor-card .editor-card-cost,
 .deck-list-entry .editor-card-cost { top: 3px; left: 5px; font-size: 15px; font-weight: 800; }
 .deck-editor-card .inventory-card-count,
