@@ -15,7 +15,6 @@ export type BattleThemeColors = {
   energyEmpty: string;
   basicBand: string;
   specialBand: string;
-  rareBand: string;
   physical: string;
   magic: string;
 };
@@ -36,7 +35,6 @@ export const DEFAULT_BATTLE_THEME_COLORS: BattleThemeColors = {
   energyEmpty: "#34495e",
   basicBand: "#356b45",
   specialBand: "#3472a2",
-  rareBand: "#7e3ab6",
   physical: "#ff9d4d",
   magic: "#67cfff",
 };
@@ -54,7 +52,6 @@ const BATTLE_THEME_COLOR_FIELDS: Array<{ key: keyof BattleThemeColors; label: st
   { key: "energyEmpty", label: "에너지 빈칸" },
   { key: "basicBand", label: "일반 띠" },
   { key: "specialBand", label: "특별 띠" },
-  { key: "rareBand", label: "희귀 띠" },
   { key: "physical", label: "방어 글자" },
   { key: "magic", label: "마법 방어 글자" },
 ];

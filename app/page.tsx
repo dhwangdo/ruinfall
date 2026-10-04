@@ -3905,7 +3905,6 @@ export default function Home() {
     "--battle-cost-text-color": battleThemeColors.costText,
     "--battle-basic-band-color": battleThemeColors.basicBand,
     "--battle-special-band-color": battleThemeColors.specialBand,
-    "--battle-rare-band-color": battleThemeColors.rareBand,
     "--battle-physical-color": battleThemeColors.physical,
     "--battle-magic-color": battleThemeColors.magic,
     "--card-watermark-opacity": cardWatermarkOpacity,
@@ -4576,7 +4575,6 @@ export default function Home() {
           "--battle-energy-empty-color": battleThemeColors.energyEmpty,
           "--battle-basic-band-color": battleThemeColors.basicBand,
           "--battle-special-band-color": battleThemeColors.specialBand,
-          "--battle-rare-band-color": battleThemeColors.rareBand,
           "--battle-physical-color": battleThemeColors.physical,
           "--battle-magic-color": battleThemeColors.magic,
         } as CSSProperties}

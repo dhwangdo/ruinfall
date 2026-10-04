@@ -16,6 +16,8 @@
   --card-effect-minimum-scale: 0.8611111111111112; /* 7.75pt of 9pt */
   --battle-cost-color: #17234f;
   --battle-cost-text-color: #ffd166;
+  --rare-gradient: linear-gradient(110deg, #b74950 0%, #3d845e 50%, #2e7fa7 100%);
+  --rare-background-wash: linear-gradient(110deg, rgba(209,88,96,.055) 0%, rgba(79,171,121,.055) 50%, rgba(77,167,209,.055) 100%);
 }
 
 * { box-sizing: border-box; }
@@ -173,7 +175,7 @@ h1 { margin: 0; font-size: 25px; font-weight: 600; }
 .quick-pickup-card.rarity-status { color: #e34b58; }
 .quick-pickup-card.rarity-starter { color: #555B60; }
 .quick-pickup-card.rarity-special { color: var(--battle-special-band-color, #3472a2); }
-.quick-pickup-card.rarity-rare { color: var(--battle-rare-band-color, #7e3ab6); }
+.quick-pickup-card.rarity-rare { color: #272725; }
 .simple-room-action-notice {
   display: block;
   min-width: 0;
@@ -2169,7 +2171,7 @@ h1 { margin: 0; font-size: 25px; font-weight: 600; }
 .consumable-ticket.cloneTicket { --ticket-fill: #bfe1d2; --ticket-border: #467561; }
 .consumable-ticket.extractTicket { --ticket-fill: #ead8aa; --ticket-border: #87703d; }
 .consumable-ticket.transformTicket { --ticket-fill: #d8c1eb; --ticket-border: #704f87; }
-.consumable-ticket.mapTicket { --ticket-fill: #b8d9b2; --ticket-border: #4f754a; }
+.consumable-ticket.mapTicket { --ticket-fill: #c9ab88; --ticket-border: #735239; }
 .consumable-ticket.cardPack { --ticket-fill: #e7c884; --ticket-border: #85691f; }
 .consumable-ticket:hover { border-color: var(--ticket-border); transform: translateY(-4px); }
 .consumable-ticket.is-selected {
@@ -2567,7 +2569,7 @@ h1 { margin: 0; font-size: 25px; font-weight: 600; }
 .deck-list-entry.rarity-basic strong { color: var(--battle-basic-band-color, #356b45); }
 .deck-list-entry.rarity-starter strong { color: #555B60; }
 .deck-list-entry.rarity-special strong { color: #67cfff; }
-.deck-list-entry.rarity-rare strong { color: #d59aff; }
+.deck-list-entry.rarity-rare strong { color: #272725; }
 .deck-list-entry.rarity-status {
   border-color: #db5a66;
   background: #f6d0d4;
@@ -3399,6 +3401,9 @@ h1 { margin: 0; font-size: 25px; font-weight: 600; }
   background-clip: padding-box;
   box-shadow: 0 2px 4px rgba(0,0,0,.28);
 }
+.card-face:has(.card-name.rarity-rare) {
+  background: var(--rare-background-wash), var(--battle-card-color, #17234f);
+}
 
 .card-face::before {
   position: absolute;
@@ -3494,7 +3499,7 @@ h1 { margin: 0; font-size: 25px; font-weight: 600; }
 .card-name.rarity-status { color: #e34b58; background: transparent; }
 .card-name.rarity-starter { color: #555B60; background: transparent; }
 .card-name.rarity-special { color: #67cfff; background: transparent; }
-.card-name.rarity-rare { color: #d59aff; background: transparent; }
+.card-name.rarity-rare { color: var(--battle-card-text-color, #f8f6ef); background: transparent; }
 .card-name.is-costless {
   grid-row: 1;
   align-self: stretch;
@@ -3512,6 +3517,9 @@ h1 { margin: 0; font-size: 25px; font-weight: 600; }
   color: #252525;
   background: #fefdfa;
 }
+.card-style-simple .card-face:not(:has(.card-name.is-painted)):has(.card-name.rarity-rare) {
+  background: var(--rare-background-wash), #fefdfa;
+}
 
 .card-style-simple .card-face:not(:has(.card-name.is-painted))::before { opacity: .08; }
 .card-style-simple .card-face:not(:has(.card-name.is-painted))::after {
@@ -3528,7 +3536,7 @@ h1 { margin: 0; font-size: 25px; font-weight: 600; }
 .card-style-simple .card-face:not(:has(.card-name.is-painted)):has(.card-name.rarity-status)::after { background: #e34b58; }
 .card-style-simple .card-face:not(:has(.card-name.is-painted)):has(.card-name.rarity-starter)::after { background: #555B60; }
 .card-style-simple .card-face:not(:has(.card-name.is-painted)):has(.card-name.rarity-special)::after { background: var(--battle-special-band-color, #3472a2); }
-.card-style-simple .card-face:not(:has(.card-name.is-painted)):has(.card-name.rarity-rare)::after { background: var(--battle-rare-band-color, #7e3ab6); }
+.card-style-simple .card-face:not(:has(.card-name.is-painted)):has(.card-name.rarity-rare)::after { background: var(--rare-gradient); }
 .card-style-simple .card-face:not(:has(.card-name.is-painted)) .card-watermark { display: none; }
 .card-style-simple .card-face:not(:has(.card-name.is-painted)) .card-name {
   position: absolute;
@@ -3549,7 +3557,6 @@ h1 { margin: 0; font-size: 25px; font-weight: 600; }
 .card-style-simple .card-face:not(:has(.card-name.is-painted)) .card-name.rarity-status,
 .card-style-simple .card-face:not(:has(.card-name.is-painted)) .card-name.rarity-starter,
 .card-style-simple .card-face:not(:has(.card-name.is-painted)) .card-name.rarity-special,
-.card-style-simple .card-face:not(:has(.card-name.is-painted)) .card-name.rarity-rare { background: transparent; }
 .card-style-simple .card-face:not(:has(.card-name.is-painted)) .effect-keyword,
 .card-style-simple .card-face:not(:has(.card-name.is-painted)) .effect-star,
 .card-style-simple .card-face:not(:has(.card-name.is-painted)) .draw-effect {
@@ -3571,7 +3578,10 @@ h1 { margin: 0; font-size: 25px; font-weight: 600; }
 .card-style-simple .deck-list-entry.rarity-special:not(.is-painted) strong { color: var(--battle-special-band-color, #3472a2); }
 .card-style-simple .deck-list-entry.rarity-status:not(.is-painted) strong { color: #e34b58; }
 .card-style-simple .deck-list-entry.rarity-starter:not(.is-painted) strong { color: #555B60; }
-.card-style-simple .deck-list-entry.rarity-rare:not(.is-painted) strong { color: var(--battle-rare-band-color, #7e3ab6); }
+.card-style-simple .deck-list-entry.rarity-rare:not(.is-painted) strong {
+  color: #272725;
+  background: #fff;
+}
 .card-style-simple .deck-list-entry:not(.is-painted) .deck-list-cost {
   color: #fff;
   background: var(--battle-basic-band-color, #356b45);
@@ -3579,7 +3589,7 @@ h1 { margin: 0; font-size: 25px; font-weight: 600; }
 .card-style-simple .deck-list-entry.rarity-special:not(.is-painted) .deck-list-cost { background: var(--battle-special-band-color, #3472a2); }
 .card-style-simple .deck-list-entry.rarity-status:not(.is-painted) .deck-list-cost { background: #e34b58; }
 .card-style-simple .deck-list-entry.rarity-starter:not(.is-painted) .deck-list-cost { background: #555B60; }
-.card-style-simple .deck-list-entry.rarity-rare:not(.is-painted) .deck-list-cost { background: var(--battle-rare-band-color, #7e3ab6); }
+.card-style-simple .deck-list-entry.rarity-rare:not(.is-painted) .deck-list-cost { background: var(--rare-gradient); }
 .card-style-simple .deck-list-entry:not(.is-painted) .deck-list-count {
   align-self: stretch;
   display: grid;
@@ -3592,7 +3602,10 @@ h1 { margin: 0; font-size: 25px; font-weight: 600; }
 .card-style-simple .deck-list-entry.rarity-special:not(.is-painted) .deck-list-count { color: var(--battle-special-band-color, #3472a2); }
 .card-style-simple .deck-list-entry.rarity-status:not(.is-painted) .deck-list-count { color: #e34b58; }
 .card-style-simple .deck-list-entry.rarity-starter:not(.is-painted) .deck-list-count { color: #555B60; }
-.card-style-simple .deck-list-entry.rarity-rare:not(.is-painted) .deck-list-count { color: var(--battle-rare-band-color, #7e3ab6); }
+.card-style-simple .deck-list-entry.rarity-rare:not(.is-painted) .deck-list-count {
+  color: #272725;
+  background: #fff;
+}
 
 .card-name.is-painted { background: transparent; }
 .card-effect {
@@ -4916,7 +4929,7 @@ h1 { margin: 0; font-size: 25px; font-weight: 600; }
 .deck-editor-card.rarity-starter,
 .deck-list-entry.rarity-starter { --editor-rarity: #555B60; }
 .deck-editor-card.rarity-rare,
-.deck-list-entry.rarity-rare { --editor-rarity: #7e3ab6; }
+.deck-list-entry.rarity-rare { --editor-rarity: #3d845e; }
 .deck-editor-card.rarity-legendary,
 .deck-list-entry.rarity-legendary { --editor-rarity: #d5a928; }
 
@@ -5132,6 +5145,16 @@ h1 { margin: 0; font-size: 25px; font-weight: 600; }
   border-color: var(--editor-rarity) !important;
   color: #272725;
   background: #f7f4eb;
+}
+.deck-editor-card.rarity-rare,
+.deck-list-entry.rarity-rare,
+.card-style-simple .deck-list-entry.rarity-rare:not(.is-painted) {
+  border-color: transparent !important;
+  background:
+    var(--rare-background-wash) padding-box,
+    linear-gradient(#f7f4eb, #f7f4eb) padding-box,
+    var(--rare-gradient) border-box;
+  background-clip: padding-box, padding-box, border-box;
 }
 .deck-editor-card-list .consumable-ticket,
 .deck-editor-floor-cards .consumable-ticket {
@@ -5652,7 +5675,14 @@ h1 { margin: 0; font-size: 25px; font-weight: 600; }
 .battle-ledger-card-stack.rarity-special .battle-ledger-stack-layer { border-color: #3472a2; }
 .battle-ledger-card-stack.rarity-starter .battle-ledger-stack-layer { border-color: #555B60; }
 .battle-ledger-card-stack.rarity-status .battle-ledger-stack-layer { border-color: #e34b58; }
-.battle-ledger-card-stack.rarity-rare .battle-ledger-stack-layer { border-color: #7e3ab6; }
+.battle-ledger-card-stack.rarity-rare .battle-ledger-stack-layer {
+  border-color: transparent;
+  background:
+    var(--rare-background-wash) padding-box,
+    linear-gradient(#d7ddd9, #d7ddd9) padding-box,
+    var(--rare-gradient) border-box;
+  background-clip: padding-box, padding-box, border-box;
+}
 .battle-ledger-card-stack.rarity-legendary .battle-ledger-stack-layer { border-color: #d5a928; }
 .battle-card-ledger-panel .battle-ledger-card { cursor: help; }
 .battle-card-ledger-panel .battle-ledger-card:hover { transform: none; box-shadow: 0 2px 3px rgba(0,0,0,.18); }
