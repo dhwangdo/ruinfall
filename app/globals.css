@@ -19,8 +19,8 @@
   --card-paper: #f7f4eb;
   --rare-card-paper: #fbf5e3;
   --rare-color: #7138a6;
-  --rare-border-color: #9c7200;
-  --rare-text-color: #ffd166;
+  --rare-border-color: #d5a928;
+  --rare-text-color: #ffe08a;
 }
 
 * { box-sizing: border-box; }
@@ -3405,9 +3405,11 @@ h1 { margin: 0; font-size: 25px; font-weight: 600; }
   box-shadow: 0 2px 4px rgba(0,0,0,.28);
 }
 .card-face:has(.card-name.rarity-rare) {
+  isolation: isolate;
   border: 2px solid var(--rare-border-color);
   background-clip: padding-box;
 }
+.card-face:has(.card-name.rarity-rare)::before { z-index: -1; }
 .card-face::before {
   position: absolute;
   z-index: 0;
