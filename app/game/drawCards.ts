@@ -268,7 +268,6 @@ export function createDrawCards(context: DrawCardsContext) {
         playerHp: blessings.includes("bloodConversion") && current.playerHp > 1
           ? current.playerHp - 1
           : current.playerHp,
-        strength: current.strength + (current.deckEditions.includes("growth") ? 1 : 0),
         defenseMultiplier: 1,
         damageTakenMultiplier: 1,
         invulnerable: current.turn === 1 && current.deckEditions.includes("invincible"),

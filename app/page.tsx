@@ -216,7 +216,7 @@ import type {
 
 type Screen = "map" | "battle";
 type TicketDropArea = "deck" | "inventory" | "floor";
-const REMOVED_DECK_EDITIONS = new Set(["transparent", "golden", "debug"]);
+const REMOVED_DECK_EDITIONS = new Set(["transparent", "golden", "debug", "firepower", "growth"]);
 
 function removeDeletedDeckEditions(deck: DeckCase): DeckCase {
   const editions = deck.editions.filter((edition) => !REMOVED_DECK_EDITIONS.has(edition as string));
@@ -1305,7 +1305,6 @@ export default function Home() {
         : dealtGame.hand,
       strength: dealtGame.strength
         + (blessings.includes("swordShield") ? 1 : 0)
-        + (battleDeck.editions.includes("firepower") ? 2 : 0)
         + (battleDeck.editions.includes("giant") ? 3 : 0)
         + wolfTalismanCount
         + absorptionStrength,
