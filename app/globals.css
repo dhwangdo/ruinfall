@@ -5009,7 +5009,7 @@ h1 { margin: 0; font-size: 25px; font-weight: 600; }
 .consumable-ticket { width: 76px; }
 .floor-deck-item { width: 148px; }
 .consumable-ticket { grid-template-rows: 1fr; }
-.consumable-ticket > strong { border: 0; font-size: 11px; }
+.consumable-ticket > strong { border: 0; font-size: 12px; }
 .consumable-ticket > small { display: none; }
 .floor-deck-item { gap: 2px; }
 .floor-deck-item .floor-deck-icon { width: 28px; height: 21px; }
