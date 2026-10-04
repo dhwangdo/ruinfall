@@ -26,6 +26,7 @@ import {
 } from "../game/cards";
 import { fittedEffectSentenceStyle, splitEffectSentences } from "../cardTextLayout";
 import { cardNameConstellationImage } from "../cardConstellations";
+import { rareCardPaletteClass } from "../game/rareCardPalette";
 
 export const DEFENSE_LABEL: Record<DamageType, string> = {
   physical: "방어",
@@ -400,7 +401,7 @@ export function CardFaceView({
         />
       )}
       {!UNPLAYABLE_CARD_EFFECTS.has(card.effect) && <span className={`card-cost ${costChangeClass}`}>{displayedCost}</span>}
-      <strong className={`card-name rarity-${card.rarity} watermark-category-${cardWatermarkCategory(card)} ${UNPLAYABLE_CARD_EFFECTS.has(card.effect) ? "is-unplayable" : ""} ${card.rarity === "legendary" ? "is-painted is-legendary" : ""}`}>
+      <strong className={`card-name rarity-${card.rarity} ${rareCardPaletteClass(card)} watermark-category-${cardWatermarkCategory(card)} ${UNPLAYABLE_CARD_EFFECTS.has(card.effect) ? "is-unplayable" : ""} ${card.rarity === "legendary" ? "is-painted is-legendary" : ""}`}>
         {card.name}{card.effect === "obsidianDagger" && cardForgeCount(card) > 0 ? ` +${cardForgeCount(card)}` : card.forged && !["astronomyResearch", "necromancyResearch", "massDeal"].includes(card.effect) ? "+" : ""}
       </strong>
       <span ref={cardEffectRef} className="card-effect">{emphasizeEffectNumbers(<>

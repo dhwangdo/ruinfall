@@ -16,8 +16,37 @@
   --card-effect-minimum-scale: 0.8611111111111112; /* 7.75pt of 9pt */
   --battle-cost-color: #17234f;
   --battle-cost-text-color: #ffd166;
-  --rare-gradient: linear-gradient(110deg, #b74950 0%, #3d845e 50%, #2e7fa7 100%);
-  --rare-background-wash: linear-gradient(110deg, rgba(209,88,96,.055) 0%, rgba(79,171,121,.055) 50%, rgba(77,167,209,.055) 100%);
+  --rare-gradient: linear-gradient(112deg, #88374f 0%, #9b448c 24%, #614a9f 49%, #316f9a 74%, #327f72 100%);
+  --rare-background-wash: linear-gradient(110deg, rgba(136,55,79,.065), rgba(155,68,140,.06), rgba(97,74,159,.06), rgba(49,111,154,.06), rgba(50,127,114,.065));
+}
+
+:is(.card-face, .deck-editor-card.rarity-rare, .deck-list-entry.rarity-rare, .battle-ledger-card-stack.rarity-rare):has(.rare-palette) {
+  --rare-gradient: linear-gradient(112deg, var(--rare-a) 0%, var(--rare-b) 24%, var(--rare-c) 49%, var(--rare-d) 74%, var(--rare-e) 100%);
+  --rare-background-wash: linear-gradient(110deg,
+    color-mix(in srgb, var(--rare-a) 7%, transparent),
+    color-mix(in srgb, var(--rare-b) 6%, transparent),
+    color-mix(in srgb, var(--rare-c) 6%, transparent),
+    color-mix(in srgb, var(--rare-d) 6%, transparent),
+    color-mix(in srgb, var(--rare-e) 7%, transparent));
+  --editor-rarity: var(--rare-c);
+}
+:is(.card-face, .deck-editor-card.rarity-rare, .deck-list-entry.rarity-rare, .battle-ledger-card-stack.rarity-rare):has(.rare-palette-0) {
+  --rare-a: #88374f; --rare-b: #9b448c; --rare-c: #614a9f; --rare-d: #316f9a; --rare-e: #327f72;
+}
+:is(.card-face, .deck-editor-card.rarity-rare, .deck-list-entry.rarity-rare, .battle-ledger-card-stack.rarity-rare):has(.rare-palette-1) {
+  --rare-a: #277c7b; --rare-b: #356b9d; --rare-c: #674ca2; --rare-d: #a14387; --rare-e: #94444e;
+}
+:is(.card-face, .deck-editor-card.rarity-rare, .deck-list-entry.rarity-rare, .battle-ledger-card-stack.rarity-rare):has(.rare-palette-2) {
+  --rare-a: #a04a65; --rare-b: #9a6651; --rare-c: #8a4995; --rare-d: #4665a4; --rare-e: #327b83;
+}
+:is(.card-face, .deck-editor-card.rarity-rare, .deck-list-entry.rarity-rare, .battle-ledger-card-stack.rarity-rare):has(.rare-palette-3) {
+  --rare-a: #3e765c; --rare-b: #287e83; --rare-c: #425ca2; --rare-d: #8e448f; --rare-e: #9a3f60;
+}
+:is(.card-face, .deck-editor-card.rarity-rare, .deck-list-entry.rarity-rare, .battle-ledger-card-stack.rarity-rare):has(.rare-palette-4) {
+  --rare-a: #56388f; --rare-b: #9a458f; --rare-c: #a05b61; --rare-d: #2d7e79; --rare-e: #3d6e9a;
+}
+:is(.card-face, .deck-editor-card.rarity-rare, .deck-list-entry.rarity-rare, .battle-ledger-card-stack.rarity-rare):has(.rare-palette-5) {
+  --rare-a: #4b4a9e; --rare-b: #317c9c; --rare-c: #3c805d; --rare-d: #764887; --rare-e: #a2466d;
 }
 
 * { box-sizing: border-box; }
@@ -3536,7 +3565,9 @@ h1 { margin: 0; font-size: 25px; font-weight: 600; }
 .card-style-simple .card-face:not(:has(.card-name.is-painted)):has(.card-name.rarity-status)::after { background: #e34b58; }
 .card-style-simple .card-face:not(:has(.card-name.is-painted)):has(.card-name.rarity-starter)::after { background: #555B60; }
 .card-style-simple .card-face:not(:has(.card-name.is-painted)):has(.card-name.rarity-special)::after { background: var(--battle-special-band-color, #3472a2); }
-.card-style-simple .card-face:not(:has(.card-name.is-painted)):has(.card-name.rarity-rare)::after { background: var(--rare-gradient); }
+.card-style-simple .card-face:not(:has(.card-name.is-painted)):has(.card-name.rarity-rare)::after {
+  background: var(--rare-gradient);
+}
 .card-style-simple .card-face:not(:has(.card-name.is-painted)) .card-watermark { display: none; }
 .card-style-simple .card-face:not(:has(.card-name.is-painted)) .card-name {
   position: absolute;
@@ -3548,6 +3579,9 @@ h1 { margin: 0; font-size: 25px; font-weight: 600; }
   padding: 3px 28px 3px 40px;
   border-radius: 6px 6px 0 0;
   color: #fff;
+}
+.card-style-simple .card-face:not(:has(.card-name.is-painted)) .card-name.rarity-rare {
+  text-shadow: 0 1px 2px rgba(18, 26, 43, .45);
 }
 .card-style-simple .card-face:not(:has(.card-name.is-painted)) .card-name.is-unplayable {
   padding: 3px;
