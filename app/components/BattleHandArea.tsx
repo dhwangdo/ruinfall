@@ -341,7 +341,7 @@ export function BattleHandArea({
     <>
       <div
         ref={handRef}
-        className={`hand ${phase === "discarding" && !game.preserveHandOnTurnEnd ? "is-discarding" : ""} ${phase === "drawing" ? "is-drawing" : ""} ${game.pendingDiscards > 0 ? "is-discard-choice" : ""} ${dragging ? "is-pointer-dragging" : ""}`}
+        className={`hand ${phase === "discarding" ? "is-discarding" : ""} ${phase === "drawing" ? "is-drawing" : ""} ${game.pendingDiscards > 0 ? "is-discard-choice" : ""} ${dragging ? "is-pointer-dragging" : ""}`}
         style={{ "--hand-bottom-clearance": `${handBottomClearance}px` } as CSSProperties}
         data-drop-target="hand"
         aria-label="손패"
@@ -436,7 +436,7 @@ export function BattleHandArea({
 
 function useDisplayedHand(game: GameState, phase: Phase): Array<Card | null> {
   const hasClearHandSlots = game.hand.some((card) => card.drawSlot !== undefined);
-  const usesClearHandSlots = phase !== "playing" && hasClearHandSlots && !game.preserveHandOnTurnEnd;
+  const usesClearHandSlots = phase !== "playing" && hasClearHandSlots;
   const clearHandSlotCount = usesClearHandSlots
     ? Math.max(...game.hand.map((card) => card.drawSlotCount ?? 0), game.hand.length)
     : game.hand.length;

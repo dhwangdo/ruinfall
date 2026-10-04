@@ -9,7 +9,6 @@ import {
   SPECIAL_CARD_POOL,
   STARTER_CARD_POOL,
   createAdrenalineCard,
-  createMagicCrystalCard,
   createRadianceCard,
   cardGivesMagicDefense,
   cardGivesPhysicalDefense,
@@ -19,10 +18,10 @@ import {
 test("card pools preserve the current content counts", () => {
   assert.equal(STARTER_CARD_POOL.length, 3);
   assert.equal(BASIC_CARD_POOL.length, 6);
-  assert.equal(SPECIAL_CARD_POOL.length, 36);
-  assert.equal(RARE_CARD_POOL.length, 18);
+  assert.equal(SPECIAL_CARD_POOL.length, 33);
+  assert.equal(RARE_CARD_POOL.length, 16);
   assert.equal(LEGENDARY_CARD_POOL.length, 6);
-  assert.equal(ALL_CARD_BLUEPRINTS.length, 72);
+  assert.equal(ALL_CARD_BLUEPRINTS.length, 65);
 });
 
 test("special card pool contains the updated cards and excludes sharpen cards", () => {
@@ -30,8 +29,6 @@ test("special card pool contains the updated cards and excludes sharpen cards", 
   const fourHit = card("5연격");
   const backstep = card("백스텝");
   const silverSword = card("은검");
-  const spark = card("불티");
-  const pebble = card("잔바위");
 
   assert.equal(fourHit?.value, 2);
   assert.equal(backstep?.cost, 0);
@@ -43,25 +40,13 @@ test("special card pool contains the updated cards and excludes sharpen cards", 
   );
   assert.equal(isAttackCard(silverSword), true);
   assert.equal(cardGivesMagicDefense(silverSword), true);
-  assert.deepEqual(
-    spark && { cost: spark.cost, value: spark.value, spellRank: spark.spellRank },
-    { cost: 1, value: 16, spellRank: 1 },
-  );
-  assert.deepEqual(
-    pebble && { cost: pebble.cost, value: pebble.value, spellRank: pebble.spellRank },
-    { cost: 1, value: 12, spellRank: 1 },
-  );
+  assert.equal(card("불티"), undefined);
+  assert.equal(card("잔바위"), undefined);
   assert.equal(SPECIAL_CARD_POOL.some((item) => ["무기 연마", "방어구 연마"].includes(item.name)), false);
 });
 
 test("radiance is treated as an attack card", () => {
   assert.equal(isAttackCard(createRadianceCard(100)), true);
-});
-
-test("magic crystal names use roman numerals", () => {
-  assert.equal(createMagicCrystalCard(1, 1).name, "마력 결정 I");
-  assert.equal(createMagicCrystalCard(2, 2).name, "마력 결정 II");
-  assert.equal(createMagicCrystalCard(3, 4).name, "마력 결정 IV");
 });
 
 test("current card data keeps key balance values and removed systems absent", () => {
@@ -111,14 +96,16 @@ test("current card data keeps key balance values and removed systems absent", ()
     ],
   );
   assert.deepEqual(
-    RARE_CARD_POOL.filter((card) => ["영혼담보대출", "법학 연구", "광학 연구"].includes(card.name)).map(({ name, cost, rule }) => ({ name, cost, rule })),
+    RARE_CARD_POOL.filter((card) => ["경제학 연구", "법학 연구", "광학 연구"].includes(card.name)).map(({ name, cost, rule }) => ({ name, cost, rule })),
     [
       { name: "법학 연구", cost: 1, rule: true },
-      { name: "영혼담보대출", cost: 1, rule: true },
+      { name: "경제학 연구", cost: 3, rule: true },
       { name: "광학 연구", cost: 1, rule: true },
     ],
   );
-  assert.equal(RARE_CARD_POOL.find((card) => card.name === "피의 메아리")?.ritualCost, 1);
+  assert.equal(RARE_CARD_POOL.find((card) => card.name === "연사")?.cost, 1);
+  assert.equal(RARE_CARD_POOL.find((card) => card.name === "강철심장")?.value, 1);
+  assert.equal(RARE_CARD_POOL.find((card) => card.name === "견고한 태세")?.cost, 2);
   assert.equal(createAdrenalineCard().value, 2);
   const radiance = createRadianceCard(99);
   assert.deepEqual(
@@ -130,7 +117,7 @@ test("current card data keeps key balance values and removed systems absent", ()
     RARE_CARD_POOL.filter((card) => ["광행시간", "늑대 부적", "거북이 부적"].includes(card.name))
       .map(({ name, cost, value }) => ({ name, cost, value })),
     [
-      { name: "광행시간", cost: 1, value: 3 },
+      { name: "광행시간", cost: 1, value: 2 },
       { name: "늑대 부적", cost: undefined, value: 1 },
       { name: "거북이 부적", cost: undefined, value: 1 },
     ],

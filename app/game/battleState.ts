@@ -51,8 +51,6 @@ export type GameState = {
   evenDealOnReshuffle: boolean;
   /** 견고한 태세: 적 턴 피해 처리 후 남은 방어를 절반(내림) 보존한다. */
   preserveDefenseOnTurnEnd: boolean;
-  /** 유예: 이번 턴 종료 때 손패를 유지한다. */
-  preserveHandOnTurnEnd: boolean;
   /** 현재 전투에서 활성화된 룰 카드. 버프 배지의 호버 미리보기에 사용한다. */
   activeRuleCards: Card[];
   /** 이번 전투에서 발생한 재련 횟수. 오딘의 창 비용에 반영한다. */
@@ -211,7 +209,6 @@ export function waitingState(
     defenseMultiplier: 1,
     evenDealOnReshuffle: false,
     preserveDefenseOnTurnEnd: false,
-    preserveHandOnTurnEnd: false,
     activeRuleCards: [],
     forgeCount: 0,
     damageTakenMultiplier: 1,

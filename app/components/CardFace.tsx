@@ -247,15 +247,7 @@ export function CardFaceView({
       case "transcend":
         return <span>이번 턴 피해에 <strong className="effect-keyword">면역</strong>이 됩니다. <strong className="effect-keyword">힘</strong>을 5 얻습니다.</span>;
       case "rapidFire":
-        return <span>다음에 사용하는 공격 카드가 2번 발동합니다.</span>;
-      case "delay":
-        return <span>이번 턴 종료 시 손패의 카드를 버리지 않습니다.</span>;
-      case "boneArmor":
-        return <span><strong className="effect-keyword">강인함</strong>을 5 얻습니다. <strong className="effect-keyword">물리 저항</strong>을 1 얻습니다.</span>;
-      case "magicCrystal":
-        return <span>[밑패와 합쳐 다음 단계의 마력 결정이 됩니다.]</span>;
-      case "sacrifice":
-        return null;
+        return <span>이번 턴 다음에 사용하는 공격 카드가 2번 발동합니다.</span>;
       case "iceShield":
         return <span><span className="effect-type magic">마법 방어</span>를 {defenseNumber} 얻습니다.</span>;
       case "magicStrike":
@@ -359,7 +351,7 @@ export function CardFaceView({
       case "rock":
         return null;
       case "supernova":
-        return <span><span className="effect-star">★★</span>를 잃습니다. <strong className="effect-keyword">에너지</strong>를 3 얻습니다.</span>;
+        return <span><span className="effect-star">★★★★</span>를 잃습니다. <strong className="effect-keyword">에너지</strong>를 3 얻습니다.</span>;
       case "combatManual":
         return <span>손패에 있는 동안 <strong className="effect-keyword">힘</strong>과 <strong className="effect-keyword">강인함</strong>을 2 얻습니다.</span>;
       case "grimoire":
@@ -387,14 +379,12 @@ export function CardFaceView({
   const effectSentences = splitEffectSentences(effectText);
   const unplayableLabel = ["slime", "soil", "rock", "combatManual", "grimoire"].includes(card.effect)
     ? <span className="effect-keyword-unit"><strong className="effect-keyword">사용 불가</strong>.</span>
-      : ["wolfTalisman", "turtleTalisman", "sacrifice", "magicCrystal"].includes(card.effect)
+      : ["wolfTalisman", "turtleTalisman"].includes(card.effect)
         ? <span className="effect-keyword-unit"><strong className="effect-keyword">사용 불가.</strong></span>
         : null;
   const effectPrefix = <>
     {card.rule && card.effect !== "massDeal" && <><span className="effect-keyword-unit"><strong className="solitaire-rule effect-prefix effect-keyword rule-keyword">룰.</strong></span>{" "}</>}
     {card.solitaireRule && <><span className="effect-keyword-unit"><strong className="solitaire-rule effect-prefix solitaire-keyword">{card.solitaireRule === "top" ? "윗패" : card.solitaireRule === "bottom" ? "밑패" : "주문"}</strong></span>{" "}</>}
-    {card.ritualCost && <><span className="effect-keyword-unit"><strong className="solitaire-rule effect-prefix effect-keyword">희생 {card.ritualCost}.</strong></span>{" "}</>}
-    {card.spellRank && <><span className="effect-keyword-unit"><strong className="solitaire-rule effect-prefix effect-keyword">Lv.{card.spellRank} 마법.</strong></span>{" "}</>}
     {unplayableLabel}
     {unplayableLabel && effectSentences.length > 0 ? " " : null}
   </>;
@@ -413,7 +403,7 @@ export function CardFaceView({
       )}
       {!UNPLAYABLE_CARD_EFFECTS.has(card.effect) && <span className={`card-cost ${costChangeClass}`}>{displayedCost}</span>}
       <strong className={`card-name rarity-${card.rarity} watermark-category-${cardWatermarkCategory(card)} ${UNPLAYABLE_CARD_EFFECTS.has(card.effect) ? "is-unplayable" : ""} ${card.rarity === "legendary" ? "is-painted is-legendary" : ""}`}>
-        {card.name}{card.effect === "obsidianDagger" && cardForgeCount(card) > 0 ? ` +${cardForgeCount(card)}` : card.forged && !["astronomyResearch", "necromancyResearch", "magicCrystal"].includes(card.effect) ? "+" : ""}
+        {card.name}{card.effect === "obsidianDagger" && cardForgeCount(card) > 0 ? ` +${cardForgeCount(card)}` : card.forged && !["astronomyResearch", "necromancyResearch"].includes(card.effect) ? "+" : ""}
       </strong>
       <span ref={cardEffectRef} className="card-effect">{emphasizeEffectNumbers(<>
         <span className="card-effect-copy">
@@ -433,7 +423,7 @@ export function CardFaceView({
             {cardForgeCount(card) > 0 && <strong className="solitaire-rule forge-rule effect-keyword">재련됨.</strong>}
             <strong className="solitaire-rule forge-rule"><span className="effect-keyword">재련</span> x{obsidianDaggerForgesRemaining(cardForgeCount(card))}: [공격]</strong>
           </>
-          : card.forged && card.effect !== "massDeal" && !["astronomyResearch", "necromancyResearch", "magicCrystal"].includes(card.effect)
+          : card.forged && card.effect !== "massDeal" && !["astronomyResearch", "necromancyResearch"].includes(card.effect)
             ? <strong className="solitaire-rule forge-rule effect-keyword">재련됨.</strong>
             : !(card.forged && card.effect === "massDeal") && !["astronomyResearch", "necromancyResearch"].includes(card.effect)
               && (card.forgeCost !== undefined || card.forgeCosts || card.forgeTargetName || card.forgeAny)

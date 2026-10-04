@@ -4,7 +4,7 @@ import type { GameState } from "./battleState";
 import type { EnemyState } from "./enemies";
 import type { Card } from "./cards";
 import type { Phase } from "./battleUiTypes";
-import { UNPLAYABLE_CARD_EFFECTS, cardGivesMagicDefense, cardGivesPhysicalDefense, createRadianceCard, isAttackCard, magicCrystalName } from "./cards";
+import { UNPLAYABLE_CARD_EFFECTS, cardGivesMagicDefense, cardGivesPhysicalDefense, createRadianceCard, isAttackCard } from "./cards";
 import { playerAttackThornHits, applyPlayerAttack, resolveEnemyHitAgainstPlayer } from "./enemies";
 import { canPayEnergyCost, calculateCardDamage } from "./combatEconomy";
 import { IRON_WALL_RESISTANCE, cardEnergyCost } from "./cardEffects";
@@ -61,10 +61,6 @@ export function createResolvePlayedCard(context: ResolvePlayedCardContext) {
       setGame((current) => ({ ...current, message: `${card.name}은(는) 사용할 수 없습니다. 파일 위로 옮겨 길을 만들어 보세요.` }));
       return;
     }
-    const ritualOfferingCount = game.hand.filter((item) => item.effect === "sacrifice").length;
-    const ritualIsSatisfied = ritualOfferingCount >= (card.ritualCost ?? 0);
-    const spellIsSatisfied = !card.spellRank || game.hand.some((item) =>
-      item.effect === "magicCrystal" && (item.magicCrystalStage ?? 0) >= card.spellRank!);
     const isRewardAttack = isAttackCard(card);
     const isRewardAttackAll = card.effect === "ironRampage" || card.effect === "shockwave" || card.effect === "sweep" || card.effect === "odinSpear";
     const rewardTarget = card.effect === "magicStrike"
@@ -84,8 +80,6 @@ export function createResolvePlayedCard(context: ResolvePlayedCardContext) {
       && game.pendingDiscards === 0
       && game.pendingResearchDraw === null
       && !game.pendingSweep
-      && ritualIsSatisfied
-      && spellIsSatisfied
       && canPayEnergyCost(
         game.energy,
         cardEnergyCost(card, game.activeRuleCards.filter((ruleCard) => ruleCard.effect === "lawResearch").length, game.forgeCount) ?? Infinity,
@@ -214,23 +208,14 @@ export function createResolvePlayedCard(context: ResolvePlayedCardContext) {
         return { ...current, message: `${card.name}은(는) 에너지 비용이 없는 카드입니다.` };
       }
       const economicsResearchCount = current.activeRuleCards.filter((ruleCard) => ruleCard.effect === "economicsResearch").length;
-      const offeringsToConsume = current.hand.filter((item) => item.effect === "sacrifice").slice(0, card.ritualCost ?? 0);
-      if (offeringsToConsume.length < (card.ritualCost ?? 0)) {
-        return { ...current, message: `${card.name}: 손패에 제물 ${card.ritualCost}장이 필요합니다.` };
-      }
-      const hasRequiredCrystal = !card.spellRank || current.hand.some((item) =>
-        item.effect === "magicCrystal" && (item.magicCrystalStage ?? 0) >= card.spellRank!);
-      if (!hasRequiredCrystal) {
-        return { ...current, message: `${card.name}: 손패에 ${magicCrystalName(card.spellRank ?? 1)} 이상이 필요합니다.` };
-      }
       if (!canPayEnergyCost(current.energy, energyCost, economicsResearchCount)) {
         return { ...current, message: `${card.name}: 에너지가 ${energyCost} 필요합니다.` };
       }
       if (card.effect === "endStart" && current.piles.some((pile) => pile.length > 0)) {
         return { ...current, message: "끝의 시작은 모든 파일이 비어 있을 때만 사용할 수 있습니다." };
       }
-      if (card.effect === "supernova" && current.stars < 2) {
-        return { ...current, message: "초신성: ★★가 필요합니다." };
+      if (card.effect === "supernova" && current.stars < 4) {
+        return { ...current, message: "초신성: ★★★★가 필요합니다." };
       }
       const isIronRampage = card.effect === "ironRampage";
       const isShockwave = card.effect === "shockwave";
@@ -247,7 +232,6 @@ export function createResolvePlayedCard(context: ResolvePlayedCardContext) {
       const isPlateArmorDefense = card.effect === "plateArmorDefense";
       const isMassDeal = card.effect === "massDeal";
       const isSturdyStance = card.effect === "sturdyStance";
-      const isBoneArmor = card.effect === "boneArmor";
       const isDamageCard = isAttackCard(card);
       const isBlockCard = cardGivesPhysicalDefense(card) || cardGivesMagicDefense(card);
       const isAttackAll = isIronRampage || isShockwave || isSweepAttack || isOdinSpear;
@@ -332,8 +316,8 @@ export function createResolvePlayedCard(context: ResolvePlayedCardContext) {
       });
       const nextPhysicalBlock = card.effect === "mirrorImage" ? rawNextMagicBlock : thornsPhysicalBlock;
       const nextMagicBlock = card.effect === "mirrorImage" ? rawNextPhysicalBlock : rawNextMagicBlock;
-      const nextPhysicalStatus = !blessings.includes("glassCannon") && (card.effect === "steelHeart" || isBoneArmor)
-        ? addResistance({ resistance: current.playerPhysicalResistance, vulnerability: current.playerPhysicalVulnerability }, isBoneArmor ? 1 : card.value)
+      const nextPhysicalStatus = !blessings.includes("glassCannon") && card.effect === "steelHeart"
+        ? addResistance({ resistance: current.playerPhysicalResistance, vulnerability: current.playerPhysicalVulnerability }, card.value)
         : card.effect === "berserk"
           ? addVulnerability({ resistance: current.playerPhysicalResistance, vulnerability: current.playerPhysicalVulnerability }, 2)
           : !blessings.includes("glassCannon") && isPlateArmorDefense && card.forged
@@ -414,9 +398,7 @@ export function createResolvePlayedCard(context: ResolvePlayedCardContext) {
       const drawsAdded = !won && availableCardCount > 0 && !drawEachPileResult && pendingPileDrawCount === 0
         ? Math.min(card.draw * repetitions, availableCardCount)
         : 0;
-      const consumedOfferingIds = new Set(offeringsToConsume.map((item) => item.id));
-      const removedHandIds = new Set([card.id, ...consumedOfferingIds]);
-      const remainingHand = current.hand.filter((item) => !removedHandIds.has(item.id));
+      const remainingHand = current.hand.filter((item) => item.id !== card.id);
       const radianceCount = card.effect === "lightCluster" || card.effect === "nebula"
         ? 1
         : card.effect === "largePrism" ? 3 : 0;
@@ -456,7 +438,7 @@ export function createResolvePlayedCard(context: ResolvePlayedCardContext) {
         if (card.effect === "astronomyResearch") return "천문학 연구: ★★로 파일 드로우";
         if (card.effect === "necromancyResearch") return "강령학 연구: ★★★로 버린 카드 드로우";
         if (card.effect === "metallurgyResearch") return "금속학 연구: 재련된 카드 가져옴";
-        if (card.effect === "economicsResearch") return "영혼담보대출: 에너지 하한 -3 추가";
+        if (card.effect === "economicsResearch") return "경제학 연구: 에너지 하한 -3 추가";
         if (card.effect === "opticsResearch") return "광학 연구: 턴 시작마다 광채 생성";
         if (card.effect === "lightCluster") return "빛무리: 광채 1장 획득";
         if (card.effect === "largePrism") return "대형 프리즘: 광채 3장 획득";
@@ -486,8 +468,6 @@ export function createResolvePlayedCard(context: ResolvePlayedCardContext) {
         if (card.effect === "berserk") return "에너지를 2 얻습니다 · 물리 취약 2 획득";
         if (card.effect === "transcend") return "이번 턴 피해 면역 · 힘 5 획득";
         if (card.effect === "rapidFire") return "다음 공격 카드가 2회 발동";
-        if (card.effect === "delay") return "이번 턴 종료 시 손패 유지";
-        if (isBoneArmor) return "강인함 5 · 물리 저항 1 획득";
         if (card.effect === "ventilate") return "환기: 에너지 획득";
         if (card.effect === "fileDraw") return card.forged ? "모든 파일에서 1장씩 뽑음" : "드로우할 파일을 선택하세요.";
         if (card.effect === "starGuard") return "별의 장막: 방어와 ★ 획득";
@@ -498,7 +478,7 @@ export function createResolvePlayedCard(context: ResolvePlayedCardContext) {
         if (card.effect === "starlight") return "별빛: ★ 획득";
         if (card.effect === "augment") return "증강: 힘과 강인함 획득";
         if (card.effect === "relic") return "유물: 도깨비의 힘 -4";
-        if (card.effect === "supernova") return "★★를 잃습니다 · 에너지를 3 얻습니다";
+        if (card.effect === "supernova") return "★★★★를 잃습니다 · 에너지를 3 얻습니다";
         return card.name;
       })();
       const drawMessage = card.draw > 0
@@ -516,7 +496,6 @@ export function createResolvePlayedCard(context: ResolvePlayedCardContext) {
         removedFromReshuffleIds: [...new Set([
           ...current.removedFromReshuffleIds,
           ...(card.exhaust ? [card.id] : []),
-          ...consumedOfferingIds,
         ])],
         energy: current.energy - energyCost + (card.effect === "aries" ? 5 : card.effect === "berserk" ? 2 : card.effect === "plateArmor" ? (card.forged ? 3 : 1) : card.effect === "focus" || card.effect === "adrenaline" || card.effect === "pruning" || card.effect === "charge" || card.effect === "endStart" || card.effect === "supernova" ? card.value : card.effect === "flood" ? 2 : card.effect === "ventilate" ? card.value : 0),
         radiancePlayedThisTurn: current.radiancePlayedThisTurn + (isRadiance ? 1 : 0),
@@ -540,7 +519,7 @@ export function createResolvePlayedCard(context: ResolvePlayedCardContext) {
               : card.effect === "flood"
                     ? 2
               : 0
-        ) + grimoireBonus - (card.effect === "supernova" ? 2 : 0) - meteorStars,
+        ) + grimoireBonus - (card.effect === "supernova" ? 4 : 0) - meteorStars,
         pendingDraws: drawsAdded,
         pendingPileDrawCount,
         pendingDashRandomDraws,
@@ -559,13 +538,12 @@ export function createResolvePlayedCard(context: ResolvePlayedCardContext) {
         playerMagicVulnerability: nextMagicStatus.vulnerability,
         strength: current.strength + (card.effect === "orion" ? 10 : card.effect === "warmUp" ? card.value + 1 : card.effect === "augment" || card.effect === "weaponSharpen" ? card.value : 0),
         temporaryStrength: current.temporaryStrength + (card.effect === "warmUp" ? card.value : 0),
-        agility: current.agility + (isBoneArmor ? 5 : card.effect === "augment" || card.effect === "armorSharpen" ? card.value : 0),
+        agility: current.agility + (card.effect === "augment" || card.effect === "armorSharpen" ? card.value : 0),
         piles: massDealPiles,
         reflectDamage: card.effect === "counter" ? 1 : current.reflectDamage,
         defenseMultiplier: current.defenseMultiplier,
         evenDealOnReshuffle: current.evenDealOnReshuffle || isMassDeal,
         preserveDefenseOnTurnEnd: current.preserveDefenseOnTurnEnd || isSturdyStance,
-        preserveHandOnTurnEnd: current.preserveHandOnTurnEnd || card.effect === "delay",
         activeRuleCards: card.rule
           ? [...current.activeRuleCards, { ...card }]
           : current.activeRuleCards,
@@ -585,7 +563,7 @@ export function createResolvePlayedCard(context: ResolvePlayedCardContext) {
             : "가시에 찔려 쓰러졌습니다."
           : won && !waitForLethalHitPopups
             ? "승리! 모든 적을 쓰러뜨렸습니다."
-            : `${action}${card.ritualCost ? ` · 제물 ${card.ritualCost}장 소멸` : ""}${thornsDamageTaken > 0 ? ` · 가시 피해 ${thornsDamageTaken}` : ""}${card.effect === "prepare" || card.effect === "focus" ? "" : drawMessage}`,
+            : `${action}${thornsDamageTaken > 0 ? ` · 가시 피해 ${thornsDamageTaken}` : ""}${card.effect === "prepare" || card.effect === "focus" ? "" : drawMessage}`,
       };
     });
   };

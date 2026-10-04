@@ -1,8 +1,7 @@
 import assert from "node:assert/strict";
 import test from "node:test";
 
-import { RARE_CARD_POOL, SPECIAL_CARD_POOL, createMagicCrystalCard } from "../app/game/cards.ts";
-import { canForgeCardOnto, forgeConditionText, getCardKeywordInfos } from "../app/game/cardEffects.ts";
+import { RARE_CARD_POOL, SPECIAL_CARD_POOL } from "../app/game/cards.ts";
 import { calculateDefenseGain, getDefenseBaseValue } from "../app/game/defenseRules.ts";
 import { cardCostAfterForgePlacement, obsidianDaggerForgesRemaining } from "../app/game/forgeRules.ts";
 
@@ -26,15 +25,6 @@ test("obsidian dagger has exactly five forges", () => {
   assert.equal(obsidianDaggerForgesRemaining(4), 1);
   assert.equal(obsidianDaggerForgesRemaining(5), 0);
   assert.equal(obsidianDaggerForgesRemaining(6), 0);
-});
-
-test("higher stage magic crystals remain forgeable with their current stage shown", () => {
-  for (const stage of [2, 3, 4]) {
-    const crystal = { ...createMagicCrystalCard(stage, stage), forged: true };
-    assert.equal(canForgeCardOnto(crystal, createMagicCrystalCard(stage + 10, stage)), true);
-    assert.equal(canForgeCardOnto(crystal, createMagicCrystalCard(stage + 20, stage + 1)), false);
-    assert.equal(forgeConditionText(crystal), `[${crystal.name}]`);
-  }
 });
 
 test("fixed defense gains add toughness before applying the defense multiplier", () => {
@@ -65,31 +55,6 @@ test("cards without ordinary defense values stay at zero without a base override
 
   assert.equal(calculateDefenseGain({ effect: "suppression", value: 15 }, options), 0);
   assert.equal(calculateDefenseGain({ effect: "sturdyStance", value: 0 }, options), 0);
-});
-
-test("sacrifice and rank spell tooltips keep the same explanation for every level", () => {
-  const soulCollateralLoan = RARE_CARD_POOL.find((card) => card.name === "영혼담보대출");
-  const sturdyStance = RARE_CARD_POOL.find((card) => card.name === "견고한 태세");
-  assert.ok(soulCollateralLoan);
-  assert.ok(sturdyStance);
-
-  const sacrificeDescription = "손패에 제물이 X장 이상 있어야 사용할 수 있습니다. 사용 시 손패의 제물 X장을 소멸시킵니다.";
-  const spellRankDescription = "손패에 X단계 이상의 마력 결정이 있어야 사용할 수 있습니다. 마력 결정은 소모되지 않습니다.";
-  const sacrificeTooltip = { name: "희생 X", description: sacrificeDescription, preview: undefined };
-  const spellRankTooltip = { name: "Lv.X 마법", description: spellRankDescription, preview: undefined };
-  for (const ritualCost of [1, 2]) {
-    assert.deepEqual(
-      getCardKeywordInfos({ ...soulCollateralLoan, ritualCost }).find((keyword) => keyword.name === "희생 X"),
-      sacrificeTooltip,
-    );
-  }
-  for (const spellRank of [3, 4]) {
-    assert.deepEqual(
-      getCardKeywordInfos({ ...sturdyStance, spellRank }).find((keyword) => keyword.name === "Lv.X 마법"),
-      spellRankTooltip,
-    );
-  }
-  assert.equal(getCardKeywordInfos(createMagicCrystalCard(1, 2)).some((keyword) => keyword.name === "마력 결정"), true);
 });
 
 test("suppression uses the shared defense calculation with dealt damage as its base", () => {

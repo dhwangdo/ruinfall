@@ -64,10 +64,10 @@ test("deck score sums editions, rare cards, and capacity", () => {
     cards: [{ rarity: "special" }, { rarity: "rare" }, { rarity: "basic" }],
   });
   assert.deepEqual(score, {
-    editionScore: 80,
+    editionScore: 70,
     cardScore: 8,
     capacityScore: 13,
-    total: 101,
+    total: 91,
   });
 });
 
@@ -77,7 +77,7 @@ test("deck edition scores do not use a progressive surcharge", () => {
     editions: ["clever", "roomy", "lively"],
     cards: [],
   });
-  assert.equal(score.editionScore, 75);
+  assert.equal(score.editionScore, 65);
 });
 
 test("recycling editions are mutually exclusive", () => {

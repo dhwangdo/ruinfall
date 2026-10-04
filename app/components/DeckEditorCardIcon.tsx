@@ -14,7 +14,7 @@ export function DeckEditorCardIcon({ card, count = 1, showNewBadge = false }: {
   return (
     <>
       {cost !== "" && cost !== undefined && <span className="editor-card-cost">{cost}</span>}
-      <strong className="editor-card-name">{card.name}{card.effect === "obsidianDagger" && cardForgeCount(card) > 0 ? ` +${cardForgeCount(card)}` : card.forged && !["astronomyResearch", "necromancyResearch", "magicCrystal"].includes(card.effect) ? "+" : ""}</strong>
+      <strong className="editor-card-name">{card.name}{card.effect === "obsidianDagger" && cardForgeCount(card) > 0 ? ` +${cardForgeCount(card)}` : card.forged && !["astronomyResearch", "necromancyResearch"].includes(card.effect) ? "+" : ""}</strong>
       {card.colored && <em className="deck-card-painted">색칠</em>}
       {showNewBadge && <em className="deck-card-new">NEW!</em>}
       {count > 1 && <span className="inventory-card-count">x{count}</span>}

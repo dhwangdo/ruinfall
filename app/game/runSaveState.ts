@@ -1,5 +1,33 @@
 import type { BlessingId } from "./blessingRules";
+import { RARE_CARD_POOL, type Card } from "./cards.ts";
 import type { SavedRunState } from "./runTypes";
+
+const REMOVED_EFFECTS = new Set(["sacrifice", "magicCrystal", "delay", "boneArmor"]);
+const REMOVED_CARD_NAMES = new Set(["불티", "잔바위", "유예", "뼈 갑옷", "환기"]);
+const RESTORED_EFFECTS = new Set([
+  "steelHeart", "rapidFire", "supernova", "meteor", "sturdyStance", "economicsResearch", "lightTravelTime",
+]);
+
+function restoreLegacyCard(card: Card): Card | null {
+  if (REMOVED_EFFECTS.has(card.effect) || REMOVED_CARD_NAMES.has(card.name)) return null;
+  const restored = { ...card } as Card & { ritualCost?: number; spellRank?: number; magicCrystalStage?: number };
+  delete restored.ritualCost;
+  delete restored.spellRank;
+  delete restored.magicCrystalStage;
+  if (RESTORED_EFFECTS.has(restored.effect)) {
+    const blueprint = RARE_CARD_POOL.find((item) => item.effect === restored.effect);
+    if (blueprint) {
+      restored.name = blueprint.name;
+      restored.cost = blueprint.cost;
+      restored.value = blueprint.value;
+    }
+  }
+  return restored;
+}
+
+function restoreLegacyCards(cards: Card[]): Card[] {
+  return cards.flatMap((card) => restoreLegacyCard(card) ?? []);
+}
 
 type SetBackedRunStateFields =
   | "seenRooms"
@@ -13,7 +41,6 @@ type SetBackedRunStateFields =
   | "collapsedTransformShrineRooms"
   | "collapsedCombinationShrineRooms"
   | "collapsedTreasureChestRooms"
-  | "collapsedAltarRooms"
   | "usedHealRooms"
   | "usedBlessingRooms"
   | "blessingSeenOfferIds";
@@ -30,7 +57,6 @@ export type RunSaveSnapshotSource = Omit<SavedRunState, SetBackedRunStateFields>
   collapsedTransformShrineRooms: ReadonlySet<string>;
   collapsedCombinationShrineRooms: ReadonlySet<string>;
   collapsedTreasureChestRooms: ReadonlySet<string>;
-  collapsedAltarRooms: ReadonlySet<string>;
   usedHealRooms: ReadonlySet<string>;
   usedBlessingRooms: ReadonlySet<string>;
   blessingSeenOfferIds: ReadonlySet<BlessingId>;
@@ -52,7 +78,6 @@ export function createRunSaveSnapshot(source: RunSaveSnapshotSource): SavedRunSt
     collapsedTransformShrineRooms: [...source.collapsedTransformShrineRooms],
     collapsedCombinationShrineRooms: [...source.collapsedCombinationShrineRooms],
     collapsedTreasureChestRooms: [...source.collapsedTreasureChestRooms],
-    collapsedAltarRooms: [...source.collapsedAltarRooms],
     usedHealRooms: [...source.usedHealRooms],
     usedBlessingRooms: [...source.usedBlessingRooms],
     blessingSeenOfferIds: [...source.blessingSeenOfferIds],
@@ -66,7 +91,6 @@ type NormalizedRunRestoreFields =
   | "collapsedTransformShrineRooms"
   | "collapsedCombinationShrineRooms"
   | "collapsedTreasureChestRooms"
-  | "collapsedAltarRooms"
   | "vitalityShrineMaxHpBonus"
   | "godsLamentCharges"
   | "darkTicketTurnsRemaining"
@@ -94,13 +118,25 @@ export function prepareRunRestore(
 
   return {
     ...state,
+    ownedDecks: (state.ownedDecks ?? []).map((deck) => ({ ...deck, cards: restoreLegacyCards(deck.cards) })),
+    inventoryCards: restoreLegacyCards(state.inventoryCards ?? []),
+    roomDrops: Object.fromEntries(Object.entries(state.roomDrops ?? {}).map(([key, cards]) => [key, restoreLegacyCards(cards)])),
+    roomDeckDrops: Object.fromEntries(Object.entries(state.roomDeckDrops ?? {}).map(([key, decks]) => [
+      key, decks.map((deck) => ({ ...deck, cards: restoreLegacyCards(deck.cards) })),
+    ])),
+    roomShops: Object.fromEntries(Object.entries(state.roomShops ?? {}).map(([key, offers]) => [
+      key, offers.flatMap((offer) => {
+        if (!offer.card) return [offer];
+        const card = restoreLegacyCard(offer.card);
+        return card ? [{ ...offer, card }] : [];
+      }),
+    ])),
     collapsedRecoveryShrineRooms: state.collapsedRecoveryShrineRooms ?? legacyCollapsedHealthShrineRooms,
     collapsedVitalityShrineRooms: state.collapsedVitalityShrineRooms ?? legacyCollapsedHealthShrineRooms,
     collapsedMindEyeShrineRooms: state.collapsedMindEyeShrineRooms ?? [],
     collapsedTransformShrineRooms: state.collapsedTransformShrineRooms ?? [],
     collapsedCombinationShrineRooms: state.collapsedCombinationShrineRooms ?? [],
     collapsedTreasureChestRooms: state.collapsedTreasureChestRooms ?? [],
-    collapsedAltarRooms: state.collapsedAltarRooms ?? [],
     vitalityShrineMaxHpBonus: state.vitalityShrineMaxHpBonus ?? state.healthShrineMaxHpBonus ?? 0,
     godsLamentCharges,
     darkTicketTurnsRemaining: state.darkTicketTurnsRemaining ?? 0,

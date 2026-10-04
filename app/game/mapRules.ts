@@ -1,4 +1,4 @@
-import { BASIC_CARD_POOL, RARE_CARD_POOL, SPECIAL_CARD_POOL, createMagicCrystalCard, type Card } from "./cards";
+import { BASIC_CARD_POOL, RARE_CARD_POOL, SPECIAL_CARD_POOL, type Card } from "./cards";
 import {
   SEWER_ENCOUNTER_COUNT,
   getBossEncounterIndex,
@@ -30,8 +30,6 @@ export type RoomType =
   | "transformShrine"
   | "combinationShrine"
   | "treasureChest"
-  | "altar"
-  | "contaminated"
   | "boss"
   | "portal"
   | "heal"
@@ -48,8 +46,6 @@ const SPECIAL_NODE_WEIGHTS: ReadonlyArray<{ type: RoomType; weight: number }> = 
   { type: "transformShrine", weight: 1 },
   { type: "combinationShrine", weight: 1 },
   { type: "treasureChest", weight: 0.5 },
-  { type: "altar", weight: 1 },
-  { type: "contaminated", weight: 1 },
   { type: "blessing", weight: 0.01 },
 ];
 const SPECIAL_NODE_WEIGHT_TOTAL = SPECIAL_NODE_WEIGHTS.reduce(
@@ -350,86 +346,8 @@ export function getRoomType(position: MapPosition, seed: number): RoomType {
   if (fixedType !== null) return fixedType;
   const specialType = getSpecialRoomType(position, seed);
   if (specialType) return specialType;
-  if (magicContaminationClusterAt(position, seed)) return "contaminated";
   if (!isAdjacentToSafeAreaBoundary(position, seed) && isRockClusterCell(position, seed)) return "rock";
   return "empty";
-}
-
-type MagicContaminationCluster = { anchor: MapPosition; positions: MapPosition[] };
-
-const CARDINAL_DIRECTIONS = EIGHT_DIRECTIONS.filter((direction) =>
-  direction.x === 0 || direction.y === 0);
-
-function createMagicContaminationCluster(anchor: MapPosition, seed: number): MagicContaminationCluster | null {
-  const regionIndex = getDungeonRegionIndex(anchor);
-  if (regionIndex === null || getSpecialRoomType(anchor, seed) !== "contaminated") return null;
-  const eligible: MapPosition[] = [];
-  for (let offsetY = -3; offsetY <= 3; offsetY += 1) {
-    for (let offsetX = -3; offsetX <= 3; offsetX += 1) {
-      const position = { x: anchor.x + offsetX, y: anchor.y + offsetY };
-      if (position.x === anchor.x && position.y === anchor.y) continue;
-      if (getDungeonRegionIndex(position) !== regionIndex || !isNormalDungeonFloor(position, seed)) continue;
-      eligible.push(position);
-    }
-  }
-  const clusterSize = 12 + Math.floor(seededRoll(anchor, seed, 7302) * 9);
-  const eligibleByKey = new Map(eligible.map((position) => [mapRoomKey(position), position]));
-  const positions = [anchor];
-  const includedKeys = new Set([mapRoomKey(anchor)]);
-  const frontier = new Map<string, MapPosition>();
-  const addFrontier = (position: MapPosition) => {
-    for (const direction of CARDINAL_DIRECTIONS) {
-      const neighbor = { x: position.x + direction.x, y: position.y + direction.y };
-      const key = mapRoomKey(neighbor);
-      const eligiblePosition = eligibleByKey.get(key);
-      if (eligiblePosition && !includedKeys.has(key)) frontier.set(key, eligiblePosition);
-    }
-  };
-
-  addFrontier(anchor);
-  while (positions.length < clusterSize && frontier.size > 0) {
-    const nextPosition = Array.from(frontier.values()).sort((left, right) =>
-      seededRoll(left, seed, 7303) - seededRoll(right, seed, 7303)
-      || left.y - right.y
-      || left.x - right.x)[0];
-    const nextKey = mapRoomKey(nextPosition);
-    frontier.delete(nextKey);
-    if (includedKeys.has(nextKey)) continue;
-    positions.push(nextPosition);
-    includedKeys.add(nextKey);
-    addFrontier(nextPosition);
-  }
-
-  return {
-    anchor,
-    positions,
-  };
-}
-
-function magicContaminationClusterAt(position: MapPosition, seed: number): MagicContaminationCluster | null {
-  const regionIndex = getDungeonRegionIndex(position);
-  if (regionIndex === null) return null;
-  const regionStart = regionStartY(regionIndex);
-  const matches: MagicContaminationCluster[] = [];
-  for (let offsetY = -3; offsetY <= 3; offsetY += 1) {
-    for (let offsetX = -3; offsetX <= 3; offsetX += 1) {
-      const anchor = { x: position.x + offsetX, y: position.y + offsetY };
-      if (anchor.x < DUNGEON_MIN_X || anchor.x > DUNGEON_MAX_X
-        || anchor.y < regionStart || anchor.y >= regionStart + REGION_HEIGHT) continue;
-      const localY = anchor.y - regionStart;
-      const availableChance = localY === REGION_HEIGHT - 1 ? 1 - PORTAL_NODE_CHANCE : 1;
-      if (seededRoll(anchor, seed, 7300) >= SPECIAL_NODE_CHANCE / availableChance) continue;
-      const cluster = createMagicContaminationCluster(anchor, seed);
-      if (cluster?.positions.some((cell) => cell.x === position.x && cell.y === position.y)) {
-        matches.push(cluster);
-      }
-    }
-  }
-  matches.sort((left, right) =>
-    chebyshevDistance(left.anchor, position) - chebyshevDistance(right.anchor, position)
-    || left.anchor.y - right.anchor.y
-    || left.anchor.x - right.anchor.x);
-  return matches[0] ?? null;
 }
 
 export function isWalkableRoom(type: RoomType) {
@@ -544,24 +462,6 @@ export function createMapFloorDropsForPositions(
   const cards: Record<string, Card[]> = {};
   const consumables: Record<string, Consumable[]> = {};
   for (const position of positions) {
-    const roomType = getRoomType(position, seed);
-    if (roomType === "contaminated") {
-      const cluster = magicContaminationClusterAt(position, seed);
-      if (!cluster) continue;
-      const regionNumber = getRegionNumber(position, seed);
-      const crystalCount = regionNumber + 1 + Math.floor(seededRoll(cluster.anchor, seed, 7304) * 3);
-      const crystalPositions = [...cluster.positions].sort((left, right) =>
-        seededRoll(left, seed, 7305) - seededRoll(right, seed, 7305)
-        || left.y - right.y
-        || left.x - right.x);
-      const crystalIndex = crystalPositions.findIndex((cell) => cell.x === position.x && cell.y === position.y);
-      if (crystalIndex >= 0 && crystalIndex < crystalCount) {
-        const cellId = (position.y * MAP_COLUMNS) + (position.x - DUNGEON_MIN_X);
-        const cardId = 1_000_000 + cellId;
-        cards[mapRoomKey(position)] = [createMagicCrystalCard(cardId, 1)];
-      }
-      continue;
-    }
     if (getRoomType(position, seed) !== "empty"
       || seededRoll(position, seed, 7201) >= FLOOR_CARD_DROP_CHANCE) continue;
     const roomKey = mapRoomKey(position);
