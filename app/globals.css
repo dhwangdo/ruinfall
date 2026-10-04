@@ -18,17 +18,17 @@
   --battle-cost-text-color: #ffd166;
   --card-paper: #f7f4eb;
   --rare-gradient: linear-gradient(112deg, #88374f 0%, #9b448c 24%, #614a9f 49%, #316f9a 74%, #327f72 100%);
-  --rare-background-wash: linear-gradient(110deg, rgba(136,55,79,.065), rgba(155,68,140,.06), rgba(97,74,159,.06), rgba(49,111,154,.06), rgba(50,127,114,.065));
+  --rare-background-wash: linear-gradient(110deg, rgba(136,55,79,.16), rgba(155,68,140,.13), rgba(97,74,159,.14), rgba(49,111,154,.13), rgba(50,127,114,.16));
 }
 
 :is(.card-face, .deck-editor-card.rarity-rare, .deck-list-entry.rarity-rare, .battle-ledger-card-stack.rarity-rare):has(.rare-palette) {
   --rare-gradient: linear-gradient(112deg, var(--rare-a) 0%, var(--rare-b) 24%, var(--rare-c) 49%, var(--rare-d) 74%, var(--rare-e) 100%);
   --rare-background-wash: linear-gradient(110deg,
-    color-mix(in srgb, var(--rare-a) 7%, transparent),
-    color-mix(in srgb, var(--rare-b) 6%, transparent),
-    color-mix(in srgb, var(--rare-c) 6%, transparent),
-    color-mix(in srgb, var(--rare-d) 6%, transparent),
-    color-mix(in srgb, var(--rare-e) 7%, transparent));
+    color-mix(in srgb, var(--rare-a) 16%, transparent),
+    color-mix(in srgb, var(--rare-b) 13%, transparent),
+    color-mix(in srgb, var(--rare-c) 14%, transparent),
+    color-mix(in srgb, var(--rare-d) 13%, transparent),
+    color-mix(in srgb, var(--rare-e) 16%, transparent));
   --editor-rarity: var(--rare-c);
 }
 :is(.card-face, .deck-editor-card.rarity-rare, .deck-list-entry.rarity-rare, .battle-ledger-card-stack.rarity-rare):has(.rare-palette-0) {
