@@ -96,7 +96,7 @@ export function createResolvePlayedCard(context: ResolvePlayedCardContext) {
       const repetitions = (
         card.effect === "hydra" ? 9
           : card.effect === "meteor" ? game.stars
-            : card.effect === "fourHit" ? 4
+            : card.effect === "fourHit" ? 5
               : card.effect === "doubleHit" && card.forged ? 2 : 1
       ) * (game.doubleNextAttack ? 2 : 1);
       const combatManualBonus = game.hand
@@ -260,7 +260,7 @@ export function createResolvePlayedCard(context: ResolvePlayedCardContext) {
         : current.enemies.find((enemy) => enemy.id === targetEnemyId);
       if (isDamageCard && !isAttackAll && (!targetEnemy || targetEnemy.hp === 0)) return current;
       const meteorStars = isMeteor ? current.stars : 0;
-      const repetitions = (isHydra ? 9 : isMeteor ? meteorStars : card.effect === "fourHit" ? 4 : isDoubleHit && card.forged ? 2 : 1) * (isDamageCard && current.doubleNextAttack ? 2 : 1);
+      const repetitions = (isHydra ? 9 : isMeteor ? meteorStars : card.effect === "fourHit" ? 5 : isDoubleHit && card.forged ? 2 : 1) * (isDamageCard && current.doubleNextAttack ? 2 : 1);
       const combatManualBonus = current.hand
         .filter((item) => item.effect === "combatManual")
         .reduce((total, item) => total + item.value, 0)
@@ -468,6 +468,8 @@ export function createResolvePlayedCard(context: ResolvePlayedCardContext) {
         if (card.effect === "blessing") return `가호: 마법 저항 ${card.forged ? 2 : 1} 획득`;
         if (isPlateArmorDefense) return `방어 ${blockGained} 획득${card.forged ? " · 물리 저항 1 획득" : ""}`;
         if (isIronWall) return `철벽: 물리 저항 ${IRON_WALL_RESISTANCE} 획득`;
+        if (card.effect === "silverSword") return `${targetEnemy?.name}에게 피해 ${damage} · 마법 방어 ${blockGained} 획득`;
+        if (card.effect === "fourHit") return `${targetEnemy?.name}에게 총 피해 ${damage} (${repetitions}회 공격)`;
         if (card.kind === "strike") return `${targetEnemy?.name}에게 피해 ${damage}${repetitions > 1 ? " (2회 발동)" : ""}`;
         if (isBlockCard) return `${DEFENSE_LABEL[card.damageType]} ${blockGained} 획득`;
         if (card.effect === "steelHeart") return `물리 저항 · 마법 저항 ${card.value} 획득`;
@@ -492,7 +494,7 @@ export function createResolvePlayedCard(context: ResolvePlayedCardContext) {
         if (card.effect === "charge") return "충전: 에너지 획득";
         if (card.effect === "plateArmor") return `낡은 노심: 에너지 ${card.forged ? 3 : 1} 획득`;
         if (card.effect === "warmUp") return "준비 운동: 이번 턴 힘 획득";
-        if (card.effect === "fourHit") return "4연격";
+        if (card.effect === "fourHit") return "5연격";
         if (card.effect === "doubleHit") return `청동 철퇴: ${card.forged ? 2 : 1}회 공격`;
         if (card.effect === "starlight") return "별빛: ★ 획득";
         if (card.effect === "augment") return "증강: 힘과 강인함 획득";

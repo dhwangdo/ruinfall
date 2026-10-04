@@ -11,16 +11,47 @@ import {
   createAdrenalineCard,
   createMagicCrystalCard,
   createRadianceCard,
+  cardGivesMagicDefense,
+  cardGivesPhysicalDefense,
   isAttackCard,
 } from "../app/game/cards.ts";
 
 test("card pools preserve the current content counts", () => {
   assert.equal(STARTER_CARD_POOL.length, 3);
   assert.equal(BASIC_CARD_POOL.length, 6);
-  assert.equal(SPECIAL_CARD_POOL.length, 34);
+  assert.equal(SPECIAL_CARD_POOL.length, 36);
   assert.equal(RARE_CARD_POOL.length, 18);
   assert.equal(LEGENDARY_CARD_POOL.length, 6);
-  assert.equal(ALL_CARD_BLUEPRINTS.length, 70);
+  assert.equal(ALL_CARD_BLUEPRINTS.length, 72);
+});
+
+test("special card pool contains the updated cards and excludes sharpen cards", () => {
+  const card = (name) => SPECIAL_CARD_POOL.find((item) => item.name === name);
+  const fourHit = card("5연격");
+  const backstep = card("백스텝");
+  const silverSword = card("은검");
+  const spark = card("불티");
+  const pebble = card("잔바위");
+
+  assert.equal(fourHit?.value, 2);
+  assert.equal(backstep?.cost, 0);
+  assert.equal(backstep?.value, 5);
+  assert.equal(cardGivesPhysicalDefense(backstep), true);
+  assert.deepEqual(
+    silverSword && { cost: silverSword.cost, value: silverSword.value, rarity: silverSword.rarity },
+    { cost: 1, value: 12, rarity: "special" },
+  );
+  assert.equal(isAttackCard(silverSword), true);
+  assert.equal(cardGivesMagicDefense(silverSword), true);
+  assert.deepEqual(
+    spark && { cost: spark.cost, value: spark.value, spellRank: spark.spellRank },
+    { cost: 1, value: 16, spellRank: 1 },
+  );
+  assert.deepEqual(
+    pebble && { cost: pebble.cost, value: pebble.value, spellRank: pebble.spellRank },
+    { cost: 1, value: 12, spellRank: 1 },
+  );
+  assert.equal(SPECIAL_CARD_POOL.some((item) => ["무기 연마", "방어구 연마"].includes(item.name)), false);
 });
 
 test("radiance is treated as an attack card", () => {

@@ -43,6 +43,8 @@ test("fixed defense gains add toughness before applying the defense multiplier",
   assert.equal(calculateDefenseGain({ effect: "defend", value: 5 }, options), 16);
   assert.equal(calculateDefenseGain({ effect: "iceShield", value: 11 }, options), 28);
   assert.equal(calculateDefenseGain({ effect: "waterWave", value: 5 }, options), 16);
+  assert.equal(getDefenseBaseValue({ effect: "silverSword", value: 12 }), 5);
+  assert.equal(calculateDefenseGain({ effect: "silverSword", value: 12 }, options), 16);
 });
 
 test("iron wall no longer grants defense", () => {

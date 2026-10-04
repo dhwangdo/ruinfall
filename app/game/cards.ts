@@ -58,6 +58,7 @@ export type CardEffect =
   | "warmUp"
   | "ironWall"
   | "fourHit"
+  | "silverSword"
   | "doubleHit"
   | "starlight"
   | "augment"
@@ -206,13 +207,15 @@ export const SPECIAL_CARD_POOL: CardBlueprint[] = [
   { kind: "skill", effect: "warmUp", rarity: "special", name: "준비 운동", cost: 0, value: 4, draw: 0, damageType: "physical" },
   { kind: "skill", effect: "starlight", rarity: "special", name: "별빛", cost: 0, value: 2, draw: 0, damageType: "physical" },
   { kind: "skill", effect: "iceShield", rarity: "special", name: "얼음 방패", cost: 1, value: 11, draw: 0, damageType: "magic" },
-  { kind: "strike", effect: "fourHit", rarity: "special", name: "4연격", cost: 1, value: 2, draw: 0, damageType: "physical" },
+  { kind: "strike", effect: "fourHit", rarity: "special", name: "5연격", cost: 1, value: 2, draw: 0, damageType: "physical" },
+  { kind: "skill", effect: "defend", rarity: "special", name: "백스텝", cost: 0, value: 5, draw: 0, damageType: "physical" },
+  { kind: "strike", effect: "silverSword", rarity: "special", name: "은검", cost: 1, value: 12, draw: 0, damageType: "physical" },
+  { kind: "strike", effect: "strike", rarity: "special", name: "불티", cost: 1, value: 16, draw: 0, damageType: "physical", spellRank: 1 },
+  { kind: "skill", effect: "defend", rarity: "special", name: "잔바위", cost: 1, value: 12, draw: 0, damageType: "physical", spellRank: 1 },
   { kind: "skill", effect: "battlePlan", rarity: "special", name: "전략가", cost: 1, value: 2, draw: 1, damageType: "physical" },
   { kind: "skill", effect: "plateArmor", rarity: "special", name: "낡은 노심", cost: 1, value: 1, draw: 0, damageType: "physical", forgeCost: 3 },
   { kind: "skill", effect: "plateArmorDefense", rarity: "special", name: "판금 갑옷", cost: 1, value: 8, draw: 0, damageType: "physical", forgeCost: 3 },
   { kind: "skill", effect: "pruning", rarity: "special", name: "가지치기", cost: 0, value: 2, draw: 0, damageType: "physical" },
-  { kind: "skill", effect: "weaponSharpen", rarity: "special", name: "무기 연마", cost: 1, value: 2, draw: 0, damageType: "physical", exhaust: true },
-  { kind: "skill", effect: "armorSharpen", rarity: "special", name: "방어구 연마", cost: 1, value: 2, draw: 0, damageType: "physical", exhaust: true },
   { kind: "skill", effect: "dash", rarity: "special", name: "질주", cost: 1, value: 0, draw: 0, damageType: "physical", forgeCost: 3 },
   { kind: "skill", effect: "quickStep", rarity: "special", name: "퀵스텝", cost: 1, value: 0, draw: 2, damageType: "physical" },
 { kind: "strike", effect: "suppression", rarity: "special", name: "진압", cost: 3, value: 13, draw: 0, damageType: "physical" },
@@ -299,13 +302,13 @@ export const CARD_POOL_ENERGY_EFFECTS = new Set<CardEffect>([
   "focus", "adrenaline", "pruning", "berserk", "ventilate", "plateArmor", "charge", "flood", "endStart", "supernova", "aries", "economicsResearch",
 ]);
 export const CARD_POOL_DEFENSE_EFFECTS = new Set<CardEffect>([
-  "defend", "deflect", "iceShield", "waterWave", "plateArmorDefense", "starGuard", "starArk", "ironWave", "ironRampage", "suppression", "odinSpear",
+  "defend", "deflect", "iceShield", "waterWave", "plateArmorDefense", "starGuard", "starArk", "ironWave", "ironRampage", "suppression", "odinSpear", "silverSword",
 ]);
 export const CARD_POOL_STAR_EFFECTS = new Set<CardEffect>([
   "battlePlan", "rulerCompass", "starlight", "starGuard", "starArk", "superStrategist", "flood", "aries", "astronomyResearch", "necromancyResearch", "nebula",
 ]);
 export const CARD_POOL_STATUS_EFFECTS = new Set<CardEffect>([
-  "steelHeart", "warmUp", "rapidFire", "counter", "weaponSharpen", "armorSharpen", "supernova", "blessing", "mirrorImage", "lightTravelTime", "wolfTalisman", "turtleTalisman", "sacrifice", "magicCrystal",
+  "steelHeart", "warmUp", "rapidFire", "counter", "supernova", "blessing", "mirrorImage", "lightTravelTime", "wolfTalisman", "turtleTalisman", "sacrifice", "magicCrystal",
 ]);
 
 export function createSacrificeCard(id: number): Card {
@@ -338,7 +341,7 @@ export function cardGivesPhysicalDefense(card: DefenseCardLike) {
 
 export function cardGivesMagicDefense(card: DefenseCardLike) {
   if (card.effect === "defend") return card.damageType === "magic";
-  return ["iceShield", "waterWave", "starArk"].includes(card.effect);
+  return ["iceShield", "waterWave", "starArk", "silverSword"].includes(card.effect);
 }
 
 export function createAdrenalineCard(): Card {

@@ -13,6 +13,7 @@ const FIXED_DEFENSE_VALUES: Partial<Record<CardEffect, number>> = {
   ironRampage: 8,
   starArk: 10,
   odinSpear: 15,
+  silverSword: 5,
 };
 
 const VALUE_BASED_DEFENSE_EFFECTS = new Set<CardEffect>([

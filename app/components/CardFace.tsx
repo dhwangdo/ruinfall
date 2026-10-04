@@ -257,7 +257,9 @@ export function CardFaceView({
       case "ironWall":
         return <span><strong className="effect-keyword">물리 저항</strong>을 {IRON_WALL_RESISTANCE} 얻습니다.</span>;
       case "fourHit":
-        return <span><span className="effect-type damage">피해</span>를 {damageNumber}씩 4번 줍니다.</span>;
+        return <span><span className="effect-type damage">피해</span>를 {damageNumber}씩 5번 줍니다.</span>;
+      case "silverSword":
+        return <><span><span className="effect-type damage">피해</span>를 {damageNumber} 줍니다.</span><span><span className="effect-type magic">마법 방어</span>를 {defenseNumber} 얻습니다.</span></>;
       case "doubleHit":
         return <span><span className="effect-type damage">피해</span>를 {damageNumber}씩 {card.forged ? 2 : "1[2]"}번 줍니다.</span>;
       case "starlight":
