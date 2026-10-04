@@ -18,7 +18,7 @@ export function sortBattleHandByCost(hand: Card[], lawResearchCount: number, for
       const rightCost = sortCost(right.card);
       const costOrder = leftCost === rightCost ? 0 : leftCost - rightCost;
       return costOrder
-        || CARD_RARITY_SORT_RANK[left.card.rarity] - CARD_RARITY_SORT_RANK[right.card.rarity]
+        || CARD_RARITY_SORT_RANK[right.card.rarity] - CARD_RARITY_SORT_RANK[left.card.rarity]
         || left.index - right.index;
     })
     .map(({ card }) => ({ ...card, drawSlot: undefined, drawSlotCount: undefined }));

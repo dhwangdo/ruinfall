@@ -17,7 +17,6 @@
   --battle-cost-color: #17234f;
   --battle-cost-text-color: #ffd166;
   --card-paper: #f7f4eb;
-  --rare-card-paper: #fbf5e3;
   --rare-color: #7138a6;
   --rare-border-color: #d5a928;
   --rare-text-color: #ffe08a;
@@ -3524,7 +3523,7 @@ h1 { margin: 0; font-size: 25px; font-weight: 600; }
 }
 .card-style-simple .card-face:not(:has(.card-name.is-painted)):has(.card-name.rarity-rare) {
   border-color: var(--rare-border-color);
-  background: var(--rare-card-paper);
+  background: var(--card-paper);
   background-clip: padding-box;
 }
 .card-style-simple .card-face:not(:has(.card-name.is-painted))::before { opacity: .08; }
