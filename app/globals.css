@@ -19,8 +19,8 @@
   --card-paper: #f7f4eb;
   --rare-card-paper: #fbf5e3;
   --rare-color: #7138a6;
-  --rare-border-color: #d5a928;
-  --rare-text-color: #d5a928;
+  --rare-border-color: #9c7200;
+  --rare-text-color: #ffd166;
 }
 
 * { box-sizing: border-box; }
