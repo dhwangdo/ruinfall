@@ -20,6 +20,7 @@
   --rare-card-paper: #fbf5e3;
   --rare-color: #7138a6;
   --rare-border-color: #d5a928;
+  --rare-text-color: #d5a928;
 }
 
 * { box-sizing: border-box; }
@@ -3405,6 +3406,7 @@ h1 { margin: 0; font-size: 25px; font-weight: 600; }
 }
 .card-face:has(.card-name.rarity-rare) {
   border: 2px solid var(--rare-border-color);
+  background-clip: padding-box;
 }
 .card-face::before {
   position: absolute;
@@ -3500,7 +3502,7 @@ h1 { margin: 0; font-size: 25px; font-weight: 600; }
 .card-name.rarity-status { color: #e34b58; background: transparent; }
 .card-name.rarity-starter { color: #555B60; background: transparent; }
 .card-name.rarity-special { color: #67cfff; background: transparent; }
-.card-name.rarity-rare { color: var(--rare-border-color); background: transparent; }
+.card-name.rarity-rare { color: var(--rare-text-color); background: transparent; }
 .card-name.is-costless {
   grid-row: 1;
   align-self: stretch;
@@ -3521,6 +3523,7 @@ h1 { margin: 0; font-size: 25px; font-weight: 600; }
 .card-style-simple .card-face:not(:has(.card-name.is-painted)):has(.card-name.rarity-rare) {
   border-color: var(--rare-border-color);
   background: var(--rare-card-paper);
+  background-clip: padding-box;
 }
 .card-style-simple .card-face:not(:has(.card-name.is-painted))::before { opacity: .08; }
 .card-style-simple .card-face:not(:has(.card-name.is-painted))::after {
@@ -3554,12 +3557,16 @@ h1 { margin: 0; font-size: 25px; font-weight: 600; }
   color: #fff;
 }
 .card-style-simple .card-face:not(:has(.card-name.is-painted)) .card-name.rarity-rare {
+  color: var(--rare-text-color);
   text-shadow: 0 1px 2px rgba(18, 26, 43, .45);
 }
 .card-style-simple .card-face:not(:has(.card-name.is-painted)) .card-name.is-unplayable {
   padding: 3px;
 }
 .card-style-simple .card-face:not(:has(.card-name.is-painted)) .card-cost { color: #fff; }
+.card-style-simple .card-face:not(:has(.card-name.is-painted)):has(.card-name.rarity-rare) .card-cost {
+  color: var(--rare-text-color);
+}
 .card-style-simple .card-face:not(:has(.card-name.is-painted)) .effect-keyword,
 .card-style-simple .card-face:not(:has(.card-name.is-painted)) .effect-star,
 .card-style-simple .card-face:not(:has(.card-name.is-painted)) .draw-effect {
