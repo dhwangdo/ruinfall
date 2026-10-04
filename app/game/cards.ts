@@ -150,10 +150,11 @@ export const STARTER_CARD_POOL: CardBlueprint[] = [
 
 export const BASIC_CARD_POOL: CardBlueprint[] = [
   { kind: "strike", effect: "strike", rarity: "basic", name: "잽", cost: 0, value: 6, draw: 0, damageType: "physical" },
-  { kind: "strike", effect: "rulerCompass", rarity: "basic", name: "자와 컴퍼스", cost: 1, value: 9, draw: 0, damageType: "physical" },
+  { kind: "strike", effect: "rulerCompass", rarity: "basic", name: "자와 컴퍼스", cost: 1, value: 6, draw: 0, damageType: "physical" },
   { kind: "strike", effect: "strike", rarity: "basic", name: "기회 포착", cost: 1, value: 6, draw: 1, damageType: "physical" },
   { kind: "skill", effect: "deflect", rarity: "basic", name: "기회 창출", cost: 1, value: 5, draw: 1, damageType: "physical" },
-  { kind: "skill", effect: "starGuard", rarity: "basic", name: "별의 장막", cost: 2, value: 12, draw: 0, damageType: "physical" },
+  { kind: "skill", effect: "starGuard", rarity: "basic", name: "별의 장막", cost: 2, value: 10, draw: 0, damageType: "physical" },
+  { kind: "skill", effect: "combatManual", rarity: "basic", name: "전투 교본", value: 2, draw: 0, damageType: "physical" },
 ];
 
 export const LEGACY_SPECIAL_CARD_POOL: CardBlueprint[] = [
@@ -192,7 +193,6 @@ export const SPECIAL_CARD_POOL: CardBlueprint[] = [
   { kind: "strike", effect: "exchange", rarity: "special", name: "치환 합금", cost: 3, value: 15, draw: 0, damageType: "physical", forgeAny: true },
   { kind: "strike", effect: "doubleHit", rarity: "special", name: "청동 철퇴", cost: 2, value: 15, draw: 0, damageType: "physical", forgeCosts: [2, 3] },
   { kind: "skill", effect: "ironWall", rarity: "special", name: "철벽", cost: 2, value: 2, draw: 0, damageType: "physical" },
-  { kind: "skill", effect: "combatManual", rarity: "special", name: "전투 교본", value: 2, draw: 0, damageType: "physical" },
   { kind: "skill", effect: "mirrorImage", rarity: "special", name: "거울상", cost: 0, value: 0, draw: 0, damageType: "physical" },
   { kind: "skill", effect: "blessing", rarity: "special", name: "가호", cost: 1, value: 1, draw: 0, damageType: "magic", forgeCost: 2 },
   { kind: "skill", effect: "wolfTalisman", rarity: "special", name: "늑대 부적", value: 1, draw: 0, damageType: "physical" },

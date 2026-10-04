@@ -18,10 +18,10 @@ import {
 test("card pools preserve the current content counts", () => {
   assert.equal(STARTER_CARD_POOL.length, 3);
   assert.equal(BASIC_CARD_POOL.length, 6);
-  assert.equal(SPECIAL_CARD_POOL.length, 35);
+  assert.equal(SPECIAL_CARD_POOL.length, 34);
   assert.equal(RARE_CARD_POOL.length, 13);
   assert.equal(LEGENDARY_CARD_POOL.length, 6);
-  assert.equal(ALL_CARD_BLUEPRINTS.length, 64);
+  assert.equal(ALL_CARD_BLUEPRINTS.length, 63);
 });
 
 test("special card pool contains the updated cards and excludes sharpen cards", () => {
@@ -50,6 +50,12 @@ test("radiance is treated as an attack card", () => {
 });
 
 test("current card data keeps key balance values and removed systems absent", () => {
+  assert.equal(BASIC_CARD_POOL.find((card) => card.name === "자와 컴퍼스")?.value, 6);
+  assert.equal(BASIC_CARD_POOL.find((card) => card.name === "별의 장막")?.value, 10);
+  const combatManual = BASIC_CARD_POOL.find((card) => card.name === "전투 교본");
+  assert.equal(combatManual?.rarity, "basic");
+  assert.equal(combatManual?.value, 2);
+  assert.equal(SPECIAL_CARD_POOL.some((card) => card.name === "전투 교본"), false);
   assert.deepEqual(
     STARTER_CARD_POOL.map(({ name, cost, value }) => ({ name, cost, value })),
     [
