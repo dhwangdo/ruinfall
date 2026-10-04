@@ -303,9 +303,9 @@ export function CardFaceView({
       case "lightTravelTime":
         return <span>다다음 턴 시작 시 <strong className="effect-keyword">광채</strong>를 {card.value}장 가져옵니다.</span>;
       case "wolfTalisman":
-        return <span>전투 덱에 있는 동안 <strong className="effect-keyword">힘</strong>을 1 얻습니다. 효과는 중첩됩니다.</span>;
+        return <span>전투 덱에 있는 동안 <strong className="effect-keyword">힘</strong>을 1 얻습니다.</span>;
       case "turtleTalisman":
-        return <span>전투 덱에 있는 동안 <strong className="effect-keyword">강인함</strong>을 1 얻습니다. 효과는 중첩됩니다.</span>;
+        return <span>전투 덱에 있는 동안 <strong className="effect-keyword">강인함</strong>을 1 얻습니다.</span>;
       case "lawResearch":
         return <span>내 <strong className="effect-keyword">룰</strong> 카드의 비용이 1 감소합니다. 비용은 0 이하가 될 수 있습니다.</span>;
       case "mirrorImage":
