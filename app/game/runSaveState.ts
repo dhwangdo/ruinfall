@@ -1,11 +1,11 @@
 import type { BlessingId } from "./blessingRules";
-import { RARE_CARD_POOL, type Card } from "./cards.ts";
+import { RARE_CARD_POOL, SPECIAL_CARD_POOL, type Card } from "./cards.ts";
 import type { SavedRunState } from "./runTypes";
 
 const REMOVED_EFFECTS = new Set(["sacrifice", "magicCrystal", "delay", "boneArmor"]);
 const REMOVED_CARD_NAMES = new Set(["불티", "잔바위", "유예", "뼈 갑옷", "환기"]);
 const RESTORED_EFFECTS = new Set([
-  "steelHeart", "rapidFire", "supernova", "meteor", "sturdyStance", "economicsResearch", "lightTravelTime",
+  "steelHeart", "rapidFire", "supernova", "meteor", "sturdyStance", "economicsResearch", "lightTravelTime", "wolfTalisman", "turtleTalisman",
 ]);
 
 function restoreLegacyCard(card: Card): Card | null {
@@ -15,9 +15,10 @@ function restoreLegacyCard(card: Card): Card | null {
   delete restored.spellRank;
   delete restored.magicCrystalStage;
   if (RESTORED_EFFECTS.has(restored.effect)) {
-    const blueprint = RARE_CARD_POOL.find((item) => item.effect === restored.effect);
+    const blueprint = [...SPECIAL_CARD_POOL, ...RARE_CARD_POOL].find((item) => item.effect === restored.effect);
     if (blueprint) {
       restored.name = blueprint.name;
+      restored.rarity = blueprint.rarity;
       restored.cost = blueprint.cost;
       restored.value = blueprint.value;
     }

@@ -197,6 +197,8 @@ export const SPECIAL_CARD_POOL: CardBlueprint[] = [
   { kind: "skill", effect: "combatManual", rarity: "special", name: "전투 교본", value: 2, draw: 0, damageType: "physical" },
   { kind: "skill", effect: "mirrorImage", rarity: "special", name: "거울상", cost: 0, value: 0, draw: 0, damageType: "physical" },
   { kind: "skill", effect: "blessing", rarity: "special", name: "가호", cost: 1, value: 1, draw: 0, damageType: "magic", forgeCost: 2 },
+  { kind: "skill", effect: "wolfTalisman", rarity: "special", name: "늑대 부적", value: 1, draw: 0, damageType: "physical" },
+  { kind: "skill", effect: "turtleTalisman", rarity: "special", name: "거북이 부적", value: 1, draw: 0, damageType: "physical" },
 ];
 
 export const RARE_CARD_POOL: CardBlueprint[] = [
@@ -214,8 +216,6 @@ export const RARE_CARD_POOL: CardBlueprint[] = [
   { kind: "skill", effect: "opticsResearch", rarity: "rare", name: "광학 연구", cost: 1, value: 1, draw: 0, damageType: "physical", exhaust: true, rule: true },
   { kind: "skill", effect: "lightTravelTime", rarity: "rare", name: "광행시간", cost: 1, value: 2, draw: 0, damageType: "physical" },
   { kind: "strike", effect: "odinSpear", rarity: "rare", name: "오딘의 창", cost: 6, value: 40, draw: 0, damageType: "physical" },
-  { kind: "skill", effect: "wolfTalisman", rarity: "rare", name: "늑대 부적", value: 1, draw: 0, damageType: "physical" },
-  { kind: "skill", effect: "turtleTalisman", rarity: "rare", name: "거북이 부적", value: 1, draw: 0, damageType: "physical" },
 ];
 
 export const LEGENDARY_CARD_POOL: CardBlueprint[] = [

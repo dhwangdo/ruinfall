@@ -18,8 +18,8 @@ import {
 test("card pools preserve the current content counts", () => {
   assert.equal(STARTER_CARD_POOL.length, 3);
   assert.equal(BASIC_CARD_POOL.length, 6);
-  assert.equal(SPECIAL_CARD_POOL.length, 33);
-  assert.equal(RARE_CARD_POOL.length, 16);
+  assert.equal(SPECIAL_CARD_POOL.length, 35);
+  assert.equal(RARE_CARD_POOL.length, 14);
   assert.equal(LEGENDARY_CARD_POOL.length, 6);
   assert.equal(ALL_CARD_BLUEPRINTS.length, 65);
 });
@@ -114,12 +114,18 @@ test("current card data keeps key balance values and removed systems absent", ()
   );
   assert.equal(RARE_CARD_POOL.find((card) => card.name === "오딘의 창")?.value, 40);
   assert.deepEqual(
-    RARE_CARD_POOL.filter((card) => ["광행시간", "늑대 부적", "거북이 부적"].includes(card.name))
+    RARE_CARD_POOL.filter((card) => ["광행시간"].includes(card.name))
       .map(({ name, cost, value }) => ({ name, cost, value })),
     [
       { name: "광행시간", cost: 1, value: 2 },
-      { name: "늑대 부적", cost: undefined, value: 1 },
-      { name: "거북이 부적", cost: undefined, value: 1 },
+    ],
+  );
+  assert.deepEqual(
+    SPECIAL_CARD_POOL.filter((card) => ["늑대 부적", "거북이 부적"].includes(card.name))
+      .map(({ name, rarity }) => ({ name, rarity })),
+    [
+      { name: "늑대 부적", rarity: "special" },
+      { name: "거북이 부적", rarity: "special" },
     ],
   );
   assert.equal(ALL_CARD_BLUEPRINTS.some((card) => card.name === "발광"), false);
