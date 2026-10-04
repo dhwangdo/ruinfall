@@ -3700,6 +3700,7 @@ h1 { margin: 0; font-size: 25px; font-weight: 600; }
 .effect-type.damage { color: var(--battle-card-text-color, #f8f6ef); }
 .effect-type.physical { color: var(--battle-physical-color, #a8642e); }
 .effect-type.magic { color: var(--battle-magic-color, #376f91); }
+.effect-type-bold { font-weight: 700; }
 .draw-effect { color: var(--battle-card-text-color, #f8f6ef); font-weight: 400; }
 
 .center-drop-zone {

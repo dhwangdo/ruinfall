@@ -303,9 +303,9 @@ export function CardFaceView({
       case "lightTravelTime":
         return <span>다다음 턴 시작 시 <strong className="effect-keyword">광채</strong>를 {card.value}장 가져옵니다.</span>;
       case "wolfTalisman":
-        return <span>지니고 있는 동안 <strong className="effect-keyword">힘</strong>을 1 얻습니다. (중복 불가)</span>;
+        return <span>전투 덱에 있는 동안 <strong className="effect-keyword">힘</strong>을 1 얻습니다. 효과는 중첩됩니다.</span>;
       case "turtleTalisman":
-        return <span>지니고 있는 동안 <strong className="effect-keyword">강인함</strong>을 1 얻습니다. (중복 불가)</span>;
+        return <span>전투 덱에 있는 동안 <strong className="effect-keyword">강인함</strong>을 1 얻습니다. 효과는 중첩됩니다.</span>;
       case "lawResearch":
         return <span>내 <strong className="effect-keyword">룰</strong> 카드의 비용이 1 감소합니다. 비용은 0 이하가 될 수 있습니다.</span>;
       case "mirrorImage":
@@ -317,7 +317,7 @@ export function CardFaceView({
       case "massDeal":
         return <><span>빈 파일을 하나 만듭니다.</span><span>카드를 섞을 때마다 각 파일의 카드 수가 최대한 같도록 놓습니다.</span><span>{card.forged ? "즉시 파일을 다시 섞습니다." : "[즉시 파일을 다시 섞습니다.]"}</span></>;
       case "sturdyStance":
-        return <span><span className="effect-type physical">방어</span>를 10 얻습니다. 턴 종료 시 방어와 마법 방어를 절반 보존합니다.</span>;
+        return <span>턴 종료 시 방어와 마법 방어를 절반 보존합니다. <span className="effect-type physical">방어</span>를 10 얻습니다.</span>;
       case "charge":
         return <span><strong className="effect-keyword">에너지</strong>를 {card.value} 얻습니다.</span>;
       case "weaponSharpen":
@@ -353,7 +353,7 @@ export function CardFaceView({
       case "combatManual":
         return <span>손패에 있는 동안 <strong className="effect-keyword">힘</strong>과 <strong className="effect-keyword">강인함</strong>을 2 얻습니다.</span>;
       case "grimoire":
-        return <span>손패에 있는 동안 카드를 낼 때마다 마법 피해를 1 받고 <span className="effect-star">★</span>를 얻습니다.</span>;
+        return <span>손패에 있는 동안 카드를 낼 때마다 <strong className="effect-type magic effect-type-bold">마법 피해</strong>를 1 받고 <span className="effect-star">★</span>를 얻습니다.</span>;
       case "horologium":
         return <span>추가 턴을 얻습니다.</span>;
       case "ophiuchus":

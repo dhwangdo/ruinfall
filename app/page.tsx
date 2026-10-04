@@ -1282,12 +1282,8 @@ export default function Home() {
       setScreen("battle");
       return;
     }
-    const heldCards = [
-      ...inventoryCards,
-      ...ownedDecks.flatMap((deck) => deck.cards),
-    ];
-    const hasWolfTalisman = heldCards.some((card) => card.effect === "wolfTalisman");
-    const hasTurtleTalisman = heldCards.some((card) => card.effect === "turtleTalisman");
+    const wolfTalismanCount = battleDeck.cards.filter((card) => card.effect === "wolfTalisman").length;
+    const turtleTalismanCount = battleDeck.cards.filter((card) => card.effect === "turtleTalisman").length;
     const dealtGame = dealtState(
       playerHp,
       battleDeck.cards,
@@ -1309,12 +1305,12 @@ export default function Home() {
         + (blessings.includes("swordShield") ? 1 : 0)
         + (battleDeck.editions.includes("firepower") ? 2 : 0)
         + (battleDeck.editions.includes("giant") ? 3 : 0)
-        + (hasWolfTalisman ? 1 : 0)
+        + wolfTalismanCount
         + absorptionStrength,
       agility: dealtGame.agility
         + (blessings.includes("swordShield") ? 1 : 0)
         + (battleDeck.editions.includes("giant") ? 3 : 0)
-        + (hasTurtleTalisman ? 1 : 0),
+        + turtleTalismanCount,
       playerPhysicalResistance: dealtGame.playerPhysicalResistance + startingResistance,
       playerMagicResistance: dealtGame.playerMagicResistance + startingResistance,
       invulnerable: battleDeck.editions.includes("invincible"),
