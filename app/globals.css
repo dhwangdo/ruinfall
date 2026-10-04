@@ -17,6 +17,7 @@
   --battle-cost-color: #17234f;
   --battle-cost-text-color: #ffd166;
   --card-paper: #f7f4eb;
+  --rare-card-paper: #fbf5e3;
   --rare-color: #7138a6;
   --rare-border-color: #d5a928;
 }
@@ -3402,7 +3403,9 @@ h1 { margin: 0; font-size: 25px; font-weight: 600; }
   background-clip: padding-box;
   box-shadow: 0 2px 4px rgba(0,0,0,.28);
 }
-.card-face:has(.card-name.rarity-rare) { border-color: var(--rare-border-color); }
+.card-face:has(.card-name.rarity-rare) {
+  border: 2px solid var(--rare-border-color);
+}
 .card-face::before {
   position: absolute;
   z-index: 0;
@@ -3517,6 +3520,7 @@ h1 { margin: 0; font-size: 25px; font-weight: 600; }
 }
 .card-style-simple .card-face:not(:has(.card-name.is-painted)):has(.card-name.rarity-rare) {
   border-color: var(--rare-border-color);
+  background: var(--rare-card-paper);
 }
 .card-style-simple .card-face:not(:has(.card-name.is-painted))::before { opacity: .08; }
 .card-style-simple .card-face:not(:has(.card-name.is-painted))::after {
@@ -3535,6 +3539,7 @@ h1 { margin: 0; font-size: 25px; font-weight: 600; }
 .card-style-simple .card-face:not(:has(.card-name.is-painted)):has(.card-name.rarity-special)::after { background: var(--battle-special-band-color, #3472a2); }
 .card-style-simple .card-face:not(:has(.card-name.is-painted)):has(.card-name.rarity-rare)::after {
   background: var(--rare-color);
+  border: 1px solid var(--rare-border-color);
 }
 .card-style-simple .card-face:not(:has(.card-name.is-painted)) .card-watermark { display: none; }
 .card-style-simple .card-face:not(:has(.card-name.is-painted)) .card-name {
