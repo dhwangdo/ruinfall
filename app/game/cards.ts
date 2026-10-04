@@ -153,7 +153,6 @@ export const BASIC_CARD_POOL: CardBlueprint[] = [
   { kind: "strike", effect: "rulerCompass", rarity: "basic", name: "자와 컴퍼스", cost: 1, value: 9, draw: 0, damageType: "physical" },
   { kind: "strike", effect: "strike", rarity: "basic", name: "기회 포착", cost: 1, value: 6, draw: 1, damageType: "physical" },
   { kind: "skill", effect: "deflect", rarity: "basic", name: "기회 창출", cost: 1, value: 5, draw: 1, damageType: "physical" },
-  { kind: "skill", effect: "waterWave", rarity: "basic", name: "물의 파동", cost: 1, value: 5, draw: 1, damageType: "magic" },
   { kind: "skill", effect: "starGuard", rarity: "basic", name: "별의 장막", cost: 2, value: 12, draw: 0, damageType: "physical" },
 ];
 
