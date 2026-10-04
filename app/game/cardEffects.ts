@@ -39,9 +39,8 @@ export function cardEnergyCost(
   const ruleReduction = card.rule ? lawResearchCount : 0;
   const forgeReduction = card.effect === "odinSpear" ? forgeCount : 0;
   const adjustedCost = baseCost - ruleReduction - forgeReduction;
-  // 룰 카드만 법학 연구의 하한(0)을 적용한다. 전설 카드 카시오페이아처럼
-  // 기본 비용이 음수인 일반 카드는 음수 비용을 그대로 표시·처리한다.
-  return card.rule ? Math.max(0, adjustedCost) : adjustedCost;
+  // 법학 연구를 적용한 룰 카드 비용은 0 아래로 내려갈 수 있다.
+  return adjustedCost;
 }
 
 export function cardPoolCost(card: CardBlueprint) {
@@ -97,8 +96,7 @@ export function getCardKeywordInfos(card: Card): CardKeywordInfo[] {
   }
   if (CARD_POOL_ENERGY_EFFECTS.has(card.effect)) add("에너지");
   if (card.effect === "obsidianDagger") add("소멸");
-  if (card.effect === "steelHeart" || card.effect === "ironWall" || card.effect === "plateArmorDefense") add("물리 저항");
-  if (card.effect === "steelHeart") add("마법 저항");
+  if (card.effect === "ironWall" || card.effect === "plateArmorDefense") add("물리 저항");
   if (card.effect === "blessing") add("마법 저항");
   if (card.effect === "berserk") add("물리 취약");
   if (card.effect === "transcend") add("면역");

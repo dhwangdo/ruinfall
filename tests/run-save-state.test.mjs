@@ -98,8 +98,8 @@ test("restore preparation removes God's Lament charges in a safe area", () => {
 
 test("old saves discard removed cards and restore changed cards everywhere", () => {
   const oldSteelHeart = {
-    ...RARE_CARD_POOL.find((card) => card.effect === "steelHeart"),
-    id: 1, revealed: false, name: "강철의 계약", value: 2, ritualCost: 1,
+    id: 1, kind: "skill", effect: "steelHeart", rarity: "rare", name: "강철의 계약",
+    cost: 1, value: 2, draw: 0, damageType: "physical", revealed: false, ritualCost: 1,
   };
   const crystal = {
     ...oldSteelHeart, id: 2, effect: "magicCrystal", name: "마력 결정 II", magicCrystalStage: 2,
@@ -121,11 +121,11 @@ test("old saves discard removed cards and restore changed cards everywhere", () 
   }, () => false);
 
   assert.deepEqual(prepared.ownedDecks[0].cards.map((card) => [card.name, card.cost, card.value]), [
-    ["강철심장", 1, 1], ["경제학 연구", 3, 3],
+    ["경제학 연구", 2, 3],
   ]);
   assert.equal(prepared.ownedDecks[0].cards[0].ritualCost, undefined);
   assert.deepEqual(prepared.inventoryCards, []);
-  assert.deepEqual(prepared.roomDrops["1:1"].map((card) => card.name), ["강철심장"]);
-  assert.deepEqual(prepared.roomDeckDrops["2:2"][0].cards.map((card) => card.name), ["강철심장", "경제학 연구"]);
+  assert.deepEqual(prepared.roomDrops["1:1"], []);
+  assert.deepEqual(prepared.roomDeckDrops["2:2"][0].cards.map((card) => card.name), ["경제학 연구"]);
   assert.deepEqual(prepared.roomShops["3:3"].map((offer) => offer.card?.name), ["경제학 연구"]);
 });

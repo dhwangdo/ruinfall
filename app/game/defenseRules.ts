@@ -22,6 +22,7 @@ const VALUE_BASED_DEFENSE_EFFECTS = new Set<CardEffect>([
   "iceShield",
   "starGuard",
   "plateArmorDefense",
+  "sturdyStance",
 ]);
 
 /** Ordinary defense effects share one calculation: base value + agility, then multiplier. */

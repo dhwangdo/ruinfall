@@ -8,7 +8,6 @@ export type CardEffect =
   | "pommel"
   | "defend"
   | "deflect"
-  | "steelHeart"
   | "battlePlan"
   | "prepare"
   | "sweep"
@@ -203,18 +202,17 @@ export const SPECIAL_CARD_POOL: CardBlueprint[] = [
 
 export const RARE_CARD_POOL: CardBlueprint[] = [
   { kind: "strike", effect: "obsidianDagger", rarity: "rare", name: "흑요석 단검", cost: 3, value: 1, draw: 0, damageType: "physical" },
-  { kind: "skill", effect: "steelHeart", rarity: "rare", name: "강철심장", cost: 1, value: 1, draw: 0, damageType: "physical", exhaust: true },
-  { kind: "skill", effect: "rapidFire", rarity: "rare", name: "연사", cost: 1, value: 0, draw: 0, damageType: "physical" },
+  { kind: "skill", effect: "rapidFire", rarity: "rare", name: "연사", cost: 1, value: 0, draw: 0, damageType: "physical", exhaust: true },
   { kind: "skill", effect: "superStrategist", rarity: "rare", name: "전술가", cost: 1, value: 5, draw: 0, damageType: "physical", exhaust: true },
   { kind: "skill", effect: "grimoire", rarity: "rare", name: "마도서", value: 1, draw: 0, damageType: "physical" },
   { kind: "skill", effect: "supernova", rarity: "rare", name: "초신성", cost: 0, value: 3, draw: 0, damageType: "physical", exhaust: true },
   { kind: "strike", effect: "meteor", rarity: "rare", name: "유성우", cost: 2, value: 9, draw: 0, damageType: "physical" },
   { kind: "skill", effect: "massDeal", rarity: "rare", name: "대분배", cost: 1, value: 0, draw: 0, damageType: "physical", forgeCost: 3, exhaust: true, rule: true },
-  { kind: "skill", effect: "sturdyStance", rarity: "rare", name: "견고한 태세", cost: 2, value: 0, draw: 0, damageType: "physical", exhaust: true, rule: true },
-  { kind: "skill", effect: "lawResearch", rarity: "rare", name: "법학 연구", cost: 1, value: 1, draw: 0, damageType: "physical", exhaust: true, rule: true },
-  { kind: "skill", effect: "economicsResearch", rarity: "rare", name: "경제학 연구", cost: 3, value: 3, draw: 0, damageType: "physical", exhaust: true, rule: true },
+  { kind: "skill", effect: "sturdyStance", rarity: "rare", name: "견고한 태세", cost: 2, value: 10, draw: 0, damageType: "physical", exhaust: true, rule: true },
+  { kind: "skill", effect: "lawResearch", rarity: "rare", name: "법학 연구", cost: 0, value: 1, draw: 0, damageType: "physical", exhaust: true, rule: true },
+  { kind: "skill", effect: "economicsResearch", rarity: "rare", name: "경제학 연구", cost: 2, value: 3, draw: 0, damageType: "physical", exhaust: true, rule: true },
   { kind: "skill", effect: "opticsResearch", rarity: "rare", name: "광학 연구", cost: 1, value: 1, draw: 0, damageType: "physical", exhaust: true, rule: true },
-  { kind: "skill", effect: "lightTravelTime", rarity: "rare", name: "광행시간", cost: 1, value: 2, draw: 0, damageType: "physical" },
+  { kind: "skill", effect: "lightTravelTime", rarity: "rare", name: "광행시간", cost: 1, value: 3, draw: 0, damageType: "physical" },
   { kind: "strike", effect: "odinSpear", rarity: "rare", name: "오딘의 창", cost: 6, value: 40, draw: 0, damageType: "physical" },
 ];
 
@@ -263,20 +261,20 @@ export const CARD_POOL_ENERGY_EFFECTS = new Set<CardEffect>([
   "focus", "adrenaline", "pruning", "berserk", "ventilate", "plateArmor", "charge", "flood", "endStart", "supernova", "aries", "economicsResearch",
 ]);
 export const CARD_POOL_DEFENSE_EFFECTS = new Set<CardEffect>([
-  "defend", "deflect", "iceShield", "waterWave", "plateArmorDefense", "starGuard", "starArk", "ironWave", "ironRampage", "suppression", "odinSpear", "silverSword",
+  "defend", "deflect", "iceShield", "waterWave", "plateArmorDefense", "starGuard", "starArk", "ironWave", "ironRampage", "suppression", "odinSpear", "silverSword", "sturdyStance",
 ]);
 export const CARD_POOL_STAR_EFFECTS = new Set<CardEffect>([
   "battlePlan", "rulerCompass", "starlight", "starGuard", "starArk", "superStrategist", "flood", "aries", "astronomyResearch", "necromancyResearch", "nebula",
 ]);
 export const CARD_POOL_STATUS_EFFECTS = new Set<CardEffect>([
-  "steelHeart", "warmUp", "rapidFire", "counter", "supernova", "blessing", "mirrorImage", "lightTravelTime", "wolfTalisman", "turtleTalisman",
+  "warmUp", "rapidFire", "counter", "supernova", "blessing", "mirrorImage", "lightTravelTime", "wolfTalisman", "turtleTalisman",
 ]);
 
 type DefenseCardLike = Pick<CardBlueprint, "effect" | "damageType">;
 
 export function cardGivesPhysicalDefense(card: DefenseCardLike) {
   if (card.effect === "defend") return card.damageType === "physical";
-  return ["deflect", "starGuard", "plateArmorDefense", "ironWave", "ironRampage", "suppression", "starArk", "odinSpear"].includes(card.effect);
+  return ["deflect", "starGuard", "plateArmorDefense", "ironWave", "ironRampage", "suppression", "starArk", "odinSpear", "sturdyStance"].includes(card.effect);
 }
 
 export function cardGivesMagicDefense(card: DefenseCardLike) {

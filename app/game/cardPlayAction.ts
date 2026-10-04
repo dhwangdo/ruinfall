@@ -214,8 +214,8 @@ export function createResolvePlayedCard(context: ResolvePlayedCardContext) {
       if (card.effect === "endStart" && current.piles.some((pile) => pile.length > 0)) {
         return { ...current, message: "끝의 시작은 모든 파일이 비어 있을 때만 사용할 수 있습니다." };
       }
-      if (card.effect === "supernova" && current.stars < 4) {
-        return { ...current, message: "초신성: ★★★★가 필요합니다." };
+      if (card.effect === "supernova" && current.stars < 3) {
+        return { ...current, message: "초신성: ★★★가 필요합니다." };
       }
       const isIronRampage = card.effect === "ironRampage";
       const isShockwave = card.effect === "shockwave";
@@ -316,18 +316,14 @@ export function createResolvePlayedCard(context: ResolvePlayedCardContext) {
       });
       const nextPhysicalBlock = card.effect === "mirrorImage" ? rawNextMagicBlock : thornsPhysicalBlock;
       const nextMagicBlock = card.effect === "mirrorImage" ? rawNextPhysicalBlock : rawNextMagicBlock;
-      const nextPhysicalStatus = !blessings.includes("glassCannon") && card.effect === "steelHeart"
-        ? addResistance({ resistance: current.playerPhysicalResistance, vulnerability: current.playerPhysicalVulnerability }, card.value)
-        : card.effect === "berserk"
+      const nextPhysicalStatus = card.effect === "berserk"
           ? addVulnerability({ resistance: current.playerPhysicalResistance, vulnerability: current.playerPhysicalVulnerability }, 2)
           : !blessings.includes("glassCannon") && isPlateArmorDefense && card.forged
             ? addResistance({ resistance: current.playerPhysicalResistance, vulnerability: current.playerPhysicalVulnerability }, 1)
           : !blessings.includes("glassCannon") && isIronWall
             ? addResistance({ resistance: current.playerPhysicalResistance, vulnerability: current.playerPhysicalVulnerability }, IRON_WALL_RESISTANCE)
             : { resistance: current.playerPhysicalResistance, vulnerability: current.playerPhysicalVulnerability };
-      const nextMagicStatus = !blessings.includes("glassCannon") && card.effect === "steelHeart"
-        ? addResistance({ resistance: current.playerMagicResistance, vulnerability: current.playerMagicVulnerability }, card.value)
-        : !blessings.includes("glassCannon") && card.effect === "blessing"
+      const nextMagicStatus = !blessings.includes("glassCannon") && card.effect === "blessing"
           ? addResistance({ resistance: current.playerMagicResistance, vulnerability: current.playerMagicVulnerability }, card.forged ? 2 : 1)
         : { resistance: current.playerMagicResistance, vulnerability: current.playerMagicVulnerability };
       const won = nextEnemies.every((enemy) => enemy.hp === 0);
@@ -354,6 +350,35 @@ export function createResolvePlayedCard(context: ResolvePlayedCardContext) {
       const nextPlayerHp = card.effect === "ophiuchus"
         ? Math.min(maxPlayerHp, current.playerHp + 5)
         : selfDamageLife.hp;
+      let grimoireMagicBlock = nextMagicBlock;
+      let grimoireDamageTaken = 0;
+      let resolvedPlayerHp = nextPlayerHp;
+      for (let hit = 0; hit < grimoireBonus; hit += 1) {
+        const resolvedHit = resolveEnemyHitAgainstPlayer({
+          damage: 1,
+          damageType: "magic",
+          block: grimoireMagicBlock,
+          physicalResistance: nextPhysicalStatus.resistance,
+          magicResistance: nextMagicStatus.resistance,
+          vulnerability: nextMagicStatus.vulnerability,
+          damageTakenMultiplier: current.damageTakenMultiplier,
+          invulnerable: current.invulnerable,
+          vulnerabilityMultiplier: blessings.includes("vulnerabilityInsurance") ? 1.5 : 2,
+        });
+        grimoireMagicBlock = resolvedHit.remainingBlock;
+        grimoireDamageTaken += resolvedHit.damageTaken;
+        const grimoireLife = resolveLethalDamage(
+          resolvedPlayerHp,
+          resolvedHit.damageTaken,
+          maxPlayerHp,
+          blessings.includes("oneUp") && !oneUpUsedRef.current,
+        );
+        resolvedPlayerHp = grimoireLife.hp;
+        if (grimoireLife.usedOneUp) {
+          oneUpUsedRef.current = true;
+          setOneUpUsed(true);
+        }
+      }
       const canDraw = current.piles.some((pile) => pile.length > 0);
       const drawEachPileResult = card.effect === "drawEachPile" || (card.effect === "fileDraw" && card.forged)
         ? drawFromPiles(current.piles)
@@ -454,7 +479,6 @@ export function createResolvePlayedCard(context: ResolvePlayedCardContext) {
         if (card.effect === "fourHit") return `${targetEnemy?.name}에게 총 피해 ${damage} (${repetitions}회 공격)`;
         if (card.kind === "strike") return `${targetEnemy?.name}에게 피해 ${damage}${repetitions > 1 ? " (2회 발동)" : ""}`;
         if (isBlockCard) return `${DEFENSE_LABEL[card.damageType]} ${blockGained} 획득`;
-        if (card.effect === "steelHeart") return `물리 저항 · 마법 저항 ${card.value} 획득`;
         if (card.effect === "battlePlan") return `★ ${card.value}개 획득 · 드로우 ${card.draw}`;
         if (card.effect === "prepare") return canDraw ? "드로우할 파일을 선택하세요." : "버릴 카드를 선택하세요.";
         if (card.effect === "focus") return "에너지를 1 얻습니다 · 버릴 카드를 선택하세요.";
@@ -478,7 +502,7 @@ export function createResolvePlayedCard(context: ResolvePlayedCardContext) {
         if (card.effect === "starlight") return "별빛: ★ 획득";
         if (card.effect === "augment") return "증강: 힘과 강인함 획득";
         if (card.effect === "relic") return "유물: 도깨비의 힘 -4";
-        if (card.effect === "supernova") return "★★★★를 잃습니다 · 에너지를 3 얻습니다";
+        if (card.effect === "supernova") return "★★★를 잃습니다 · 에너지를 3 얻습니다";
         return card.name;
       })();
       const drawMessage = card.draw > 0
@@ -519,7 +543,7 @@ export function createResolvePlayedCard(context: ResolvePlayedCardContext) {
               : card.effect === "flood"
                     ? 2
               : 0
-        ) + grimoireBonus - (card.effect === "supernova" ? 4 : 0) - meteorStars,
+        ) + grimoireBonus - (card.effect === "supernova" ? 3 : 0) - meteorStars,
         pendingDraws: drawsAdded,
         pendingPileDrawCount,
         pendingDashRandomDraws,
@@ -531,7 +555,7 @@ export function createResolvePlayedCard(context: ResolvePlayedCardContext) {
         pendingPileOperation,
         enemies: nextEnemies,
         playerPhysicalBlock: nextPhysicalBlock,
-        playerMagicBlock: nextMagicBlock,
+        playerMagicBlock: grimoireMagicBlock,
         playerPhysicalResistance: nextPhysicalStatus.resistance,
         playerPhysicalVulnerability: nextPhysicalStatus.vulnerability,
         playerMagicResistance: nextMagicStatus.resistance,
@@ -550,20 +574,22 @@ export function createResolvePlayedCard(context: ResolvePlayedCardContext) {
         damageTakenMultiplier: current.damageTakenMultiplier,
         invulnerable: current.invulnerable,
         extraTurns: current.extraTurns + (card.effect === "horologium" ? 1 : 0),
-        playerHp: nextPlayerHp,
+        playerHp: resolvedPlayerHp,
         doubleNextAttack: card.effect === "rapidFire"
           ? true
           : isDamageCard
             ? false
             : current.doubleNextAttack,
-        status: nextPlayerHp === 0 ? "lost" : won && !waitForLethalHitPopups ? "won" : current.status,
-        message: nextPlayerHp === 0
-          ? card.effect === "adrenaline"
+        status: resolvedPlayerHp === 0 ? "lost" : won && !waitForLethalHitPopups ? "won" : current.status,
+        message: resolvedPlayerHp === 0
+          ? card.effect === "adrenaline" && selfDamageLife.hp === 0
             ? "아드레날린의 대가로 쓰러졌습니다."
-            : "가시에 찔려 쓰러졌습니다."
+            : grimoireDamageTaken > 0 && nextPlayerHp > 0
+              ? "마도서의 마법 피해로 쓰러졌습니다."
+              : "가시에 찔려 쓰러졌습니다."
           : won && !waitForLethalHitPopups
             ? "승리! 모든 적을 쓰러뜨렸습니다."
-            : `${action}${thornsDamageTaken > 0 ? ` · 가시 피해 ${thornsDamageTaken}` : ""}${card.effect === "prepare" || card.effect === "focus" ? "" : drawMessage}`,
+            : `${action}${thornsDamageTaken > 0 ? ` · 가시 피해 ${thornsDamageTaken}` : ""}${grimoireDamageTaken > 0 ? ` · 마도서 마법 피해 ${grimoireDamageTaken}` : ""}${card.effect === "prepare" || card.effect === "focus" ? "" : drawMessage}`,
       };
     });
   };

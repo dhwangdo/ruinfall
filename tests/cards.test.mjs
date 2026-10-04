@@ -19,9 +19,9 @@ test("card pools preserve the current content counts", () => {
   assert.equal(STARTER_CARD_POOL.length, 3);
   assert.equal(BASIC_CARD_POOL.length, 6);
   assert.equal(SPECIAL_CARD_POOL.length, 35);
-  assert.equal(RARE_CARD_POOL.length, 14);
+  assert.equal(RARE_CARD_POOL.length, 13);
   assert.equal(LEGENDARY_CARD_POOL.length, 6);
-  assert.equal(ALL_CARD_BLUEPRINTS.length, 65);
+  assert.equal(ALL_CARD_BLUEPRINTS.length, 64);
 });
 
 test("special card pool contains the updated cards and excludes sharpen cards", () => {
@@ -98,14 +98,16 @@ test("current card data keeps key balance values and removed systems absent", ()
   assert.deepEqual(
     RARE_CARD_POOL.filter((card) => ["경제학 연구", "법학 연구", "광학 연구"].includes(card.name)).map(({ name, cost, rule }) => ({ name, cost, rule })),
     [
-      { name: "법학 연구", cost: 1, rule: true },
-      { name: "경제학 연구", cost: 3, rule: true },
+      { name: "법학 연구", cost: 0, rule: true },
+      { name: "경제학 연구", cost: 2, rule: true },
       { name: "광학 연구", cost: 1, rule: true },
     ],
   );
   assert.equal(RARE_CARD_POOL.find((card) => card.name === "연사")?.cost, 1);
-  assert.equal(RARE_CARD_POOL.find((card) => card.name === "강철심장")?.value, 1);
+  assert.equal(RARE_CARD_POOL.some((card) => card.name === "강철심장"), false);
+  assert.equal(RARE_CARD_POOL.find((card) => card.name === "연사")?.exhaust, true);
   assert.equal(RARE_CARD_POOL.find((card) => card.name === "견고한 태세")?.cost, 2);
+  assert.equal(RARE_CARD_POOL.find((card) => card.name === "견고한 태세")?.value, 10);
   assert.equal(createAdrenalineCard().value, 2);
   const radiance = createRadianceCard(99);
   assert.deepEqual(
@@ -117,7 +119,7 @@ test("current card data keeps key balance values and removed systems absent", ()
     RARE_CARD_POOL.filter((card) => ["광행시간"].includes(card.name))
       .map(({ name, cost, value }) => ({ name, cost, value })),
     [
-      { name: "광행시간", cost: 1, value: 2 },
+      { name: "광행시간", cost: 1, value: 3 },
     ],
   );
   assert.deepEqual(

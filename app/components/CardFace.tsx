@@ -218,8 +218,6 @@ export function CardFaceView({
         return <span><span className={`effect-type ${card.damageType}`}>{DEFENSE_LABEL[card.damageType]}</span>를 {defenseNumber} 얻습니다.</span>;
       case "deflect":
         return <><span><span className="effect-type physical">방어</span>를 {defenseNumber} 얻습니다.</span><span>카드를 1장 뽑습니다.</span></>;
-      case "steelHeart":
-        return <span><strong className="effect-keyword">물리 저항</strong>과 <strong className="effect-keyword">마법 저항</strong>을 {card.value} 얻습니다.</span>;
       case "battlePlan":
         return <>{card.value > 0 && <span>{starIcons(card.value)}을 얻습니다.</span>}{card.draw > 0 && <span>카드를 {card.draw}장 뽑습니다.</span>}</>;
       case "prepare":
@@ -247,7 +245,7 @@ export function CardFaceView({
       case "transcend":
         return <span>이번 턴 피해에 <strong className="effect-keyword">면역</strong>이 됩니다. <strong className="effect-keyword">힘</strong>을 5 얻습니다.</span>;
       case "rapidFire":
-        return <span>이번 턴 다음에 사용하는 공격 카드가 2번 발동합니다.</span>;
+        return <span>다음에 사용하는 공격 카드가 2번 발동합니다.</span>;
       case "iceShield":
         return <span><span className="effect-type magic">마법 방어</span>를 {defenseNumber} 얻습니다.</span>;
       case "magicStrike":
@@ -309,7 +307,7 @@ export function CardFaceView({
       case "turtleTalisman":
         return <span>지니고 있는 동안 <strong className="effect-keyword">강인함</strong>을 1 얻습니다. (중복 불가)</span>;
       case "lawResearch":
-        return <span>내 <strong className="effect-keyword">룰</strong> 카드의 비용이 1 감소합니다. 비용은 0보다 낮아지지 않습니다.</span>;
+        return <span>내 <strong className="effect-keyword">룰</strong> 카드의 비용이 1 감소합니다. 비용은 0 이하가 될 수 있습니다.</span>;
       case "mirrorImage":
         return <span>내 <span className="effect-type physical">방어</span>와 <span className="effect-type magic">마법 방어</span> 수치를 서로 바꿉니다.</span>;
       case "blessing":
@@ -319,7 +317,7 @@ export function CardFaceView({
       case "massDeal":
         return <><span>빈 파일을 하나 만듭니다.</span><span>카드를 섞을 때마다 각 파일의 카드 수가 최대한 같도록 놓습니다.</span><span>{card.forged ? "즉시 파일을 다시 섞습니다." : "[즉시 파일을 다시 섞습니다.]"}</span></>;
       case "sturdyStance":
-        return <span>턴 종료 시 방어와 마법 방어를 절반 보존합니다.</span>;
+        return <span><span className="effect-type physical">방어</span>를 10 얻습니다. 턴 종료 시 방어와 마법 방어를 절반 보존합니다.</span>;
       case "charge":
         return <span><strong className="effect-keyword">에너지</strong>를 {card.value} 얻습니다.</span>;
       case "weaponSharpen":
@@ -351,11 +349,11 @@ export function CardFaceView({
       case "rock":
         return null;
       case "supernova":
-        return <span><span className="effect-star">★★★★</span>를 잃습니다. <strong className="effect-keyword">에너지</strong>를 3 얻습니다.</span>;
+        return <span><span className="effect-star">★★★</span>를 잃습니다. <strong className="effect-keyword">에너지</strong>를 3 얻습니다.</span>;
       case "combatManual":
         return <span>손패에 있는 동안 <strong className="effect-keyword">힘</strong>과 <strong className="effect-keyword">강인함</strong>을 2 얻습니다.</span>;
       case "grimoire":
-        return <span>손패에 있는 동안 카드를 낼 때마다 <span className="effect-star">★</span>을 얻습니다. <span className="effect-star">★</span>가 7개 이상이면 전부 잃고 <strong className="effect-keyword">체력</strong>을 5 잃습니다.</span>;
+        return <span>손패에 있는 동안 카드를 낼 때마다 마법 피해를 1 받고 <span className="effect-star">★</span>를 얻습니다.</span>;
       case "horologium":
         return <span>추가 턴을 얻습니다.</span>;
       case "ophiuchus":

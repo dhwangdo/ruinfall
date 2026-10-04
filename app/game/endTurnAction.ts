@@ -166,7 +166,7 @@ export function createEndTurn(context: EndTurnContext) {
           defenseMultiplier: 1,
           damageTakenMultiplier: 1,
           invulnerable: false,
-          doubleNextAttack: false,
+          doubleNextAttack: game.doubleNextAttack,
           enemies: enemiesAfterBlockDecay.map(applyPlayerTurnStart),
           status: remainingHp === 0 ? "lost" : "playing",
           message: remainingHp === 0 ? "유독성 점액의 마법 피해로 쓰러졌습니다." : "추가 턴을 시작합니다.",
@@ -526,7 +526,7 @@ export function createEndTurn(context: EndTurnContext) {
           defenseMultiplier: 1,
           damageTakenMultiplier: 1,
           invulnerable: false,
-          doubleNextAttack: false,
+          doubleNextAttack: game.doubleNextAttack,
           enemies: enemiesAtPlayerTurnStart,
           message: "적의 턴이 끝났습니다.",
         });
