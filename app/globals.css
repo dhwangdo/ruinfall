@@ -3497,7 +3497,7 @@ h1 { margin: 0; font-size: 25px; font-weight: 600; }
 .card-name.rarity-status { color: #e34b58; background: transparent; }
 .card-name.rarity-starter { color: #555B60; background: transparent; }
 .card-name.rarity-special { color: #67cfff; background: transparent; }
-.card-name.rarity-rare { color: var(--battle-card-text-color, #f8f6ef); background: transparent; }
+.card-name.rarity-rare { color: var(--rare-border-color); background: transparent; }
 .card-name.is-costless {
   grid-row: 1;
   align-self: stretch;
