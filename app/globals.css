@@ -3604,14 +3604,12 @@ h1 { margin: 0; font-size: 25px; font-weight: 600; }
 .card-style-simple .deck-list-entry:not(.is-painted) strong {
   align-self: stretch;
   color: var(--battle-basic-band-color, #356b45);
-  background: var(--card-paper);
 }
 .card-style-simple .deck-list-entry.rarity-special:not(.is-painted) strong { color: var(--battle-special-band-color, #3472a2); }
 .card-style-simple .deck-list-entry.rarity-status:not(.is-painted) strong { color: #e34b58; }
 .card-style-simple .deck-list-entry.rarity-starter:not(.is-painted) strong { color: #555B60; }
 .card-style-simple .deck-list-entry.rarity-rare:not(.is-painted) strong {
   color: #272725;
-  background: var(--card-paper);
 }
 .card-style-simple .deck-list-entry:not(.is-painted) .deck-list-cost {
   color: #fff;
