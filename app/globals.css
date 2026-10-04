@@ -18,6 +18,7 @@
   --battle-cost-text-color: #ffd166;
   --card-paper: #f7f4eb;
   --rare-color: #7e3ab6;
+  --rare-border-color: #d5a928;
 }
 
 * { box-sizing: border-box; }
@@ -3401,6 +3402,7 @@ h1 { margin: 0; font-size: 25px; font-weight: 600; }
   background-clip: padding-box;
   box-shadow: 0 2px 4px rgba(0,0,0,.28);
 }
+.card-face:has(.card-name.rarity-rare) { border-color: var(--rare-border-color); }
 .card-face::before {
   position: absolute;
   z-index: 0;
@@ -3512,6 +3514,9 @@ h1 { margin: 0; font-size: 25px; font-weight: 600; }
   border-color: #111;
   color: #252525;
   background: var(--card-paper);
+}
+.card-style-simple .card-face:not(:has(.card-name.is-painted)):has(.card-name.rarity-rare) {
+  border-color: var(--rare-border-color);
 }
 .card-style-simple .card-face:not(:has(.card-name.is-painted))::before { opacity: .08; }
 .card-style-simple .card-face:not(:has(.card-name.is-painted))::after {
@@ -4920,7 +4925,7 @@ h1 { margin: 0; font-size: 25px; font-weight: 600; }
 .deck-editor-card.rarity-starter,
 .deck-list-entry.rarity-starter { --editor-rarity: #555B60; }
 .deck-editor-card.rarity-rare,
-.deck-list-entry.rarity-rare { --editor-rarity: var(--rare-color); }
+.deck-list-entry.rarity-rare { --editor-rarity: var(--rare-border-color); }
 .deck-editor-card.rarity-legendary,
 .deck-list-entry.rarity-legendary { --editor-rarity: #d5a928; }
 
@@ -5656,7 +5661,7 @@ h1 { margin: 0; font-size: 25px; font-weight: 600; }
 .battle-ledger-card-stack.rarity-special .battle-ledger-stack-layer { border-color: #3472a2; }
 .battle-ledger-card-stack.rarity-starter .battle-ledger-stack-layer { border-color: #555B60; }
 .battle-ledger-card-stack.rarity-status .battle-ledger-stack-layer { border-color: #e34b58; }
-.battle-ledger-card-stack.rarity-rare .battle-ledger-stack-layer { border-color: var(--rare-color); }
+.battle-ledger-card-stack.rarity-rare .battle-ledger-stack-layer { border-color: var(--rare-border-color); }
 .battle-ledger-card-stack.rarity-legendary .battle-ledger-stack-layer { border-color: #d5a928; }
 .battle-card-ledger-panel .battle-ledger-card { cursor: help; }
 .battle-card-ledger-panel .battle-ledger-card:hover { transform: none; box-shadow: 0 2px 3px rgba(0,0,0,.18); }
