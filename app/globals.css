@@ -5342,6 +5342,22 @@ h1 { margin: 0; font-size: 25px; font-weight: 600; }
   height: 1px;
   pointer-events: none;
 }
+.deck-editor-virtual-track {
+  flex: 0 0 auto;
+  height: 1px;
+  visibility: hidden;
+  pointer-events: none;
+}
+.deck-editor-virtual-item {
+  position: absolute;
+  top: 0;
+  bottom: 0;
+  display: flex;
+  align-items: center;
+  justify-content: flex-start;
+  pointer-events: none;
+}
+.deck-editor-virtual-item > * { pointer-events: auto; }
 .deck-editor-card-list,
 .deck-editor-deck-list,
 .deck-editor-floor-cards {
