@@ -3,6 +3,7 @@ import type { Card } from "../game/cards";
 import type { Consumable, DeckCase } from "../game/rewards";
 import type { CardFaceProps } from "./CardFace";
 import { DeckName } from "./DeckName";
+import { ConsumableTicketTierMark, consumableTicketTierClassName } from "./ConsumableTicketTierMark";
 
 type TreasureChestReward = {
   cards: Card[];
@@ -77,7 +78,7 @@ export function TreasureChestRewardModal({
             ))}
             {reward.consumables.map((item) => (
               <div
-                className={`battle-reward-consumable treasure-chest-reward-consumable consumable-ticket ${item.type}`}
+                className={`battle-reward-consumable treasure-chest-reward-consumable consumable-ticket ${item.type} ${consumableTicketTierClassName(item.type)}`}
                 key={`treasure-consumable-${item.id}`}
                 aria-label={`${item.name}: ${consumableDescription(item)}`}
                 onMouseEnter={(event) => {
@@ -90,6 +91,7 @@ export function TreasureChestRewardModal({
                 }}
                 onMouseLeave={() => setHoveredConsumable(null)}
               >
+                <ConsumableTicketTierMark type={item.type} />
                 <strong>{item.name}</strong>
                 <small>{consumableDescription(item)}</small>
               </div>

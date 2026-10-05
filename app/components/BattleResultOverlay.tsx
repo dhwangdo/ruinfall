@@ -3,6 +3,7 @@ import type { Card } from "../game/cards";
 import type { CardFaceProps } from "./CardFace";
 import type { Consumable, DeckCase } from "../game/rewards";
 import { DeckName } from "./DeckName";
+import { ConsumableTicketTierMark, consumableTicketTierClassName } from "./ConsumableTicketTierMark";
 
 type BattleResultStatus = "won" | "lost";
 
@@ -88,7 +89,7 @@ export function BattleResultOverlay({
               ))}
               {rewardConsumables.map((item) => (
                 <div
-                  className={`battle-reward-consumable consumable-ticket ${item.type}`}
+                  className={`battle-reward-consumable consumable-ticket ${item.type} ${consumableTicketTierClassName(item.type)}`}
                   key={item.id}
                   aria-label={`${item.name}: ${consumableDescription(item)}`}
                   onMouseEnter={(event) => {
@@ -106,6 +107,7 @@ export function BattleResultOverlay({
                   }}
                   onBlur={() => setHoveredConsumable(null)}
                 >
+                  <ConsumableTicketTierMark type={item.type} />
                   <strong>{item.name}</strong>
                   <small>{consumableDescription(item)}</small>
                 </div>

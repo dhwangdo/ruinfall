@@ -2186,6 +2186,17 @@ h1 { margin: 0; font-size: 25px; font-weight: 600; }
   background: linear-gradient(120deg, hsl(0, 88%, 32%) 0%, hsl(30, 88%, 32%) 50%, hsl(60, 88%, 32%) 100%);
 }
 .consumable-ticket.ticket-tier-3 > strong { color: #fff; }
+.consumable-ticket .ticket-tier-mark {
+  position: absolute;
+  z-index: 5;
+  top: 4px;
+  left: 5px;
+  color: color-mix(in srgb, var(--ticket-fill) 45%, #000 55%);
+  font: 900 11px/1 Arial, sans-serif;
+  letter-spacing: -.06em;
+  pointer-events: none;
+}
+.consumable-ticket.ticket-tier-3 .ticket-tier-mark { color: #fff; }
 .consumable-ticket:hover { border-color: var(--ticket-border); transform: translateY(-4px); }
 .consumable-ticket.is-selected {
   border-color: #a64036;
@@ -5183,12 +5194,6 @@ h1 { margin: 0; font-size: 25px; font-weight: 600; }
 .deck-editor-floor-cards .consumable-ticket.ticket-tier-3 {
   --editor-stack-border: var(--rare-border-color);
   border-color: var(--rare-border-color) !important;
-}
-.consumable-ticket.ticket-tier-1 {
-  --editor-rarity: #74777b;
-  --editor-stack-fill: color-mix(in srgb, var(--ticket-fill) 92%, #000 8%);
-  border-color: #74777b;
-  background: color-mix(in srgb, var(--ticket-fill) 92%, #000 8%);
 }
 .deck-editor-panel .consumable-ticket.extractPlusTicket > strong { font-size: 12px; }
 .shop-offer .consumable-ticket.ticket-tier-1,

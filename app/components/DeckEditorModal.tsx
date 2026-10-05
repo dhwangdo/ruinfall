@@ -10,8 +10,8 @@ import { DeckEditorCardIcon } from "./DeckEditorCardIcon";
 import { CardFace } from "./CardFace";
 import { DeckName } from "./DeckName";
 import { deckEditorCardStackStyle } from "./deckEditorCardStackStyle";
+import { ConsumableTicketTierMark, consumableTicketTierClassName } from "./ConsumableTicketTierMark";
 import type { Card } from "../game/cards";
-import { TICKET_TIERS, type TicketType } from "../game/shopRules";
 import { usesRareCardSlot, type DeckEditorCardArea, type DeckEditorCardLocation } from "../game/deckEditorRules";
 import { groupAndSortDeckEditorCards, type DeckEditorCardGroup } from "../game/deckEditorViews";
 import type { Consumable, DeckCase, DeckEdition } from "../game/rewards";
@@ -202,10 +202,6 @@ export function DeckEditorModal(props: DeckEditorModalProps) {
 
   const groupAndSortCards = (cards: Card[]) =>
     groupAndSortDeckEditorCards(cards, deckEditorSort, transformedCardNewIds);
-  const ticketTierClassName = (type: Consumable["type"]) => type === "cardPack"
-    ? ""
-    : `ticket-tier-${TICKET_TIERS[type as TicketType]}`;
-
   const renderDeckCardGroup = (deck: DeckCase, { card, cardIds }: CardGroup) => {
     const cardId = cardIds.at(-1)!;
     const isTemporary = cardIds.some((id) => effectiveOriginDeckIdForCard(id) === null);
@@ -485,7 +481,7 @@ export function DeckEditorModal(props: DeckEditorModalProps) {
                        return (
                       <button
                         type="button"
-                        className={`consumable-ticket inventory-ticket ${consumable.type} ${ticketTierClassName(consumable.type)} ${isConsumableSelected(consumable) ? "is-selected" : ""} ${ticketDropTarget === consumableTicketDropKey(consumableId) ? "is-ticket-drop-target" : ""}`}
+                        className={`consumable-ticket inventory-ticket ${consumable.type} ${consumableTicketTierClassName(consumable.type)} ${isConsumableSelected(consumable) ? "is-selected" : ""} ${ticketDropTarget === consumableTicketDropKey(consumableId) ? "is-ticket-drop-target" : ""}`}
                         key={consumableIds.join("-")}
                         style={deckEditorCardStackStyle(consumableIds.length)}
                         draggable
@@ -516,6 +512,7 @@ export function DeckEditorModal(props: DeckEditorModalProps) {
                         }}
                         aria-label={`${consumable.name} ${consumableIds.length}장`}
                       >
+                        <ConsumableTicketTierMark type={consumable.type} />
                         <strong>{consumable.name}</strong>
                         <small>{consumableDescription(consumable)}</small>
                         {consumableIds.length > 1 && <span className="inventory-card-count">x{consumableIds.length}</span>}
@@ -803,41 +800,42 @@ className={`deck-editor-card rarity-${card.rarity} ${card.rarity === "legendary"
                     {floorConsumableGroups.map(({ consumable, consumableIds }) => {
                       const consumableId = consumableIds.at(-1)!;
                       return (
-                      <button
-                        type="button"
-                        className={`consumable-ticket floor-ticket ${consumable.type} ${ticketTierClassName(consumable.type)} ${isConsumableSelected(consumable) ? "is-selected" : ""} ${ticketDropTarget === consumableTicketDropKey(consumableId) ? "is-ticket-drop-target" : ""}`}
-                        key={consumableIds.join("-")}
-                        style={deckEditorCardStackStyle(consumableIds.length)}
-                        draggable
+                        <button
+                          type="button"
+                          className={`consumable-ticket floor-ticket ${consumable.type} ${consumableTicketTierClassName(consumable.type)} ${isConsumableSelected(consumable) ? "is-selected" : ""} ${ticketDropTarget === consumableTicketDropKey(consumableId) ? "is-ticket-drop-target" : ""}`}
+                          key={consumableIds.join("-")}
+                          style={deckEditorCardStackStyle(consumableIds.length)}
+                          draggable
                           onDragStart={(event) => beginConsumableDrag(event, consumableId, "floor")}
                           onDragEnd={finishConsumableDrag}
                           onDragOver={(event) => handleTicketDragOverConsumable(event, consumable)}
                           onDrop={(event) => handleTicketDropOnConsumable(event, consumable)}
                           onDragLeave={(event) => handleTicketDragLeave(event, consumableTicketDropKey(consumableId))}
-                        onMouseEnter={(event) => {
-                          const bounds = event.currentTarget.getBoundingClientRect();
-                          consumablePreview.show(consumable, bounds.right, bounds.top);
-                        }}
-                        onMouseMove={(event) => {
-                          const bounds = event.currentTarget.getBoundingClientRect();
-                          consumablePreview.show(consumable, bounds.right, bounds.top);
-                        }}
-                        onMouseLeave={consumablePreview.clear}
-                        onFocus={(event) => {
-                          const bounds = event.currentTarget.getBoundingClientRect();
-                          consumablePreview.show(consumable, bounds.right, bounds.top);
-                        }}
-                        onBlur={consumablePreview.clear}
-                        onClick={() => ["paintTicket", "cloneTicket", "extractTicket", "extractPlusTicket", "transformTicket", "bombTicket", "darkTicket"].includes(consumable.type)
-                          ? selectExtractionTicket(consumable)
-                          : moveFloorConsumableToInventory(consumableId)}
-                        aria-pressed={isConsumableSelected(consumable)}
-                        aria-label={`${consumable.name} ${consumableIds.length}장`}
-                      >
-                        <strong>{consumable.name}</strong>
-                        <small>{consumableDescription(consumable)}</small>
-                        {consumableIds.length > 1 && <span className="inventory-card-count">x{consumableIds.length}</span>}
-                      </button>
+                          onMouseEnter={(event) => {
+                            const bounds = event.currentTarget.getBoundingClientRect();
+                            consumablePreview.show(consumable, bounds.right, bounds.top);
+                          }}
+                          onMouseMove={(event) => {
+                            const bounds = event.currentTarget.getBoundingClientRect();
+                            consumablePreview.show(consumable, bounds.right, bounds.top);
+                          }}
+                          onMouseLeave={consumablePreview.clear}
+                          onFocus={(event) => {
+                            const bounds = event.currentTarget.getBoundingClientRect();
+                            consumablePreview.show(consumable, bounds.right, bounds.top);
+                          }}
+                          onBlur={consumablePreview.clear}
+                          onClick={() => ["paintTicket", "cloneTicket", "extractTicket", "extractPlusTicket", "transformTicket", "bombTicket", "darkTicket"].includes(consumable.type)
+                            ? selectExtractionTicket(consumable)
+                            : moveFloorConsumableToInventory(consumableId)}
+                          aria-pressed={isConsumableSelected(consumable)}
+                          aria-label={`${consumable.name} ${consumableIds.length}장`}
+                        >
+                          <ConsumableTicketTierMark type={consumable.type} />
+                          <strong>{consumable.name}</strong>
+                          <small>{consumableDescription(consumable)}</small>
+                          {consumableIds.length > 1 && <span className="inventory-card-count">x{consumableIds.length}</span>}
+                        </button>
                       );
                     })}
                     {removedFloorCardGroups.map(({ card, cardIds }) => (
