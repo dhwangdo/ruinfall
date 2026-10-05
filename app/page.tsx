@@ -2582,15 +2582,8 @@ export default function Home() {
       : undefined;
     if (source.area === "deck" && !sourceDeck) return false;
     if (target.area === "deck" && !targetDeck) return false;
-    const pendingRareSlotsInTargetDeck = targetDeck
-      ? pendingRemovedCards.filter((pendingCard) => (
-        pendingCard.id !== cardId
-        && usesRareCardSlot(pendingCard)
-        && effectiveOriginDeckIdForCard(pendingCard.id) === targetDeck.id
-      )).length
-      : 0;
     const targetDeckRareCardCount = targetDeck
-      ? countRareSlotCards(targetDeck.cards) + pendingRareSlotsInTargetDeck
+      ? countRareSlotCards(targetDeck.cards)
       : 0;
     const positionIsSafeArea = isSafeAreaPosition(mapPosition, mapSeed);
     const safeArea = positionIsSafeArea
@@ -4305,9 +4298,6 @@ export default function Home() {
             swapOwnedDecks,
             dropOwnedDeck,
             rareSlotCountForDeck: (deck) => countRareSlotCards(deck.cards),
-            rareSlotRemovalPendingCountForDeck: (deck) => pendingRemovedCards.filter((card) => (
-              usesRareCardSlot(card) && effectiveOriginDeckIdForCard(card.id) === deck.id
-            )).length,
             canMoveDeckCardToInventory: isSafeAreaPosition(mapPosition, mapSeed)
               && isSafeAreaEditAllowed(mapPosition, mapSeed, defeatedBossRegions),
           }}

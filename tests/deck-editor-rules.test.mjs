@@ -97,7 +97,7 @@ test("safe-area editing ignores origin deck restrictions", () => {
   }), { allowed: true, action: "move" });
 });
 
-test("rare and legendary cards can enter a deck only when both capacity and rare slots allow", () => {
+test("rare and legendary cards can immediately use a vacated rare slot", () => {
   const insertion = {
     ...baseRequest,
     source: { area: "floor" },
@@ -124,6 +124,28 @@ test("rare and legendary cards can enter a deck only when both capacity and rare
     source: { area: "deck", deckId: "A" },
     target: { area: "deck", deckId: "B" },
   }), { allowed: false, reason: "rare-locked" });
+});
+
+test("a pending rare card can return only if another rare slot is open", () => {
+  const restoration = {
+    ...baseRequest,
+    source: { area: "pendingRemoval" },
+    target: { area: "deck", deckId: "A" },
+    originalOriginDeckId: "A",
+    effectiveOriginDeckId: "A",
+    targetDeckCardCount: 5,
+    targetDeckCapacity: 10,
+    targetDeckRareSlotCapacity: 1,
+    isRare: true,
+  };
+  assert.deepEqual(validateDeckEditorCardMove({
+    ...restoration,
+    targetDeckRareCardCount: 1,
+  }), { allowed: false, reason: "rare-slots-full" });
+  assert.deepEqual(validateDeckEditorCardMove({
+    ...restoration,
+    targetDeckRareCardCount: 0,
+  }), { allowed: true, action: "restore-removal" });
 });
 
 test("existing rare cards are removal-pending in every area and can be extracted only with plus", () => {

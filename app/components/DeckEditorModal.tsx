@@ -50,7 +50,6 @@ type DeckEditorDeckArea = {
   dropOwnedDeck: (deckId: string) => void;
   canMoveDeckCardToInventory: boolean;
   rareSlotCountForDeck: (deck: DeckCase) => number;
-  rareSlotRemovalPendingCountForDeck: (deck: DeckCase) => number;
 };
 
 type DeckEditorFloorArea = {
@@ -132,7 +131,6 @@ export function DeckEditorModal(props: DeckEditorModalProps) {
       dropOwnedDeck,
       canMoveDeckCardToInventory,
       rareSlotCountForDeck,
-      rareSlotRemovalPendingCountForDeck,
     },
     floorArea: {
       currentFloorDecks,
@@ -565,11 +563,10 @@ className={`deck-editor-card rarity-${card.rarity} ${card.rarity === "legendary"
                     const normalCardGroups = deckCardGroups.filter(({ card }) => !usesRareCardSlot(card));
                     const rareCardGroups = deckCardGroups.filter(({ card }) => usesRareCardSlot(card));
                     const rareSlotCount = rareSlotCountForDeck(deck);
-                    const pendingRareSlotCount = rareSlotRemovalPendingCountForDeck(deck);
-                    const rareSlotCapacity = Math.max(deck.rareSlotCapacity ?? 0, rareSlotCount + pendingRareSlotCount);
+                    const rareSlotCapacity = Math.max(deck.rareSlotCapacity ?? 0, rareSlotCount);
                     const normalSlotCapacity = Math.max(0, deck.capacity - rareSlotCapacity);
                     const normalCardCount = deck.cards.filter((card) => !usesRareCardSlot(card)).length;
-                    const emptyRareSlotCount = Math.max(0, rareSlotCapacity - rareSlotCount - pendingRareSlotCount);
+                    const emptyRareSlotCount = Math.max(0, rareSlotCapacity - rareSlotCount);
                     return (
                       <section
                         className={`deck-editor-deck-row ${isSelected ? "is-selected" : ""} ${deck.id === activeDeck?.id ? "is-active-deck" : ""} ${deckEditorDropTarget === "deck" && deckEditorDeckId === deck.id ? "is-drop-target" : ""}`}
@@ -649,29 +646,16 @@ className={`deck-editor-card rarity-${card.rarity} ${card.rarity === "legendary"
                             dropDeckEditorCard(event, "deck", deck.id);
                           }}
                         >
-                          {normalCardGroups.map((group) => renderDeckCardGroup(deck, group))}
-                          {Array.from({ length: Math.max(0, normalSlotCapacity - normalCardCount) }, (_, slot) => (
-                            <span className="deck-editor-empty-card-slot" key={`${deck.id}-normal-slot-${slot}`} />
-                          ))}
-                          <div className="deck-editor-slot-divider" role="separator" aria-label="일반 슬롯과 희귀 슬롯 구분">
-                            <span>일반</span>
-                            <i />
-                            <span>희귀</span>
-                          </div>
                           {rareCardGroups.map((group) => renderDeckCardGroup(deck, group))}
-                          {Array.from({ length: pendingRareSlotCount }, (_, slot) => (
-                            <div
-                              className="deck-editor-rare-slot is-removal-pending"
-                              key={`${deck.id}-pending-rare-slot-${slot}`}
-                              title="제거 예정 카드입니다. 편집을 확정하면 슬롯이 비워집니다."
-                            >
-                              <span>제거 확정 대기</span>
-                            </div>
-                          ))}
                           {Array.from({ length: emptyRareSlotCount }, (_, slot) => (
                             <div className="deck-editor-rare-slot is-empty" key={`${deck.id}-rare-slot-${slot}`}>
                               <span>빈 희귀 슬롯</span>
                             </div>
+                          ))}
+                          <div className="deck-editor-slot-divider" role="separator" aria-label="희귀 슬롯과 일반 슬롯 구분" />
+                          {normalCardGroups.map((group) => renderDeckCardGroup(deck, group))}
+                          {Array.from({ length: Math.max(0, normalSlotCapacity - normalCardCount) }, (_, slot) => (
+                            <span className="deck-editor-empty-card-slot" key={`${deck.id}-normal-slot-${slot}`} />
                           ))}
                         </div>
                       </section>
