@@ -5825,7 +5825,15 @@ h1 { margin: 0; font-size: 25px; font-weight: 600; }
 }
 .deck-editor-panel .deck-editor-card,
 .deck-editor-panel .deck-list-entry {
-  border-color: #c7c9cc !important;
+  --editor-stack-border: #a9adb2;
+  border-color: #a9adb2 !important;
+}
+.deck-editor-panel .deck-editor-card.rarity-rare,
+.deck-editor-panel .deck-list-entry.rarity-rare,
+.deck-editor-panel .deck-editor-card.rarity-legendary,
+.deck-editor-panel .deck-list-entry.rarity-legendary {
+  --editor-stack-border: var(--rare-border-color);
+  border-color: var(--rare-border-color) !important;
 }
 .deck-editor-panel .deck-editor-card.is-ticket-drop-target {
   border-color: #8fc7ed !important;
@@ -5835,7 +5843,7 @@ h1 { margin: 0; font-size: 25px; font-weight: 600; }
   position: absolute;
   z-index: 0;
   inset: 0 0 auto;
-  height: 28px;
+  height: 19.6px;
   background: var(--editor-rarity);
   content: "";
   pointer-events: none;

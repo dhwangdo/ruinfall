@@ -12,12 +12,12 @@ test("forging old core preserves its one energy cost and no exhaust", () => {
   assert.equal(oldCore.exhaust, undefined);
 });
 
-test("obsidian dagger stays at three energy after every forge", () => {
+test("obsidian dagger stays at two energy after every forge", () => {
   const dagger = RARE_CARD_POOL.find((card) => card.name === "흑요석 단검");
   assert.ok(dagger);
-  assert.equal(cardCostAfterForgePlacement(dagger), 3);
-  assert.equal(cardCostAfterForgePlacement({ ...dagger, forged: true }), 3);
-  assert.equal(cardCostAfterForgePlacement({ ...dagger, forgeCostsCompleted: [1, 2, 3] }), 3);
+  assert.equal(cardCostAfterForgePlacement(dagger), 2);
+  assert.equal(cardCostAfterForgePlacement({ ...dagger, forged: true }), 2);
+  assert.equal(cardCostAfterForgePlacement({ ...dagger, forgeCostsCompleted: [1, 2, 3] }), 2);
 });
 
 test("obsidian dagger has exactly five forges", () => {
