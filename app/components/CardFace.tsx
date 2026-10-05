@@ -225,13 +225,15 @@ export function CardFaceView({
       case "focus":
         return <span><strong className="effect-keyword">에너지</strong>를 1 얻습니다. 카드를 1장 버립니다.</span>;
       case "pruning":
-        return <span>카드를 2장 버립니다. <strong className="effect-keyword">에너지</strong>를 2 얻습니다.</span>;
+        return <span><strong className="effect-keyword">버리기 2</strong>. <strong className="effect-keyword">에너지</strong>를 2 얻습니다.</span>;
       case "adrenaline":
         return <span><strong className="effect-keyword">체력</strong>을 2 잃습니다. <strong className="effect-keyword">에너지</strong>를 {card.value} 얻습니다. 카드를 {card.draw}장 뽑습니다.</span>;
       case "sweep":
         return <span>모든 적에게 <span className="effect-type damage">피해</span>를 {damageNumber} 줍니다.</span>;
       case "drawEachPile":
         return <span>모든 파일에서 카드를 1장씩 뽑습니다.</span>;
+      case "evolutionTheory":
+        return <span>턴 시작 시 <strong className="effect-keyword">힘</strong>과 <strong className="effect-keyword">강인함</strong>을 1 얻습니다.</span>;
       case "dash":
         return <span>무작위 파일에서 카드를 1장씩 {card.forged ? 3 : "2[3]"}번 뽑습니다.</span>;
       case "quickStep":

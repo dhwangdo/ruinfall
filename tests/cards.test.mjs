@@ -14,14 +14,15 @@ import {
   cardGivesPhysicalDefense,
   isAttackCard,
 } from "../app/game/cards.ts";
+import { getCardKeywordInfos } from "../app/game/cardEffects.ts";
 
 test("card pools preserve the current content counts", () => {
   assert.equal(STARTER_CARD_POOL.length, 3);
   assert.equal(BASIC_CARD_POOL.length, 6);
   assert.equal(SPECIAL_CARD_POOL.length, 34);
-  assert.equal(RARE_CARD_POOL.length, 13);
+  assert.equal(RARE_CARD_POOL.length, 15);
   assert.equal(LEGENDARY_CARD_POOL.length, 6);
-  assert.equal(ALL_CARD_BLUEPRINTS.length, 63);
+  assert.equal(ALL_CARD_BLUEPRINTS.length, 65);
 });
 
 test("special card pool contains the updated cards and excludes sharpen cards", () => {
@@ -49,6 +50,23 @@ test("radiance is treated as an attack card", () => {
   assert.equal(isAttackCard(createRadianceCard(100)), true);
 });
 
+test("new rare cards and the discard keyword carry their intended rules", () => {
+  const evolutionTheory = RARE_CARD_POOL.find((card) => card.name === "진화론");
+  assert.deepEqual(
+    evolutionTheory && { cost: evolutionTheory.cost, rarity: evolutionTheory.rarity, rule: evolutionTheory.rule, exhaust: evolutionTheory.exhaust },
+    { cost: 2, rarity: "rare", rule: true, exhaust: true },
+  );
+  const book = RARE_CARD_POOL.find((card) => card.name === "책 펼치기");
+  assert.deepEqual(
+    book && { cost: book.cost, rarity: book.rarity, effect: book.effect },
+    { cost: 1, rarity: "rare", effect: "drawEachPile" },
+  );
+  const decision = SPECIAL_CARD_POOL.find((card) => card.name === "과감한 결단");
+  const discardKeyword = decision && getCardKeywordInfos({ ...decision, id: 1, revealed: true })
+    .find((keyword) => keyword.name === "버리기 X");
+  assert.match(discardKeyword?.description ?? "", /손패에 버릴 카드가 X장보다 적으면 사용할 수 없습니다/);
+});
+
 test("current card data keeps key balance values and removed systems absent", () => {
   assert.equal(BASIC_CARD_POOL.find((card) => card.name === "자와 컴퍼스")?.value, 6);
   assert.equal(BASIC_CARD_POOL.find((card) => card.name === "별의 장막")?.value, 10);
@@ -66,11 +84,11 @@ test("current card data keeps key balance values and removed systems absent", ()
   );
   assert.equal(SPECIAL_CARD_POOL.find((card) => card.name === "별의 방주")?.value, 10);
   assert.deepEqual(
-    SPECIAL_CARD_POOL.find((card) => card.name === "가지치기") && (() => {
-      const card = SPECIAL_CARD_POOL.find((item) => item.name === "가지치기");
-      return { cost: card.cost, value: card.value, rarity: card.rarity };
+    SPECIAL_CARD_POOL.find((card) => card.name === "과감한 결단") && (() => {
+      const card = SPECIAL_CARD_POOL.find((item) => item.name === "과감한 결단");
+      return { cost: card.cost, value: card.value, rarity: card.rarity, discardCost: card.discardCost, discardEnergyGain: card.discardEnergyGain };
     })(),
-    { cost: 0, value: 2, rarity: "special" },
+    { cost: 0, value: 2, rarity: "special", discardCost: 2, discardEnergyGain: 2 },
   );
   const quickStep = SPECIAL_CARD_POOL.find((card) => card.name === "퀵스텝");
   assert.deepEqual(

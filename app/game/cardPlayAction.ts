@@ -207,6 +207,10 @@ export function createResolvePlayedCard(context: ResolvePlayedCardContext) {
       if (energyCost === undefined) {
         return { ...current, message: `${card.name}은(는) 에너지 비용이 없는 카드입니다.` };
       }
+      const discardCost = card.discardCost ?? 0;
+      if (discardCost > 0 && current.hand.filter((item) => item.id !== card.id).length < discardCost) {
+        return { ...current, message: `${card.name}: 버릴 카드 ${discardCost}장이 필요합니다.` };
+      }
       const economicsResearchCount = current.activeRuleCards.filter((ruleCard) => ruleCard.effect === "economicsResearch").length;
       if (!canPayEnergyCost(current.energy, energyCost, economicsResearchCount)) {
         return { ...current, message: `${card.name}: 에너지가 ${energyCost} 필요합니다.` };
@@ -420,17 +424,10 @@ export function createResolvePlayedCard(context: ResolvePlayedCardContext) {
         { length: radianceCount },
         () => createRadianceCard(nextCardIdRef.current++),
       );
-      const pruningAutoDiscard = card.effect === "pruning" && remainingHand.length <= 2
-        ? remainingHand
-        : [];
-      const handAfterPruning = pruningAutoDiscard.length > 0
-        ? remainingHand.filter((item) => !pruningAutoDiscard.some((discarded) => discarded.id === item.id))
-        : remainingHand;
-      const pendingDiscards = card.effect === "pruning"
-        ? remainingHand.length <= 2 ? 0 : 2
-        : card.effect === "prepare"
+      const pendingDiscards = card.discardCost ?? (card.effect === "prepare"
         ? (canDraw || remainingHand.length > 0 ? 1 : 0)
-        : card.effect === "focus" && remainingHand.length > 0 ? 1 : 0;
+        : card.effect === "focus" && remainingHand.length > 0 ? 1 : 0);
+      const pendingDiscardEnergy = pendingDiscards > 0 ? card.discardEnergyGain ?? 0 : 0;
       const pendingSweep = card.effect === "boomerang" && canDraw;
       const pendingPileOperation = card.effect === "boomerang"
         ? card.name === "정리 타격" ? "discardTop" as const : "moveTopToBottom" as const
@@ -469,9 +466,7 @@ export function createResolvePlayedCard(context: ResolvePlayedCardContext) {
         if (card.effect === "battlePlan") return `★ ${card.value}개 획득 · 드로우 ${card.draw}`;
         if (card.effect === "prepare") return canDraw ? "드로우할 파일을 선택하세요." : "버릴 카드를 선택하세요.";
         if (card.effect === "focus") return "에너지를 1 얻습니다 · 버릴 카드를 선택하세요.";
-        if (card.effect === "pruning") return remainingHand.length <= 2
-          ? `가지치기: 카드 ${pruningAutoDiscard.length}장 버림 · 에너지 2 획득`
-          : "가지치기: 버릴 카드 2장을 선택하세요.";
+        if (card.effect === "pruning") return "과감한 결단: 버릴 카드 2장을 선택하세요.";
         if (card.effect === "adrenaline") return `체력 2 감소 · 에너지 ${card.value} 획득 · 카드 ${card.draw}장 드로우`;
         if (card.effect === "sweep") return canDraw ? "가져올 파일을 선택하세요." : "가져올 카드가 없습니다.";
         if (card.effect === "drawEachPile") return `모든 파일에서 ${drawEachPileResult?.hand.length ?? 0}장 뽑음`;
@@ -499,16 +494,16 @@ export function createResolvePlayedCard(context: ResolvePlayedCardContext) {
         : "";
       return {
         ...current,
-        hand: [...handAfterPruning, ...(automaticDrawnCards ?? []), ...generatedRadiances],
+        hand: [...remainingHand, ...(automaticDrawnCards ?? []), ...generatedRadiances],
         // 강화는 사용 후에도 다음 셔플 전까지 유지된다. 셔플 때 prepareDeckForPiles가 해제한다.
         discard: card.exhaust || card.token
           ? current.discard
-          : [...current.discard, card, ...pruningAutoDiscard],
+          : [...current.discard, card],
         removedFromReshuffleIds: [...new Set([
           ...current.removedFromReshuffleIds,
           ...(card.exhaust ? [card.id] : []),
         ])],
-        energy: current.energy - energyCost + (card.effect === "aries" ? 5 : card.effect === "berserk" ? 2 : card.effect === "plateArmor" ? (card.forged ? 3 : 1) : card.effect === "focus" || card.effect === "adrenaline" || card.effect === "pruning" || card.effect === "charge" || card.effect === "endStart" || card.effect === "supernova" ? card.value : card.effect === "flood" ? 2 : card.effect === "ventilate" ? card.value : 0),
+        energy: current.energy - energyCost + (card.effect === "aries" ? 5 : card.effect === "berserk" ? 2 : card.effect === "plateArmor" ? (card.forged ? 3 : 1) : card.effect === "focus" || card.effect === "adrenaline" || card.effect === "charge" || card.effect === "endStart" || card.effect === "supernova" ? card.value : card.effect === "flood" ? 2 : card.effect === "ventilate" ? card.value : 0),
         radiancePlayedThisTurn: current.radiancePlayedThisTurn + (isRadiance ? 1 : 0),
         stars: current.stars + (
           card.effect === "battlePlan"
@@ -538,6 +533,7 @@ export function createResolvePlayedCard(context: ResolvePlayedCardContext) {
           ? [...current.pendingRadiance, { turns: 2, count: card.value }]
           : current.pendingRadiance,
         pendingDiscards,
+        pendingDiscardEnergy,
         pendingSweep,
         pendingPileOperation,
         enemies: nextEnemies,

@@ -62,6 +62,7 @@ const CARD_KEYWORD_DESCRIPTIONS: Record<string, string> = {
   "사용 불가": "손패에서 사용할 수 없습니다. 옮길 수는 있습니다.",
   "★": "솔리테어 행동 자원입니다. 사용하여 손패에서 파일로, 혹은 파일에서 다른 파일로 카드를 옮길 수 있습니다. 턴이 끝나도 사라지지 않습니다.",
   "에너지": "카드를 사용하는 데 필요한 자원입니다. 플레이어 턴 시작 시 최대 에너지만큼 회복되며 최대치를 넘지 않습니다.",
+  "버리기 X": "카드를 X장 버리고 발동합니다. 손패에 버릴 카드가 X장보다 적으면 사용할 수 없습니다.",
   "힘": "힘 X는 피해를 X만큼 증가시킵니다.",
   "강인함": "강인함 X는 방어와 마법 방어 획득량을 X만큼 증가시킵니다.",
   "물리 저항": "받는 물리 피해가 절반이 됩니다. (소수점은 버립니다.)",
@@ -95,14 +96,15 @@ export function getCardKeywordInfos(card: Card): CardKeywordInfo[] {
     add("토큰");
   }
   if (CARD_POOL_ENERGY_EFFECTS.has(card.effect)) add("에너지");
+  if (card.discardCost !== undefined) add("버리기 X");
   if (card.effect === "obsidianDagger") add("소멸");
   if (card.effect === "ironWall" || card.effect === "plateArmorDefense") add("물리 저항");
   if (card.effect === "blessing") add("마법 저항");
   if (card.effect === "berserk") add("물리 취약");
   if (card.effect === "transcend") add("면역");
   if (CARD_POOL_STAR_EFFECTS.has(card.effect) || ["grimoire", "meteor", "supernova"].includes(card.effect)) add("★");
-  if (["warmUp", "weaponSharpen", "augment", "orion", "combatManual", "relic", "transcend"].includes(card.effect)) add("힘");
-  if (["augment", "armorSharpen", "combatManual"].includes(card.effect)) add("강인함");
+  if (["warmUp", "weaponSharpen", "augment", "orion", "combatManual", "relic", "transcend", "evolutionTheory"].includes(card.effect)) add("힘");
+  if (["augment", "armorSharpen", "combatManual", "evolutionTheory"].includes(card.effect)) add("강인함");
   if (["radiance", "lightCluster", "largePrism", "opticsResearch", "nebula", "lightTravelTime"].includes(card.effect)) add("광채");
   return keywords
     .map((name) => ({

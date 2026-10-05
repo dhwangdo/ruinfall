@@ -3522,6 +3522,7 @@ export default function Home() {
           astronomyResearchUses: 0,
           necromancyResearchUses: 0,
           pendingDiscards: 0,
+          pendingDiscardEnergy: 0,
           pendingSweep: false,
           status: "won",
           message: "디버그 모드: 적을 즉시 처치했습니다.",
@@ -3567,7 +3568,9 @@ export default function Home() {
         energyCost,
         game.activeRuleCards.filter((ruleCard) => ruleCard.effect === "economicsResearch").length,
       );
-    const canLogPlayedCard = shouldAnimate
+    const canPayDiscardCost = game.hand.filter((item) => item.id !== card.id).length >= (card.discardCost ?? 0);
+    const canAnimatePlay = shouldAnimate && canPayDiscardCost;
+    const canLogPlayedCard = canAnimatePlay
       && game.pendingDraws === 0
       && game.pendingPileDrawCount === 0
       && game.pendingDiscards === 0
@@ -3575,7 +3578,7 @@ export default function Home() {
       && !game.pendingSweep
       && game.hand.some((item) => item.id === card.id);
     if (canLogPlayedCard) recordTelemetryCardPlayed(telemetry, telemetryCardSnapshot(card));
-    if (!shouldAnimate) {
+    if (!canAnimatePlay) {
       resolvePlayedCard(card, targetEnemyId);
       return;
     }
@@ -3730,14 +3733,17 @@ export default function Home() {
       const card = current.hand.find((item) => item.id === cardId);
       if (!card) return current;
       const remainingDiscards = current.pendingDiscards - 1;
+      const discardEnergyGain = remainingDiscards === 0 ? current.pendingDiscardEnergy : 0;
       const action = remainingDiscards > 0
         ? `${card.name} 버림 · ${remainingDiscards}장 더 선택하세요.`
-        : `${card.name} 버림`;
+        : `${card.name} 버림${discardEnergyGain > 0 ? ` · 에너지 ${discardEnergyGain} 획득` : ""}`;
       return {
         ...current,
         hand: current.hand.filter((item) => item.id !== cardId),
         discard: [...current.discard, card],
-        pendingDiscards: current.pendingDiscards - 1,
+        energy: current.energy + discardEnergyGain,
+        pendingDiscards: remainingDiscards,
+        pendingDiscardEnergy: remainingDiscards === 0 ? 0 : current.pendingDiscardEnergy,
         message: action,
       };
     });

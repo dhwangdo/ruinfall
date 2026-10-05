@@ -50,6 +50,7 @@ export type CardEffect =
   | "plateArmor"
   | "plateArmorDefense"
   | "pruning"
+  | "evolutionTheory"
   | "warmUp"
   | "ironWall"
   | "fourHit"
@@ -118,6 +119,10 @@ export type Card = {
   enemyToken?: boolean;
   /** Power-like rule card marker shown on the card face. */
   rule?: boolean;
+  /** Cards with this cost require choosing this many other hand cards to discard. */
+  discardCost?: number;
+  /** Energy granted after all required discards are selected. */
+  discardEnergyGain?: number;
 };
 
 export type CardBlueprint = Omit<Card, "id" | "revealed">;
@@ -183,7 +188,7 @@ export const SPECIAL_CARD_POOL: CardBlueprint[] = [
   { kind: "skill", effect: "battlePlan", rarity: "special", name: "전략가", cost: 1, value: 2, draw: 1, damageType: "physical" },
   { kind: "skill", effect: "plateArmor", rarity: "special", name: "낡은 노심", cost: 1, value: 1, draw: 0, damageType: "physical", forgeCost: 3 },
   { kind: "skill", effect: "plateArmorDefense", rarity: "special", name: "판금 갑옷", cost: 1, value: 8, draw: 0, damageType: "physical", forgeCost: 3 },
-  { kind: "skill", effect: "pruning", rarity: "special", name: "가지치기", cost: 0, value: 2, draw: 0, damageType: "physical" },
+  { kind: "skill", effect: "pruning", rarity: "special", name: "과감한 결단", cost: 0, value: 2, draw: 0, damageType: "physical", discardCost: 2, discardEnergyGain: 2 },
   { kind: "skill", effect: "dash", rarity: "special", name: "질주", cost: 1, value: 0, draw: 0, damageType: "physical", forgeCost: 3 },
   { kind: "skill", effect: "quickStep", rarity: "special", name: "퀵스텝", cost: 1, value: 0, draw: 2, damageType: "physical" },
 { kind: "strike", effect: "suppression", rarity: "special", name: "진압", cost: 3, value: 13, draw: 0, damageType: "physical" },
@@ -200,6 +205,8 @@ export const SPECIAL_CARD_POOL: CardBlueprint[] = [
 ];
 
 export const RARE_CARD_POOL: CardBlueprint[] = [
+  { kind: "skill", effect: "evolutionTheory", rarity: "rare", name: "진화론", cost: 2, value: 1, draw: 0, damageType: "physical", exhaust: true, rule: true },
+  { kind: "skill", effect: "drawEachPile", rarity: "rare", name: "책 펼치기", cost: 1, value: 0, draw: 0, damageType: "physical" },
   { kind: "strike", effect: "obsidianDagger", rarity: "rare", name: "흑요석 단검", cost: 2, value: 1, draw: 0, damageType: "physical" },
   { kind: "skill", effect: "rapidFire", rarity: "rare", name: "연사", cost: 1, value: 0, draw: 0, damageType: "physical", exhaust: true },
   { kind: "skill", effect: "superStrategist", rarity: "rare", name: "전술가", cost: 1, value: 5, draw: 0, damageType: "physical", exhaust: true },

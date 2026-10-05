@@ -31,6 +31,7 @@ export type GameState = {
   astronomyResearchUses: number;
   necromancyResearchUses: number;
   pendingDiscards: number;
+  pendingDiscardEnergy: number;
   pendingSweep: boolean;
   pendingPileOperation: "discardTop" | "moveTopToBottom" | null;
   turn: number;
@@ -192,6 +193,7 @@ export function waitingState(
     astronomyResearchUses: 0,
     necromancyResearchUses: 0,
     pendingDiscards: 0,
+    pendingDiscardEnergy: 0,
     pendingSweep: false,
     pendingPileOperation: null,
     turn: 1,
