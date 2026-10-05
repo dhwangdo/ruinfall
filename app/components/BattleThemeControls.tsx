@@ -33,7 +33,7 @@ export const DEFAULT_BATTLE_THEME_COLORS: BattleThemeColors = {
   costText: "#ffd166",
   energy: "#126fbd",
   energyEmpty: "#34495e",
-  basicBand: "#356b45",
+  basicBand: "#756A60",
   specialBand: "#3472a2",
   physical: "#ff9d4d",
   magic: "#67cfff",

@@ -173,7 +173,7 @@ h1 { margin: 0; font-size: 25px; font-weight: 600; }
   font-size: 13px;
   letter-spacing: normal;
 }
-.quick-pickup-card.rarity-basic { color: var(--battle-basic-band-color, #356b45); }
+.quick-pickup-card.rarity-basic { color: var(--battle-basic-band-color, #756A60); }
 .quick-pickup-card.rarity-status { color: #e34b58; }
 .quick-pickup-card.rarity-starter { color: #555B60; }
 .quick-pickup-card.rarity-special { color: var(--battle-special-band-color, #3472a2); }
@@ -2569,7 +2569,7 @@ h1 { margin: 0; font-size: 25px; font-weight: 600; }
   background: var(--battle-cost-color, #39aee6);
   border-right: 1px solid color-mix(in srgb, var(--battle-cost-color, #39aee6) 62%, black);
 }
-.deck-list-entry.rarity-basic strong { color: var(--battle-basic-band-color, #356b45); }
+.deck-list-entry.rarity-basic strong { color: var(--battle-basic-band-color, #756A60); }
 .deck-list-entry.rarity-starter strong { color: #555B60; }
 .deck-list-entry.rarity-special strong { color: #67cfff; }
 .deck-list-entry.rarity-rare strong { color: #272725; }
@@ -3500,7 +3500,7 @@ h1 { margin: 0; font-size: 25px; font-weight: 600; }
 .card-name::after {
   display: none;
 }
-.card-name.rarity-basic { color: var(--battle-basic-band-color, #356b45); background: transparent; }
+.card-name.rarity-basic { color: var(--battle-basic-band-color, #756A60); background: transparent; }
 .card-name.rarity-status { color: #e34b58; background: transparent; }
 .card-name.rarity-starter { color: #555B60; background: transparent; }
 .card-name.rarity-special { color: #67cfff; background: transparent; }
@@ -3538,7 +3538,7 @@ h1 { margin: 0; font-size: 25px; font-weight: 600; }
   border-radius: 6px 6px 0 0;
   content: "";
 }
-.card-style-simple .card-face:not(:has(.card-name.is-painted)):has(.card-name.rarity-basic)::after { background: var(--battle-basic-band-color, #356b45); }
+.card-style-simple .card-face:not(:has(.card-name.is-painted)):has(.card-name.rarity-basic)::after { background: var(--battle-basic-band-color, #756A60); }
 .card-style-simple .card-face:not(:has(.card-name.is-painted)):has(.card-name.rarity-status)::after { background: #e34b58; }
 .card-style-simple .card-face:not(:has(.card-name.is-painted)):has(.card-name.rarity-starter)::after { background: #555B60; }
 .card-style-simple .card-face:not(:has(.card-name.is-painted)):has(.card-name.rarity-special)::after { background: var(--battle-special-band-color, #3472a2); }
@@ -3584,7 +3584,7 @@ h1 { margin: 0; font-size: 25px; font-weight: 600; }
 }
 .card-style-simple .deck-list-entry:not(.is-painted) strong {
   align-self: stretch;
-  color: var(--battle-basic-band-color, #356b45);
+  color: var(--battle-basic-band-color, #756A60);
 }
 .card-style-simple .deck-list-entry.rarity-special:not(.is-painted) strong { color: var(--battle-special-band-color, #3472a2); }
 .card-style-simple .deck-list-entry.rarity-status:not(.is-painted) strong { color: #e34b58; }
@@ -3594,7 +3594,7 @@ h1 { margin: 0; font-size: 25px; font-weight: 600; }
 }
 .card-style-simple .deck-list-entry:not(.is-painted) .deck-list-cost {
   color: #fff;
-  background: var(--battle-basic-band-color, #356b45);
+  background: var(--battle-basic-band-color, #756A60);
 }
 .card-style-simple .deck-list-entry.rarity-special:not(.is-painted) .deck-list-cost { background: var(--battle-special-band-color, #3472a2); }
 .card-style-simple .deck-list-entry.rarity-status:not(.is-painted) .deck-list-cost { background: #e34b58; }
@@ -3606,7 +3606,7 @@ h1 { margin: 0; font-size: 25px; font-weight: 600; }
   place-items: center;
   margin-right: -8px;
   padding-inline: 7px;
-  color: var(--battle-basic-band-color, #356b45);
+  color: var(--battle-basic-band-color, #756A60);
   background: var(--card-paper);
 }
 .card-style-simple .deck-list-entry.rarity-special:not(.is-painted) .deck-list-count { color: var(--battle-special-band-color, #3472a2); }
@@ -4911,7 +4911,7 @@ h1 { margin: 0; font-size: 25px; font-weight: 600; }
 .trash-icon::before { width: 31px; }
 .deck-editor-card,
 .deck-list-entry {
-  --editor-rarity: #356b45;
+  --editor-rarity: #756A60;
   position: relative;
   display: grid;
   grid-template-columns: 1fr;
@@ -5688,7 +5688,7 @@ h1 { margin: 0; font-size: 25px; font-weight: 600; }
   top: 0;
   width: 74px;
   height: 74px;
-  border: 4px solid #356b45;
+  border: 4px solid #756A60;
   border-radius: 4px;
   background: #d7ddd9;
   box-shadow: 0 2px 3px rgba(0,0,0,.24);
