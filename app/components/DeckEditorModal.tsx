@@ -136,7 +136,7 @@ export type DeckEditorModalProps = {
 };
 
 function stackedVirtualWidth(itemCount: number) {
-  return 74 + Math.min(5, Math.max(0, itemCount - 1)) * 7;
+  return 82 + Math.min(5, Math.max(0, itemCount - 1)) * 7;
 }
 
 export function DeckEditorModal(props: DeckEditorModalProps) {
@@ -249,7 +249,7 @@ export function DeckEditorModal(props: DeckEditorModalProps) {
         ...Array.from({ length: emptyRareSlotCount }, (_, slot) => ({
           kind: "rare-slot" as const,
           key: `deck-rare-slot:${deck.id}:${slot}`,
-          width: 81.4,
+          width: 82,
           slot,
         })),
         ...(rareSlotCapacity > 0 ? [{
@@ -266,7 +266,7 @@ export function DeckEditorModal(props: DeckEditorModalProps) {
         ...Array.from({ length: Math.max(0, normalSlotCapacity - normalCardCount) }, (_, slot) => ({
           kind: "normal-slot" as const,
           key: `deck-normal-slot:${deck.id}:${slot}`,
-          width: 74,
+          width: 82,
           slot,
         })),
       ];
@@ -305,7 +305,7 @@ export function DeckEditorModal(props: DeckEditorModalProps) {
     ...Array.from({ length: Math.max(0, inventoryCapacity - deckEditorInventoryItemCount) }, (_, slot) => ({
       kind: "empty-slot" as const,
       key: `inventory-slot:${slot}`,
-      width: 74,
+      width: 82,
       slot,
     })),
   ], [inventoryConsumableGroups, removedInventoryCardGroups, availableInventoryCardGroups, inventoryCapacity, deckEditorInventoryItemCount]);

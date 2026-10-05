@@ -5200,10 +5200,10 @@ h1 { margin: 0; font-size: 25px; font-weight: 600; }
 .shop-offer .consumable-ticket.ticket-tier-1,
 .shop-offer .consumable-ticket.ticket-tier-2,
 .shop-offer .consumable-ticket.ticket-tier-3 {
-  flex: 0 0 81.4px;
-  width: 81.4px;
-  height: 81.4px;
-  min-height: 81.4px;
+  flex: 0 0 82px;
+  width: 82px;
+  height: 82px;
+  min-height: 82px;
   grid-template-rows: 1fr;
   border-width: 4px;
 }
@@ -5266,10 +5266,10 @@ h1 { margin: 0; font-size: 25px; font-weight: 600; }
 .deck-editor-panel .deck-editor-card,
 .deck-editor-panel .consumable-ticket,
 .deck-editor-panel .deck-editor-empty-card-slot {
-  flex: 0 0 81.4px;
-  width: 81.4px;
-  height: 81.4px;
-  min-height: 81.4px;
+  flex: 0 0 82px;
+  width: 82px;
+  height: 82px;
+  min-height: 82px;
 }
 .deck-editor-panel .deck-editor-card .editor-card-name,
 .deck-editor-panel .consumable-ticket > strong { font-size: 13.2px; }
@@ -5882,7 +5882,7 @@ h1 { margin: 0; font-size: 25px; font-weight: 600; }
 .deck-editor-slot-divider {
   flex: 0 0 1px;
   width: 1px;
-  height: 81.4px;
+  height: 82px;
   margin-inline: 5px;
   background-color: rgba(232, 228, 218, .42);
   pointer-events: none;
@@ -5930,11 +5930,11 @@ h1 { margin: 0; font-size: 25px; font-weight: 600; }
 }
 .deck-editor-rare-slot {
   display: grid;
-  flex: 0 0 81.4px;
+  flex: 0 0 82px;
   place-items: center;
-  width: 81.4px;
-  height: 81.4px;
-  min-height: 81.4px;
+  width: 82px;
+  height: 82px;
+  min-height: 82px;
   padding: 7px;
   border: 1px dashed rgba(213, 169, 40, .88);
   border-radius: 4px;
