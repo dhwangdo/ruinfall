@@ -5,6 +5,7 @@ import {
   consumeTicketById,
   findTicketById,
   groupConsumables,
+  sortConsumableGroupsByTier,
   setBombTicketArmed,
 } from "../app/game/ticketRules.ts";
 
@@ -55,6 +56,22 @@ test("selecting one ticket does not require splitting an identical ticket stack"
 
   assert.equal(groups.length, 1);
   assert.deepEqual(groups[0].consumableIds, tickets.map((item) => item.id));
+});
+
+test("inventory ticket groups sort by ascending tier while preserving equal-tier order", () => {
+  const groups = groupConsumables([
+    ticket("expand", "expandTicket"),
+    ticket("extract-plus", "extractPlusTicket"),
+    ticket("bomb", "bombTicket"),
+    ticket("clone", "cloneTicket"),
+    ticket("extract", "extractTicket"),
+    ticket("paint", "paintTicket"),
+  ]);
+
+  assert.deepEqual(
+    sortConsumableGroupsByTier(groups).map(({ consumable }) => consumable.type),
+    ["bombTicket", "extractTicket", "paintTicket", "extractPlusTicket", "expandTicket", "cloneTicket"],
+  );
 });
 
 test("consuming a clone ticket before granting a copy keeps the source consumed", () => {

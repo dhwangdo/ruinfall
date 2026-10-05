@@ -2171,9 +2171,9 @@ h1 { margin: 0; font-size: 25px; font-weight: 600; }
 .consumable-ticket.darkTicket { --ticket-fill: #a9a7c8; --ticket-border: #4b4770; }
 .consumable-ticket.bombTicket { --ticket-fill: #e8b09d; --ticket-border: #8b503d; }
 .consumable-ticket.cloneTicket {
-  --ticket-fill: #cfe3d8;
-  --ticket-border: #467561;
-  background: linear-gradient(135deg, #e3f0e9 0%, #cfe3d8 52%, #e8f3ec 100%);
+  --ticket-fill: #176b5b;
+  --ticket-border: #123f39;
+  background: linear-gradient(125deg, #173d62 0%, #126b5d 52%, #3c5428 100%);
 }
 .consumable-ticket.extractTicket,
 .consumable-ticket.extractPlusTicket { --ticket-fill: #ead8aa; --ticket-border: #87703d; }
@@ -2181,10 +2181,11 @@ h1 { margin: 0; font-size: 25px; font-weight: 600; }
 .consumable-ticket.mapTicket { --ticket-fill: #c9ab88; --ticket-border: #735239; }
 .consumable-ticket.cardPack { --ticket-fill: #e7c884; --ticket-border: #85691f; }
 .consumable-ticket.expandTicket {
-  --ticket-fill: #edc9cb;
-  --ticket-border: #a43a42;
-  background: linear-gradient(135deg, #f6e1e2 0%, #edc9cb 55%, #f4d9da 100%);
+  --ticket-fill: #922343;
+  --ticket-border: #54152f;
+  background: linear-gradient(125deg, #651d4f 0%, #a51f3f 52%, #72233a 100%);
 }
+.consumable-ticket.ticket-tier-3 > strong { color: #fff; }
 .consumable-ticket:hover { border-color: var(--ticket-border); transform: translateY(-4px); }
 .consumable-ticket.is-selected {
   border-color: #a64036;
@@ -5179,9 +5180,12 @@ h1 { margin: 0; font-size: 25px; font-weight: 600; }
   box-shadow: var(--editor-stack-shadow, 0 2px 3px rgba(0,0,0,.18));
 }
 .deck-editor-panel .consumable-ticket.ticket-tier-1 {
-  --editor-stack-fill: #fff;
-  background: #fff;
+  --editor-rarity: #888780;
+  --editor-stack-fill: var(--ticket-fill);
+  border-color: var(--editor-rarity);
+  background: var(--ticket-fill);
 }
+.deck-editor-panel .consumable-ticket.extractPlusTicket > strong { font-size: 12px; }
 .deck-list-entry.rarity-basic strong,
 .deck-list-entry.rarity-special strong,
 .deck-list-entry.rarity-rare strong { color: #272725; }

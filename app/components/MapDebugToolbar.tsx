@@ -54,6 +54,7 @@ export function MapDebugToolbar({
             <option value="card:adrenaline">{createAdrenalineCard().name}</option>
           </optgroup>
           <optgroup label="티켓">
+            <option value="consumable:allTickets">모든 티켓 1개씩</option>
             {CONSUMABLE_TYPES.map((type) => (
               <option key={type} value={`consumable:${type}`}>
                 {createConsumable(type, `debug-preview-${type}`).name}

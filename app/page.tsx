@@ -105,6 +105,7 @@ import {
   consumeTicketById as consumeTicketFromAreas,
   findTicketById as findTicketInAreas,
   groupConsumables,
+  sortConsumableGroupsByTier,
   setBombTicketArmed,
 } from "./game/ticketRules";
 import {
@@ -773,6 +774,15 @@ export default function Home() {
       setRoomDeckDrops((current) => ({
         ...current,
         [roomKey]: [...(current[roomKey] ?? []), deck],
+      }));
+      return;
+    }
+
+    if (debugSpawnSelection === "consumable:allTickets") {
+      const tickets = CONSUMABLE_TYPES.map((type) => nextConsumable(type));
+      setRoomConsumableDrops((current) => ({
+        ...current,
+        [roomKey]: [...(current[roomKey] ?? []), ...tickets],
       }));
       return;
     }
@@ -3916,7 +3926,7 @@ export default function Home() {
       || pendingTransformTicketId === consumable.id
       || consumable.armedMovesRemaining !== undefined
     );
-    const inventoryConsumableGroups = groupConsumables(inventoryConsumables);
+    const inventoryConsumableGroups = sortConsumableGroupsByTier(groupConsumables(inventoryConsumables));
     const floorConsumableGroups = groupConsumables(currentFloorConsumables);
     const deckViewerCards = [...(viewedDeck?.cards ?? [])].sort((left, right) => {
       const primary = deckViewerSort === "cost"

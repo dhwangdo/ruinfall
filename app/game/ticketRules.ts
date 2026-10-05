@@ -1,4 +1,5 @@
 import type { Consumable, ConsumableType } from "./rewards";
+import { TICKET_TIERS } from "./shopRules.ts";
 
 export type ConsumableAreas = {
   inventory: readonly Consumable[];
@@ -27,6 +28,11 @@ export function groupConsumables(consumables: readonly Consumable[]) {
     }
     return groups;
   }, new Map<string, ConsumableGroup>()).values());
+}
+
+export function sortConsumableGroupsByTier(groups: readonly ConsumableGroup[]) {
+  const tierOf = (type: ConsumableType) => type === "cardPack" ? 4 : TICKET_TIERS[type];
+  return [...groups].sort((left, right) => tierOf(left.consumable.type) - tierOf(right.consumable.type));
 }
 
 export function findTicketById(
