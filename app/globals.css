@@ -4939,7 +4939,7 @@ h1 { margin: 0; font-size: 25px; font-weight: 600; }
 .deck-editor-card.rarity-starter,
 .deck-list-entry.rarity-starter { --editor-rarity: #555B60; }
 .deck-editor-card.rarity-basic,
-.deck-list-entry.rarity-basic { --editor-rarity: #555B60; }
+.deck-list-entry.rarity-basic { --editor-rarity: #756A60; }
 .deck-editor-card.rarity-rare,
 .deck-list-entry.rarity-rare { --editor-rarity: var(--rare-border-color); }
 .deck-editor-card.rarity-legendary,
