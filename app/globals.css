@@ -2186,16 +2186,6 @@ h1 { margin: 0; font-size: 25px; font-weight: 600; }
   background: linear-gradient(120deg, hsl(0, 88%, 32%) 0%, hsl(30, 88%, 32%) 50%, hsl(60, 88%, 32%) 100%);
 }
 .consumable-ticket.ticket-tier-3 > strong { color: #fff; }
-.consumable-ticket.ticket-tier-2 > strong {
-  align-self: center;
-  width: fit-content;
-  max-width: 100%;
-  padding: 2px 5px;
-  border: 0;
-  border-radius: 3px;
-  color: #fff;
-  background: var(--ticket-border);
-}
 .consumable-ticket .ticket-tier-mark {
   position: absolute;
   z-index: 5;
