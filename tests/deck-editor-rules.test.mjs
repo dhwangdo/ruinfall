@@ -2,10 +2,12 @@ import assert from "node:assert/strict";
 import test from "node:test";
 
 import {
+  countRareSlotCards,
   createCardOriginDeckIds,
+  usesRareCardSlot,
   validateDeckEditorCardMove,
 } from "../app/game/deckEditorRules.ts";
-import { swapRareCardCollections, transitionDeckEditorCardCollections } from "../app/game/deckEditorTransitions.ts";
+import { transitionDeckEditorCardCollections } from "../app/game/deckEditorTransitions.ts";
 import { groupAndSortDeckEditorCards } from "../app/game/deckEditorViews.ts";
 import { sortBattleHandByCost } from "../app/game/battleHandRules.ts";
 import { createDeckEditorSnapshot } from "../app/hooks/useDeckEditorSession.ts";
@@ -31,6 +33,12 @@ test("editor snapshot records origins by card id and deck id", () => {
     [{ id: 4 }],
   );
   assert.deepEqual(origins, { 1: "A", 2: "floor-deck", 3: null, 4: null });
+});
+
+test("rare slots include rare and legendary cards only", () => {
+  assert.equal(usesRareCardSlot({ rarity: "rare" }), true);
+  assert.equal(usesRareCardSlot({ rarity: "legendary" }), true);
+  assert.equal(countRareSlotCards([{ rarity: "rare" }, { rarity: "legendary" }, { rarity: "special" }]), 2);
 });
 
 test("outside a safe area an original deck card stays bound to its origin deck", () => {
@@ -89,22 +97,84 @@ test("safe-area editing ignores origin deck restrictions", () => {
   }), { allowed: true, action: "move" });
 });
 
-test("rare cards cannot move into or out of decks, extract, or schedule removal", () => {
-  for (const request of [
-    { ...baseRequest, safeArea: true },
-    { ...baseRequest, source: { area: "inventory" }, target: { area: "deck", deckId: "A" } },
-    { ...baseRequest, source: { area: "floor" }, target: { area: "deck", deckId: "A" } },
-    { ...baseRequest, target: { area: "floor" } },
-    { ...baseRequest, target: { area: "inventory" }, viaExtractionTicket: true },
-  ]) {
-    assert.deepEqual(validateDeckEditorCardMove({ ...request, isRare: true }), {
-      allowed: false,
-      reason: "rare-locked",
-    });
-  }
+test("rare and legendary cards can enter a deck only when both capacity and rare slots allow", () => {
+  const insertion = {
+    ...baseRequest,
+    source: { area: "floor" },
+    target: { area: "deck", deckId: "A" },
+    originalOriginDeckId: null,
+    effectiveOriginDeckId: null,
+    isRare: true,
+    targetDeckCardCount: 2,
+    targetDeckCapacity: 10,
+    targetDeckRareCardCount: 0,
+    targetDeckRareSlotCapacity: 1,
+  };
+  assert.deepEqual(validateDeckEditorCardMove(insertion), { allowed: true, action: "move" });
+  assert.deepEqual(validateDeckEditorCardMove({
+    ...insertion,
+    targetDeckRareCardCount: 1,
+  }), { allowed: false, reason: "rare-slots-full" });
+  assert.deepEqual(validateDeckEditorCardMove({
+    ...insertion,
+    targetDeckCardCount: 10,
+  }), { allowed: false, reason: "deck-full" });
+  assert.deepEqual(validateDeckEditorCardMove({
+    ...insertion,
+    source: { area: "deck", deckId: "A" },
+    target: { area: "deck", deckId: "B" },
+  }), { allowed: false, reason: "rare-locked" });
 });
 
-test("rare cards move directly between inventory and floor while respecting inventory capacity", () => {
+test("existing rare cards are removal-pending in every area and can be extracted only with plus", () => {
+  const original = {
+    ...baseRequest,
+    isRare: true,
+    originalOriginDeckId: "A",
+    effectiveOriginDeckId: "A",
+  };
+  for (const safeArea of [false, true]) {
+    assert.deepEqual(validateDeckEditorCardMove({
+      ...original,
+      safeArea,
+      target: { area: "floor" },
+    }), { allowed: true, action: "schedule-removal" });
+  }
+  assert.deepEqual(validateDeckEditorCardMove({
+    ...original,
+    target: { area: "inventory" },
+    viaExtractionTicket: true,
+  }), { allowed: false, reason: "rare-locked" });
+  assert.deepEqual(validateDeckEditorCardMove({
+    ...original,
+    target: { area: "floor" },
+    viaExtractionTicket: true,
+    allowsRareExtraction: true,
+  }), { allowed: true, action: "move" });
+  assert.deepEqual(validateDeckEditorCardMove({
+    ...original,
+    target: { area: "inventory" },
+  }), { allowed: false, reason: "rare-locked" });
+});
+
+test("a newly inserted rare card can be returned to its source area without a ticket", () => {
+  const temporary = {
+    ...baseRequest,
+    source: { area: "deck", deckId: "B" },
+    target: { area: "inventory" },
+    originalOriginDeckId: null,
+    effectiveOriginDeckId: null,
+    temporaryRareReturnArea: "inventory",
+    isRare: true,
+  };
+  assert.deepEqual(validateDeckEditorCardMove(temporary), { allowed: true, action: "move" });
+  assert.deepEqual(validateDeckEditorCardMove({
+    ...temporary,
+    target: { area: "floor" },
+  }), { allowed: false, reason: "rare-locked" });
+});
+
+test("rare inventory and floor transfers remain free and respect inventory capacity", () => {
   const inventoryToFloor = {
     ...baseRequest,
     isRare: true,
@@ -112,69 +182,12 @@ test("rare cards move directly between inventory and floor while respecting inve
     target: { area: "floor" },
   };
   assert.deepEqual(validateDeckEditorCardMove(inventoryToFloor), { allowed: true, action: "move" });
-  const floorToInventory = {
-    ...inventoryToFloor,
-    source: { area: "floor" },
-    target: { area: "inventory" },
-  };
+  const floorToInventory = { ...inventoryToFloor, source: { area: "floor" }, target: { area: "inventory" } };
   assert.deepEqual(validateDeckEditorCardMove(floorToInventory), { allowed: true, action: "move" });
-  assert.deepEqual(validateDeckEditorCardMove({
-    ...floorToInventory,
-    inventoryItemCount: 10,
-  }), { allowed: false, reason: "inventory-full" });
-  assert.deepEqual(validateDeckEditorCardMove({
-    ...floorToInventory,
-    viaExtractionTicket: true,
-  }), { allowed: false, reason: "rare-locked" });
-});
-
-test("swap ticket exchanges rare cards across deck, inventory, and floor", () => {
-  const deckCard = { id: 1, rarity: "rare" };
-  const inventoryCard = { id: 2, rarity: "rare" };
-  const floorCard = { id: 3, rarity: "rare" };
-  const collections = {
-    ownedDecks: [{ id: "A", capacity: 1, cards: [deckCard] }],
-    inventoryCards: [inventoryCard],
-    floorCards: [floorCard],
-    pendingRemovedCards: [],
-    pendingRemovedCardAreas: {},
-  };
-  const first = swapRareCardCollections(collections,
-    { cardId: 1, location: { area: "deck", deckId: "A" } },
-    { cardId: 2, location: { area: "inventory" } });
-  assert.equal(first.collections.ownedDecks[0].cards[0].id, 2);
-  assert.equal(first.collections.inventoryCards[0].id, 1);
-  const second = swapRareCardCollections(first.collections,
-    { cardId: 1, location: { area: "inventory" } },
-    { cardId: 3, location: { area: "floor" } });
-  assert.equal(second.collections.inventoryCards[0].id, 3);
-  assert.equal(second.collections.floorCards[0].id, 1);
-  const third = swapRareCardCollections(collections,
-    { cardId: 1, location: { area: "deck", deckId: "A" } },
-    { cardId: 3, location: { area: "floor" } });
-  assert.equal(third.collections.ownedDecks[0].cards[0].id, 3);
-  assert.equal(third.collections.floorCards[0].id, 1);
-  assert.equal(swapRareCardCollections(collections,
-    { cardId: 1, location: { area: "deck", deckId: "A" } },
-    { cardId: 1, location: { area: "deck", deckId: "A" } }), null);
-});
-
-test("rare cards in the same location cannot be swapped", () => {
-  const rareA = { id: 1, rarity: "rare" };
-  const rareB = { id: 2, rarity: "rare" };
-  for (const area of ["inventory", "floor", "deck"]) {
-    const location = area === "deck" ? { area, deckId: "A" } : { area };
-    const collections = {
-      ownedDecks: [{ id: "A", cards: area === "deck" ? [rareA, rareB] : [], capacity: 10 }],
-      inventoryCards: area === "inventory" ? [rareA, rareB] : [],
-      floorCards: area === "floor" ? [rareA, rareB] : [],
-      pendingRemovedCards: [],
-      pendingRemovedCardAreas: {},
-    };
-    assert.equal(swapRareCardCollections(collections,
-      { cardId: 1, location }, { cardId: 2, location }), null);
-    assert.deepEqual(collections.ownedDecks[0].cards, area === "deck" ? [rareA, rareB] : []);
-  }
+  assert.deepEqual(validateDeckEditorCardMove({ ...floorToInventory, inventoryItemCount: 10 }), {
+    allowed: false,
+    reason: "inventory-full",
+  });
 });
 
 test("extraction accepts only an unreleased card recorded in a deck at session start", () => {
@@ -330,7 +343,7 @@ test("newly transformed cards stay separate from their matching stack", () => {
   assert.deepEqual(groups.map((group) => group.cardIds), [[10], [11]]);
 });
 
-test("rarity sorting puts higher rarities first, including equal-cost ties", () => {
+test("deck rarity sorting puts higher rarities first while battle ties keep the existing order", () => {
   const cards = [
     { id: 1, name: "Basic", effect: "strike", damageType: "physical", cost: 1, rarity: "basic" },
     { id: 2, name: "Rare", effect: "strike", damageType: "physical", cost: 1, rarity: "rare" },
@@ -338,5 +351,5 @@ test("rarity sorting puts higher rarities first, including equal-cost ties", () 
   ];
   assert.deepEqual(groupAndSortDeckEditorCards(cards, "rarity", new Set()).map(({ card }) => card.id), [3, 2, 1]);
   assert.deepEqual(groupAndSortDeckEditorCards(cards, "cost", new Set()).map(({ card }) => card.id), [2, 1, 3]);
-  assert.deepEqual(sortBattleHandByCost(cards, 0, 0).map((card) => card.id), [2, 1, 3]);
+  assert.deepEqual(sortBattleHandByCost(cards, 0, 0).map((card) => card.id), [1, 2, 3]);
 });

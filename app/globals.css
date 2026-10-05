@@ -2172,6 +2172,7 @@ h1 { margin: 0; font-size: 25px; font-weight: 600; }
 .consumable-ticket.bombTicket { --ticket-fill: #e8b09d; --ticket-border: #8b503d; }
 .consumable-ticket.cloneTicket { --ticket-fill: #bfe1d2; --ticket-border: #467561; }
 .consumable-ticket.extractTicket { --ticket-fill: #ead8aa; --ticket-border: #87703d; }
+.consumable-ticket.extractPlusTicket { --ticket-fill: #d7c5ea; --ticket-border: #70518f; }
 .consumable-ticket.transformTicket { --ticket-fill: #d8c1eb; --ticket-border: #704f87; }
 .consumable-ticket.mapTicket { --ticket-fill: #c9ab88; --ticket-border: #735239; }
 .consumable-ticket.cardPack { --ticket-fill: #e7c884; --ticket-border: #85691f; }
@@ -5806,10 +5807,6 @@ h1 { margin: 0; font-size: 25px; font-weight: 600; }
 .deck-editor-card.is-ticket-drop-target {
   border-color: #8fc7ed !important;
   box-shadow: 0 0 0 2px rgba(143,199,237,.6), 0 0 15px rgba(143,199,237,.55);
-}
-.deck-editor-card.is-swap-source {
-  border-color: #f0ca6e !important;
-  box-shadow: 0 0 0 2px rgba(240, 202, 110, .75), 0 0 14px rgba(240, 202, 110, .55);
 }
 .deck-editor-card.is-temporary { transition: opacity .18s ease, filter .18s ease; }
 .deck-editor-card.is-pending-removal:active { cursor: grabbing; }

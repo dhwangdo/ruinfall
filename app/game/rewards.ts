@@ -44,6 +44,7 @@ export type DeckCase = {
   id: string;
   name: string;
   capacity: number;
+  rareSlotCapacity: number;
   cards: Card[];
   editions: DeckEdition[];
   editionColors: Partial<Record<DeckEdition, string>>;
@@ -56,7 +57,7 @@ export type ConsumableType =
   | "bombTicket"
   | "cloneTicket"
   | "extractTicket"
-  | "swapTicket"
+  | "extractPlusTicket"
   | "transformTicket"
   | "mapTicket"
   | "cardPack";
@@ -150,6 +151,7 @@ export function createDebugAllCardsDeck(startId: number): { deck: DeckCase; next
       id: DEBUG_ALL_CARDS_DECK_ID,
       name: "ALL",
       capacity: cards.length,
+      rareSlotCapacity: cards.filter((card) => card.rarity === "rare" || card.rarity === "legendary").length,
       cards,
       editions: [],
       editionColors: {},
@@ -254,7 +256,15 @@ export function createEditionColors(editions: DeckEdition[]) {
 }
 
 export function createStarterDeck(): DeckCase {
-  return { id: "starter", name: "", capacity: STARTER_DECK_CAPACITY, cards: createDeck(), editions: [], editionColors: {} };
+  return {
+    id: "starter",
+    name: "",
+    capacity: STARTER_DECK_CAPACITY,
+    rareSlotCapacity: 0,
+    cards: createDeck(),
+    editions: [],
+    editionColors: {},
+  };
 }
 
 export type DeckScoreBreakdown = {
@@ -456,6 +466,7 @@ function generateRegionDeck(
       id: `region-${regionNumber}-${startCardId}`,
       name: createDeckName(),
       capacity,
+      rareSlotCapacity: cards.filter((card) => card.rarity === "rare" || card.rarity === "legendary").length,
       cards,
       editions,
       editionColors: createEditionColors(editions),
@@ -491,10 +502,10 @@ export function createConsumable(type: ConsumableType, id: string): Consumable {
     return { id, type, name: "복제 티켓", description: "카드나 티켓 하나를 복제합니다." };
   }
   if (type === "extractTicket") {
-    return { id, type, name: "추출 티켓", description: "장소와 관계없이 덱에서 카드 1장을 추출합니다." };
+    return { id, type, name: "추출 티켓", description: "덱에서 희귀도 특별 이하 카드 1장을 추출합니다." };
   }
-  if (type === "swapTicket") {
-    return { id, type, name: "교환 티켓", description: "인벤토리에 있으면 희귀 카드끼리 드래그해 자동 사용합니다. 티켓을 누르고 두 장을 선택할 수도 있습니다." };
+  if (type === "extractPlusTicket") {
+    return { id, type, name: "추출 티켓+", description: "덱에서 희귀도를 가리지 않고 카드 1장을 추출합니다." };
   }
   if (type === "transformTicket") {
     return { id, type, name: "변환 티켓", description: "카드는 같은 희귀도의 다른 카드로, 티켓은 티어와 관계없이 다른 무작위 티켓으로 바꿉니다." };

@@ -1,6 +1,9 @@
 import { useState } from "react";
 import type { Card } from "../game/cards";
-import { createCardOriginDeckIds, type CardOriginDeckIds } from "../game/deckEditorRules.ts";
+import {
+  createCardOriginDeckIds,
+  type CardOriginDeckIds,
+} from "../game/deckEditorRules.ts";
 import type { Consumable, DeckCase } from "../game/rewards";
 
 export type DeckEditorSnapshot = {

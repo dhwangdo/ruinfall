@@ -24,10 +24,19 @@ export function createCardOriginDeckIds(
   return origins;
 }
 
+export function usesRareCardSlot(card: { rarity: string }) {
+  return card.rarity === "rare" || card.rarity === "legendary";
+}
+
+export function countRareSlotCards(cards: readonly { rarity: string }[]) {
+  return cards.filter(usesRareCardSlot).length;
+}
+
 export type DeckEditorMoveBlockReason =
   | "same-location"
   | "inventory-full"
   | "deck-full"
+  | "rare-slots-full"
   | "origin-locked"
   | "rare-locked"
   | "extract-original-only";
@@ -46,10 +55,14 @@ export type DeckEditorMoveRequest = {
   effectiveOriginDeckId: string | null;
   targetDeckCardCount?: number;
   targetDeckCapacity?: number;
+  targetDeckRareCardCount?: number;
+  targetDeckRareSlotCapacity?: number;
   inventoryItemCount: number;
   inventoryCapacity: number;
   inventorySlotsFreed?: number;
   viaExtractionTicket?: boolean;
+  allowsRareExtraction?: boolean;
+  temporaryRareReturnArea?: "inventory" | "floor";
   isRare: boolean;
 };
 
@@ -57,12 +70,6 @@ export function validateDeckEditorCardMove(request: DeckEditorMoveRequest): Deck
   const sameLocation = request.source.area === request.target.area
     && (request.source.area !== "deck" || request.source.deckId === request.target.deckId);
   if (sameLocation) return { allowed: false, reason: "same-location" };
-  const rareInventoryFloorMove = request.isRare
-    && !request.viaExtractionTicket
-    && ((request.source.area === "inventory" && request.target.area === "floor")
-      || (request.source.area === "floor" && request.target.area === "inventory"));
-  if (request.isRare && !rareInventoryFloorMove) return { allowed: false, reason: "rare-locked" };
-
   const inventoryItemCountAfterMove = Math.max(
     0,
     request.inventoryItemCount - (request.inventorySlotsFreed ?? 0),
@@ -72,21 +79,57 @@ export function validateDeckEditorCardMove(request: DeckEditorMoveRequest): Deck
     && inventoryItemCountAfterMove >= request.inventoryCapacity) {
     return { allowed: false, reason: "inventory-full" };
   }
-  if (rareInventoryFloorMove) return { allowed: true, action: "move" };
   if (request.target.area === "deck"
     && (request.source.area !== "deck" || request.source.deckId !== request.target.deckId)
     && (request.targetDeckCardCount ?? 0) >= (request.targetDeckCapacity ?? 0)) {
     return { allowed: false, reason: "deck-full" };
   }
 
+  if (request.isRare && request.target.area === "deck"
+    && request.source.area !== "deck"
+    && (request.targetDeckRareCardCount ?? 0) >= (request.targetDeckRareSlotCapacity ?? 0)) {
+    return { allowed: false, reason: "rare-slots-full" };
+  }
+
   if (request.viaExtractionTicket) {
-    if (
-      request.source.area !== "deck"
-      || request.target.area !== "inventory"
+    if (request.source.area !== "deck"
+      || (request.target.area !== "inventory" && request.target.area !== "floor")
       || request.originalOriginDeckId === null
-      || request.effectiveOriginDeckId === null
-    ) return { allowed: false, reason: "extract-original-only" };
+      || request.effectiveOriginDeckId === null) {
+      return { allowed: false, reason: "extract-original-only" };
+    }
+    if (request.isRare && !request.allowsRareExtraction) {
+      return { allowed: false, reason: "rare-locked" };
+    }
     return { allowed: true, action: "move" };
+  }
+
+  if (request.isRare) {
+    const inventoryFloorMove = (request.source.area === "inventory" && request.target.area === "floor")
+      || (request.source.area === "floor" && request.target.area === "inventory");
+    if (inventoryFloorMove) return { allowed: true, action: "move" };
+
+    const insertionFromOutside = (request.source.area === "inventory" || request.source.area === "floor")
+      && request.target.area === "deck";
+    if (insertionFromOutside) return { allowed: true, action: "move" };
+
+    if (request.source.area === "deck" && request.temporaryRareReturnArea === request.target.area
+      && (request.target.area === "inventory" || request.target.area === "floor")) {
+      return { allowed: true, action: "move" };
+    }
+
+    if (request.source.area === "deck" && request.target.area === "floor"
+      && request.originalOriginDeckId === request.source.deckId
+      && request.effectiveOriginDeckId === request.source.deckId) {
+      return { allowed: true, action: "schedule-removal" };
+    }
+
+    if (request.source.area === "pendingRemoval" && request.target.area === "deck"
+      && request.target.deckId === request.effectiveOriginDeckId) {
+      return { allowed: true, action: "restore-removal" };
+    }
+
+    return { allowed: false, reason: "rare-locked" };
   }
 
   if (request.safeArea) {

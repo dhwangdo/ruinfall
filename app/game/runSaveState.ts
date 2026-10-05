@@ -1,5 +1,7 @@
 import type { BlessingId } from "./blessingRules";
 import { RARE_CARD_POOL, SPECIAL_CARD_POOL, type Card } from "./cards.ts";
+import { countRareSlotCards } from "./deckEditorRules.ts";
+import type { Consumable, DeckCase } from "./rewards.ts";
 import type { SavedRunState } from "./runTypes";
 
 const REMOVED_EFFECTS = new Set(["sacrifice", "magicCrystal", "delay", "boneArmor", "steelHeart"]);
@@ -30,6 +32,26 @@ function restoreLegacyCard(card: Card): Card | null {
 
 function restoreLegacyCards(cards: Card[]): Card[] {
   return cards.flatMap((card) => restoreLegacyCard(card) ?? []);
+}
+
+function restoreLegacyDeck(deck: DeckCase): DeckCase {
+  const cards = restoreLegacyCards(deck.cards ?? []);
+  const savedRareSlots = Number(deck.rareSlotCapacity);
+  return {
+    ...deck,
+    cards,
+    rareSlotCapacity: Number.isFinite(savedRareSlots)
+      ? Math.max(countRareSlotCards(cards), Math.floor(savedRareSlots))
+      : countRareSlotCards(cards),
+  };
+}
+
+function isDeletedConsumable(consumable: Consumable) {
+  return (consumable as { type: string }).type === "swapTicket";
+}
+
+function removeDeletedTickets(consumables: readonly Consumable[] = []) {
+  return consumables.filter((consumable) => !isDeletedConsumable(consumable));
 }
 
 type SetBackedRunStateFields =
@@ -121,14 +143,19 @@ export function prepareRunRestore(
 
   return {
     ...state,
-    ownedDecks: (state.ownedDecks ?? []).map((deck) => ({ ...deck, cards: restoreLegacyCards(deck.cards) })),
+    ownedDecks: (state.ownedDecks ?? []).map(restoreLegacyDeck),
     inventoryCards: restoreLegacyCards(state.inventoryCards ?? []),
+    inventoryConsumables: removeDeletedTickets(state.inventoryConsumables ?? []),
     roomDrops: Object.fromEntries(Object.entries(state.roomDrops ?? {}).map(([key, cards]) => [key, restoreLegacyCards(cards)])),
     roomDeckDrops: Object.fromEntries(Object.entries(state.roomDeckDrops ?? {}).map(([key, decks]) => [
-      key, decks.map((deck) => ({ ...deck, cards: restoreLegacyCards(deck.cards) })),
+      key, decks.map(restoreLegacyDeck),
+    ])),
+    roomConsumableDrops: Object.fromEntries(Object.entries(state.roomConsumableDrops ?? {}).map(([key, consumables]) => [
+      key, removeDeletedTickets(consumables),
     ])),
     roomShops: Object.fromEntries(Object.entries(state.roomShops ?? {}).map(([key, offers]) => [
       key, offers.flatMap((offer) => {
+        if (offer.consumable && isDeletedConsumable(offer.consumable)) return [];
         if (!offer.card) return [offer];
         const card = restoreLegacyCard(offer.card);
         return card ? [{ ...offer, card }] : [];

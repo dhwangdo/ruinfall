@@ -9,6 +9,7 @@ import {
   calculateDeckScore,
   getAvailableDeckEditions,
   createRegionDeck,
+  createStarterDeck,
   rollRegionDeckShape,
   createBattleReward,
 } from "../app/game/rewards.ts";
@@ -40,7 +41,7 @@ test("ticket tiers and base prices match the shop rules", () => {
     paintTicket: 1,
     bombTicket: 1,
     extractTicket: 1,
-    swapTicket: 2,
+    extractPlusTicket: 2,
     mapTicket: 1,
     mindEyeTicket: 1,
     darkTicket: 1,
@@ -112,8 +113,14 @@ test("region deck uses its shape and adds deck-size blessing capacity last", () 
   assert.equal(base.capacity, shape.capacity);
   assert.equal(blessed.capacity, shape.capacity + 5);
   assert.equal(base.cards.filter((card) => card.rarity === "rare").length, shape.rareCount);
+  assert.equal(base.rareSlotCapacity, base.cards.filter((card) => card.rarity === "rare" || card.rarity === "legendary").length);
+  assert.equal(base.rareSlotCapacity, shape.rareCount);
   assert.deepEqual(blessed.cards, base.cards);
   assert.deepEqual(blessed.editions, base.editions);
+});
+
+test("the starter deck starts with no high-rarity slots", () => {
+  assert.equal(createStarterDeck().rareSlotCapacity, 0);
 });
 
 test("region filler bags still leave three eighths of slots empty", () => {

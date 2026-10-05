@@ -110,22 +110,30 @@ test("old saves discard removed cards and restore changed cards everywhere", () 
     id: 4, revealed: false, name: "영혼담보대출", cost: 1, ritualCost: 2,
   };
   const deck = { id: "deck-1", name: "deck", capacity: 20, editions: [], editionColors: {}, cards: [oldSteelHeart, crystal, oldEconomics] };
+  const oldSwapTicket = { id: "swap", type: "swapTicket", name: "교환 티켓", description: "legacy" };
   const prepared = prepareRunRestore({
     mapPosition: { x: 0, y: 0 }, mapSeed: 5, blessings: [],
     ownedDecks: [deck], inventoryCards: [spark, crystal], roomDrops: { "1:1": [crystal, oldSteelHeart] },
+    inventoryConsumables: [oldSwapTicket],
+    roomConsumableDrops: { "1:1": [oldSwapTicket] },
     roomDeckDrops: { "2:2": [deck] },
     roomShops: { "3:3": [
       { id: "removed", price: 1, card: spark, sold: false },
       { id: "restored", price: 1, card: oldEconomics, sold: false },
+      { id: "swap", price: 80, consumable: oldSwapTicket, sold: false },
     ] },
   }, () => false);
 
   assert.deepEqual(prepared.ownedDecks[0].cards.map((card) => [card.name, card.cost, card.value]), [
     ["경제학 연구", 2, 3],
   ]);
+  assert.equal(prepared.ownedDecks[0].rareSlotCapacity, 1);
   assert.equal(prepared.ownedDecks[0].cards[0].ritualCost, undefined);
   assert.deepEqual(prepared.inventoryCards, []);
   assert.deepEqual(prepared.roomDrops["1:1"], []);
   assert.deepEqual(prepared.roomDeckDrops["2:2"][0].cards.map((card) => card.name), ["경제학 연구"]);
+  assert.equal(prepared.roomDeckDrops["2:2"][0].rareSlotCapacity, 1);
+  assert.deepEqual(prepared.inventoryConsumables, []);
+  assert.deepEqual(prepared.roomConsumableDrops["1:1"], []);
   assert.deepEqual(prepared.roomShops["3:3"].map((offer) => offer.card?.name), ["경제학 연구"]);
 });
