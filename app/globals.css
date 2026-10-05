@@ -5226,7 +5226,7 @@ h1 { margin: 0; font-size: 25px; font-weight: 600; }
 }
 .deck-editor-panel .deck-editor-card .editor-card-name,
 .deck-editor-panel .consumable-ticket > strong { font-size: 13.2px; }
-.deck-editor-panel .deck-editor-card .editor-card-cost { font-size: 16.5px; }
+.deck-editor-panel .deck-editor-card .editor-card-cost { top: 1px; font-size: 15.5px; }
 .deck-editor-panel .deck-editor-card .inventory-card-count,
 .deck-editor-panel .consumable-ticket .inventory-card-count { font-size: 14.3px; }
 .deck-editor-panel .deck-card-new,
@@ -5825,8 +5825,8 @@ h1 { margin: 0; font-size: 25px; font-weight: 600; }
 }
 .deck-editor-panel .deck-editor-card,
 .deck-editor-panel .deck-list-entry {
-  --editor-stack-border: #a9adb2;
-  border-color: #a9adb2 !important;
+  --editor-stack-border: #74777b;
+  border-color: #74777b !important;
 }
 .deck-editor-panel .deck-editor-card.rarity-rare,
 .deck-editor-panel .deck-list-entry.rarity-rare,
@@ -5869,11 +5869,11 @@ h1 { margin: 0; font-size: 25px; font-weight: 600; }
   height: 81.4px;
   min-height: 81.4px;
   padding: 7px;
-  border: 1px dashed rgba(198, 168, 231, .72);
+  border: 1px dashed rgba(213, 169, 40, .88);
   border-radius: 4px;
-  color: rgba(232, 219, 249, .82);
-  background: rgba(158, 119, 201, .17);
-  box-shadow: inset 0 0 12px rgba(179, 140, 222, .13), 0 0 9px rgba(179, 140, 222, .2);
+  color: rgba(255, 244, 197, .9);
+  background: rgba(213, 169, 40, .18);
+  box-shadow: inset 0 0 12px rgba(213, 169, 40, .14), 0 0 9px rgba(213, 169, 40, .24);
   font-size: 8px;
   line-height: 1.25;
   text-align: center;
