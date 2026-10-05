@@ -319,8 +319,8 @@ export function rollRegionDeckShape(regionNumber: number, random: () => number =
   const sum: 0 | 1 | 2 = sumRoll < 0.8 ? 0 : sumRoll < 0.9 ? 1 : 2;
   const candidates: { shape: RegionDeckShape; weight: number }[] = [];
   let totalWeight = 0;
-  for (let x = 1 - region; x <= sum + region * 2; x += 1) {
-    for (let y = -region; y <= sum + region * 2; y += 1) {
+  for (let x = -region; x <= sum + region * 2; x += 1) {
+    for (let y = 1 - region; y <= sum + region * 2; y += 1) {
       const z = sum - x - y;
       if (z < -region) continue;
       const capacity = REGION_DECK_STARTING_CAPACITY + (region + x) * 5;
