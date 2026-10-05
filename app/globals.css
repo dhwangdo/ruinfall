@@ -2171,9 +2171,9 @@ h1 { margin: 0; font-size: 25px; font-weight: 600; }
 .consumable-ticket.darkTicket { --ticket-fill: #a9a7c8; --ticket-border: #4b4770; }
 .consumable-ticket.bombTicket { --ticket-fill: #e8b09d; --ticket-border: #8b503d; }
 .consumable-ticket.cloneTicket {
-  --ticket-fill: #176b5b;
-  --ticket-border: #123f39;
-  background: linear-gradient(125deg, #173d62 0%, #126b5d 52%, #3c5428 100%);
+  --ticket-fill: #0f6b68;
+  --ticket-border: #0c3e3a;
+  background: linear-gradient(120deg, #126b37 0%, #0f6b68 50%, #2e5faa 100%);
 }
 .consumable-ticket.extractTicket,
 .consumable-ticket.extractPlusTicket { --ticket-fill: #ead8aa; --ticket-border: #87703d; }
@@ -2181,9 +2181,9 @@ h1 { margin: 0; font-size: 25px; font-weight: 600; }
 .consumable-ticket.mapTicket { --ticket-fill: #c9ab88; --ticket-border: #735239; }
 .consumable-ticket.cardPack { --ticket-fill: #e7c884; --ticket-border: #85691f; }
 .consumable-ticket.expandTicket {
-  --ticket-fill: #922343;
-  --ticket-border: #54152f;
-  background: linear-gradient(125deg, #651d4f 0%, #a51f3f 52%, #72233a 100%);
+  --ticket-fill: #8c4a0f;
+  --ticket-border: #512c10;
+  background: linear-gradient(120deg, #b02230 0%, #8c4a0f 50%, #675c12 100%);
 }
 .consumable-ticket.ticket-tier-3 > strong { color: #fff; }
 .consumable-ticket:hover { border-color: var(--ticket-border); transform: translateY(-4px); }
@@ -5180,10 +5180,10 @@ h1 { margin: 0; font-size: 25px; font-weight: 600; }
   box-shadow: var(--editor-stack-shadow, 0 2px 3px rgba(0,0,0,.18));
 }
 .consumable-ticket.ticket-tier-1 {
-  --editor-rarity: #888780;
-  --editor-stack-fill: var(--ticket-fill);
-  border-color: var(--editor-rarity);
-  background: var(--ticket-fill);
+  --editor-rarity: #74777b;
+  --editor-stack-fill: color-mix(in srgb, var(--ticket-fill) 92%, #000 8%);
+  border-color: #74777b;
+  background: color-mix(in srgb, var(--ticket-fill) 92%, #000 8%);
 }
 .deck-editor-panel .consumable-ticket.extractPlusTicket > strong { font-size: 12px; }
 .shop-offer .consumable-ticket.ticket-tier-1,
