@@ -629,7 +629,7 @@ className={`deck-editor-card rarity-${card.rarity} ${card.rarity === "legendary"
                               onEditionTooltipLeave={editionTooltip.clear}
                             />
                           </strong>
-                          <small>{deck.cards.length} / {deck.capacity} · 희귀 슬롯 {rareSlotCount} / {rareSlotCapacity}</small>
+                          <small>{deck.cards.length} / {deck.capacity}</small>
                         </button>
                         <div
                           className="deck-editor-deck-list"

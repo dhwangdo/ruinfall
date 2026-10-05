@@ -4938,6 +4938,8 @@ h1 { margin: 0; font-size: 25px; font-weight: 600; }
 .deck-list-entry.rarity-status { --editor-rarity: #e34b58; }
 .deck-editor-card.rarity-starter,
 .deck-list-entry.rarity-starter { --editor-rarity: #555B60; }
+.deck-editor-card.rarity-basic,
+.deck-list-entry.rarity-basic { --editor-rarity: #555B60; }
 .deck-editor-card.rarity-rare,
 .deck-list-entry.rarity-rare { --editor-rarity: var(--rare-border-color); }
 .deck-editor-card.rarity-legendary,
@@ -5226,7 +5228,7 @@ h1 { margin: 0; font-size: 25px; font-weight: 600; }
 }
 .deck-editor-panel .deck-editor-card .editor-card-name,
 .deck-editor-panel .consumable-ticket > strong { font-size: 13.2px; }
-.deck-editor-panel .deck-editor-card .editor-card-cost { top: 1px; font-size: 15.5px; }
+.deck-editor-panel .deck-editor-card .editor-card-cost { top: 2px; font-size: 15.5px; }
 .deck-editor-panel .deck-editor-card .inventory-card-count,
 .deck-editor-panel .consumable-ticket .inventory-card-count { font-size: 14.3px; }
 .deck-editor-panel .deck-card-new,
