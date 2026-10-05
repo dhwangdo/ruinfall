@@ -235,7 +235,7 @@ export function CardFaceView({
       case "wish":
         return <span>무작위 희귀 카드를 가져옵니다. 그 카드에 <strong className="effect-keyword">토큰</strong> 속성을 부여합니다.</span>;
       case "strategyBook":
-        return <><span><strong className="effect-keyword">힘</strong>과 <strong className="effect-keyword">강인함</strong>을 4 얻습니다.</span><span>손패에 있는 동안에도 적용됩니다.</span></>;
+        return <><span><strong className="effect-keyword">힘</strong>과 <strong className="effect-keyword">강인함</strong>을 4 얻습니다.</span><span>이 효과는 손패에 있는 동안에도 적용됩니다.</span></>;
       case "evolutionTheory":
         return <span>턴 시작 시 <strong className="effect-keyword">힘</strong>과 <strong className="effect-keyword">강인함</strong>을 1 얻습니다.</span>;
       case "dash":
