@@ -648,11 +648,16 @@ className={`deck-editor-card rarity-${card.rarity} ${card.rarity === "legendary"
                         >
                           {rareCardGroups.map((group) => renderDeckCardGroup(deck, group))}
                           {Array.from({ length: emptyRareSlotCount }, (_, slot) => (
-                            <div className="deck-editor-rare-slot is-empty" key={`${deck.id}-rare-slot-${slot}`}>
-                              <span>빈 희귀 슬롯</span>
-                            </div>
+                            <div
+                              className="deck-editor-rare-slot is-empty"
+                              key={`${deck.id}-rare-slot-${slot}`}
+                              role="img"
+                              aria-label="빈 희귀 슬롯"
+                            />
                           ))}
-                          <div className="deck-editor-slot-divider" role="separator" aria-label="희귀 슬롯과 일반 슬롯 구분" />
+                          {rareSlotCapacity > 0 && (
+                            <div className="deck-editor-slot-divider" role="separator" aria-label="희귀 슬롯과 일반 슬롯 구분" />
+                          )}
                           {normalCardGroups.map((group) => renderDeckCardGroup(deck, group))}
                           {Array.from({ length: Math.max(0, normalSlotCapacity - normalCardCount) }, (_, slot) => (
                             <span className="deck-editor-empty-card-slot" key={`${deck.id}-normal-slot-${slot}`} />
