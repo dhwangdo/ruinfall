@@ -1,6 +1,7 @@
 import type { ComponentType, Dispatch, SetStateAction } from "react";
 import type { Card } from "../game/cards";
 import type { Consumable, ShopOffer } from "../game/rewards";
+import { TICKET_TIERS, type TicketType } from "../game/shopRules";
 import type { CardFaceProps } from "./CardFace";
 
 type Props = {
@@ -39,6 +40,9 @@ export function ShopModal({
   deckPreviewPosition,
 }: Props) {
   if (!open) return null;
+  const ticketTierClassName = (type: Consumable["type"]) => type === "cardPack"
+    ? ""
+    : `ticket-tier-${TICKET_TIERS[type as TicketType]}`;
 
   return (
     <div className="shop-overlay" role="dialog" aria-modal="true" aria-labelledby="shop-title">
@@ -76,7 +80,7 @@ export function ShopModal({
                 </div>
               ) : offer.consumable ? (
                 <div
-                  className={`consumable-ticket ${offer.consumable.type}`}
+                  className={`consumable-ticket ${offer.consumable.type} ${ticketTierClassName(offer.consumable.type)}`}
                   aria-label={`${offer.consumable.name}: ${consumableDescription(offer.consumable)}`}
                   onMouseEnter={(event) => {
                     const bounds = event.currentTarget.getBoundingClientRect();

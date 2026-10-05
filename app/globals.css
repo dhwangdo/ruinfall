@@ -5179,13 +5179,30 @@ h1 { margin: 0; font-size: 25px; font-weight: 600; }
   background-clip: padding-box;
   box-shadow: var(--editor-stack-shadow, 0 2px 3px rgba(0,0,0,.18));
 }
-.deck-editor-panel .consumable-ticket.ticket-tier-1 {
+.consumable-ticket.ticket-tier-1 {
   --editor-rarity: #888780;
   --editor-stack-fill: var(--ticket-fill);
   border-color: var(--editor-rarity);
   background: var(--ticket-fill);
 }
 .deck-editor-panel .consumable-ticket.extractPlusTicket > strong { font-size: 12px; }
+.shop-offer .consumable-ticket.ticket-tier-1,
+.shop-offer .consumable-ticket.ticket-tier-2,
+.shop-offer .consumable-ticket.ticket-tier-3 {
+  flex: 0 0 81.4px;
+  width: 81.4px;
+  height: 81.4px;
+  min-height: 81.4px;
+  grid-template-rows: 1fr;
+  border-width: 4px;
+}
+.shop-offer .consumable-ticket.ticket-tier-1 > strong,
+.shop-offer .consumable-ticket.ticket-tier-2 > strong,
+.shop-offer .consumable-ticket.ticket-tier-3 > strong { border: 0; font-size: 13.2px; }
+.shop-offer .consumable-ticket.extractPlusTicket > strong { font-size: 12px; }
+.shop-offer .consumable-ticket.ticket-tier-1 > small,
+.shop-offer .consumable-ticket.ticket-tier-2 > small,
+.shop-offer .consumable-ticket.ticket-tier-3 > small { display: none; }
 .deck-list-entry.rarity-basic strong,
 .deck-list-entry.rarity-special strong,
 .deck-list-entry.rarity-rare strong { color: #272725; }
