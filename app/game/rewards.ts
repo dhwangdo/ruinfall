@@ -56,6 +56,7 @@ export type ConsumableType =
   | "darkTicket"
   | "bombTicket"
   | "cloneTicket"
+  | "expandTicket"
   | "extractTicket"
   | "extractPlusTicket"
   | "transformTicket"
@@ -500,6 +501,9 @@ export function createConsumable(type: ConsumableType, id: string): Consumable {
   }
   if (type === "cloneTicket") {
     return { id, type, name: "복제 티켓", description: "카드나 티켓 하나를 복제합니다." };
+  }
+  if (type === "expandTicket") {
+    return { id, type, name: "확장 티켓", description: "덱에 드래그해 희귀 슬롯을 1 늘립니다." };
   }
   if (type === "extractTicket") {
     return { id, type, name: "추출 티켓", description: "덱에서 희귀도 특별 이하 카드 1장을 추출합니다." };

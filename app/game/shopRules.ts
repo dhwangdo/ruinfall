@@ -8,6 +8,7 @@ export const TICKET_TYPES = [
   "transformTicket",
   "mapTicket",
   "cloneTicket",
+  "expandTicket",
 ] as const;
 
 export type TicketType = typeof TICKET_TYPES[number];
@@ -22,6 +23,7 @@ export const TICKET_TIERS: Record<TicketType, 1 | 2 | 3> = {
   darkTicket: 1,
   transformTicket: 2,
   cloneTicket: 3,
+  expandTicket: 3,
 };
 
 export function ticketBasePrice(type: TicketType) {

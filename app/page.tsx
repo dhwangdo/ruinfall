@@ -932,7 +932,8 @@ export default function Home() {
       };
     };
     const extractTicket = nextConsumable("extractTicket");
-    const ticketTypes = CONSUMABLE_TYPES.filter((type) => type !== "extractTicket") as TicketType[];
+    const extractPlusTicket = nextConsumable("extractPlusTicket");
+    const ticketTypes = CONSUMABLE_TYPES.filter((type) => type !== "extractTicket" && type !== "extractPlusTicket") as TicketType[];
     const randomTickets = Array.from({ length: 2 }, (_, slot) => {
       const typeIndex = Math.floor(Math.random() * ticketTypes.length);
       const type = ticketTypes.splice(typeIndex, 1)[0];
@@ -951,6 +952,12 @@ export default function Home() {
         id: `shop-ticket-${depth}-extract-${extractTicket.id}`,
         price: variedPrice(ticketBasePrice("extractTicket")),
         consumable: extractTicket,
+        sold: false,
+      },
+      {
+        id: `shop-ticket-${depth}-extract-plus-${extractPlusTicket.id}`,
+        price: variedPrice(ticketBasePrice("extractPlusTicket")),
+        consumable: extractPlusTicket,
         sold: false,
       },
       ...randomTickets,
@@ -2784,6 +2791,25 @@ export default function Home() {
     }
   };
 
+  const canApplyTicketToDeck = (ticketId: string, deck: DeckCase) => {
+    const ticket = findTicketById(ticketId);
+    return ticket?.type === "expandTicket" && ownedDecks.some((ownedDeck) => ownedDeck.id === deck.id);
+  };
+
+  const applyTicketToDeck = (ticketId: string, deck: DeckCase) => {
+    const ticket = findTicketById(ticketId, "expandTicket");
+    const targetDeck = ownedDecks.find((ownedDeck) => ownedDeck.id === deck.id);
+    if (!ticket || !targetDeck || !consumeTicketById(ticket.id, "expandTicket")) return;
+    setOwnedDecks((current) => current.map((ownedDeck) => ownedDeck.id !== targetDeck.id
+      ? ownedDeck
+      : {
+        ...ownedDeck,
+        rareSlotCapacity: Math.max(ownedDeck.rareSlotCapacity ?? 0, countRareSlotCards(ownedDeck.cards)) + 1,
+      }));
+    setDeckEditorMessage(`${targetDeck.name}의 희귀 슬롯이 1 늘었습니다.`);
+    queueRunSave(RUN_SAVE_POLICY.stateChangeDelayMs);
+  };
+
   const closeDeckEditorAfterMapTicket = () => {
     finishDeckEditorSession();
     setPendingRemovedCards([]);
@@ -2901,6 +2927,10 @@ export default function Home() {
     }
     if (consumable.type === "cardPack") {
       openCardPack(consumable.id);
+      return;
+    }
+    if (consumable.type === "expandTicket") {
+      setDeckEditorMessage("확장 티켓은 원하는 덱에 드래그해 사용합니다.");
       return;
     }
     if (consumable.type === "mindEyeTicket") {
@@ -4318,6 +4348,8 @@ export default function Home() {
             canApplyTicketToCard: (ticketId, card, area, deck) =>
               canApplyTicketToCard(findTicketById(ticketId) ?? null, card, area, deck),
             applyTicketToCard,
+            canApplyTicketToDeck,
+            applyTicketToDeck,
           }}
           cardPreview={{
             hoveredDeckCard,

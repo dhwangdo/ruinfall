@@ -11,6 +11,7 @@ import { CardFace } from "./CardFace";
 import { DeckName } from "./DeckName";
 import { deckEditorCardStackStyle } from "./deckEditorCardStackStyle";
 import type { Card } from "../game/cards";
+import { TICKET_TIERS, type TicketType } from "../game/shopRules";
 import { usesRareCardSlot, type DeckEditorCardArea, type DeckEditorCardLocation } from "../game/deckEditorRules";
 import { groupAndSortDeckEditorCards, type DeckEditorCardGroup } from "../game/deckEditorViews";
 import type { Consumable, DeckCase, DeckEdition } from "../game/rewards";
@@ -71,6 +72,8 @@ type DeckEditorTicketActions = {
   ) => boolean;
   canApplyTicketToCard: (ticketId: string, card: Card, area: "inventory" | "deck" | "floor", deck?: DeckCase) => boolean;
   applyTicketToCard: (ticketId: string, card: Card, area: "inventory" | "deck" | "floor", deck?: DeckCase, targetCardId?: number) => void;
+  canApplyTicketToDeck: (ticketId: string, deck: DeckCase) => boolean;
+  applyTicketToDeck: (ticketId: string, deck: DeckCase) => void;
 };
 
 type DeckEditorCardPreview = {
@@ -145,6 +148,8 @@ export function DeckEditorModal(props: DeckEditorModalProps) {
       applySelectedCardTicket,
       canApplyTicketToCard,
       applyTicketToCard,
+      canApplyTicketToDeck,
+      applyTicketToDeck,
     },
     cardPreview: {
       hoveredDeckCard,
@@ -193,6 +198,9 @@ export function DeckEditorModal(props: DeckEditorModalProps) {
 
   const groupAndSortCards = (cards: Card[]) =>
     groupAndSortDeckEditorCards(cards, deckEditorSort, transformedCardNewIds);
+  const ticketTierClassName = (type: Consumable["type"]) => type === "cardPack"
+    ? ""
+    : `ticket-tier-${TICKET_TIERS[type as TicketType]}`;
 
   const renderDeckCardGroup = (deck: DeckCase, { card, cardIds }: CardGroup) => {
     const cardId = cardIds.at(-1)!;
@@ -287,6 +295,7 @@ export function DeckEditorModal(props: DeckEditorModalProps) {
     consumableDragRef.current = null;
     setConsumableDrag(null);
     setTicketDropTarget(null);
+    setDeckEditorDropTarget(null);
     onEditorDragActivityChange("consumable", false);
   };
 
@@ -342,6 +351,27 @@ export function DeckEditorModal(props: DeckEditorModalProps) {
     event.stopPropagation();
     applyTicketToCard(drag.id, card, area, deck, targetCardId);
     finishConsumableDrag();
+  };
+
+  const handleTicketDragOverDeck = (event: DragEvent<HTMLElement>, deck: DeckCase) => {
+    const drag = consumableDragRef.current ?? consumableDrag;
+    if (!drag || !canApplyTicketToDeck(drag.id, deck)) return false;
+    event.preventDefault();
+    event.stopPropagation();
+    event.dataTransfer.dropEffect = "move";
+    setDeckEditorDeckId(deck.id);
+    setDeckEditorDropTarget("deck");
+    return true;
+  };
+
+  const handleTicketDropOnDeck = (event: DragEvent<HTMLElement>, deck: DeckCase) => {
+    const drag = consumableDragRef.current ?? consumableDrag;
+    if (!drag || !canApplyTicketToDeck(drag.id, deck)) return false;
+    event.preventDefault();
+    event.stopPropagation();
+    applyTicketToDeck(drag.id, deck);
+    finishConsumableDrag();
+    return true;
   };
 
   const dropDeckEditorCard = (event: DragEvent<HTMLElement>, target: DeckEditorArea, targetDeckId?: string) => {
@@ -432,7 +462,7 @@ export function DeckEditorModal(props: DeckEditorModalProps) {
                        return (
                       <button
                         type="button"
-                        className={`consumable-ticket inventory-ticket ${consumable.type} ${isConsumableSelected(consumable) ? "is-selected" : ""}`}
+                        className={`consumable-ticket inventory-ticket ${consumable.type} ${ticketTierClassName(consumable.type)} ${isConsumableSelected(consumable) ? "is-selected" : ""}`}
                         key={consumableIds.join("-")}
                         style={deckEditorCardStackStyle(consumableIds.length)}
                         draggable
@@ -572,6 +602,7 @@ className={`deck-editor-card rarity-${card.rarity} ${card.rarity === "legendary"
                         className={`deck-editor-deck-row ${isSelected ? "is-selected" : ""} ${deck.id === activeDeck?.id ? "is-active-deck" : ""} ${deckEditorDropTarget === "deck" && deckEditorDeckId === deck.id ? "is-drop-target" : ""}`}
                         key={deck.id}
                         onDragOver={(event) => {
+                          if (handleTicketDragOverDeck(event, deck)) return;
                           const drag = deckEditorDragRef.current ?? deckEditorDrag;
                           if (!drag || (drag.source === "deck" && drag.deckId === deck.id)) return;
                           event.preventDefault();
@@ -579,7 +610,10 @@ className={`deck-editor-card rarity-${card.rarity} ${card.rarity === "legendary"
                           setDeckEditorDeckId(deck.id);
                           setDeckEditorDropTarget("deck");
                         }}
-                        onDrop={(event) => dropDeckEditorCard(event, "deck", deck.id)}
+                        onDrop={(event) => {
+                          if (handleTicketDropOnDeck(event, deck)) return;
+                          dropDeckEditorCard(event, "deck", deck.id);
+                        }}
                       >
                         <button
                           type="button"
@@ -595,6 +629,7 @@ className={`deck-editor-card rarity-${card.rarity} ${card.rarity === "legendary"
                               setDeckCaseDropSlot(index);
                               return;
                             }
+                            if (handleTicketDragOverDeck(event, deck)) return;
                             const cardDrag = deckEditorDragRef.current ?? deckEditorDrag;
                             if (!cardDrag || (cardDrag.source === "deck" && cardDrag.deckId === deck.id)) return;
                             event.preventDefault();
@@ -611,6 +646,7 @@ className={`deck-editor-card rarity-${card.rarity} ${card.rarity === "legendary"
                               finishDeckCaseDrag();
                               return;
                             }
+                            if (handleTicketDropOnDeck(event, deck)) return;
                             const cardDrag = deckEditorDragRef.current ?? deckEditorDrag;
                             if (!cardDrag || (cardDrag.source === "deck" && cardDrag.deckId === deck.id)) return;
                             dropDeckEditorCard(event, "deck", deck.id);
@@ -635,6 +671,7 @@ className={`deck-editor-card rarity-${card.rarity} ${card.rarity === "legendary"
                           className="deck-editor-deck-list"
                           onWheel={scrollDeckEditorCardsHorizontally}
                           onDragOver={(event) => {
+                            if (handleTicketDragOverDeck(event, deck)) return;
                             const drag = deckEditorDragRef.current ?? deckEditorDrag;
                             if (!drag || (drag.source === "deck" && drag.deckId === deck.id)) return;
                             event.preventDefault();
@@ -643,6 +680,7 @@ className={`deck-editor-card rarity-${card.rarity} ${card.rarity === "legendary"
                             setDeckEditorDropTarget("deck");
                           }}
                           onDrop={(event) => {
+                            if (handleTicketDropOnDeck(event, deck)) return;
                             dropDeckEditorCard(event, "deck", deck.id);
                           }}
                         >
@@ -741,7 +779,7 @@ className={`deck-editor-card rarity-${card.rarity} ${card.rarity === "legendary"
                       return (
                       <button
                         type="button"
-                        className={`consumable-ticket floor-ticket ${consumable.type} ${isConsumableSelected(consumable) ? "is-selected" : ""}`}
+                        className={`consumable-ticket floor-ticket ${consumable.type} ${ticketTierClassName(consumable.type)} ${isConsumableSelected(consumable) ? "is-selected" : ""}`}
                         key={consumableIds.join("-")}
                         style={deckEditorCardStackStyle(consumableIds.length)}
                         draggable

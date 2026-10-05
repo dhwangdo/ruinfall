@@ -8,6 +8,7 @@ import {
   calculateDeckCapacityScore,
   calculateDeckScore,
   getAvailableDeckEditions,
+  createConsumable,
   createRegionDeck,
   createStarterDeck,
   rollRegionDeckShape,
@@ -47,10 +48,14 @@ test("ticket tiers and base prices match the shop rules", () => {
     darkTicket: 1,
     transformTicket: 2,
     cloneTicket: 3,
+    expandTicket: 3,
   });
   for (const type of TICKET_TYPES) {
     assert.equal(ticketBasePrice(type), 30 + (TICKET_TIERS[type] - 1) * 50);
   }
+  assert.ok(TICKET_TYPES.includes("expandTicket"));
+  assert.equal(ticketBasePrice("expandTicket"), 130);
+  assert.equal(createConsumable("expandTicket", "test-expand").description, "덱에 드래그해 희귀 슬롯을 1 늘립니다.");
 });
 
 test("deck capacity scores follow the five-card growth sequence", () => {

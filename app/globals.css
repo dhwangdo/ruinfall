@@ -2170,12 +2170,21 @@ h1 { margin: 0; font-size: 25px; font-weight: 600; }
 .consumable-ticket.mindEyeTicket { --ticket-fill: #bcd9ee; --ticket-border: #436f8c; }
 .consumable-ticket.darkTicket { --ticket-fill: #a9a7c8; --ticket-border: #4b4770; }
 .consumable-ticket.bombTicket { --ticket-fill: #e8b09d; --ticket-border: #8b503d; }
-.consumable-ticket.cloneTicket { --ticket-fill: #bfe1d2; --ticket-border: #467561; }
-.consumable-ticket.extractTicket { --ticket-fill: #ead8aa; --ticket-border: #87703d; }
-.consumable-ticket.extractPlusTicket { --ticket-fill: #d7c5ea; --ticket-border: #70518f; }
+.consumable-ticket.cloneTicket {
+  --ticket-fill: #cfe3d8;
+  --ticket-border: #467561;
+  background: linear-gradient(135deg, #e3f0e9 0%, #cfe3d8 52%, #e8f3ec 100%);
+}
+.consumable-ticket.extractTicket,
+.consumable-ticket.extractPlusTicket { --ticket-fill: #ead8aa; --ticket-border: #87703d; }
 .consumable-ticket.transformTicket { --ticket-fill: #d8c1eb; --ticket-border: #704f87; }
 .consumable-ticket.mapTicket { --ticket-fill: #c9ab88; --ticket-border: #735239; }
 .consumable-ticket.cardPack { --ticket-fill: #e7c884; --ticket-border: #85691f; }
+.consumable-ticket.expandTicket {
+  --ticket-fill: #edc9cb;
+  --ticket-border: #a43a42;
+  background: linear-gradient(135deg, #f6e1e2 0%, #edc9cb 55%, #f4d9da 100%);
+}
 .consumable-ticket:hover { border-color: var(--ticket-border); transform: translateY(-4px); }
 .consumable-ticket.is-selected {
   border-color: #a64036;
@@ -5168,6 +5177,10 @@ h1 { margin: 0; font-size: 25px; font-weight: 600; }
   border-color: var(--editor-rarity);
   background-clip: padding-box;
   box-shadow: var(--editor-stack-shadow, 0 2px 3px rgba(0,0,0,.18));
+}
+.deck-editor-panel .consumable-ticket.ticket-tier-1 {
+  --editor-stack-fill: #fff;
+  background: #fff;
 }
 .deck-list-entry.rarity-basic strong,
 .deck-list-entry.rarity-special strong,
