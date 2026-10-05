@@ -2915,9 +2915,9 @@ export default function Home() {
     setDeckEditorMessage(`${targetCard.name}을(를) 복제했습니다.${destination === "floor" ? " 인벤토리가 가득 차 바닥에 놓았습니다." : ""}`);
   };
 
-  const cloneConsumableWithTicket = (targetId: string) => {
-    if (!pendingCloneTicketId) return;
-    const sourceTicket = findTicketById(pendingCloneTicketId, "cloneTicket");
+  const cloneConsumableWithTicket = (targetId: string, ticketId = pendingCloneTicketId) => {
+    if (!ticketId) return;
+    const sourceTicket = findTicketById(ticketId, "cloneTicket");
     const target = findTicketById(targetId);
     if (!sourceTicket || !target || target.id === sourceTicket.id || target.type === "cloneTicket") return;
     if (!consumeTicketById(sourceTicket.id, "cloneTicket")) return;
@@ -3266,9 +3266,9 @@ export default function Home() {
     return false;
   };
 
-  const transformConsumableWithTicket = (targetId: string) => {
-    if (!pendingTransformTicketId || targetId === pendingTransformTicketId) return;
-    const sourceTicket = findTicketById(pendingTransformTicketId, "transformTicket");
+  const transformConsumableWithTicket = (targetId: string, ticketId = pendingTransformTicketId) => {
+    if (!ticketId || targetId === ticketId) return;
+    const sourceTicket = findTicketById(ticketId, "transformTicket");
     const target = findTicketById(targetId);
     if (!sourceTicket || !target || target.id === sourceTicket.id || target.type === "cardPack") return;
     const candidates = CONSUMABLE_TYPES.filter((type) => type !== target.type);
@@ -3287,6 +3287,22 @@ export default function Home() {
     setPendingTransformTicketId(null);
     setDeckEditorMessage(`${target.name}을(를) ${transformed.name}(으)로 변환했습니다.`);
     queueRunSave(RUN_SAVE_POLICY.stateChangeDelayMs);
+  };
+
+  const canApplyTicketToConsumable = (ticketId: string, targetId: string) => {
+    const ticket = findTicketById(ticketId);
+    const target = findTicketById(targetId);
+    if (!ticket || !target || ticket.id === target.id) return false;
+    if (ticket.type === "cloneTicket") return target.type !== "cloneTicket";
+    if (ticket.type === "transformTicket") return target.type !== "cardPack";
+    return false;
+  };
+
+  const applyTicketToConsumable = (ticketId: string, targetId: string) => {
+    if (!canApplyTicketToConsumable(ticketId, targetId)) return;
+    const ticket = findTicketById(ticketId);
+    if (ticket?.type === "cloneTicket") cloneConsumableWithTicket(targetId, ticketId);
+    if (ticket?.type === "transformTicket") transformConsumableWithTicket(targetId, ticketId);
   };
 
   const swapOwnedDecks = (draggedDeckId: string, targetDeckId: string) => {
@@ -4358,6 +4374,8 @@ export default function Home() {
             canApplyTicketToCard: (ticketId, card, area, deck) =>
               canApplyTicketToCard(findTicketById(ticketId) ?? null, card, area, deck),
             applyTicketToCard,
+            canApplyTicketToConsumable,
+            applyTicketToConsumable,
             canApplyTicketToDeck,
             applyTicketToDeck,
           }}

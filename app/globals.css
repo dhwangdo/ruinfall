@@ -2171,9 +2171,9 @@ h1 { margin: 0; font-size: 25px; font-weight: 600; }
 .consumable-ticket.darkTicket { --ticket-fill: #a9a7c8; --ticket-border: #4b4770; }
 .consumable-ticket.bombTicket { --ticket-fill: #e8b09d; --ticket-border: #8b503d; }
 .consumable-ticket.cloneTicket {
-  --ticket-fill: #0f6b68;
-  --ticket-border: #0c3e3a;
-  background: linear-gradient(120deg, #126b37 0%, #0f6b68 50%, #2e5faa 100%);
+  --ticket-fill: hsl(175, 88%, 31%);
+  --ticket-border: hsl(175, 88%, 19%);
+  background: linear-gradient(120deg, hsl(130, 88%, 31%) 0%, hsl(175, 88%, 31%) 50%, hsl(205, 88%, 31%) 100%);
 }
 .consumable-ticket.extractTicket,
 .consumable-ticket.extractPlusTicket { --ticket-fill: #ead8aa; --ticket-border: #87703d; }
@@ -2181,9 +2181,9 @@ h1 { margin: 0; font-size: 25px; font-weight: 600; }
 .consumable-ticket.mapTicket { --ticket-fill: #c9ab88; --ticket-border: #735239; }
 .consumable-ticket.cardPack { --ticket-fill: #e7c884; --ticket-border: #85691f; }
 .consumable-ticket.expandTicket {
-  --ticket-fill: #8c4a0f;
-  --ticket-border: #512c10;
-  background: linear-gradient(120deg, #b02230 0%, #8c4a0f 50%, #675c12 100%);
+  --ticket-fill: hsl(30, 88%, 32%);
+  --ticket-border: hsl(30, 88%, 19%);
+  background: linear-gradient(120deg, hsl(0, 88%, 32%) 0%, hsl(30, 88%, 32%) 50%, hsl(60, 88%, 32%) 100%);
 }
 .consumable-ticket.ticket-tier-3 > strong { color: #fff; }
 .consumable-ticket:hover { border-color: var(--ticket-border); transform: translateY(-4px); }
@@ -5179,6 +5179,11 @@ h1 { margin: 0; font-size: 25px; font-weight: 600; }
   background-clip: padding-box;
   box-shadow: var(--editor-stack-shadow, 0 2px 3px rgba(0,0,0,.18));
 }
+.deck-editor-card-list .consumable-ticket.ticket-tier-3,
+.deck-editor-floor-cards .consumable-ticket.ticket-tier-3 {
+  --editor-stack-border: var(--rare-border-color);
+  border-color: var(--rare-border-color) !important;
+}
 .consumable-ticket.ticket-tier-1 {
   --editor-rarity: #74777b;
   --editor-stack-fill: color-mix(in srgb, var(--ticket-fill) 92%, #000 8%);
@@ -5267,6 +5272,7 @@ h1 { margin: 0; font-size: 25px; font-weight: 600; }
 .deck-editor-panel .consumable-ticket .inventory-card-count { font-size: 14.3px; }
 .deck-editor-panel .deck-card-new,
 .deck-editor-panel .deck-card-painted { font-size: 8.8px; }
+.deck-editor-panel .deck-card-new { top: auto; right: 3px; bottom: 3px; }
 .deck-editor-trash-row .trash-card-preview > .editor-card-cost {
   display: block;
   width: auto;
@@ -5872,6 +5878,9 @@ h1 { margin: 0; font-size: 25px; font-weight: 600; }
   border-color: var(--rare-border-color) !important;
 }
 .deck-editor-panel .deck-editor-card.is-ticket-drop-target {
+  border-color: #8fc7ed !important;
+}
+.deck-editor-panel .consumable-ticket.is-ticket-drop-target {
   border-color: #8fc7ed !important;
 }
 .deck-editor-panel .deck-editor-card::before,

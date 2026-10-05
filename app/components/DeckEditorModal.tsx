@@ -72,6 +72,8 @@ type DeckEditorTicketActions = {
   ) => boolean;
   canApplyTicketToCard: (ticketId: string, card: Card, area: "inventory" | "deck" | "floor", deck?: DeckCase) => boolean;
   applyTicketToCard: (ticketId: string, card: Card, area: "inventory" | "deck" | "floor", deck?: DeckCase, targetCardId?: number) => void;
+  canApplyTicketToConsumable: (ticketId: string, targetId: string) => boolean;
+  applyTicketToConsumable: (ticketId: string, targetId: string) => void;
   canApplyTicketToDeck: (ticketId: string, deck: DeckCase) => boolean;
   applyTicketToDeck: (ticketId: string, deck: DeckCase) => void;
 };
@@ -148,6 +150,8 @@ export function DeckEditorModal(props: DeckEditorModalProps) {
       applySelectedCardTicket,
       canApplyTicketToCard,
       applyTicketToCard,
+      canApplyTicketToConsumable,
+      applyTicketToConsumable,
       canApplyTicketToDeck,
       applyTicketToDeck,
     },
@@ -316,6 +320,7 @@ export function DeckEditorModal(props: DeckEditorModalProps) {
 
   const ticketDropKey = (area: "inventory" | "deck" | "floor", cardId: number, deckId?: string) =>
     `${area}:${deckId ?? ""}:${cardId}`;
+  const consumableTicketDropKey = (ticketId: string) => `ticket:${ticketId}`;
 
   const handleTicketDragOverCard = (
     event: DragEvent<HTMLElement>,
@@ -350,6 +355,24 @@ export function DeckEditorModal(props: DeckEditorModalProps) {
     event.preventDefault();
     event.stopPropagation();
     applyTicketToCard(drag.id, card, area, deck, targetCardId);
+    finishConsumableDrag();
+  };
+
+  const handleTicketDragOverConsumable = (event: DragEvent<HTMLElement>, target: Consumable) => {
+    const drag = consumableDragRef.current ?? consumableDrag;
+    if (!drag || !canApplyTicketToConsumable(drag.id, target.id)) return;
+    event.preventDefault();
+    event.stopPropagation();
+    event.dataTransfer.dropEffect = "move";
+    setTicketDropTarget(consumableTicketDropKey(target.id));
+  };
+
+  const handleTicketDropOnConsumable = (event: DragEvent<HTMLElement>, target: Consumable) => {
+    const drag = consumableDragRef.current ?? consumableDrag;
+    if (!drag || !canApplyTicketToConsumable(drag.id, target.id)) return;
+    event.preventDefault();
+    event.stopPropagation();
+    applyTicketToConsumable(drag.id, target.id);
     finishConsumableDrag();
   };
 
@@ -462,12 +485,15 @@ export function DeckEditorModal(props: DeckEditorModalProps) {
                        return (
                       <button
                         type="button"
-                        className={`consumable-ticket inventory-ticket ${consumable.type} ${ticketTierClassName(consumable.type)} ${isConsumableSelected(consumable) ? "is-selected" : ""}`}
+                        className={`consumable-ticket inventory-ticket ${consumable.type} ${ticketTierClassName(consumable.type)} ${isConsumableSelected(consumable) ? "is-selected" : ""} ${ticketDropTarget === consumableTicketDropKey(consumableId) ? "is-ticket-drop-target" : ""}`}
                         key={consumableIds.join("-")}
                         style={deckEditorCardStackStyle(consumableIds.length)}
                         draggable
                         onDragStart={(event) => beginConsumableDrag(event, consumableId, "inventory")}
                         onDragEnd={finishConsumableDrag}
+                        onDragOver={(event) => handleTicketDragOverConsumable(event, consumable)}
+                        onDrop={(event) => handleTicketDropOnConsumable(event, consumable)}
+                        onDragLeave={(event) => handleTicketDragLeave(event, consumableTicketDropKey(consumableId))}
                         onMouseEnter={(event) => {
                           const bounds = event.currentTarget.getBoundingClientRect();
                           consumablePreview.show(consumable, bounds.right, bounds.top);
@@ -779,12 +805,15 @@ className={`deck-editor-card rarity-${card.rarity} ${card.rarity === "legendary"
                       return (
                       <button
                         type="button"
-                        className={`consumable-ticket floor-ticket ${consumable.type} ${ticketTierClassName(consumable.type)} ${isConsumableSelected(consumable) ? "is-selected" : ""}`}
+                        className={`consumable-ticket floor-ticket ${consumable.type} ${ticketTierClassName(consumable.type)} ${isConsumableSelected(consumable) ? "is-selected" : ""} ${ticketDropTarget === consumableTicketDropKey(consumableId) ? "is-ticket-drop-target" : ""}`}
                         key={consumableIds.join("-")}
                         style={deckEditorCardStackStyle(consumableIds.length)}
                         draggable
-                        onDragStart={(event) => beginConsumableDrag(event, consumableId, "floor")}
-                        onDragEnd={finishConsumableDrag}
+                          onDragStart={(event) => beginConsumableDrag(event, consumableId, "floor")}
+                          onDragEnd={finishConsumableDrag}
+                          onDragOver={(event) => handleTicketDragOverConsumable(event, consumable)}
+                          onDrop={(event) => handleTicketDropOnConsumable(event, consumable)}
+                          onDragLeave={(event) => handleTicketDragLeave(event, consumableTicketDropKey(consumableId))}
                         onMouseEnter={(event) => {
                           const bounds = event.currentTarget.getBoundingClientRect();
                           consumablePreview.show(consumable, bounds.right, bounds.top);
