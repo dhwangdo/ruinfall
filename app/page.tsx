@@ -4304,7 +4304,8 @@ export default function Home() {
             pickUpFloorDeck,
             swapOwnedDecks,
             dropOwnedDeck,
-            rareSlotCountForDeck: (deck) => countRareSlotCards(deck.cards) + pendingRemovedCards.filter((card) => (
+            rareSlotCountForDeck: (deck) => countRareSlotCards(deck.cards),
+            rareSlotRemovalPendingCountForDeck: (deck) => pendingRemovedCards.filter((card) => (
               usesRareCardSlot(card) && effectiveOriginDeckIdForCard(card.id) === deck.id
             )).length,
             canMoveDeckCardToInventory: isSafeAreaPosition(mapPosition, mapSeed)

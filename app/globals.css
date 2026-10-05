@@ -5078,7 +5078,7 @@ h1 { margin: 0; font-size: 25px; font-weight: 600; }
   flex-direction: row;
   flex-wrap: nowrap;
   align-items: center;
-  gap: 6px;
+  gap: 8px;
   min-width: 0;
   min-height: 0;
   padding: 8px;
@@ -5814,6 +5814,56 @@ h1 { margin: 0; font-size: 25px; font-weight: 600; }
 .deck-editor-card.is-pending-removal.is-blink-dim {
   opacity: .3;
   filter: saturate(.25);
+}
+.deck-editor-panel .deck-editor-card.rarity-rare:not(.is-blink-dim) {
+  filter: drop-shadow(0 0 5px rgba(244, 209, 111, .32));
+}
+.deck-editor-slot-divider {
+  display: flex;
+  flex: 0 0 28px;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 5px;
+  width: 28px;
+  height: 81.4px;
+  margin-inline: 2px;
+  color: rgba(226, 215, 241, .72);
+  font-size: 8px;
+  font-weight: 700;
+  line-height: 1;
+  pointer-events: none;
+}
+.deck-editor-slot-divider span { writing-mode: vertical-rl; }
+.deck-editor-slot-divider i {
+  flex: 1;
+  width: 1px;
+  background: linear-gradient(180deg, transparent, rgba(195, 165, 229, .64), transparent);
+}
+.deck-editor-rare-slot {
+  display: grid;
+  flex: 0 0 81.4px;
+  place-items: center;
+  width: 81.4px;
+  height: 81.4px;
+  min-height: 81.4px;
+  padding: 7px;
+  border: 1px dashed rgba(198, 168, 231, .62);
+  border-radius: 4px;
+  color: rgba(232, 219, 249, .82);
+  background: rgba(158, 119, 201, .11);
+  box-shadow: inset 0 0 12px rgba(179, 140, 222, .09), 0 0 9px rgba(179, 140, 222, .15);
+  font-size: 8px;
+  line-height: 1.25;
+  text-align: center;
+  pointer-events: none;
+}
+.deck-editor-rare-slot.is-removal-pending {
+  border-color: rgba(199, 188, 211, .35);
+  border-style: dotted;
+  color: rgba(255, 255, 255, .52);
+  background: rgba(255, 255, 255, .035);
+  box-shadow: none;
 }
 .pending-removal-icon {
   position: absolute;

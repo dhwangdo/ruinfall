@@ -11,7 +11,7 @@ import { CardFace } from "./CardFace";
 import { DeckName } from "./DeckName";
 import { deckEditorCardStackStyle } from "./deckEditorCardStackStyle";
 import type { Card } from "../game/cards";
-import type { DeckEditorCardArea, DeckEditorCardLocation } from "../game/deckEditorRules";
+import { usesRareCardSlot, type DeckEditorCardArea, type DeckEditorCardLocation } from "../game/deckEditorRules";
 import { groupAndSortDeckEditorCards, type DeckEditorCardGroup } from "../game/deckEditorViews";
 import type { Consumable, DeckCase, DeckEdition } from "../game/rewards";
 
@@ -50,6 +50,7 @@ type DeckEditorDeckArea = {
   dropOwnedDeck: (deckId: string) => void;
   canMoveDeckCardToInventory: boolean;
   rareSlotCountForDeck: (deck: DeckCase) => number;
+  rareSlotRemovalPendingCountForDeck: (deck: DeckCase) => number;
 };
 
 type DeckEditorFloorArea = {
@@ -131,6 +132,7 @@ export function DeckEditorModal(props: DeckEditorModalProps) {
       dropOwnedDeck,
       canMoveDeckCardToInventory,
       rareSlotCountForDeck,
+      rareSlotRemovalPendingCountForDeck,
     },
     floorArea: {
       currentFloorDecks,
@@ -193,6 +195,48 @@ export function DeckEditorModal(props: DeckEditorModalProps) {
 
   const groupAndSortCards = (cards: Card[]) =>
     groupAndSortDeckEditorCards(cards, deckEditorSort, transformedCardNewIds);
+
+  const renderDeckCardGroup = (deck: DeckCase, { card, cardIds }: CardGroup) => {
+    const cardId = cardIds.at(-1)!;
+    const isTemporary = cardIds.some((id) => effectiveOriginDeckIdForCard(id) === null);
+    return (
+      <button
+        type="button"
+        className={`deck-editor-card deck-list-entry rarity-${card.rarity} ${card.rarity === "legendary" ? "is-painted" : ""} ${isTemporary ? `is-temporary ${pendingRemovalBlinkDim ? "is-blink-dim" : ""}` : ""} ${ticketDropTarget === ticketDropKey("deck", cardId, deck.id) ? "is-ticket-drop-target" : ""}`}
+        key={`${deck.id}-${cardIds.join("-")}`}
+        style={deckEditorCardStackStyle(cardIds.length)}
+        draggable
+        onDragStart={(event) => beginDeckEditorDrag(event, cardId, "deck", deck.id)}
+        onDragEnd={finishDeckEditorDrag}
+        onDragOver={(event) => handleTicketDragOverCard(event, card, "deck", deck, cardId)}
+        onDrop={(event) => handleTicketDropOnCard(event, card, "deck", deck, cardId)}
+        onDragLeave={(event) => handleTicketDragLeave(event, ticketDropKey("deck", cardId, deck.id))}
+        onMouseEnter={(event) => moveDeckCardPreview(event, card)}
+        onMouseMove={(event) => moveDeckCardPreview(event, card)}
+        onMouseLeave={clearCardPreview}
+        onClick={() => {
+          setDeckEditorDeckId(deck.id);
+          applySelectedCardTicket(card, "deck", deck.id, cardId);
+        }}
+        onContextMenu={(event) => {
+          event.preventDefault();
+          if (usesRareCardSlot(card)) {
+            onMoveCard({ cardId, source: { area: "deck", deckId: deck.id }, target: { area: "floor" } });
+          } else if (canMoveDeckCardToInventory) {
+            if (deckEditorInventoryItemCount >= inventoryCapacity) {
+              onMoveCard({ cardId, source: { area: "deck", deckId: deck.id }, target: { area: "floor" } });
+            } else {
+              onMoveCard({ cardId, source: { area: "deck", deckId: deck.id }, target: { area: "inventory" } });
+            }
+          } else {
+            onMoveCard({ cardId, source: { area: "deck", deckId: deck.id }, target: { area: "floor" } });
+          }
+        }}
+      >
+        <DeckEditorCardIcon card={card} count={cardIds.length} showNewBadge={cardIds.some((id) => transformedCardNewIds.has(id))} />
+      </button>
+    );
+  };
 
   useEffect(() => () => {
     if (previewReleaseTimerRef.current !== null) window.clearTimeout(previewReleaseTimerRef.current);
@@ -517,6 +561,15 @@ className={`deck-editor-card rarity-${card.rarity} ${card.rarity === "legendary"
                       );
                     }
                     const isSelected = deck.id === editingDeck?.id;
+                    const deckCardGroups = groupAndSortCards(deck.cards);
+                    const normalCardGroups = deckCardGroups.filter(({ card }) => !usesRareCardSlot(card));
+                    const rareCardGroups = deckCardGroups.filter(({ card }) => usesRareCardSlot(card));
+                    const rareSlotCount = rareSlotCountForDeck(deck);
+                    const pendingRareSlotCount = rareSlotRemovalPendingCountForDeck(deck);
+                    const rareSlotCapacity = Math.max(deck.rareSlotCapacity ?? 0, rareSlotCount + pendingRareSlotCount);
+                    const normalSlotCapacity = Math.max(0, deck.capacity - rareSlotCapacity);
+                    const normalCardCount = deck.cards.filter((card) => !usesRareCardSlot(card)).length;
+                    const emptyRareSlotCount = Math.max(0, rareSlotCapacity - rareSlotCount - pendingRareSlotCount);
                     return (
                       <section
                         className={`deck-editor-deck-row ${isSelected ? "is-selected" : ""} ${deck.id === activeDeck?.id ? "is-active-deck" : ""} ${deckEditorDropTarget === "deck" && deckEditorDeckId === deck.id ? "is-drop-target" : ""}`}
@@ -579,7 +632,7 @@ className={`deck-editor-card rarity-${card.rarity} ${card.rarity === "legendary"
                               onEditionTooltipLeave={editionTooltip.clear}
                             />
                           </strong>
-                          <small>{deck.cards.length} / {deck.capacity} · 희귀 슬롯 {rareSlotCountForDeck(deck)} / {Math.max(deck.rareSlotCapacity ?? 0, rareSlotCountForDeck(deck))}</small>
+                          <small>{deck.cards.length} / {deck.capacity} · 희귀 슬롯 {rareSlotCount} / {rareSlotCapacity}</small>
                         </button>
                         <div
                           className="deck-editor-deck-list"
@@ -596,49 +649,29 @@ className={`deck-editor-card rarity-${card.rarity} ${card.rarity === "legendary"
                             dropDeckEditorCard(event, "deck", deck.id);
                           }}
                         >
-                          {groupAndSortCards(deck.cards).map(({ card, cardIds }) => {
-                            const cardId = cardIds.at(-1)!;
-                            const isTemporary = cardIds.some((id) => effectiveOriginDeckIdForCard(id) === null);
-                            return (
-                              <button
-                                type="button"
-className={`deck-editor-card deck-list-entry rarity-${card.rarity} ${card.rarity === "legendary" ? "is-painted" : ""} ${isTemporary ? `is-temporary ${pendingRemovalBlinkDim ? "is-blink-dim" : ""}` : ""} ${ticketDropTarget === ticketDropKey("deck", cardId, deck.id) ? "is-ticket-drop-target" : ""}`}
-                                key={`${deck.id}-${cardIds.join("-")}`}
-                                style={deckEditorCardStackStyle(cardIds.length)}
-                                draggable
-                                onDragStart={(event) => beginDeckEditorDrag(event, cardId, "deck", deck.id)}
-                                onDragEnd={finishDeckEditorDrag}
-                                onDragOver={(event) => handleTicketDragOverCard(event, card, "deck", deck, cardId)}
-                                onDrop={(event) => handleTicketDropOnCard(event, card, "deck", deck, cardId)}
-                                onDragLeave={(event) => handleTicketDragLeave(event, ticketDropKey("deck", cardId, deck.id))}
-                                onMouseEnter={(event) => moveDeckCardPreview(event, card)}
-                                onMouseMove={(event) => moveDeckCardPreview(event, card)}
-                                onMouseLeave={clearCardPreview}
-                                onClick={() => {
-                                  setDeckEditorDeckId(deck.id);
-                                  applySelectedCardTicket(card, "deck", deck.id, cardId);
-                                }}
-                                onContextMenu={(event) => {
-                                  event.preventDefault();
-                                  if (card.rarity === "rare" || card.rarity === "legendary") {
-                                    onMoveCard({ cardId, source: { area: "deck", deckId: deck.id }, target: { area: "floor" } });
-                                  } else if (canMoveDeckCardToInventory) {
-                                    if (deckEditorInventoryItemCount >= inventoryCapacity) {
-                                      onMoveCard({ cardId, source: { area: "deck", deckId: deck.id }, target: { area: "floor" } });
-                                    } else {
-                                      onMoveCard({ cardId, source: { area: "deck", deckId: deck.id }, target: { area: "inventory" } });
-                                    }
-                                  } else {
-                                    onMoveCard({ cardId, source: { area: "deck", deckId: deck.id }, target: { area: "floor" } });
-                                  }
-                                }}
-                              >
-                                <DeckEditorCardIcon card={card} count={cardIds.length} showNewBadge={cardIds.some((id) => transformedCardNewIds.has(id))} />
-                              </button>
-                            );
-                          })}
-                          {Array.from({ length: Math.max(0, deck.capacity - deck.cards.length) }, (_, slot) => (
-                            <span className="deck-editor-empty-card-slot" key={`${deck.id}-slot-${slot}`} />
+                          {normalCardGroups.map((group) => renderDeckCardGroup(deck, group))}
+                          {Array.from({ length: Math.max(0, normalSlotCapacity - normalCardCount) }, (_, slot) => (
+                            <span className="deck-editor-empty-card-slot" key={`${deck.id}-normal-slot-${slot}`} />
+                          ))}
+                          <div className="deck-editor-slot-divider" role="separator" aria-label="일반 슬롯과 희귀 슬롯 구분">
+                            <span>일반</span>
+                            <i />
+                            <span>희귀</span>
+                          </div>
+                          {rareCardGroups.map((group) => renderDeckCardGroup(deck, group))}
+                          {Array.from({ length: pendingRareSlotCount }, (_, slot) => (
+                            <div
+                              className="deck-editor-rare-slot is-removal-pending"
+                              key={`${deck.id}-pending-rare-slot-${slot}`}
+                              title="제거 예정 카드입니다. 편집을 확정하면 슬롯이 비워집니다."
+                            >
+                              <span>제거 확정 대기</span>
+                            </div>
+                          ))}
+                          {Array.from({ length: emptyRareSlotCount }, (_, slot) => (
+                            <div className="deck-editor-rare-slot is-empty" key={`${deck.id}-rare-slot-${slot}`}>
+                              <span>빈 희귀 슬롯</span>
+                            </div>
                           ))}
                         </div>
                       </section>
