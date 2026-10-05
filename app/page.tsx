@@ -1065,6 +1065,7 @@ export default function Home() {
     setResearchDragPreview(null);
   };
   const handCardRefs = useRef(new Map<number, HTMLButtonElement>());
+  const [pendingDiscardPlay, setPendingDiscardPlay] = useState<{ card: Card; targetEnemyId?: string } | null>(null);
   const timersRef = useRef<number[]>([]);
   const mapTravelTimerRef = useRef<number | null>(null);
   const pileScrollRef = useRef<HTMLDivElement | null>(null);
@@ -3522,14 +3523,13 @@ export default function Home() {
           astronomyResearchUses: 0,
           necromancyResearchUses: 0,
           pendingDiscards: 0,
-          pendingDiscardEnergy: 0,
           pendingSweep: false,
           status: "won",
           message: "디버그 모드: 적을 즉시 처치했습니다.",
         });
   };
 
-  const resolvePlayedCard = (card: Card, targetEnemyId?: string) => createResolvePlayedCard({
+  const resolvePlayedCard = (card: Card, targetEnemyId?: string, discardCostPaid = false) => createResolvePlayedCard({
     setGame,
     game,
     phase,
@@ -3548,9 +3548,9 @@ export default function Home() {
     nextCardIdRef,
     lowestHealthEnemy,
     isStarterOrBasicCard,
-  })(card, targetEnemyId);
+  })(card, targetEnemyId, discardCostPaid);
 
-  const playCard = (card: Card, targetEnemyId?: string) => {
+  const playCard = (card: Card, targetEnemyId?: string, discardCostPaid = false) => {
     const sourceCard = handCardRefs.current.get(card.id);
     const energyCost = cardEnergyCost(
       card,
@@ -3568,33 +3568,51 @@ export default function Home() {
         energyCost,
         game.activeRuleCards.filter((ruleCard) => ruleCard.effect === "economicsResearch").length,
       );
-    const canPayDiscardCost = game.hand.filter((item) => item.id !== card.id).length >= (card.discardCost ?? 0);
-    const canAnimatePlay = shouldAnimate && canPayDiscardCost;
-    const canLogPlayedCard = canAnimatePlay
+    if (!shouldAnimate) {
+      resolvePlayedCard(card, targetEnemyId, discardCostPaid);
+      return;
+    }
+    if (!discardCostPaid && (game.pendingDiscards > 0 || pendingDiscardPlay)) return;
+    const discardCost = card.discardCost ?? 0;
+    if (discardCost > 0 && !discardCostPaid) {
+      const hasEnoughCards = game.hand.filter((item) => item.id !== card.id).length >= discardCost;
+      if (!hasEnoughCards) {
+        resolvePlayedCard(card, targetEnemyId);
+        return;
+      }
+      if (card.effect === "strike" && !game.enemies.some((enemy) => enemy.id === targetEnemyId && enemy.hp > 0)) {
+        setGame((current) => ({ ...current, message: `${card.name}: 공격할 적을 선택하세요.` }));
+        return;
+      }
+      setPendingDiscardPlay({ card, targetEnemyId });
+      setSelectedHandCardId(null);
+      setGame((current) => ({
+        ...current,
+        pendingDiscards: discardCost,
+        message: `${card.name}: 버릴 카드 ${discardCost}장을 선택하세요.`,
+      }));
+      return;
+    }
+    const canLogPlayedCard = shouldAnimate
       && game.pendingDraws === 0
       && game.pendingPileDrawCount === 0
-      && game.pendingDiscards === 0
+      && (game.pendingDiscards === 0 || discardCostPaid)
       && game.pendingResearchDraw === null
       && !game.pendingSweep
       && game.hand.some((item) => item.id === card.id);
     if (canLogPlayedCard) recordTelemetryCardPlayed(telemetry, telemetryCardSnapshot(card));
-    if (!canAnimatePlay) {
-      resolvePlayedCard(card, targetEnemyId);
-      return;
-    }
     const flightDuration = animatePlayedCardToCenter(sourceCard);
     if (flightDuration === 0) {
-      resolvePlayedCard(card, targetEnemyId);
+      resolvePlayedCard(card, targetEnemyId, discardCostPaid);
       return;
     }
     setSelectedHandCardId(null);
     setPhase("resolving");
     later(() => {
       setPhase("playing");
-      resolvePlayedCard(card, targetEnemyId);
+      resolvePlayedCard(card, targetEnemyId, discardCostPaid);
     }, flightDuration);
   };
-
   const startResearchDraw = (research: "astronomy" | "necromancy") => {
     if (phase !== "playing" || game.status !== "playing") return;
     const researchEffect = research === "astronomy" ? "astronomyResearch" : "necromancyResearch";
@@ -3728,25 +3746,29 @@ export default function Home() {
   })(pileIndex);
 
   const discardSelectedCard = (cardId: number) => {
+    if (pendingDiscardPlay?.card.id === cardId) return;
+    if (!game.hand.some((card) => card.id === cardId)) return;
+    const resumePlay = game.pendingDiscards === 1 ? pendingDiscardPlay : null;
     setGame((current) => {
       if (current.pendingDiscards < 1 || current.pendingResearchDraw !== null || phase !== "playing") return current;
       const card = current.hand.find((item) => item.id === cardId);
       if (!card) return current;
       const remainingDiscards = current.pendingDiscards - 1;
-      const discardEnergyGain = remainingDiscards === 0 ? current.pendingDiscardEnergy : 0;
       const action = remainingDiscards > 0
         ? `${card.name} 버림 · ${remainingDiscards}장 더 선택하세요.`
-        : `${card.name} 버림${discardEnergyGain > 0 ? ` · 에너지 ${discardEnergyGain} 획득` : ""}`;
+        : `${card.name} 버림`;
       return {
         ...current,
         hand: current.hand.filter((item) => item.id !== cardId),
         discard: [...current.discard, card],
-        energy: current.energy + discardEnergyGain,
         pendingDiscards: remainingDiscards,
-        pendingDiscardEnergy: remainingDiscards === 0 ? 0 : current.pendingDiscardEnergy,
         message: action,
       };
     });
+    if (resumePlay) {
+      setPendingDiscardPlay(null);
+      playCard(resumePlay.card, resumePlay.targetEnemyId, true);
+    }
   };
 
   const takeSelectedPile = (pileIndex: number) => {
@@ -3899,7 +3921,7 @@ export default function Home() {
     }),
   } as CSSProperties;
   const combatManualBonus = game.hand
-    .filter((card) => card.effect === "combatManual")
+    .filter((card) => card.effect === "combatManual" || card.effect === "strategyBook")
     .reduce((total, card) => total + card.value, 0);
   const backToBasicsBonus = (card: Card) => blessings.includes("backToBasics") && isStarterOrBasicCard(card) ? 4 : 0;
   const lawResearchCount = game.activeRuleCards
@@ -4829,6 +4851,7 @@ export default function Home() {
             phase={phase}
             dragging={dragging}
             selectedHandCardId={selectedHandCardId}
+            pendingDiscardCardId={pendingDiscardPlay?.card.id ?? null}
             hoveredHandCardId={hoveredHandCardId}
             setHoveredHandCardId={setHoveredHandCardId}
             setSelectedHandCardId={setSelectedHandCardId}

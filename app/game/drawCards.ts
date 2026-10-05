@@ -255,7 +255,6 @@ export function createDrawCards(context: DrawCardsContext) {
         pendingRadiance: pendingRadianceAfterTurn.filter((radiance) => radiance.turns > 0),
         pendingResearchDraw: null,
         pendingDiscards: 0,
-        pendingDiscardEnergy: 0,
         pendingSweep: false,
         playerPhysicalBlock: current.preserveDefenseOnTurnEnd
           ? current.playerPhysicalBlock

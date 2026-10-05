@@ -4,7 +4,7 @@ import type { GameState } from "./battleState";
 import type { EnemyState } from "./enemies";
 import type { Card } from "./cards";
 import type { Phase } from "./battleUiTypes";
-import { UNPLAYABLE_CARD_EFFECTS, cardGivesMagicDefense, cardGivesPhysicalDefense, createRadianceCard, isAttackCard } from "./cards";
+import { RARE_CARD_POOL, UNPLAYABLE_CARD_EFFECTS, cardGivesMagicDefense, cardGivesPhysicalDefense, createRadianceCard, isAttackCard } from "./cards";
 import { playerAttackThornHits, applyPlayerAttack, resolveEnemyHitAgainstPlayer } from "./enemies";
 import { canPayEnergyCost, calculateCardDamage } from "./combatEconomy";
 import { IRON_WALL_RESISTANCE, cardEnergyCost } from "./cardEffects";
@@ -56,7 +56,7 @@ export function createResolvePlayedCard(context: ResolvePlayedCardContext) {
     lowestHealthEnemy,
     isStarterOrBasicCard,
   } = context;
-  return (card: Card, targetEnemyId?: string) => {
+  return (card: Card, targetEnemyId?: string, discardCostPaid = false) => {
     if (UNPLAYABLE_CARD_EFFECTS.has(card.effect)) {
       setGame((current) => ({ ...current, message: `${card.name}은(는) 사용할 수 없습니다. 파일 위로 옮겨 길을 만들어 보세요.` }));
       return;
@@ -80,6 +80,7 @@ export function createResolvePlayedCard(context: ResolvePlayedCardContext) {
       && game.pendingDiscards === 0
       && game.pendingResearchDraw === null
       && !game.pendingSweep
+      && (discardCostPaid || (card.discardCost ?? 0) === 0)
       && canPayEnergyCost(
         game.energy,
         cardEnergyCost(card, game.activeRuleCards.filter((ruleCard) => ruleCard.effect === "lawResearch").length, game.forgeCount) ?? Infinity,
@@ -94,7 +95,7 @@ export function createResolvePlayedCard(context: ResolvePlayedCardContext) {
               : card.effect === "doubleHit" && card.forged ? 2 : 1
       ) * (game.doubleNextAttack ? 2 : 1);
       const combatManualBonus = game.hand
-        .filter((item) => item.effect === "combatManual")
+        .filter((item) => item.effect === "combatManual" || item.effect === "strategyBook")
         .reduce((total, item) => total + item.value, 0)
         + (blessings.includes("backToBasics") && isStarterOrBasicCard(card) ? 4 : 0);
       const damage = calculateCardDamage(
@@ -208,12 +209,18 @@ export function createResolvePlayedCard(context: ResolvePlayedCardContext) {
         return { ...current, message: `${card.name}은(는) 에너지 비용이 없는 카드입니다.` };
       }
       const discardCost = card.discardCost ?? 0;
-      if (discardCost > 0 && current.hand.filter((item) => item.id !== card.id).length < discardCost) {
-        return { ...current, message: `${card.name}: 버릴 카드 ${discardCost}장이 필요합니다.` };
-      }
       const economicsResearchCount = current.activeRuleCards.filter((ruleCard) => ruleCard.effect === "economicsResearch").length;
       if (!canPayEnergyCost(current.energy, energyCost, economicsResearchCount)) {
         return { ...current, message: `${card.name}: 에너지가 ${energyCost} 필요합니다.` };
+      }
+      if (discardCost > 0 && !discardCostPaid) {
+        const enoughCards = current.hand.filter((item) => item.id !== card.id).length >= discardCost;
+        return {
+          ...current,
+          message: enoughCards
+            ? `${card.name}: 버릴 카드 ${discardCost}장을 먼저 선택해야 합니다.`
+            : `${card.name}: 버릴 카드 ${discardCost}장이 필요합니다.`,
+        };
       }
       if (card.effect === "endStart" && current.piles.some((pile) => pile.length > 0)) {
         return { ...current, message: "끝의 시작은 모든 파일이 비어 있을 때만 사용할 수 있습니다." };
@@ -250,7 +257,7 @@ export function createResolvePlayedCard(context: ResolvePlayedCardContext) {
       const meteorStars = isMeteor ? current.stars : 0;
       const repetitions = (isHydra ? 9 : isMeteor ? meteorStars : card.effect === "fourHit" ? 5 : isDoubleHit && card.forged ? 2 : 1) * (isDamageCard && current.doubleNextAttack ? 2 : 1);
       const combatManualBonus = current.hand
-        .filter((item) => item.effect === "combatManual")
+        .filter((item) => item.effect === "combatManual" || item.effect === "strategyBook")
         .reduce((total, item) => total + item.value, 0)
         + (blessings.includes("backToBasics") && isStarterOrBasicCard(card) ? 4 : 0);
       const grimoireBonus = current.hand.filter((item) => item.effect === "grimoire").length;
@@ -424,10 +431,15 @@ export function createResolvePlayedCard(context: ResolvePlayedCardContext) {
         { length: radianceCount },
         () => createRadianceCard(nextCardIdRef.current++),
       );
-      const pendingDiscards = card.discardCost ?? (card.effect === "prepare"
+      const wishBlueprint = card.effect === "wish"
+        ? RARE_CARD_POOL[Math.floor(Math.random() * RARE_CARD_POOL.length)]
+        : undefined;
+      const generatedWishCards: Card[] = wishBlueprint
+        ? [{ ...wishBlueprint, id: nextCardIdRef.current++, revealed: true, token: true }]
+        : [];
+      const pendingDiscards = discardCostPaid ? 0 : card.discardCost ?? (card.effect === "prepare"
         ? (canDraw || remainingHand.length > 0 ? 1 : 0)
         : card.effect === "focus" && remainingHand.length > 0 ? 1 : 0);
-      const pendingDiscardEnergy = pendingDiscards > 0 ? card.discardEnergyGain ?? 0 : 0;
       const pendingSweep = card.effect === "boomerang" && canDraw;
       const pendingPileOperation = card.effect === "boomerang"
         ? card.name === "정리 타격" ? "discardTop" as const : "moveTopToBottom" as const
@@ -466,10 +478,11 @@ export function createResolvePlayedCard(context: ResolvePlayedCardContext) {
         if (card.effect === "battlePlan") return `★ ${card.value}개 획득 · 드로우 ${card.draw}`;
         if (card.effect === "prepare") return canDraw ? "드로우할 파일을 선택하세요." : "버릴 카드를 선택하세요.";
         if (card.effect === "focus") return "에너지를 1 얻습니다 · 버릴 카드를 선택하세요.";
-        if (card.effect === "pruning") return "과감한 결단: 버릴 카드 2장을 선택하세요.";
+        if (card.effect === "pruning") return `과감한 결단: 에너지 ${card.discardEnergyGain ?? card.value} 획득`;
         if (card.effect === "adrenaline") return `체력 2 감소 · 에너지 ${card.value} 획득 · 카드 ${card.draw}장 드로우`;
         if (card.effect === "sweep") return canDraw ? "가져올 파일을 선택하세요." : "가져올 카드가 없습니다.";
         if (card.effect === "drawEachPile") return `모든 파일에서 ${drawEachPileResult?.hand.length ?? 0}장 뽑음`;
+        if (card.effect === "wish") return `소원: ${generatedWishCards[0]?.name ?? "희귀 카드"} 획득`;
         if (card.effect === "dash") return `질주: 무작위 파일에서 ${dashRandomResult?.hand.length ?? 0}장 뽑음`;
         if (card.effect === "berserk") return "에너지를 2 얻습니다 · 물리 취약 2 획득";
         if (card.effect === "transcend") return "이번 턴 피해 면역 · 힘 5 획득";
@@ -494,7 +507,7 @@ export function createResolvePlayedCard(context: ResolvePlayedCardContext) {
         : "";
       return {
         ...current,
-        hand: [...remainingHand, ...(automaticDrawnCards ?? []), ...generatedRadiances],
+        hand: [...remainingHand, ...(automaticDrawnCards ?? []), ...generatedRadiances, ...generatedWishCards],
         // 강화는 사용 후에도 다음 셔플 전까지 유지된다. 셔플 때 prepareDeckForPiles가 해제한다.
         discard: card.exhaust || card.token
           ? current.discard
@@ -503,7 +516,7 @@ export function createResolvePlayedCard(context: ResolvePlayedCardContext) {
           ...current.removedFromReshuffleIds,
           ...(card.exhaust ? [card.id] : []),
         ])],
-        energy: current.energy - energyCost + (card.effect === "aries" ? 5 : card.effect === "berserk" ? 2 : card.effect === "plateArmor" ? (card.forged ? 3 : 1) : card.effect === "focus" || card.effect === "adrenaline" || card.effect === "charge" || card.effect === "endStart" || card.effect === "supernova" ? card.value : card.effect === "flood" ? 2 : card.effect === "ventilate" ? card.value : 0),
+        energy: current.energy - energyCost + (card.effect === "aries" ? 5 : card.effect === "berserk" ? 2 : card.effect === "plateArmor" ? (card.forged ? 3 : 1) : card.effect === "focus" || card.effect === "adrenaline" || card.effect === "charge" || card.effect === "endStart" || card.effect === "supernova" ? card.value : card.effect === "flood" ? 2 : card.effect === "ventilate" ? card.value : 0) + (discardCostPaid ? (card.discardEnergyGain ?? 0) : 0),
         radiancePlayedThisTurn: current.radiancePlayedThisTurn + (isRadiance ? 1 : 0),
         stars: current.stars + (
           card.effect === "battlePlan"
@@ -533,7 +546,6 @@ export function createResolvePlayedCard(context: ResolvePlayedCardContext) {
           ? [...current.pendingRadiance, { turns: 2, count: card.value }]
           : current.pendingRadiance,
         pendingDiscards,
-        pendingDiscardEnergy,
         pendingSweep,
         pendingPileOperation,
         enemies: nextEnemies,
@@ -543,9 +555,9 @@ export function createResolvePlayedCard(context: ResolvePlayedCardContext) {
         playerPhysicalVulnerability: nextPhysicalStatus.vulnerability,
         playerMagicResistance: nextMagicStatus.resistance,
         playerMagicVulnerability: nextMagicStatus.vulnerability,
-        strength: current.strength + (card.effect === "orion" ? 10 : card.effect === "warmUp" ? card.value + 1 : card.effect === "augment" || card.effect === "weaponSharpen" ? card.value : 0),
+        strength: current.strength + (card.effect === "orion" ? 10 : card.effect === "warmUp" ? card.value + 1 : card.effect === "augment" || card.effect === "weaponSharpen" || card.effect === "strategyBook" ? card.value : 0),
         temporaryStrength: current.temporaryStrength + (card.effect === "warmUp" ? card.value : 0),
-        agility: current.agility + (card.effect === "augment" || card.effect === "armorSharpen" ? card.value : 0),
+        agility: current.agility + (card.effect === "augment" || card.effect === "armorSharpen" || card.effect === "strategyBook" ? card.value : 0),
         piles: massDealPiles,
         reflectDamage: card.effect === "counter" ? 1 : current.reflectDamage,
         defenseMultiplier: current.defenseMultiplier,

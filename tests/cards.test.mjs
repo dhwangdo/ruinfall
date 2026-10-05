@@ -19,10 +19,10 @@ import { getCardKeywordInfos } from "../app/game/cardEffects.ts";
 test("card pools preserve the current content counts", () => {
   assert.equal(STARTER_CARD_POOL.length, 3);
   assert.equal(BASIC_CARD_POOL.length, 6);
-  assert.equal(SPECIAL_CARD_POOL.length, 34);
-  assert.equal(RARE_CARD_POOL.length, 15);
+  assert.equal(SPECIAL_CARD_POOL.length, 36);
+  assert.equal(RARE_CARD_POOL.length, 17);
   assert.equal(LEGENDARY_CARD_POOL.length, 6);
-  assert.equal(ALL_CARD_BLUEPRINTS.length, 65);
+  assert.equal(ALL_CARD_BLUEPRINTS.length, 69);
 });
 
 test("special card pool contains the updated cards and excludes sharpen cards", () => {
@@ -64,7 +64,29 @@ test("new rare cards and the discard keyword carry their intended rules", () => 
   const decision = SPECIAL_CARD_POOL.find((card) => card.name === "과감한 결단");
   const discardKeyword = decision && getCardKeywordInfos({ ...decision, id: 1, revealed: true })
     .find((keyword) => keyword.name === "버리기 X");
-  assert.match(discardKeyword?.description ?? "", /손패에 버릴 카드가 X장보다 적으면 사용할 수 없습니다/);
+  assert.match(discardKeyword?.description ?? "", /손패의 다른 카드 X장을 버립니다/);
+  assert.match(discardKeyword?.description ?? "", /버릴 카드가 X장보다 적으면 사용할 수 없습니다/);
+  const wish = RARE_CARD_POOL.find((card) => card.name === "소원");
+  assert.deepEqual(wish && { cost: wish.cost, rarity: wish.rarity, effect: wish.effect }, { cost: 0, rarity: "rare", effect: "wish" });
+  assert.equal(getCardKeywordInfos({ ...wish, id: 2, revealed: true }).some((keyword) => keyword.name === "토큰"), true);
+  const strategyBook = RARE_CARD_POOL.find((card) => card.name === "병법서");
+  assert.deepEqual(
+    strategyBook && { cost: strategyBook.cost, value: strategyBook.value, exhaust: strategyBook.exhaust },
+    { cost: 2, value: 4, exhaust: true },
+  );
+  const strategyKeywords = getCardKeywordInfos({ ...strategyBook, id: 3, revealed: true }).map((keyword) => keyword.name);
+  assert.equal(strategyKeywords.includes("힘"), true);
+  assert.equal(strategyKeywords.includes("강인함"), true);
+  assert.deepEqual(
+    ["과감한 돌진", "과감한 회피"].map((name) => {
+      const card = SPECIAL_CARD_POOL.find((item) => item.name === name);
+      return card && { cost: card.cost, value: card.value, discardCost: card.discardCost };
+    }),
+    [
+      { cost: 1, value: 15, discardCost: 1 },
+      { cost: 1, value: 15, discardCost: 2 },
+    ],
+  );
 });
 
 test("current card data keeps key balance values and removed systems absent", () => {

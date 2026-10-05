@@ -19,6 +19,7 @@ type BattleHandAreaProps = {
   phase: Phase;
   dragging: DragState | null;
   selectedHandCardId: number | null;
+  pendingDiscardCardId: number | null;
   hoveredHandCardId: number | null;
   setHoveredHandCardId: Dispatch<SetStateAction<number | null>>;
   setSelectedHandCardId: Dispatch<SetStateAction<number | null>>;
@@ -51,6 +52,7 @@ export function BattleHandArea({
   phase,
   dragging,
   selectedHandCardId,
+  pendingDiscardCardId,
   hoveredHandCardId,
   setHoveredHandCardId,
   setSelectedHandCardId,
@@ -395,7 +397,7 @@ export function BattleHandArea({
               onDoubleClick={(event) => {
                 if (handCardAtPointer(event.clientX, event.clientY) === card.id) onPlayHandCardOnDoubleClick(card);
               }}
-              disabled={controlsLocked && game.pendingDiscards === 0}
+              disabled={(controlsLocked && game.pendingDiscards === 0) || card.id === pendingDiscardCardId}
               aria-label={UNPLAYABLE_CARD_EFFECTS.has(card.effect) ? `${card.name}, 비용 -, 사용 불가` : `${card.name}, 에너지 ${cardEnergyCost(card, lawResearchCount, game.forgeCount)}`}
             >
               <CardFace

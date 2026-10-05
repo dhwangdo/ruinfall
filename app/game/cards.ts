@@ -51,6 +51,8 @@ export type CardEffect =
   | "plateArmorDefense"
   | "pruning"
   | "evolutionTheory"
+  | "wish"
+  | "strategyBook"
   | "warmUp"
   | "ironWall"
   | "fourHit"
@@ -142,7 +144,7 @@ export function isAttackCard(card: { kind: CardKind; effect: CardEffect }) {
   return card.kind === "strike" || ATTACK_CARD_EFFECTS.has(card.effect);
 }
 
-export const HAND_PASSIVE_EFFECTS = new Set<CardEffect>(["combatManual", "grimoire"]);
+export const HAND_PASSIVE_EFFECTS = new Set<CardEffect>(["combatManual", "grimoire", "strategyBook"]);
 export const UNPLAYABLE_CARD_EFFECTS = new Set<CardEffect>([
   "slime", "soil", "rock", "combatManual", "grimoire", "wolfTalisman", "turtleTalisman",
 ]);
@@ -189,6 +191,8 @@ export const SPECIAL_CARD_POOL: CardBlueprint[] = [
   { kind: "skill", effect: "plateArmor", rarity: "special", name: "낡은 노심", cost: 1, value: 1, draw: 0, damageType: "physical", forgeCost: 3 },
   { kind: "skill", effect: "plateArmorDefense", rarity: "special", name: "판금 갑옷", cost: 1, value: 8, draw: 0, damageType: "physical", forgeCost: 3 },
   { kind: "skill", effect: "pruning", rarity: "special", name: "과감한 결단", cost: 0, value: 2, draw: 0, damageType: "physical", discardCost: 2, discardEnergyGain: 2 },
+  { kind: "strike", effect: "strike", rarity: "special", name: "과감한 돌진", cost: 1, value: 15, draw: 0, damageType: "physical", discardCost: 1 },
+  { kind: "skill", effect: "defend", rarity: "special", name: "과감한 회피", cost: 1, value: 15, draw: 0, damageType: "physical", discardCost: 2 },
   { kind: "skill", effect: "dash", rarity: "special", name: "질주", cost: 1, value: 0, draw: 0, damageType: "physical", forgeCost: 3 },
   { kind: "skill", effect: "quickStep", rarity: "special", name: "퀵스텝", cost: 1, value: 0, draw: 2, damageType: "physical" },
 { kind: "strike", effect: "suppression", rarity: "special", name: "진압", cost: 3, value: 13, draw: 0, damageType: "physical" },
@@ -205,6 +209,8 @@ export const SPECIAL_CARD_POOL: CardBlueprint[] = [
 ];
 
 export const RARE_CARD_POOL: CardBlueprint[] = [
+  { kind: "skill", effect: "wish", rarity: "rare", name: "소원", cost: 0, value: 0, draw: 0, damageType: "physical" },
+  { kind: "skill", effect: "strategyBook", rarity: "rare", name: "병법서", cost: 2, value: 4, draw: 0, damageType: "physical", exhaust: true },
   { kind: "skill", effect: "evolutionTheory", rarity: "rare", name: "진화론", cost: 2, value: 1, draw: 0, damageType: "physical", exhaust: true, rule: true },
   { kind: "skill", effect: "drawEachPile", rarity: "rare", name: "책 펼치기", cost: 1, value: 0, draw: 0, damageType: "physical" },
   { kind: "strike", effect: "obsidianDagger", rarity: "rare", name: "흑요석 단검", cost: 2, value: 1, draw: 0, damageType: "physical" },

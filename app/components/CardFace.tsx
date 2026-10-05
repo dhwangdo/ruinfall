@@ -211,11 +211,11 @@ export function CardFaceView({
   const effectText = (() => {
     switch (card.effect) {
       case "strike":
-        return <><span><span className="effect-type damage">피해</span>를 {damageNumber} 줍니다.</span>{card.draw > 0 && <span>카드를 {card.draw}장 뽑습니다.</span>}</>;
+        return <>{card.discardCost !== undefined && <span><strong className="effect-keyword">버리기 {card.discardCost}</strong>.</span>}<span><span className="effect-type damage">피해</span>를 {damageNumber} 줍니다.</span>{card.draw > 0 && <span>카드를 {card.draw}장 뽑습니다.</span>}</>;
       case "pommel":
         return <><span><span className="effect-type damage">피해</span>를 {damageNumber} 줍니다.</span><span>첫 번째 파일에서 카드를 1장 뽑습니다.</span></>;
       case "defend":
-        return <span><span className={`effect-type ${card.damageType}`}>{DEFENSE_LABEL[card.damageType]}</span>를 {defenseNumber} 얻습니다.</span>;
+        return <>{card.discardCost !== undefined && <span><strong className="effect-keyword">버리기 {card.discardCost}</strong>.</span>}<span><span className={`effect-type ${card.damageType}`}>{DEFENSE_LABEL[card.damageType]}</span>를 {defenseNumber} 얻습니다.</span></>;
       case "deflect":
         return <><span><span className="effect-type physical">방어</span>를 {defenseNumber} 얻습니다.</span><span>카드를 1장 뽑습니다.</span></>;
       case "battlePlan":
@@ -232,6 +232,10 @@ export function CardFaceView({
         return <span>모든 적에게 <span className="effect-type damage">피해</span>를 {damageNumber} 줍니다.</span>;
       case "drawEachPile":
         return <span>모든 파일에서 카드를 1장씩 뽑습니다.</span>;
+      case "wish":
+        return <span>무작위 희귀 카드를 가져옵니다. 그 카드에 <strong className="effect-keyword">토큰</strong> 속성을 부여합니다.</span>;
+      case "strategyBook":
+        return <><span><strong className="effect-keyword">힘</strong>과 <strong className="effect-keyword">강인함</strong>을 4 얻습니다.</span><span>손패에 있는 동안에도 적용됩니다.</span></>;
       case "evolutionTheory":
         return <span>턴 시작 시 <strong className="effect-keyword">힘</strong>과 <strong className="effect-keyword">강인함</strong>을 1 얻습니다.</span>;
       case "dash":
