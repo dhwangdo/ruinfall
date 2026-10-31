@@ -1,0 +1,972 @@
+{
+  "revision": "dfc84dc",
+  "build": "offense",
+  "seed": 20261101,
+  "runs": 60,
+  "bankSize": 12,
+  "maxTurns": 40,
+  "assumptions": [
+    "50 HP fresh per encounter; no blessings or tickets",
+    "Actual engine, real deck generator, actual HP rolls and Gods Lament",
+    "Greedy visible-information policies; no access to hidden card identities or future random enemy intents",
+    "No manual enemy stat changes",
+    "Astronomy and necromancy are used by simple fixed heuristics",
+    "Not human win rates or an optimal-play bound"
+  ],
+  "decks": [
+    {
+      "name": "시작덱·비탄·1지역",
+      "decks": [
+        {
+          "capacity": 20,
+          "editions": [],
+          "cards": {
+            "타격": 6,
+            "방어": 6,
+            "전투 교본": 1,
+            "자와 컴퍼스": 1,
+            "기회 창출": 1,
+            "별의 장막": 1
+          }
+        }
+      ]
+    },
+    {
+      "name": "1지역 드롭덱+특별 3장·비탄 없음",
+      "decks": [
+        {
+          "capacity": 30,
+          "editions": [],
+          "cards": {
+            "광학 연구": 1,
+            "별의 장막": 7,
+            "늑대 부적": 1,
+            "금속학 연구": 1,
+            "질주": 1,
+            "타격": 5,
+            "기합": 1,
+            "별의 방주": 1,
+            "얼음 방패": 1,
+            "백스텝": 1,
+            "파쇄": 1,
+            "비늘 갑옷": 1
+          }
+        },
+        {
+          "capacity": 25,
+          "editions": [
+            "defensiveStance",
+            "roomy"
+          ],
+          "cards": {
+            "견고한 태세": 1,
+            "광학 연구": 1,
+            "오딘의 창": 1,
+            "과감한 회피": 2,
+            "타격": 4,
+            "기회 창출": 2,
+            "거북이 부적": 1,
+            "별의 장막": 2,
+            "준비 운동": 1,
+            "자와 컴퍼스": 1,
+            "백스텝": 1,
+            "파쇄": 1,
+            "비늘 갑옷": 1
+          }
+        },
+        {
+          "capacity": 20,
+          "editions": [
+            "drawPlus",
+            "roomy"
+          ],
+          "cards": {
+            "경제학 연구": 1,
+            "오딘의 창": 1,
+            "전투 교본": 2,
+            "타격": 2,
+            "치환 합금": 1,
+            "기회 창출": 2,
+            "과감한 돌진": 1,
+            "응수": 1,
+            "전략가": 1,
+            "파쇄": 2,
+            "자와 컴퍼스": 1,
+            "백스텝": 1,
+            "비늘 갑옷": 1
+          }
+        },
+        {
+          "capacity": 25,
+          "editions": [
+            "energyPlus"
+          ],
+          "cards": {
+            "전술가": 1,
+            "기회 창출": 4,
+            "타격": 6,
+            "대형 프리즘": 1,
+            "기회 포착": 2,
+            "치환 합금": 1,
+            "별빛": 1,
+            "얼음 방패": 1,
+            "기합": 2,
+            "금속학 연구": 1,
+            "백스텝": 1,
+            "파쇄": 1,
+            "비늘 갑옷": 1
+          }
+        },
+        {
+          "capacity": 20,
+          "editions": [],
+          "cards": {
+            "연사": 1,
+            "경제학 연구": 1,
+            "불굴": 1,
+            "방어": 4,
+            "강령학 연구": 1,
+            "기회 포착": 2,
+            "과감한 돌진": 1,
+            "응수": 1,
+            "청동 철퇴": 1,
+            "백스텝": 1,
+            "파쇄": 1,
+            "비늘 갑옷": 1
+          }
+        },
+        {
+          "capacity": 20,
+          "editions": [
+            "starThree"
+          ],
+          "cards": {
+            "소원": 1,
+            "마도서": 1,
+            "응수": 1,
+            "무릎차기": 1,
+            "묵직한 한 방": 1,
+            "전투 교본": 3,
+            "준비 운동": 1,
+            "기회 창출": 1,
+            "기회 포착": 1,
+            "방어": 1,
+            "백스텝": 1,
+            "파쇄": 1,
+            "비늘 갑옷": 1
+          }
+        },
+        {
+          "capacity": 25,
+          "editions": [
+            "defensiveStance",
+            "drawPlus"
+          ],
+          "cards": {
+            "사계절": 1,
+            "5연격": 1,
+            "전투 교본": 4,
+            "별의 장막": 2,
+            "잽": 1,
+            "재주넘기": 2,
+            "가호": 1,
+            "과감한 돌진": 1,
+            "파쇄": 2,
+            "질주": 1,
+            "타격": 2,
+            "싸움 준비": 1,
+            "갈라치기": 1,
+            "백스텝": 1,
+            "비늘 갑옷": 1
+          }
+        },
+        {
+          "capacity": 25,
+          "editions": [],
+          "cards": {
+            "진화론": 1,
+            "대분배": 1,
+            "타격": 4,
+            "기회 창출": 3,
+            "재주넘기": 1,
+            "파쇄": 3,
+            "전투 교본": 2,
+            "백스텝": 2,
+            "기합": 1,
+            "자와 컴퍼스": 1,
+            "갈라치기": 1,
+            "비늘 갑옷": 1
+          }
+        },
+        {
+          "capacity": 25,
+          "editions": [
+            "clever"
+          ],
+          "cards": {
+            "사계절": 1,
+            "얼음 방패": 1,
+            "빛무리": 1,
+            "별의 장막": 2,
+            "치환 합금": 2,
+            "기회 창출": 3,
+            "타격": 2,
+            "갈라치기": 1,
+            "청동 철퇴": 1,
+            "자와 컴퍼스": 2,
+            "은검": 1,
+            "과감한 결단": 1,
+            "백스텝": 1,
+            "파쇄": 1,
+            "비늘 갑옷": 1
+          }
+        },
+        {
+          "capacity": 25,
+          "editions": [
+            "drawPlus",
+            "starPlus"
+          ],
+          "cards": {
+            "광행시간": 1,
+            "광학 연구": 1,
+            "정리 타격": 1,
+            "별의 장막": 2,
+            "무릎차기": 1,
+            "질주": 1,
+            "금속학 연구": 1,
+            "방어": 2,
+            "청동 철퇴": 1,
+            "늑대 부적": 1,
+            "치환 합금": 1,
+            "백스텝": 1,
+            "파쇄": 1,
+            "비늘 갑옷": 1
+          }
+        },
+        {
+          "capacity": 25,
+          "editions": [
+            "clever"
+          ],
+          "cards": {
+            "견고한 태세": 1,
+            "과감한 회피": 1,
+            "기회 창출": 1,
+            "전투 교본": 2,
+            "거북이 부적": 1,
+            "정리 타격": 1,
+            "질주": 1,
+            "별의 장막": 3,
+            "늑대 부적": 2,
+            "타격": 4,
+            "백스텝": 1,
+            "파쇄": 1,
+            "비늘 갑옷": 1
+          }
+        },
+        {
+          "capacity": 25,
+          "editions": [
+            "roomy",
+            "defensiveStance"
+          ],
+          "cards": {
+            "흑요석 단검": 1,
+            "잽": 4,
+            "별의 방주": 1,
+            "휩쓸기": 2,
+            "타격": 2,
+            "기회 창출": 1,
+            "얼음 방패": 1,
+            "은검": 1,
+            "과감한 결단": 1,
+            "별의 장막": 1,
+            "빛무리": 1,
+            "백스텝": 1,
+            "파쇄": 1,
+            "비늘 갑옷": 1
+          }
+        }
+      ]
+    },
+    {
+      "name": "2지역 드롭덱+특별 4장·비탄 없음",
+      "decks": [
+        {
+          "capacity": 30,
+          "editions": [
+            "greedy"
+          ],
+          "cards": {
+            "병법서": 1,
+            "마도서": 1,
+            "초신성": 1,
+            "개박살": 1,
+            "기회 포착": 2,
+            "늑대 부적": 1,
+            "퀵스텝": 1,
+            "전투 교본": 2,
+            "타격": 2,
+            "갈라치기": 1,
+            "청동 철퇴": 2,
+            "빛무리": 1,
+            "판금 갑옷": 2,
+            "잽": 2,
+            "무릎차기": 1,
+            "파쇄": 1,
+            "백스텝": 1
+          }
+        },
+        {
+          "capacity": 30,
+          "editions": [
+            "greedy"
+          ],
+          "cards": {
+            "사계절": 1,
+            "오딘의 창": 1,
+            "방어": 3,
+            "낡은 노심": 1,
+            "자와 컴퍼스": 2,
+            "별의 장막": 2,
+            "기회 창출": 3,
+            "늑대 부적": 1,
+            "대형 프리즘": 1,
+            "기합": 1,
+            "과감한 결단": 1,
+            "싸움 준비": 1,
+            "무릎차기": 1,
+            "파쇄": 1,
+            "청동 철퇴": 1,
+            "백스텝": 1
+          }
+        },
+        {
+          "capacity": 30,
+          "editions": [
+            "starThree"
+          ],
+          "cards": {
+            "불굴": 1,
+            "광행시간": 1,
+            "방어": 4,
+            "묵직한 한 방": 1,
+            "기회 창출": 2,
+            "오시리스 선": 1,
+            "준비 운동": 1,
+            "정리 타격": 1,
+            "기회 포착": 2,
+            "전투 교본": 1,
+            "백스텝": 2,
+            "빛무리": 1,
+            "전략가": 1,
+            "무릎차기": 1,
+            "파쇄": 1,
+            "청동 철퇴": 1
+          }
+        },
+        {
+          "capacity": 30,
+          "editions": [
+            "deckHighlander"
+          ],
+          "cards": {
+            "광행시간": 1,
+            "비늘 갑옷": 1,
+            "기회 포착": 3,
+            "방어": 4,
+            "오시리스 선": 1,
+            "갈라치기": 1,
+            "기회 창출": 2,
+            "거울상": 2,
+            "가호": 1,
+            "진압": 1,
+            "대형 프리즘": 1,
+            "묵직한 한 방": 1,
+            "판금 갑옷": 1,
+            "무릎차기": 1,
+            "파쇄": 1,
+            "청동 철퇴": 1,
+            "백스텝": 1
+          }
+        },
+        {
+          "capacity": 35,
+          "editions": [
+            "starPlus",
+            "roomy"
+          ],
+          "cards": {
+            "초신성": 1,
+            "광행시간": 1,
+            "자와 컴퍼스": 5,
+            "과감한 결단": 1,
+            "잽": 3,
+            "방어": 4,
+            "천문학 연구": 3,
+            "싸움 준비": 1,
+            "늑대 부적": 1,
+            "청동 철퇴": 2,
+            "질주": 1,
+            "무릎차기": 1,
+            "파쇄": 1,
+            "백스텝": 1
+          }
+        },
+        {
+          "capacity": 35,
+          "editions": [
+            "starThree"
+          ],
+          "cards": {
+            "병법서": 1,
+            "사계절": 1,
+            "초신성": 1,
+            "별의 장막": 4,
+            "기회 창출": 2,
+            "타격": 5,
+            "과감한 회피": 1,
+            "싸움 준비": 1,
+            "무릎차기": 2,
+            "진압": 1,
+            "가호": 1,
+            "늑대 부적": 1,
+            "전투 교본": 1,
+            "청동 철퇴": 2,
+            "파쇄": 1,
+            "백스텝": 1
+          }
+        },
+        {
+          "capacity": 25,
+          "editions": [
+            "resistance"
+          ],
+          "cards": {
+            "법학 연구": 1,
+            "견고한 태세": 1,
+            "기회 창출": 3,
+            "방어": 2,
+            "별의 장막": 3,
+            "은검": 1,
+            "묵직한 한 방": 1,
+            "질주": 1,
+            "가호": 1,
+            "무릎차기": 1,
+            "파쇄": 1,
+            "청동 철퇴": 1,
+            "백스텝": 1
+          }
+        },
+        {
+          "capacity": 35,
+          "editions": [
+            "energyPlus",
+            "clever"
+          ],
+          "cards": {
+            "법학 연구": 1,
+            "방어": 3,
+            "자와 컴퍼스": 8,
+            "전투 교본": 2,
+            "과감한 회피": 1,
+            "빛무리": 1,
+            "거북이 부적": 1,
+            "과감한 결단": 1,
+            "무릎차기": 2,
+            "갈라치기": 1,
+            "백스텝": 2,
+            "파쇄": 1,
+            "청동 철퇴": 1
+          }
+        },
+        {
+          "capacity": 25,
+          "editions": [
+            "energyPlus",
+            "starThree"
+          ],
+          "cards": {
+            "병법서": 1,
+            "사계절": 1,
+            "과감한 돌진": 1,
+            "과감한 결단": 1,
+            "과감한 회피": 1,
+            "기회 창출": 5,
+            "청동 철퇴": 2,
+            "방어": 3,
+            "별의 장막": 2,
+            "퀵스텝": 1,
+            "오시리스 선": 1,
+            "은검": 1,
+            "무릎차기": 1,
+            "파쇄": 1,
+            "백스텝": 1
+          }
+        },
+        {
+          "capacity": 30,
+          "editions": [
+            "whiteSpace"
+          ],
+          "cards": {
+            "견고한 태세": 1,
+            "기회 창출": 2,
+            "치환 합금": 1,
+            "잽": 5,
+            "판금 갑옷": 1,
+            "타격": 4,
+            "무릎차기": 2,
+            "과감한 회피": 2,
+            "5연격": 1,
+            "싸움 준비": 1,
+            "파쇄": 1,
+            "청동 철퇴": 1,
+            "백스텝": 1
+          }
+        },
+        {
+          "capacity": 30,
+          "editions": [
+            "greedy"
+          ],
+          "cards": {
+            "불굴": 1,
+            "병법서": 1,
+            "타격": 4,
+            "퀵스텝": 1,
+            "갈라치기": 1,
+            "비늘 갑옷": 1,
+            "별의 장막": 5,
+            "파쇄": 2,
+            "응수": 1,
+            "자와 컴퍼스": 1,
+            "과감한 회피": 1,
+            "거울상": 1,
+            "거북이 부적": 1,
+            "무릎차기": 1,
+            "청동 철퇴": 1,
+            "백스텝": 1
+          }
+        },
+        {
+          "capacity": 25,
+          "editions": [
+            "resistance",
+            "clever"
+          ],
+          "cards": {
+            "초신성": 1,
+            "별의 장막": 6,
+            "방어": 2,
+            "은검": 1,
+            "퀵스텝": 1,
+            "백스텝": 2,
+            "빛무리": 1,
+            "과감한 돌진": 1,
+            "천문학 연구": 1,
+            "전투 교본": 2,
+            "무릎차기": 1,
+            "파쇄": 1,
+            "청동 철퇴": 1
+          }
+        }
+      ]
+    }
+  ],
+  "results": [
+    {
+      "scenario": "2지역 드롭덱+특별 4장·비탄 없음",
+      "encounter": "골렘",
+      "boss": false,
+      "policy": "balanced",
+      "runs": 60,
+      "wins": 43,
+      "winRate": 0.7166666666666667,
+      "meanLoss": 32.45,
+      "winMeanLoss": 25.511627906976745,
+      "winMeanTurns": 5.558139534883721,
+      "meanMoves": 3.8333333333333335,
+      "timeouts": 0
+    },
+    {
+      "scenario": "2지역 드롭덱+특별 4장·비탄 없음",
+      "encounter": "골렘",
+      "boss": false,
+      "policy": "aggressive",
+      "runs": 60,
+      "wins": 44,
+      "winRate": 0.7333333333333333,
+      "meanLoss": 33,
+      "winMeanLoss": 26.818181818181817,
+      "winMeanTurns": 5.113636363636363,
+      "meanMoves": 3.25,
+      "timeouts": 0
+    },
+    {
+      "scenario": "2지역 드롭덱+특별 4장·비탄 없음",
+      "encounter": "도깨비",
+      "boss": false,
+      "policy": "balanced",
+      "runs": 60,
+      "wins": 50,
+      "winRate": 0.8333333333333334,
+      "meanLoss": 27.15,
+      "winMeanLoss": 22.58,
+      "winMeanTurns": 4.7,
+      "meanMoves": 3.05,
+      "timeouts": 0
+    },
+    {
+      "scenario": "2지역 드롭덱+특별 4장·비탄 없음",
+      "encounter": "도깨비",
+      "boss": false,
+      "policy": "aggressive",
+      "runs": 60,
+      "wins": 47,
+      "winRate": 0.7833333333333333,
+      "meanLoss": 29.7,
+      "winMeanLoss": 24.085106382978722,
+      "winMeanTurns": 4.319148936170213,
+      "meanMoves": 2.7,
+      "timeouts": 0
+    },
+    {
+      "scenario": "2지역 드롭덱+특별 4장·비탄 없음",
+      "encounter": "저주술사",
+      "boss": false,
+      "policy": "balanced",
+      "runs": 60,
+      "wins": 58,
+      "winRate": 0.9666666666666667,
+      "meanLoss": 17,
+      "winMeanLoss": 15.862068965517242,
+      "winMeanTurns": 3.4482758620689653,
+      "meanMoves": 2.183333333333333,
+      "timeouts": 0
+    },
+    {
+      "scenario": "2지역 드롭덱+특별 4장·비탄 없음",
+      "encounter": "저주술사",
+      "boss": false,
+      "policy": "aggressive",
+      "runs": 60,
+      "wins": 56,
+      "winRate": 0.9333333333333333,
+      "meanLoss": 18.15,
+      "winMeanLoss": 15.875,
+      "winMeanTurns": 3.3214285714285716,
+      "meanMoves": 1.9833333333333334,
+      "timeouts": 0
+    },
+    {
+      "scenario": "2지역 드롭덱+특별 4장·비탄 없음",
+      "encounter": "광대",
+      "boss": true,
+      "policy": "balanced",
+      "runs": 60,
+      "wins": 12,
+      "winRate": 0.2,
+      "meanLoss": 47.38333333333333,
+      "winMeanLoss": 36.916666666666664,
+      "winMeanTurns": 5.916666666666667,
+      "meanMoves": 3.7,
+      "timeouts": 0
+    },
+    {
+      "scenario": "2지역 드롭덱+특별 4장·비탄 없음",
+      "encounter": "광대",
+      "boss": true,
+      "policy": "aggressive",
+      "runs": 60,
+      "wins": 9,
+      "winRate": 0.15,
+      "meanLoss": 48.483333333333334,
+      "winMeanLoss": 39.888888888888886,
+      "winMeanTurns": 5.888888888888889,
+      "meanMoves": 3.3833333333333333,
+      "timeouts": 0
+    },
+    {
+      "scenario": "2지역 드롭덱+특별 4장·비탄 없음",
+      "encounter": "화약 운반병",
+      "boss": false,
+      "policy": "balanced",
+      "runs": 60,
+      "wins": 60,
+      "winRate": 1,
+      "meanLoss": 21.233333333333334,
+      "winMeanLoss": 21.233333333333334,
+      "winMeanTurns": 3.4166666666666665,
+      "meanMoves": 1.9333333333333333,
+      "timeouts": 0
+    },
+    {
+      "scenario": "2지역 드롭덱+특별 4장·비탄 없음",
+      "encounter": "화약 운반병",
+      "boss": false,
+      "policy": "aggressive",
+      "runs": 60,
+      "wins": 60,
+      "winRate": 1,
+      "meanLoss": 23.15,
+      "winMeanLoss": 23.15,
+      "winMeanTurns": 3.25,
+      "meanMoves": 1.7833333333333334,
+      "timeouts": 0
+    },
+    {
+      "scenario": "2지역 드롭덱+특별 4장·비탄 없음",
+      "encounter": "핏빛 광전사",
+      "boss": false,
+      "policy": "balanced",
+      "runs": 60,
+      "wins": 47,
+      "winRate": 0.7833333333333333,
+      "meanLoss": 26.883333333333333,
+      "winMeanLoss": 20.48936170212766,
+      "winMeanTurns": 6.340425531914893,
+      "meanMoves": 4.716666666666667,
+      "timeouts": 0
+    },
+    {
+      "scenario": "2지역 드롭덱+특별 4장·비탄 없음",
+      "encounter": "핏빛 광전사",
+      "boss": false,
+      "policy": "aggressive",
+      "runs": 60,
+      "wins": 55,
+      "winRate": 0.9166666666666666,
+      "meanLoss": 24.866666666666667,
+      "winMeanLoss": 22.581818181818182,
+      "winMeanTurns": 5.254545454545455,
+      "meanMoves": 3.066666666666667,
+      "timeouts": 0
+    },
+    {
+      "scenario": "2지역 드롭덱+특별 4장·비탄 없음",
+      "encounter": "수색견",
+      "boss": false,
+      "policy": "balanced",
+      "runs": 60,
+      "wins": 60,
+      "winRate": 1,
+      "meanLoss": 14.983333333333333,
+      "winMeanLoss": 14.983333333333333,
+      "winMeanTurns": 4.05,
+      "meanMoves": 2.95,
+      "timeouts": 0
+    },
+    {
+      "scenario": "2지역 드롭덱+특별 4장·비탄 없음",
+      "encounter": "수색견",
+      "boss": false,
+      "policy": "aggressive",
+      "runs": 60,
+      "wins": 60,
+      "winRate": 1,
+      "meanLoss": 18.816666666666666,
+      "winMeanLoss": 18.816666666666666,
+      "winMeanTurns": 3.8666666666666667,
+      "meanMoves": 2.45,
+      "timeouts": 0
+    },
+    {
+      "scenario": "2지역 드롭덱+특별 4장·비탄 없음",
+      "encounter": "대형 망치병",
+      "boss": false,
+      "policy": "balanced",
+      "runs": 60,
+      "wins": 53,
+      "winRate": 0.8833333333333333,
+      "meanLoss": 27.083333333333332,
+      "winMeanLoss": 24.056603773584907,
+      "winMeanTurns": 4.60377358490566,
+      "meanMoves": 3.316666666666667,
+      "timeouts": 0
+    },
+    {
+      "scenario": "2지역 드롭덱+특별 4장·비탄 없음",
+      "encounter": "대형 망치병",
+      "boss": false,
+      "policy": "aggressive",
+      "runs": 60,
+      "wins": 48,
+      "winRate": 0.8,
+      "meanLoss": 30,
+      "winMeanLoss": 25,
+      "winMeanTurns": 4.1875,
+      "meanMoves": 2.783333333333333,
+      "timeouts": 0
+    },
+    {
+      "scenario": "2지역 드롭덱+특별 4장·비탄 없음",
+      "encounter": "족쇄 간수",
+      "boss": false,
+      "policy": "balanced",
+      "runs": 60,
+      "wins": 54,
+      "winRate": 0.9,
+      "meanLoss": 17.416666666666668,
+      "winMeanLoss": 13.796296296296296,
+      "winMeanTurns": 6.111111111111111,
+      "meanMoves": 3.8,
+      "timeouts": 0
+    },
+    {
+      "scenario": "2지역 드롭덱+특별 4장·비탄 없음",
+      "encounter": "족쇄 간수",
+      "boss": false,
+      "policy": "aggressive",
+      "runs": 60,
+      "wins": 53,
+      "winRate": 0.8833333333333333,
+      "meanLoss": 18.65,
+      "winMeanLoss": 14.50943396226415,
+      "winMeanTurns": 5.60377358490566,
+      "meanMoves": 3.566666666666667,
+      "timeouts": 0
+    },
+    {
+      "scenario": "2지역 드롭덱+특별 4장·비탄 없음",
+      "encounter": "봉인 파수꾼",
+      "boss": false,
+      "policy": "balanced",
+      "runs": 60,
+      "wins": 37,
+      "winRate": 0.6166666666666667,
+      "meanLoss": 27.716666666666665,
+      "winMeanLoss": 13.864864864864865,
+      "winMeanTurns": 4.675675675675675,
+      "meanMoves": 2.8,
+      "timeouts": 0
+    },
+    {
+      "scenario": "2지역 드롭덱+특별 4장·비탄 없음",
+      "encounter": "봉인 파수꾼",
+      "boss": false,
+      "policy": "aggressive",
+      "runs": 60,
+      "wins": 38,
+      "winRate": 0.6333333333333333,
+      "meanLoss": 27.816666666666666,
+      "winMeanLoss": 14.973684210526315,
+      "winMeanTurns": 4.578947368421052,
+      "meanMoves": 2.683333333333333,
+      "timeouts": 0
+    },
+    {
+      "scenario": "2지역 드롭덱+특별 4장·비탄 없음",
+      "encounter": "발효 슬라임 2마리",
+      "boss": false,
+      "policy": "balanced",
+      "runs": 60,
+      "wins": 59,
+      "winRate": 0.9833333333333333,
+      "meanLoss": 10.133333333333333,
+      "winMeanLoss": 9.457627118644067,
+      "winMeanTurns": 5.508474576271187,
+      "meanMoves": 3.8,
+      "timeouts": 0
+    },
+    {
+      "scenario": "2지역 드롭덱+특별 4장·비탄 없음",
+      "encounter": "발효 슬라임 2마리",
+      "boss": false,
+      "policy": "aggressive",
+      "runs": 60,
+      "wins": 60,
+      "winRate": 1,
+      "meanLoss": 12.666666666666666,
+      "winMeanLoss": 12.666666666666666,
+      "winMeanTurns": 5.5,
+      "meanMoves": 3.3833333333333333,
+      "timeouts": 0
+    },
+    {
+      "scenario": "2지역 드롭덱+특별 4장·비탄 없음",
+      "encounter": "공허 해파리",
+      "boss": false,
+      "policy": "balanced",
+      "runs": 60,
+      "wins": 60,
+      "winRate": 1,
+      "meanLoss": 11.466666666666667,
+      "winMeanLoss": 11.466666666666667,
+      "winMeanTurns": 3.2,
+      "meanMoves": 1.8333333333333333,
+      "timeouts": 0
+    },
+    {
+      "scenario": "2지역 드롭덱+특별 4장·비탄 없음",
+      "encounter": "공허 해파리",
+      "boss": false,
+      "policy": "aggressive",
+      "runs": 60,
+      "wins": 60,
+      "winRate": 1,
+      "meanLoss": 11.783333333333333,
+      "winMeanLoss": 11.783333333333333,
+      "winMeanTurns": 3.216666666666667,
+      "meanMoves": 1.7833333333333334,
+      "timeouts": 0
+    },
+    {
+      "scenario": "2지역 드롭덱+특별 4장·비탄 없음",
+      "encounter": "피의 기수",
+      "boss": false,
+      "policy": "balanced",
+      "runs": 60,
+      "wins": 52,
+      "winRate": 0.8666666666666667,
+      "meanLoss": 22.833333333333332,
+      "winMeanLoss": 18.653846153846153,
+      "winMeanTurns": 3.6346153846153846,
+      "meanMoves": 2.216666666666667,
+      "timeouts": 0
+    },
+    {
+      "scenario": "2지역 드롭덱+특별 4장·비탄 없음",
+      "encounter": "피의 기수",
+      "boss": false,
+      "policy": "aggressive",
+      "runs": 60,
+      "wins": 54,
+      "winRate": 0.9,
+      "meanLoss": 24.033333333333335,
+      "winMeanLoss": 21.14814814814815,
+      "winMeanTurns": 3.5,
+      "meanMoves": 2.05,
+      "timeouts": 0
+    },
+    {
+      "scenario": "2지역 드롭덱+특별 4장·비탄 없음",
+      "encounter": "압수관",
+      "boss": false,
+      "policy": "balanced",
+      "runs": 60,
+      "wins": 60,
+      "winRate": 1,
+      "meanLoss": 8.516666666666667,
+      "winMeanLoss": 8.516666666666667,
+      "winMeanTurns": 5.45,
+      "meanMoves": 3.4166666666666665,
+      "timeouts": 0
+    },
+    {
+      "scenario": "2지역 드롭덱+특별 4장·비탄 없음",
+      "encounter": "압수관",
+      "boss": false,
+      "policy": "aggressive",
+      "runs": 60,
+      "wins": 60,
+      "winRate": 1,
+      "meanLoss": 11.1,
+      "winMeanLoss": 11.1,
+      "winMeanTurns": 5.183333333333334,
+      "meanMoves": 3.1333333333333333,
+      "timeouts": 0
+    }
+  ]
+}

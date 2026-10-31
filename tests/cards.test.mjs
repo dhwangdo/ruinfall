@@ -44,7 +44,8 @@ test("special card pool contains the updated cards and excludes sharpen cards", 
   assert.equal(card("불티"), undefined);
   assert.equal(card("잔바위"), undefined);
   assert.equal(card("철벽"), undefined);
-  assert.equal(card("가호"), undefined);
+  assert.equal(card("가호").effect, "resistanceWard");
+  assert.equal(SPECIAL_CARD_POOL.some(item => item.effect === "blessing"), false);
   assert.equal(card("판금 갑옷")?.value, 5);
   assert.equal(SPECIAL_CARD_POOL.some((item) => ["무기 연마", "방어구 연마"].includes(item.name)), false);
 });
