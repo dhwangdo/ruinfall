@@ -2,7 +2,6 @@ import { useState, type ComponentProps } from "react";
 import { CardFace } from "./CardFace";
 import { DeckName } from "./DeckName";
 import type { Card } from "../game/cards";
-import { IRON_WALL_COST } from "../game/cardEffects";
 import { CARD_RARITY_SORT_RANK, UNPLAYABLE_CARD_EFFECTS } from "../game/cards";
 import type { DeckCase } from "../game/rewards";
 import type { ShrineResult } from "../game/runTypes";
@@ -38,7 +37,7 @@ export function ExtractionShrineModal({
   const cardRarityRank = (card: Card) => CARD_RARITY_SORT_RANK[card.rarity];
   const cardSortCost = (card: Card) => UNPLAYABLE_CARD_EFFECTS.has(card.effect)
     ? -1
-    : card.effect === "ironWall" ? IRON_WALL_COST : card.cost ?? -1;
+    : card.cost ?? -1;
   const deckCards = [...(deck?.cards ?? [])].sort((left, right) => {
     const primary = sort === "cost"
       ? cardSortCost(left) - cardSortCost(right)

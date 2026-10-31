@@ -1,4 +1,4 @@
-import type { Metadata } from "next";
+import type { Metadata, Viewport } from "next";
 import { Geist, Geist_Mono } from "next/font/google";
 import "./globals.css";
 
@@ -32,10 +32,43 @@ export const metadata: Metadata = {
   },
 };
 
+export const viewport: Viewport = {
+  width: "device-width",
+  initialScale: 1,
+  viewportFit: "cover",
+};
+
 export default function RootLayout({ children }: Readonly<{ children: React.ReactNode }>) {
   return (
-    <html lang="ko">
-      <body className={`${geistSans.variable} ${geistMono.variable}`}>{children}</body>
+    <html lang="ko" suppressHydrationWarning>
+      <head>
+        <script
+          dangerouslySetInnerHTML={{
+            __html: `(()=>{try{
+              const root=document.documentElement;
+              const syncViewport=()=>root.style.setProperty("--mobile-visual-viewport-height",(window.visualViewport?.height??window.innerHeight)+"px");
+              syncViewport();
+              window.addEventListener("resize",syncViewport,{passive:true});
+              window.addEventListener("orientationchange",syncViewport,{passive:true});
+              window.visualViewport?.addEventListener("resize",syncViewport,{passive:true});
+              window.visualViewport?.addEventListener("scroll",syncViewport,{passive:true});
+              const forced=new URLSearchParams(location.search).get("device");
+              const ua=navigator.userAgent||"";
+              const mobile=navigator.userAgentData?.mobile??/(Android.*Mobile|iPhone|iPad|iPod|IEMobile|Windows Phone|Opera Mini)/i.test(ua);
+              root.dataset.deviceMode=forced==="mobile"||forced!=="desktop"&&mobile?"mobile":"desktop"
+            }catch{document.documentElement.dataset.deviceMode="desktop"}})();`,
+          }}
+        />
+      </head>
+      <body className={`${geistSans.variable} ${geistMono.variable}`}>
+        {children}
+        <div className="mobile-landscape-notice" role="status">
+          <div>
+            <strong>가로 화면으로 플레이하세요</strong>
+            <span>휴대폰을 가로로 돌려 주세요.</span>
+          </div>
+        </div>
+      </body>
     </html>
   );
 }

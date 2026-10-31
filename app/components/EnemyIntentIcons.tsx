@@ -1,4 +1,5 @@
-import { enemyDamageBeforeBlock, type EnemyAction } from "../game/enemies";
+import type { EnemyAction } from "../game/enemies";
+import { statusLabel, calculateAttackDamage } from "../game/statuses";
 
 export function enemyIntentEffectDescription(action: EnemyAction, firstActionCompleted = true) {
   const rockCount = action.firstActionRockCount !== undefined && !firstActionCompleted
@@ -14,10 +15,16 @@ export function enemyIntentEffectDescription(action: EnemyAction, firstActionCom
     action.soilCount && `모든 파일에 흙 ${action.soilCount}장 놓음`,
     rockCount && `모든 파일에 돌 ${rockCount}장 놓음`,
     action.nextAttackMagic && "다음 공격이 마법 피해",
-    action.physicalVulnerabilityGain && `물리 취약 ${action.physicalVulnerabilityGain} 부여`,
-    action.nextTurnPhysicalVulnerabilityGain && `다음 턴 시작 시 물리 취약 ${action.nextTurnPhysicalVulnerabilityGain} 부여`,
-    action.nextTurnMagicVulnerabilityGain && `다음 턴 시작 시 마법 취약 ${action.nextTurnMagicVulnerabilityGain} 부여`,
-    action.discardCount && `파일 맨 위 카드 ${action.discardCount}장 버리기${action.discardPriority === "rarity" ? " (희귀도 높은 카드 우선)" : ""}`,
+    action.resistanceGain && `${statusLabel("resistance", action.resistanceGain)} 획득`,
+    action.amplificationGain && `${statusLabel("amplification", action.amplificationGain)} 획득`,
+    action.nextTurnPlayerResistanceChange && `다음 턴 ${statusLabel("resistance", action.nextTurnPlayerResistanceChange)}`,
+    action.nextTurnPlayerAmplificationChange && `다음 턴 ${statusLabel("amplification", action.nextTurnPlayerAmplificationChange)}`,
+    action.discardCount && `버리기 ${action.discardCount}`,
+    action.selfDestruct && "공격 후 자폭",
+    action.summon && "새끼 바퀴 1마리 소환 (최대 2마리)",
+    action.powderGain && `화약 ${action.powderGain} 증가`,
+    action.allyBlockGain && `다른 아군에게 방어 ${action.allyBlockGain}`,
+    action.preview,
   ].filter(Boolean).join(" · ");
   return describedEffects || (action.attacks.length === 0 ? action.name : "");
 }
@@ -27,21 +34,17 @@ export function EnemyIntentIcons({
   strength,
   firstActionCompleted,
   forceMagic,
-  physicalResistance,
-  magicResistance,
-  physicalVulnerability,
-  magicVulnerability,
-  vulnerabilityMultiplier,
+  resistance,
+  amplification,
+  ignoreNegativeResistance,
 }: {
   action: EnemyAction;
   strength: number;
   firstActionCompleted: boolean;
   forceMagic: boolean;
-  physicalResistance: number;
-  magicResistance: number;
-  physicalVulnerability: number;
-  magicVulnerability: number;
-  vulnerabilityMultiplier: number;
+  resistance: number;
+  amplification: number;
+  ignoreNegativeResistance: boolean;
 }) {
   const effectDescriptions = enemyIntentEffectDescription(action, firstActionCompleted);
   const attackTypes = action.attacks.flatMap((attack) => Array.from(
@@ -57,14 +60,7 @@ export function EnemyIntentIcons({
     })
     .flatMap((attack, attackIndex) => {
       const damageType = forceMagic ? "magic" : attack.type;
-      const damage = enemyDamageBeforeBlock(
-        attack.value + strength,
-        damageType,
-        physicalResistance,
-        magicResistance,
-        damageType === "physical" ? physicalVulnerability : magicVulnerability,
-        vulnerabilityMultiplier,
-      );
+      const damage = calculateAttackDamage(attack.value + strength, { resistance, amplification, ignoreNegativeResistance });
       return Array.from({ length: attack.hits ?? 1 }, (_, hitIndex) => (
         <span
           className={`intent-icon intent-icon-${damageType}`}

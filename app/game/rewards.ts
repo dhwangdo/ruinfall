@@ -126,8 +126,7 @@ export function createDeck(): Card[] {
   });
   const blueprints: CardBlueprint[] = [
     ...make(5, STARTER_CARD_POOL[0]),
-    ...make(4, STARTER_CARD_POOL[1]),
-    ...make(2, STARTER_CARD_POOL[2]),
+    ...make(6, STARTER_CARD_POOL[1]),
     ...starterSpecialCards,
   ];
   if (blueprints.length !== STARTING_DECK_SIZE) {
@@ -175,7 +174,7 @@ export const DECK_EDITION_INFO: Record<DeckEdition, { name: string; description:
   persistentDraw: { name: "지속 드로우", description: "매 턴 시작 시 무작위 파일에서 카드 1장을 뽑습니다." },
   frugalPlus: { name: "재활용+", description: "턴 종료 시 남은 에너지 1당 ★ 2개를 획득합니다." },
   defensiveStance: { name: "방호 태세", description: "전투 시작 시 방어도 5를 획득합니다." },
-  resistance: { name: "저항", description: "전투 시작 시 물리 저항 1과 마법 저항 1을 획득합니다." },
+  resistance: { name: "저항", description: "전투 시작 시 저항 1을 획득합니다." },
   giant: { name: "거인", description: "전투 시작 시 힘 3과 강인함 3을 획득합니다." },
   whiteSpace: { name: "여백의 미", description: "현재 빈 파일 하나당 힘 2를 획득합니다." },
   invincible: { name: "무적", description: "전투 시작 시 무적 1을 획득합니다." },
@@ -314,10 +313,15 @@ export type RegionDeckShape = {
   editionBudget: number;
 };
 
-export function rollRegionDeckShape(regionNumber: number, random: () => number = Math.random): RegionDeckShape {
-  const region = Math.max(0, Math.floor(regionNumber));
-  const sumRoll = Math.max(0, Math.min(0.999999999, random()));
-  const sum: 0 | 1 | 2 = sumRoll < 0.8 ? 0 : sumRoll < 0.9 ? 1 : 2;
+const regionShapeCandidates = new Map<string, {
+  candidates: { shape: RegionDeckShape; weight: number }[];
+  totalWeight: number;
+}>();
+
+function getRegionShapeCandidates(region: number, sum: 0 | 1 | 2) {
+  const key = `${region}:${sum}`;
+  const cached = regionShapeCandidates.get(key);
+  if (cached) return cached;
   const candidates: { shape: RegionDeckShape; weight: number }[] = [];
   let totalWeight = 0;
   for (let x = -region; x <= sum + region * 2; x += 1) {
@@ -334,12 +338,23 @@ export function rollRegionDeckShape(regionNumber: number, random: () => number =
       }, weight });
     }
   }
+  const result = { candidates, totalWeight };
+  if (regionShapeCandidates.size >= 24) regionShapeCandidates.delete(regionShapeCandidates.keys().next().value!);
+  regionShapeCandidates.set(key, result);
+  return result;
+}
+
+export function rollRegionDeckShape(regionNumber: number, random: () => number = Math.random): RegionDeckShape {
+  const region = Math.max(0, Math.floor(regionNumber));
+  const sumRoll = Math.max(0, Math.min(0.999999999, random()));
+  const sum: 0 | 1 | 2 = sumRoll < 0.8 ? 0 : sumRoll < 0.9 ? 1 : 2;
+  const { candidates, totalWeight } = getRegionShapeCandidates(region, sum);
   let cursor = Math.max(0, Math.min(0.999999999, random())) * totalWeight;
   for (const candidate of candidates) {
     cursor -= candidate.weight;
-    if (cursor < 0) return candidate.shape;
+    if (cursor < 0) return { ...candidate.shape };
   }
-  return candidates.at(-1)!.shape;
+  return { ...candidates.at(-1)!.shape };
 }
 
 type RegionFillerKind = "empty" | "starter" | "basic" | "special";

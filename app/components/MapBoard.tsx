@@ -1,6 +1,6 @@
 "use client";
 
-import type { CSSProperties, ReactNode } from "react";
+import { useMemo, type CSSProperties, type ReactNode } from "react";
 import { MapDebugToolbar } from "./MapDebugToolbar";
 import { MapEntityMarkers } from "./MapEntityMarkers";
 import { MapRoomButton } from "./MapRoomButton";
@@ -17,6 +17,7 @@ import {
 } from "../hooks/useMapCamera";
 import { chebyshevDistance, type MapEnemyCellMemory, type MapEnemyWorld } from "../game/mapEnemies";
 import type { MapBomb } from "../game/mapEffects";
+import { mapViewportBounds } from "../game/mapViewport";
 import {
   DUNGEON_MAX_X,
   DUNGEON_MIN_X,
@@ -131,62 +132,53 @@ export function MapBoard({
   const mapHeight = MAP_PADDING * 2
     + MAP_RENDER_ROWS * MAP_ROOM_HEIGHT
     + (MAP_RENDER_ROWS - 1) * MAP_CELL_GAP;
-  const debugViewportWidth = 1200;
-  const debugViewportHeight = 620;
   const mapStrideX = MAP_ROOM_WIDTH + MAP_CELL_GAP;
   const mapStrideY = MAP_ROOM_HEIGHT + MAP_CELL_GAP;
-  const debugMinX = Math.max(
-    DUNGEON_MIN_X,
-    DUNGEON_MIN_X - MAP_WORLD_MARGIN_X
-      + Math.floor((-mapPan.x / mapZoom - MAP_PADDING) / mapStrideX) - 2,
-  );
-  const debugMaxX = Math.min(
-    DUNGEON_MAX_X,
-    DUNGEON_MIN_X - MAP_WORLD_MARGIN_X
-      + Math.ceil(((debugViewportWidth - mapPan.x) / mapZoom - MAP_PADDING) / mapStrideX) + 2,
-  );
-  const debugMinY = Math.max(
-    0,
-    Math.floor((-mapPan.y / mapZoom - MAP_PADDING) / mapStrideY) - MAP_WORLD_MARGIN_Y - 2,
-  );
-  const debugMaxY = Math.min(
-    MAP_ROWS - 1,
-    Math.ceil(((debugViewportHeight - mapPan.y) / mapZoom - MAP_PADDING) / mapStrideY)
-      - MAP_WORLD_MARGIN_Y + 2,
-  );
-  const currentVisibleRoomKeys = visibleMapRoomKeys(
+  const bounds = mapViewportBounds(mapPan, mapZoom, mapViewportSize, {
+    minX: DUNGEON_MIN_X, maxX: DUNGEON_MAX_X, minY: -MAP_WORLD_MARGIN_Y, maxY: MAP_ROWS - 1,
+    marginX: MAP_WORLD_MARGIN_X, marginY: MAP_WORLD_MARGIN_Y, padding: MAP_PADDING,
+    strideX: mapStrideX, strideY: mapStrideY,
+  });
+  const currentVisibleRoomKeys = useMemo(() => visibleMapRoomKeys(
     mapPosition,
     mapSeed,
     visionHorizontalRadius,
     visionVerticalRadius,
-  );
-  const knownRoomRoutes = buildKnownRoomRoutes(mapPosition, seenRooms, mapSeed, effectiveRoomType);
-  const mapCellMap = new Map<string, MapPosition>();
-  seenRooms.forEach((seenRoomKey) => {
-    const position = parseMapRoomKey(seenRoomKey);
-    if (safeAreaMemoryRestricted
-      && safeAreaRegionIndex !== null
-      && getSafeAreaRegionIndex(position, mapSeed) !== safeAreaRegionIndex
-      && !isSafeAreaBoundaryPosition(position, safeAreaRegionIndex, mapSeed)) {
-      return;
-    }
-    mapCellMap.set(seenRoomKey, position);
-  });
-  currentVisibleRoomKeys.forEach((roomKey) => {
-    mapCellMap.set(roomKey, parseMapRoomKey(roomKey));
-  });
-  if (debugMode) {
-    for (let y = debugMinY; y <= debugMaxY; y += 1) {
-      for (let x = debugMinX; x <= debugMaxX; x += 1) {
+  ), [mapPosition, mapSeed, visionHorizontalRadius, visionVerticalRadius]);
+  const knownRoomRoutes = useMemo(() => buildKnownRoomRoutes(mapPosition, seenRooms, mapSeed, effectiveRoomType),
+    [mapPosition, seenRooms, mapSeed, effectiveRoomType]);
+  const mapCellMap = useMemo(() => {
+    const cells = new Map<string, MapPosition>();
+    seenRooms.forEach((seenRoomKey) => {
+      const position = parseMapRoomKey(seenRoomKey);
+      if (safeAreaMemoryRestricted
+        && safeAreaRegionIndex !== null
+        && getSafeAreaRegionIndex(position, mapSeed) !== safeAreaRegionIndex
+        && !isSafeAreaBoundaryPosition(position, safeAreaRegionIndex, mapSeed)) {
+        return;
+      }
+      cells.set(seenRoomKey, position);
+    });
+    currentVisibleRoomKeys.forEach((roomKey) => cells.set(roomKey, parseMapRoomKey(roomKey)));
+    return cells;
+  }, [seenRooms, currentVisibleRoomKeys, safeAreaMemoryRestricted, safeAreaRegionIndex, mapSeed]);
+  const { minX, maxX, minY, maxY } = bounds;
+  const retainKnownCells = mapCameraFocusing || mapViewportSize.width === 0 || mapViewportSize.height === 0;
+  const mapCells = useMemo(() => {
+    // A focus animation crosses the space between the old and new viewport.
+    // Keep explored cells mounted until that transition has finished.
+    const cells = retainKnownCells ? new Map(mapCellMap) : new Map<string, MapPosition>();
+    for (let y = minY; y <= maxY; y += 1) {
+      for (let x = minX; x <= maxX; x += 1) {
         const position = { x, y };
-        if (getRoomType(position, mapSeed) !== "void") {
-          mapCellMap.set(mapRoomKey(position), position);
-        }
+        const known = mapCellMap.get(mapRoomKey(position));
+        if (known) cells.set(mapRoomKey(position), known);
+        else if (debugMode && getRoomType(position, mapSeed) !== "void") cells.set(mapRoomKey(position), position);
       }
     }
-  }
-  const mapCells = Array.from(mapCellMap.values());
-  const renderedMapCellKeys = new Set(mapCells.map(mapRoomKey));
+    return Array.from(cells.values());
+  }, [minX, maxX, minY, maxY, mapCellMap, debugMode, mapSeed, retainKnownCells]);
+  const renderedMapCellKeys = useMemo(() => new Set(mapCells.map(mapRoomKey)), [mapCells]);
   const visibleMapEnemies = mapEnemyWorld.enemies.filter((enemy) =>
     renderedMapCellKeys.has(mapRoomKey(enemy.position))
     && (debugMode || currentVisibleRoomKeys.has(mapRoomKey(enemy.position))));
@@ -242,7 +234,6 @@ export function MapBoard({
         onPointerMove={moveMapDrag}
         onPointerUp={finishMapDrag}
         onPointerCancel={finishMapDrag}
-        onPointerLeave={finishMapDrag}
         onWheel={zoomMap}
       >
         <div

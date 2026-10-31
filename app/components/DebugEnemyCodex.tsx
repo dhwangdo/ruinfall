@@ -1,4 +1,5 @@
 import { getEnemyCodexEntries, type EnemyAction } from "../game/enemies";
+import { statusLabel } from "../game/statuses";
 
 function debugEnemyActionText(action: EnemyAction) {
   const parts = action.attacks.map((attack) => {
@@ -13,10 +14,16 @@ function debugEnemyActionText(action: EnemyAction) {
   if (action.agilityLoss) parts.push(`플레이어 강인함 ${action.agilityLoss} 감소`);
   if (action.soilCount) parts.push(`모든 파일에 흙 ${action.soilCount}장 놓음`);
   if (action.nextAttackMagic) parts.push("다음 공격 마법화");
-  if (action.physicalVulnerabilityGain) parts.push(`물리 취약 ${action.physicalVulnerabilityGain} 부여`);
-  if (action.nextTurnPhysicalVulnerabilityGain) parts.push(`다음 턴 시작 시 물리 취약 ${action.nextTurnPhysicalVulnerabilityGain} 부여`);
-  if (action.nextTurnMagicVulnerabilityGain) parts.push(`다음 턴 시작 시 마법 취약 ${action.nextTurnMagicVulnerabilityGain} 부여`);
-  if (action.discardCount) parts.push(`파일 맨 위 ${action.discardCount}장 버리기${action.discardPriority === "rarity" ? " (희귀도 높은 카드 우선)" : ""}`);
+  if (action.resistanceGain) parts.push(`${statusLabel("resistance", action.resistanceGain)} 획득`);
+  if (action.amplificationGain) parts.push(`${statusLabel("amplification", action.amplificationGain)} 획득`);
+  if (action.nextTurnPlayerResistanceChange) parts.push(`다음 턴 ${statusLabel("resistance", action.nextTurnPlayerResistanceChange)}`);
+  if (action.nextTurnPlayerAmplificationChange) parts.push(`다음 턴 ${statusLabel("amplification", action.nextTurnPlayerAmplificationChange)}`);
+  if (action.discardCount) parts.push(`버리기 ${action.discardCount}`);
+  if (action.selfDestruct) parts.push("공격 후 자폭");
+  if (action.summon) parts.push("새끼 바퀴 1마리 소환 (최대 2마리, HP 12, 공격 4)");
+  if (action.powderGain) parts.push(`화약 ${action.powderGain} 증가`);
+  if (action.allyBlockGain) parts.push(`다른 아군에게 방어 ${action.allyBlockGain}`);
+  if (action.preview) parts.push(action.preview);
   return parts.length > 0 ? parts.join(" · ") : "대기";
 }
 
@@ -47,7 +54,7 @@ export function DebugEnemyCodex({ battle = false }: { battle?: boolean }) {
             {entry.enemies.map(({ enemy, count }) => (
               <div className="debug-enemy-codex-member" key={`${enemy.name}-${JSON.stringify(enemy.actions)}`}>
                 {entry.enemies.length > 1 && <strong>{enemy.name}{count > 1 ? ` × ${count}` : ""}</strong>}
-                <p>체력 {Math.floor(enemy.maxHp * 0.9)}~{enemy.maxHp} · 힘 {enemy.strength} · 방어 {enemy.physicalBlock}</p>
+                <p>체력 {Math.floor(enemy.maxHp * 0.9)}~{enemy.maxHp} · 힘 {enemy.strength} · 방어 {enemy.physicalBlock}{enemy.armor ? ` · 갑옷 ${enemy.armor}` : ""}</p>
                 {(enemy.boon || enemy.berserk || enemy.thorns || enemy.sturdyThreshold > 0 || enemy.quicknessReady || enemy.nextAttackMagic) && (
                     <p>
                       {[
@@ -62,6 +69,7 @@ export function DebugEnemyCodex({ battle = false }: { battle?: boolean }) {
                 )}
                 {enemy.trait && <p className="debug-enemy-trait">특성: {enemy.trait}</p>}
                 <p className="debug-enemy-pattern">패턴: {debugEnemyPatternText(enemy.actions)}</p>
+                {enemy.openingIntentIndex !== undefined && <p>첫 행동 고정: {enemy.actions[enemy.openingIntentIndex].name}</p>}
                 <ol>
                   {enemy.actions.map((action, index) => (
                     <li key={`${action.name}-${index}`}>

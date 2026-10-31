@@ -1,4 +1,9 @@
-import type { CardBlueprint, CardEffect } from "./cards";
+import type { CardBlueprint, CardEffect, DamageType } from "./cards";
+
+export const DEFENSE_LABEL: Record<DamageType, string> = {
+  physical: "방어",
+  magic: "마법 방어",
+};
 
 export type DefenseGainOptions = {
   agility?: number;
@@ -17,6 +22,7 @@ const FIXED_DEFENSE_VALUES: Partial<Record<CardEffect, number>> = {
 };
 
 const VALUE_BASED_DEFENSE_EFFECTS = new Set<CardEffect>([
+  "scaleArmor",
   "defend",
   "deflect",
   "iceShield",

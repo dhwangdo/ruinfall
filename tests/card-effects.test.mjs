@@ -37,9 +37,10 @@ test("fixed defense gains add toughness before applying the defense multiplier",
   assert.equal(calculateDefenseGain({ effect: "silverSword", value: 12 }, options), 16);
 });
 
-test("iron wall no longer grants defense", () => {
-  assert.equal(calculateDefenseGain({ effect: "ironWall", value: 2 }, { agility: 3, defenseMultiplier: 2 }), 0);
-  assert.equal(getDefenseBaseValue({ effect: "ironWall", value: 2 }), 0);
+test("plate armor uses its new five-point defense base", () => {
+  const plate = SPECIAL_CARD_POOL.find(card => card.effect === "plateArmorDefense");
+  assert.equal(getDefenseBaseValue(plate), 5);
+  assert.equal(calculateDefenseGain(plate, { agility: 3 }), 8);
 });
 
 test("fixed multi-purpose defense effects use the same calculation", () => {

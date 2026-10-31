@@ -15,7 +15,7 @@ export function useRunSaveLifecycle() {
     return true;
   }, []);
 
-  const queueRunSave = useCallback((delay = RUN_SAVE_POLICY.stateChangeDelayMs) => {
+  const queueRunSave = useCallback((delay: number = RUN_SAVE_POLICY.stateChangeDelayMs) => {
     if (queuedSaveTimerRef.current !== null) {
       window.clearTimeout(queuedSaveTimerRef.current);
     }

@@ -11,20 +11,18 @@ import {
   getEncounterRegionNumber,
   getEncounterSpawnPool,
   playerAttackThornHits,
-  reduceEnemyDamageByResistance,
   resolveEnemyHitAgainstPlayer,
   retainBlockAfterEnemyTurn,
 } from "../app/game/enemies.ts";
 
-test("physical and magic resistance halve matching enemy damage", () => {
-  assert.equal(reduceEnemyDamageByResistance(11, "physical", 1, 0), 5);
-  assert.equal(reduceEnemyDamageByResistance(11, "magic", 0, 1), 5);
-  assert.equal(reduceEnemyDamageByResistance(11, "physical", 0, 1), 11);
-  assert.equal(reduceEnemyDamageByResistance(11, "magic", 1, 0), 11);
-  assert.equal(reduceEnemyDamageByResistance(1, "physical", 1, 0), 0);
+test("unified resistance reduces physical and magic attacks before block", () => {
+  for (const damageType of ["physical", "magic"]) {
+    assert.deepEqual(resolveEnemyHitAgainstPlayer({ damage: 10, damageType, resistance: 1, block: 5 }),
+      { transformedDamage: 7, blocked: 5, damageTaken: 2, remainingBlock: 0 });
+  }
 });
 
-test("vulnerability transforms each hit before matching block is consumed", () => {
+test("negative resistance transforms each hit before matching block is consumed", () => {
   assert.deepEqual(resolveEnemyHitAgainstPlayer({
     damage: 10,
     damageType: "physical",
@@ -34,24 +32,24 @@ test("vulnerability transforms each hit before matching block is consumed", () =
     damage: 10,
     damageType: "physical",
     block: 7,
-    vulnerability: 1,
-  }), { transformedDamage: 20, blocked: 7, damageTaken: 13, remainingBlock: 0 });
+    resistance: -1,
+  }), { transformedDamage: 13, blocked: 7, damageTaken: 6, remainingBlock: 0 });
   assert.deepEqual(resolveEnemyHitAgainstPlayer({
     damage: 12,
     damageType: "physical",
     block: 7,
-    vulnerability: 1,
-  }), { transformedDamage: 24, blocked: 7, damageTaken: 17, remainingBlock: 0 });
+    resistance: -1,
+  }), { transformedDamage: 15, blocked: 7, damageTaken: 8, remainingBlock: 0 });
 });
 
-test("vulnerability insurance uses 150 percent damage rounded down before block", () => {
+test("insurance ignores the negative resistance multiplier", () => {
   assert.deepEqual(resolveEnemyHitAgainstPlayer({
     damage: 11,
     damageType: "physical",
     block: 3,
-    vulnerability: 1,
-    vulnerabilityMultiplier: 1.5,
-  }), { transformedDamage: 16, blocked: 3, damageTaken: 13, remainingBlock: 0 });
+    resistance: -1,
+    ignoreNegativeResistance: true,
+  }), { transformedDamage: 11, blocked: 3, damageTaken: 8, remainingBlock: 0 });
 });
 
 test("sturdy stance retains half of block remaining after the enemy turn", () => {
@@ -63,16 +61,16 @@ test("sturdy stance retains half of block remaining after the enemy turn", () =>
 });
 
 test("regions select only their assigned encounters", () => {
-  assert.deepEqual(getEncounterIndicesForRegion(0), [0, 1, 3, 5, 7]);
-  assert.deepEqual(getEncounterIndicesForRegion(1), [2, 4, 6, 8, 9]);
+  assert.deepEqual(getEncounterIndicesForRegion(0), [1, 3, 5, 17, 18, 19, 20, 21, 22, 23, 24, 25]);
+  assert.deepEqual(getEncounterIndicesForRegion(1), [2, 4, 6, 26, 27, 28, 29, 30, 31, 32, 33, 34, 35]);
   assert.deepEqual(getEncounterIndicesForRegion(2), [10, 11, 12, 13]);
 });
 
 test("debug enemy codex is derived from every encounter and its spawn regions", () => {
   const entries = getEnemyCodexEntries();
-  assert.equal(entries.length, 17);
+  assert.equal(entries.length, 32);
   assert.deepEqual(entries[0].regions, [1]);
-  assert.deepEqual(entries.map((entry) => entry.regions[0]), [1, 1, 1, 1, 1, 1, 2, 2, 2, 2, 2, 2, 3, 3, 3, 3, 3]);
+  assert.deepEqual(entries.map((entry) => entry.regions[0]), [...Array(13).fill(1), ...Array(14).fill(2), ...Array(5).fill(3)]);
   const golem = entries.find((entry) => entry.label === "골렘");
   assert.deepEqual(golem.regions, [2]);
   const rats = entries.find((entry) => entry.label === "쥐 3마리");
@@ -81,24 +79,24 @@ test("debug enemy codex is derived from every encounter and its spawn regions", 
 });
 
 test("each region has a three-percent chance to use the next region enemy pool", () => {
-  assert.deepEqual(getEncounterSpawnPool(0, 0.029), [2, 4, 6, 8, 9]);
-  assert.deepEqual(getEncounterSpawnPool(0, 0.03), [0, 1, 3, 5, 7]);
+  assert.deepEqual(getEncounterSpawnPool(0, 0.029), [2, 4, 6, 26, 27, 28, 29, 30, 31, 32, 33, 34, 35]);
+  assert.deepEqual(getEncounterSpawnPool(0, 0.03), [1, 3, 5, 17, 18, 19, 20, 21, 22, 23, 24, 25]);
   assert.deepEqual(getEncounterSpawnPool(1, 0), [10, 11, 12, 13]);
-  assert.deepEqual(getEncounterSpawnPool(1, 0.03), [2, 4, 6, 8, 9]);
+  assert.deepEqual(getEncounterSpawnPool(1, 0.03), [2, 4, 6, 26, 27, 28, 29, 30, 31, 32, 33, 34, 35]);
   assert.equal(getEncounterRegionNumber(2), 2);
-  assert.equal(getEncounterRegionNumber(0), 1);
+  assert.equal(getEncounterRegionNumber(1), 1);
   assert.equal(getEncounterRegionNumber(10), 3);
 });
 
-test("orange slime repeats its 9-damage physical attack", () => {
+test("orange slime randomly attacks, weakens, or attacks and grows", () => {
   const slime = createSewerEncounterByIndex(1, () => 0)[0];
-  const actions = slime.actions;
   assert.equal(slime.hp, 45);
   assert.equal(slime.intentIndex, 0);
-  assert.equal(actions.length, 1);
-  assert.equal(actions[0].attacks[0].value, 9);
-  assert.equal(actions[0].blockGain, undefined);
-  assert.equal(chooseNextIntent(actions, 0), 0);
+  assert.equal(slime.actions.length, 3);
+  assert.equal(slime.actions[0].attacks[0].value, 10);
+  assert.equal(slime.actions[1].nextTurnPlayerAmplificationChange, -2);
+  assert.equal(slime.actions[2].strengthGain, 3);
+  for (let i = 0; i < 3; i++) assert.notEqual(chooseNextIntent(slime.actions, i), i);
 });
 
 test("golem deals 8 damage during its waits and 30 damage on attack turns", () => {
@@ -128,8 +126,8 @@ test("sewer rat uses the requested discard patterns", () => {
   assert.deepEqual(rat.actions[1].attacks, [{ type: "physical", value: 10 }]);
   assert.equal(rat.actions[1].discardCount, 1);
   assert.equal(rat.actions[1].discardPriority, "rarity");
-  assert.deepEqual(rat.actions[2].attacks, []);
-  assert.equal(rat.actions[2].healGain, 5);
+  assert.deepEqual(rat.actions[2].attacks, [{ type: "physical", value: 5 }]);
+  assert.equal(rat.actions[2].healGain, undefined);
   assert.equal(rat.actions[2].strengthGain, 3);
   assert.equal(rat.actions[2].blockGain, undefined);
   assert.equal(rat.actions[2].discardCount, 1);
@@ -137,71 +135,42 @@ test("sewer rat uses the requested discard patterns", () => {
   assert.equal(rat.discardPileIndex, undefined);
 });
 
-test("goblin repeats 14, 8x2, and 7x3 physical attacks", () => {
-  const goblin = createSewerEncounterByIndex(4, () => 1)[0];
-  assert.equal(goblin.name, "도깨비");
-  assert.equal(goblin.hp, 82);
-  assert.equal(goblin.actions[0].attacks[0].value, 14);
-  assert.equal(goblin.actions[0].attacks[0].hits, undefined);
-  assert.equal(goblin.actions[1].attacks[0].value, 8);
-  assert.equal(goblin.actions[1].attacks[0].hits, 2);
-  assert.equal(goblin.actions[2].attacks[0].value, 7);
-  assert.equal(goblin.actions[2].attacks[0].hits, 3);
-  assert.equal(chooseNextIntent(goblin.actions, 2), 0);
+test("goblin has the selected three random attacks and a turn-end growth passive", () => {
+  const goblin = createSewerEncounterByIndex(4, () => 0)[0];
+  assert.deepEqual(goblin.actions.map(action => [action.attacks[0].value, action.attacks[0].hits ?? 1]), [[8, 2], [7, 3], [10, 1]]);
+  assert.equal(goblin.actions[2].nextTurnPlayerAmplificationChange, -1);
+  assert.equal(goblin.turnEndStrengthGain, 1);
 });
 
-test("small wizard always attacks with 8 magic damage", () => {
-  const wizard = createSewerEncounterByIndex(0, () => 0)[0];
-  assert.equal(wizard.hp, 33);
-  assert.deepEqual(wizard.actions[0].attacks, [{ type: "magic", value: 8 }]);
+test("removed wizards, mana beast and green slime never appear in encounters or the codex", () => {
+  for (const encounterIndex of [0, 7, 8, 9]) {
+    assert.deepEqual(createSewerEncounterByIndex(encounterIndex), []);
+  }
+  assert.ok(getEnemyCodexEntries().every((entry) =>
+    entry.enemies.every(({ enemy }) => !["작은 마법사", "마나 야수", "도깨비불", "초록 슬라임"].includes(enemy.name))));
 });
 
-test("three rats roll 12 to 13 health with fixed 6 damage", () => {
+test("three rats roll 12 to 13 health and alternate four and eight damage", () => {
   const minimumRats = createSewerEncounterByIndex(5, () => 0);
   const maximumRats = createSewerEncounterByIndex(5, () => 1);
   assert.equal(minimumRats.length, 3);
-  assert.ok(minimumRats.every((rat) => rat.hp === 12 && rat.actions[0].attacks[0].value === 6));
+  assert.ok(minimumRats.every((rat) => rat.hp === 12 && rat.intentIndex === 0));
   assert.ok(maximumRats.every((rat) => rat.hp === 13));
+  for (const rat of maximumRats) {
+    assert.deepEqual(rat.actions.map(action => action.attacks[0].value), [4, 8]);
+    assert.equal(chooseNextIntent(rat.actions, 0), 1);
+    assert.equal(chooseNextIntent(rat.actions, 1), 0);
+  }
 });
 
-test("warlock attacks immediately while applying delayed physical vulnerability", () => {
+test("warlock returns at its old encounter ID while the mana beast and wisp are retired", () => {
   const warlock = createSewerEncounterByIndex(6, () => 0)[0];
-  assert.equal(warlock.hp, 61);
-  assert.deepEqual(warlock.actions[0].attacks[0], { type: "magic", value: 12 });
-  assert.equal(warlock.actions[0].nextTurnPhysicalVulnerabilityGain, 2);
-  assert.equal(warlock.actions[0].nextTurnMagicVulnerabilityGain, undefined);
-  assert.equal(warlock.actions[1].attacks[0].value, 12);
-  assert.equal(warlock.actions[2].attacks[0].value, 12);
-});
-
-test("green slime randomly chooses either 10-damage pattern", () => {
-  const slime = createSewerEncounterByIndex(7, () => 0)[0];
-  assert.equal(slime.hp, 45);
-  assert.deepEqual(slime.actions.map((action) => action.attacks), [
-    [{ type: "physical", value: 10 }],
-    [{ type: "physical", value: 10 }],
-  ]);
-  assert.equal(slime.givesToxicSlime, undefined);
-  assert.equal(chooseNextIntent(slime.actions, 0, () => 0), 0);
-  assert.equal(chooseNextIntent(slime.actions, 0, () => 0.99), 1);
-});
-
-test("mana beast encounter includes a fixed dual attack and delayed magic vulnerability wisp", () => {
-  const encounter = createSewerEncounterByIndex(8, () => 1);
-  assert.equal(encounter.length, 2);
-  assert.equal(encounter[0].name, "마나 야수");
-  assert.deepEqual(encounter[0].actions[0].attacks, [
-    { type: "physical", value: 7 },
-    { type: "magic", value: 7 },
-  ]);
-  assert.equal(encounter[1].name, "도깨비불");
-  assert.equal(encounter[1].actions[0].nextTurnMagicVulnerabilityGain, 1);
-});
-
-test("second-region small wizard encounter contains two wizards", () => {
-  const encounter = createSewerEncounterByIndex(9, () => 1);
-  assert.equal(encounter.length, 2);
-  assert.ok(encounter.every((enemy) => enemy.name === "작은 마법사" && enemy.hp === 37));
+  assert.equal(warlock.name, "저주술사");
+  assert.equal(warlock.intentIndex, 0);
+  assert.equal(warlock.actions[0].nextTurnPlayerResistanceChange, -3);
+  assert.equal(warlock.actions[1].attacks[0].value, 20);
+  assert.equal(chooseNextIntent(warlock.actions, 1), 1);
+  assert.deepEqual(createSewerEncounterByIndex(8), []);
 });
 
 test("third-region mummy encounters have their starting statuses and patterns", () => {
@@ -210,7 +179,7 @@ test("third-region mummy encounters have their starting statuses and patterns", 
   assert.equal(priest.hp, 87);
   assert.equal(priest.boon, 5);
   assert.equal(priest.actions[0].boonGain, 2);
-  assert.equal(priest.actions[0].nextTurnMagicVulnerabilityGain, 1);
+  assert.equal(priest.actions[0].nextTurnPlayerResistanceChange, -1);
   assert.deepEqual(priest.actions[1].attacks, [{ type: "magic", value: 16 }]);
   assert.deepEqual(priest.actions[2].attacks, [{ type: "physical", value: 20 }]);
 
@@ -221,7 +190,7 @@ test("third-region mummy encounters have their starting statuses and patterns", 
   assert.deepEqual(warrior.actions[0].attacks, [{ type: "physical", value: 4, hits: 3 }]);
   assert.deepEqual(warrior.actions[1].attacks, [{ type: "physical", value: 16 }]);
   assert.deepEqual(warrior.actions[2].attacks, [{ type: "physical", value: 5, hits: 2 }]);
-  assert.equal(warrior.actions[2].nextTurnPhysicalVulnerabilityGain, 1);
+  assert.equal(warrior.actions[2].nextTurnPlayerResistanceChange, -1);
 });
 
 test("boon blocks one hit per stack and berserk grants strength at player turn start", () => {
@@ -242,7 +211,7 @@ test("third-region wyrm shows soil as its current intent", () => {
   assert.equal(wyrm.name, "지룡");
   assert.equal(wyrm.hp, 118);
   assert.equal(wyrm.actions[0].soilCount, 1);
-  assert.equal(wyrm.actions[0].nextTurnPhysicalVulnerabilityGain, 1);
+  assert.equal(wyrm.actions[0].nextTurnPlayerResistanceChange, -1);
   assert.deepEqual(wyrm.actions[1].attacks, [{ type: "physical", value: 15 }]);
   assert.deepEqual(wyrm.actions[2].attacks, [{ type: "magic", value: 20 }]);
 });

@@ -1,5 +1,5 @@
 import { UNPLAYABLE_CARD_EFFECTS, type Card } from "../game/cards";
-import { cardForgeCount, IRON_WALL_COST } from "../game/cardEffects";
+import { cardForgeCount } from "../game/cardEffects";
 
 type DeckEditorCardIconData = Pick<Card, "effect" | "name" | "rarity" | "cost" | "forged" | "colored" | "forgeCostsCompleted"> & { id?: number };
 
@@ -10,9 +10,10 @@ export function DeckEditorCardIcon({ card, count = 1, showNewBadge = false }: {
 }) {
   const cost = UNPLAYABLE_CARD_EFFECTS.has(card.effect)
     ? ""
-    : card.effect === "ironWall" ? IRON_WALL_COST : card.cost;
+    : card.cost;
   return (
     <>
+      {count > 1 && <span className="editor-card-stack-bands" aria-hidden="true" />}
       {cost !== "" && cost !== undefined && <span className="editor-card-cost">{cost}</span>}
       <strong className="editor-card-name">{card.name}{card.effect === "obsidianDagger" && cardForgeCount(card) > 0 ? ` +${cardForgeCount(card)}` : card.forged && !["astronomyResearch", "necromancyResearch"].includes(card.effect) ? "+" : ""}</strong>
       {card.colored && <em className="deck-card-painted">색칠</em>}

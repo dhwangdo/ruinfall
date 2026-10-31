@@ -1,170 +1,47 @@
-import { useEffect, useMemo, useRef, useState } from "react";
-import type {
-  Dispatch,
-  DragEvent,
-  MouseEvent,
-  SetStateAction,
-  WheelEvent,
-} from "react";
 import { DeckEditorCardIcon } from "./DeckEditorCardIcon";
 import { CardFace } from "./CardFace";
 import { DeckName } from "./DeckName";
 import { deckEditorCardStackStyle } from "./deckEditorCardStackStyle";
 import { ConsumableTicketTierMark, consumableTicketTierClassName } from "./ConsumableTicketTierMark";
-import { VirtualizedHorizontalList, type VirtualizedHorizontalItem } from "./VirtualizedHorizontalList";
-import type { Card } from "../game/cards";
-import { usesRareCardSlot, type DeckEditorCardArea, type DeckEditorCardLocation } from "../game/deckEditorRules";
-import { groupAndSortDeckEditorCards, type DeckEditorCardGroup } from "../game/deckEditorViews";
-import type { Consumable, DeckCase, DeckEdition } from "../game/rewards";
-
-type DeckEditorArea = DeckEditorCardArea;
-type ConsumableArea = "inventory" | "floor";
-type ConsumableDrag = { id: string; source: ConsumableArea; virtualKey?: string } | null;
-type CardDrag = { cardId: number; source: DeckEditorArea; deckId?: string; virtualKey?: string } | null;
-type DeckDrag = { deckId: string; source: "floor" | "owned"; virtualKey?: string } | null;
-type DeckEditorDragKind = "card" | "consumable";
-type CardGroup = DeckEditorCardGroup & { pendingRemoval?: boolean };
-type ConsumableGroup = { consumable: Consumable; consumableIds: string[] };
-type StackVirtualItem = VirtualizedHorizontalItem & { area: "inventory" | "floor" } & (
-  | { kind: "card"; card: Card; cardIds: number[]; pendingRemoval?: boolean }
-  | { kind: "ticket"; consumable: Consumable; consumableIds: string[] }
-);
-type InventoryVirtualItem = StackVirtualItem | (VirtualizedHorizontalItem & { kind: "empty-slot"; slot: number });
-type FloorVirtualItem = StackVirtualItem | (VirtualizedHorizontalItem & { kind: "floor-deck"; deck: DeckCase });
-type OwnedDeckVirtualItem = VirtualizedHorizontalItem & (
-  | { kind: "card"; group: CardGroup }
-  | { kind: "rare-slot"; slot: number }
-  | { kind: "divider" }
-  | { kind: "normal-slot"; slot: number }
-);
-type OwnedDeckCardView = {
-  items: OwnedDeckVirtualItem[];
-  rareSlotCount: number;
-  rareSlotCapacity: number;
-  normalSlotCapacity: number;
-  normalCardCount: number;
-};
-
-type DeckEditorHeader = {
-  deckEditorErrorMessage: string | null;
-  deckEditorSort: "cost" | "rarity";
-  setDeckEditorSort: Dispatch<SetStateAction<"cost" | "rarity">>;
-  mapFeedback: { message: string; nonce: number };
-};
-
-type DeckEditorInventoryArea = {
-  deckEditorInventoryItemCount: number;
-  inventoryCapacity: number;
-  inventoryConsumableGroups: ConsumableGroup[];
-  inventoryCardGroups: CardGroup[];
-  moveInventoryConsumableToFloor: (id: string) => void;
-};
-
-type DeckEditorDeckArea = {
-  maxOwnedDecks: number;
-  ownedDecks: DeckCase[];
-  activeDeckId?: string;
-  deckEditorDeckId: string;
-  setDeckEditorDeckId: Dispatch<SetStateAction<string>>;
-  pickUpFloorDeck: (deckId: string) => void;
-  swapOwnedDecks: (sourceId: string, targetId: string) => void;
-  dropOwnedDeck: (deckId: string) => void;
-  canMoveDeckCardToInventory: boolean;
-  rareSlotCountForDeck: (deck: DeckCase) => number;
-};
-
-type DeckEditorFloorArea = {
-  currentFloorDecks: DeckCase[];
-  floorConsumableGroups: ConsumableGroup[];
-  floorCardGroups: CardGroup[];
-  moveFloorConsumableToInventory: (id: string) => void;
-};
-
-type DeckEditorTicketActions = {
-  isConsumableSelected: (consumable: Consumable) => boolean;
-  consumableDescription: (consumable: Consumable) => string;
-  selectExtractionTicket: (consumable: Consumable) => void;
-  applySelectedCardTicket: (
-    card: Card,
-    area: "inventory" | "floor" | "deck",
-    deckId?: string,
-    targetCardId?: number,
-  ) => boolean;
-  canApplyTicketToCard: (ticketId: string, card: Card, area: "inventory" | "deck" | "floor", deck?: DeckCase) => boolean;
-  applyTicketToCard: (ticketId: string, card: Card, area: "inventory" | "deck" | "floor", deck?: DeckCase, targetCardId?: number) => void;
-  canApplyTicketToConsumable: (ticketId: string, targetId: string) => boolean;
-  applyTicketToConsumable: (ticketId: string, targetId: string) => void;
-  canApplyTicketToDeck: (ticketId: string, deck: DeckCase) => boolean;
-  applyTicketToDeck: (ticketId: string, deck: DeckCase) => void;
-};
-
-type DeckEditorCardPreview = {
-  hoveredDeckCard: Card | null;
-  deckPreviewPosition: { x: number; y: number };
-  consumablePreview: {
-    hovered: Consumable | null;
-    show: (consumable: Consumable, right: number, top: number) => void;
-    clear: () => void;
-  };
-  moveDeckCardPreview: (event: MouseEvent<HTMLElement>, card: Card) => void;
-  clearCardPreview: () => void;
-  editionTooltip: {
-    show: (event: MouseEvent<HTMLElement>, edition: DeckEdition) => void;
-    clear: () => void;
-  };
-  showDeckCardPreview: (card: Card, right: number, top: number) => void;
-};
-
-type DeckEditorBehavior = {
-  pendingRemovalBlinkDim: boolean;
-  transformedCardNewIds: Set<number>;
-  effectiveOriginDeckIdForCard: (id: number) => string | null;
-  scrollDeckEditorCardsHorizontally: (event: WheelEvent<HTMLDivElement>) => void;
-  onMoveCard: (move: { cardId: number; source: DeckEditorCardLocation; target: DeckEditorCardLocation }) => void;
-  onEditorDragActivityChange: (kind: DeckEditorDragKind, active: boolean) => void;
-  confirmDeckEditor: () => void;
-};
-
-export type DeckEditorModalProps = {
-  header: DeckEditorHeader;
-  inventoryArea: DeckEditorInventoryArea;
-  deckArea: DeckEditorDeckArea;
-  floorArea: DeckEditorFloorArea;
-  ticketActions: DeckEditorTicketActions;
-  cardPreview: DeckEditorCardPreview;
-  behavior: DeckEditorBehavior;
-};
-
-function stackedVirtualWidth(itemCount: number) {
-  return 82 + Math.min(5, Math.max(0, itemCount - 1)) * 7;
-}
+import { VirtualizedHorizontalList } from "./VirtualizedHorizontalList";
+import { usesRareCardSlot } from "../game/deckEditorRules";
+import type { DeckCase } from "../game/rewards";
+import type { DeckEditorModalProps, StackVirtualItem, InventoryVirtualItem, OwnedDeckVirtualItem, FloorVirtualItem } from "./deck-editor/types";
+import { useDeckEditorInput } from "../hooks/useDeckEditorInput";
+import { useDeckEditorItems } from "../hooks/useDeckEditorItems";
+export type { DeckEditorModalProps } from "./deck-editor/types";
 
 export function DeckEditorModal(props: DeckEditorModalProps) {
+  const { deckEditorDrag, deckEditorDragRef, deckEditorDropTarget, setDeckEditorDropTarget,
+    consumableDrag, consumableDragRef, deckCaseDrag, deckCaseDragRef, deckCaseDropSlot, setDeckCaseDropSlot,
+    ticketDropTarget, touchDrag, suppressTouchClickRef,
+    beginDeckEditorDrag, finishDeckEditorDrag, beginConsumableDrag, finishConsumableDrag,
+    beginDeckCaseDrag, finishDeckCaseDrag, ticketDropKey, consumableTicketDropKey,
+    handleTicketDragOverCard, handleTicketDropOnCard, handleTicketDragLeave,
+    handleTicketDragOverConsumable, handleTicketDropOnConsumable,
+    handleTicketDragOverDeck, handleTicketDropOnDeck, dropDeckEditorCard, dropConsumable, beginTouchPointerDrag } = useDeckEditorInput(props);
+  const { activeDeck, editingDeck, ownedDeckCardViews, inventoryVirtualItems, floorVirtualItems } = useDeckEditorItems(props);
   const {
-    header: { deckEditorErrorMessage, deckEditorSort, setDeckEditorSort, mapFeedback },
+    header: { deckEditorErrorMessage, mapFeedback },
     inventoryArea: {
       deckEditorInventoryItemCount,
       inventoryCapacity,
       inventoryConsumableGroups,
-      inventoryCardGroups,
       moveInventoryConsumableToFloor,
     },
     deckArea: {
       maxOwnedDecks,
       ownedDecks,
-      activeDeckId,
       deckEditorDeckId,
       setDeckEditorDeckId,
+      onSelectActiveDeck,
       pickUpFloorDeck,
       swapOwnedDecks,
       dropOwnedDeck,
       canMoveDeckCardToInventory,
-      rareSlotCountForDeck,
     },
     floorArea: {
-      currentFloorDecks,
       floorConsumableGroups,
-      floorCardGroups,
       moveFloorConsumableToInventory,
     },
     ticketActions: {
@@ -172,10 +49,6 @@ export function DeckEditorModal(props: DeckEditorModalProps) {
       consumableDescription,
       selectExtractionTicket,
       applySelectedCardTicket,
-      canApplyTicketToCard,
-      applyTicketToCard,
-      canApplyTicketToConsumable,
-      applyTicketToConsumable,
       canApplyTicketToDeck,
       applyTicketToDeck,
     },
@@ -194,156 +67,20 @@ export function DeckEditorModal(props: DeckEditorModalProps) {
       effectiveOriginDeckIdForCard,
       scrollDeckEditorCardsHorizontally,
       onMoveCard,
-      onEditorDragActivityChange,
       confirmDeckEditor,
     },
   } = props;
 
   const mapMessage = mapFeedback.message;
   const mapMessageNonce = mapFeedback.nonce;
-  const activeDeck = ownedDecks.find((deck) => deck.id === activeDeckId);
-  const editingDeck = ownedDecks.find((deck) => deck.id === deckEditorDeckId) ?? activeDeck;
-  const { removedInventoryCardGroups, availableInventoryCardGroups } = useMemo(() => ({
-    removedInventoryCardGroups: inventoryCardGroups.filter((group) => group.pendingRemoval),
-    availableInventoryCardGroups: inventoryCardGroups.filter((group) => !group.pendingRemoval),
-  }), [inventoryCardGroups]);
-  const { removedFloorCardGroups, availableFloorCardGroups } = useMemo(() => ({
-    removedFloorCardGroups: floorCardGroups.filter((group) => group.pendingRemoval),
-    availableFloorCardGroups: floorCardGroups.filter((group) => !group.pendingRemoval),
-  }), [floorCardGroups]);
-
-  const [deckEditorDrag, setDeckEditorDrag] = useState<CardDrag>(null);
-  const deckEditorDragRef = useRef<CardDrag>(null);
-  const [deckEditorDropTarget, setDeckEditorDropTarget] = useState<DeckEditorArea | null>(null);
-  const [consumableDrag, setConsumableDrag] = useState<ConsumableDrag>(null);
-  const consumableDragRef = useRef<ConsumableDrag>(null);
-  const [deckCaseDrag, setDeckCaseDrag] = useState<DeckDrag>(null);
-  const deckCaseDragRef = useRef<DeckDrag>(null);
-  const [deckCaseDropSlot, setDeckCaseDropSlot] = useState<number | null>(null);
-  const [ticketDropTarget, setTicketDropTarget] = useState<string | null>(null);
-  const previewReleaseTimerRef = useRef<number | null>(null);
-  const activityCallbackRef = useRef(onEditorDragActivityChange);
-
-  useEffect(() => {
-    activityCallbackRef.current = onEditorDragActivityChange;
-  }, [onEditorDragActivityChange]);
-
-  const ownedDeckCardViews = useMemo(() => {
-    const views = new Map<string, OwnedDeckCardView>();
-    ownedDecks.forEach((deck) => {
-      const groups = groupAndSortDeckEditorCards(deck.cards, deckEditorSort, transformedCardNewIds);
-      const rareCardGroups = groups.filter(({ card }) => usesRareCardSlot(card));
-      const normalCardGroups = groups.filter(({ card }) => !usesRareCardSlot(card));
-      const rareSlotCount = rareSlotCountForDeck(deck);
-      const rareSlotCapacity = Math.max(deck.rareSlotCapacity ?? 0, rareSlotCount);
-      const normalSlotCapacity = Math.max(0, deck.capacity - rareSlotCapacity);
-      const normalCardCount = deck.cards.filter((card) => !usesRareCardSlot(card)).length;
-      const emptyRareSlotCount = Math.max(0, rareSlotCapacity - rareSlotCount);
-      const items: OwnedDeckVirtualItem[] = [
-        ...rareCardGroups.map((group) => ({
-          kind: "card" as const,
-          key: `deck-card:${deck.id}:${group.cardIds.at(-1)}`,
-          width: stackedVirtualWidth(group.cardIds.length),
-          group,
-        })),
-        ...Array.from({ length: emptyRareSlotCount }, (_, slot) => ({
-          kind: "rare-slot" as const,
-          key: `deck-rare-slot:${deck.id}:${slot}`,
-          width: 82,
-          slot,
-        })),
-        ...(rareSlotCapacity > 0 ? [{
-          kind: "divider" as const,
-          key: `deck-divider:${deck.id}`,
-          width: 11,
-        }] : []),
-        ...normalCardGroups.map((group) => ({
-          kind: "card" as const,
-          key: `deck-card:${deck.id}:${group.cardIds.at(-1)}`,
-          width: stackedVirtualWidth(group.cardIds.length),
-          group,
-        })),
-        ...Array.from({ length: Math.max(0, normalSlotCapacity - normalCardCount) }, (_, slot) => ({
-          kind: "normal-slot" as const,
-          key: `deck-normal-slot:${deck.id}:${slot}`,
-          width: 82,
-          slot,
-        })),
-      ];
-      views.set(deck.id, { items, rareSlotCount, rareSlotCapacity, normalSlotCapacity, normalCardCount });
-    });
-    return views;
-  }, [ownedDecks, deckEditorSort, transformedCardNewIds, rareSlotCountForDeck]);
-
-  const inventoryVirtualItems = useMemo<InventoryVirtualItem[]>(() => [
-    ...inventoryConsumableGroups.map(({ consumable, consumableIds }) => ({
-      kind: "ticket" as const,
-      key: `inventory-ticket:${consumableIds.at(-1)}`,
-      width: stackedVirtualWidth(consumableIds.length),
-      area: "inventory" as const,
-      consumable,
-      consumableIds,
-    })),
-    ...removedInventoryCardGroups.map(({ card, cardIds }) => ({
-      kind: "card" as const,
-      key: `inventory-pending:${cardIds.at(-1)}`,
-      width: stackedVirtualWidth(cardIds.length),
-      area: "inventory" as const,
-      card,
-      cardIds,
-      pendingRemoval: true,
-    })),
-    ...availableInventoryCardGroups.map(({ card, cardIds }) => ({
-      kind: "card" as const,
-      key: `inventory-card:${cardIds.at(-1)}`,
-      width: stackedVirtualWidth(cardIds.length),
-      area: "inventory" as const,
-      card,
-      cardIds,
-      pendingRemoval: false,
-    })),
-    ...Array.from({ length: Math.max(0, inventoryCapacity - deckEditorInventoryItemCount) }, (_, slot) => ({
-      kind: "empty-slot" as const,
-      key: `inventory-slot:${slot}`,
-      width: 82,
-      slot,
-    })),
-  ], [inventoryConsumableGroups, removedInventoryCardGroups, availableInventoryCardGroups, inventoryCapacity, deckEditorInventoryItemCount]);
-
-  const floorVirtualItems = useMemo<FloorVirtualItem[]>(() => [
-    ...currentFloorDecks.map((deck) => ({
-      kind: "floor-deck" as const,
-      key: `floor-deck:${deck.id}`,
-      width: 148,
-      deck,
-    })),
-    ...floorConsumableGroups.map(({ consumable, consumableIds }) => ({
-      kind: "ticket" as const,
-      key: `floor-ticket:${consumableIds.at(-1)}`,
-      width: stackedVirtualWidth(consumableIds.length),
-      area: "floor" as const,
-      consumable,
-      consumableIds,
-    })),
-    ...removedFloorCardGroups.map(({ card, cardIds }) => ({
-      kind: "card" as const,
-      key: `floor-pending:${cardIds.at(-1)}`,
-      width: stackedVirtualWidth(cardIds.length),
-      area: "floor" as const,
-      card,
-      cardIds,
-      pendingRemoval: true,
-    })),
-    ...availableFloorCardGroups.map(({ card, cardIds }) => ({
-      kind: "card" as const,
-      key: `floor-card:${cardIds.at(-1)}`,
-      width: stackedVirtualWidth(cardIds.length),
-      area: "floor" as const,
-      card,
-      cardIds,
-      pendingRemoval: false,
-    })),
-  ], [currentFloorDecks, floorConsumableGroups, removedFloorCardGroups, availableFloorCardGroups]);
+  const applySelectedTicketToDeck = (deck: DeckCase) => {
+    const ticket = [...inventoryConsumableGroups, ...floorConsumableGroups]
+      .find(({ consumable }) => isConsumableSelected(consumable));
+    const ticketId = ticket?.consumableIds.at(-1);
+    if (!ticketId || !canApplyTicketToDeck(ticketId, deck)) return false;
+    applyTicketToDeck(ticketId, deck);
+    return true;
+  };
 
   const renderDeckCardGroup = (deck: DeckCase, item: Extract<OwnedDeckVirtualItem, { kind: "card" }>) => {
     const { card, cardIds } = item.group;
@@ -352,10 +89,14 @@ export function DeckEditorModal(props: DeckEditorModalProps) {
     return (
       <button
         type="button"
-        className={`deck-editor-card deck-list-entry rarity-${card.rarity} ${card.rarity === "legendary" ? "is-painted" : ""} ${isTemporary ? `is-temporary ${pendingRemovalBlinkDim ? "is-blink-dim" : ""}` : ""} ${ticketDropTarget === ticketDropKey("deck", cardId, deck.id) ? "is-ticket-drop-target" : ""}`}
+        className={`deck-editor-card deck-list-entry rarity-${card.rarity} ${card.rarity === "legendary" ? "is-painted" : ""} ${isTemporary ? `is-temporary ${pendingRemovalBlinkDim ? "is-blink-dim" : ""}` : ""} ${deckEditorDrag?.cardId === cardId ? "is-dragging" : ""} ${touchDrag?.active && touchDrag.kind === "card" && touchDrag.id === cardId && touchDrag.source === "deck" && touchDrag.deckId === deck.id ? "is-touch-drag-origin" : ""} ${ticketDropTarget === ticketDropKey("deck", cardId, deck.id) ? "is-ticket-drop-target" : ""}`}
         key={item.key}
         style={deckEditorCardStackStyle(cardIds.length)}
+        data-ticket-card-id={cardId}
+        data-ticket-card-area="deck"
+        data-ticket-deck-id={deck.id}
         draggable
+        onPointerDown={(event) => beginTouchPointerDrag(event, "card", cardId, "deck", deck.id, item.key)}
         onDragStart={(event) => beginDeckEditorDrag(event, cardId, "deck", deck.id, item.key)}
         onDragEnd={finishDeckEditorDrag}
         onDragOver={(event) => handleTicketDragOverCard(event, card, "deck", deck, cardId)}
@@ -365,6 +106,10 @@ export function DeckEditorModal(props: DeckEditorModalProps) {
         onMouseMove={(event) => moveDeckCardPreview(event, card)}
         onMouseLeave={clearCardPreview}
         onClick={() => {
+          if (suppressTouchClickRef.current) {
+            suppressTouchClickRef.current = false;
+            return;
+          }
           setDeckEditorDeckId(deck.id);
           applySelectedCardTicket(card, "deck", deck.id, cardId);
         }}
@@ -388,189 +133,6 @@ export function DeckEditorModal(props: DeckEditorModalProps) {
     );
   };
 
-  useEffect(() => () => {
-    if (previewReleaseTimerRef.current !== null) window.clearTimeout(previewReleaseTimerRef.current);
-    activityCallbackRef.current("card", false);
-    activityCallbackRef.current("consumable", false);
-  }, []);
-
-  const beginDeckEditorDrag = (
-    event: DragEvent<HTMLElement>,
-    cardId: number,
-    source: DeckEditorArea,
-    deckId?: string,
-    virtualKey?: string,
-  ) => {
-    if (previewReleaseTimerRef.current !== null) window.clearTimeout(previewReleaseTimerRef.current);
-    previewReleaseTimerRef.current = null;
-    onEditorDragActivityChange("card", true);
-    event.dataTransfer.effectAllowed = "move";
-    event.dataTransfer.setData("text/plain", `${source}:${cardId}:${deckId ?? ""}`);
-    const drag = { cardId, source, deckId, virtualKey };
-    deckEditorDragRef.current = drag;
-    setDeckEditorDrag(drag);
-    setDeckEditorDropTarget(null);
-    clearCardPreview();
-    consumablePreview.clear();
-  };
-
-  const finishDeckEditorDrag = () => {
-    deckEditorDragRef.current = null;
-    setDeckEditorDrag(null);
-    setDeckEditorDropTarget(null);
-    clearCardPreview();
-    if (previewReleaseTimerRef.current !== null) window.clearTimeout(previewReleaseTimerRef.current);
-    previewReleaseTimerRef.current = window.setTimeout(() => {
-      onEditorDragActivityChange("card", false);
-      previewReleaseTimerRef.current = null;
-    }, 140);
-  };
-
-  const beginConsumableDrag = (event: DragEvent<HTMLElement>, id: string, source: ConsumableArea, virtualKey?: string) => {
-    onEditorDragActivityChange("consumable", true);
-    setTicketDropTarget(null);
-    const drag = { id, source, virtualKey };
-    event.dataTransfer.effectAllowed = "move";
-    event.dataTransfer.setData("text/plain", `consumable:${source}:${id}`);
-    consumableDragRef.current = drag;
-    setConsumableDrag(drag);
-  };
-
-  const finishConsumableDrag = () => {
-    consumableDragRef.current = null;
-    setConsumableDrag(null);
-    setTicketDropTarget(null);
-    setDeckEditorDropTarget(null);
-    onEditorDragActivityChange("consumable", false);
-  };
-
-  const beginDeckCaseDrag = (event: DragEvent<HTMLElement>, deckId: string, source: "floor" | "owned", virtualKey?: string) => {
-    const drag = { deckId, source, virtualKey };
-    event.dataTransfer.effectAllowed = "move";
-    event.dataTransfer.setData("text/plain", `deck-case:${source}:${deckId}`);
-    deckCaseDragRef.current = drag;
-    setDeckCaseDrag(drag);
-    setDeckCaseDropSlot(null);
-  };
-
-  const finishDeckCaseDrag = () => {
-    deckCaseDragRef.current = null;
-    setDeckCaseDrag(null);
-    setDeckCaseDropSlot(null);
-  };
-
-  const ticketDropKey = (area: "inventory" | "deck" | "floor", cardId: number, deckId?: string) =>
-    `${area}:${deckId ?? ""}:${cardId}`;
-  const consumableTicketDropKey = (ticketId: string) => `ticket:${ticketId}`;
-
-  const handleTicketDragOverCard = (
-    event: DragEvent<HTMLElement>,
-    card: Card,
-    area: "inventory" | "deck" | "floor",
-    deck?: DeckCase,
-    targetCardId = card.id,
-  ) => {
-    const drag = consumableDragRef.current ?? consumableDrag;
-    if (!drag || !canApplyTicketToCard(drag.id, card, area, deck)) return;
-    event.preventDefault();
-    event.stopPropagation();
-    event.dataTransfer.dropEffect = "move";
-    setTicketDropTarget(ticketDropKey(area, targetCardId, deck?.id));
-  };
-
-  const handleTicketDragLeave = (event: DragEvent<HTMLElement>, targetKey: string) => {
-    const relatedTarget = event.relatedTarget;
-    if (relatedTarget instanceof Node && event.currentTarget.contains(relatedTarget)) return;
-    setTicketDropTarget((current) => current === targetKey ? null : current);
-  };
-
-  const handleTicketDropOnCard = (
-    event: DragEvent<HTMLElement>,
-    card: Card,
-    area: "inventory" | "deck" | "floor",
-    deck?: DeckCase,
-    targetCardId = card.id,
-  ) => {
-    const drag = consumableDragRef.current ?? consumableDrag;
-    if (!drag || !canApplyTicketToCard(drag.id, card, area, deck)) return;
-    event.preventDefault();
-    event.stopPropagation();
-    applyTicketToCard(drag.id, card, area, deck, targetCardId);
-    finishConsumableDrag();
-  };
-
-  const handleTicketDragOverConsumable = (event: DragEvent<HTMLElement>, target: Consumable) => {
-    const drag = consumableDragRef.current ?? consumableDrag;
-    if (!drag || !canApplyTicketToConsumable(drag.id, target.id)) return;
-    event.preventDefault();
-    event.stopPropagation();
-    event.dataTransfer.dropEffect = "move";
-    setTicketDropTarget(consumableTicketDropKey(target.id));
-  };
-
-  const handleTicketDropOnConsumable = (event: DragEvent<HTMLElement>, target: Consumable) => {
-    const drag = consumableDragRef.current ?? consumableDrag;
-    if (!drag || !canApplyTicketToConsumable(drag.id, target.id)) return;
-    event.preventDefault();
-    event.stopPropagation();
-    applyTicketToConsumable(drag.id, target.id);
-    finishConsumableDrag();
-  };
-
-  const handleTicketDragOverDeck = (event: DragEvent<HTMLElement>, deck: DeckCase) => {
-    const drag = consumableDragRef.current ?? consumableDrag;
-    if (!drag || !canApplyTicketToDeck(drag.id, deck)) return false;
-    event.preventDefault();
-    event.stopPropagation();
-    event.dataTransfer.dropEffect = "move";
-    setDeckEditorDeckId(deck.id);
-    setDeckEditorDropTarget("deck");
-    return true;
-  };
-
-  const handleTicketDropOnDeck = (event: DragEvent<HTMLElement>, deck: DeckCase) => {
-    const drag = consumableDragRef.current ?? consumableDrag;
-    if (!drag || !canApplyTicketToDeck(drag.id, deck)) return false;
-    event.preventDefault();
-    event.stopPropagation();
-    applyTicketToDeck(drag.id, deck);
-    finishConsumableDrag();
-    return true;
-  };
-
-  const dropDeckEditorCard = (event: DragEvent<HTMLElement>, target: DeckEditorArea, targetDeckId?: string) => {
-    event.preventDefault();
-    // Nested deck rows also receive drop; stop bubbling to avoid moving the same card twice.
-    event.stopPropagation();
-    const [payloadSource, payloadId, payloadDeckId] = event.dataTransfer.getData("text/plain").split(":");
-    const drag = deckEditorDragRef.current ?? deckEditorDrag;
-    const source = drag?.source ?? (payloadSource as DeckEditorArea);
-    const cardId = drag?.cardId ?? Number(payloadId);
-    const sourceDeckId = drag?.deckId ?? (payloadDeckId || undefined);
-    if (Number.isInteger(cardId)) {
-      const sourceLocation: DeckEditorCardLocation = { area: source, ...(sourceDeckId ? { deckId: sourceDeckId } : {}) };
-      const targetLocation: DeckEditorCardLocation = { area: target, ...(targetDeckId ? { deckId: targetDeckId } : {}) };
-      const isValidSource = ["deck", "inventory", "floor", "pendingRemoval"].includes(source);
-      if (isValidSource && !(source === "deck" && target === "deck" && sourceDeckId === targetDeckId)) {
-        onMoveCard({ cardId, source: sourceLocation, target: targetLocation });
-      }
-    }
-    deckEditorDragRef.current = null;
-    setDeckEditorDrag(null);
-    setDeckEditorDropTarget(null);
-    onEditorDragActivityChange("card", false);
-  };
-
-  const dropConsumable = (event: DragEvent<HTMLElement>, target: ConsumableArea) => {
-    const drag = consumableDragRef.current ?? consumableDrag;
-    if (!drag || drag.source === target) return;
-    event.preventDefault();
-    event.stopPropagation();
-    if (drag.source === "floor" && target === "inventory") moveFloorConsumableToInventory(drag.id);
-    if (drag.source === "inventory" && target === "floor") moveInventoryConsumableToFloor(drag.id);
-    finishConsumableDrag();
-  };
-
   const renderTicketItem = (item: StackVirtualItem) => {
     if (item.kind !== "ticket" || !item.consumable || !item.consumableIds) return null;
     const { consumable, consumableIds } = item;
@@ -579,10 +141,12 @@ export function DeckEditorModal(props: DeckEditorModalProps) {
     return (
       <button
         type="button"
-        className={`consumable-ticket ${area === "inventory" ? "inventory-ticket" : "floor-ticket"} ${consumable.type} ${consumableTicketTierClassName(consumable.type)} ${isConsumableSelected(consumable) ? "is-selected" : ""} ${ticketDropTarget === consumableTicketDropKey(consumableId) ? "is-ticket-drop-target" : ""}`}
+        className={`consumable-ticket ${area === "inventory" ? "inventory-ticket" : "floor-ticket"} ${consumable.type} ${consumableTicketTierClassName(consumable.type)} ${isConsumableSelected(consumable) ? "is-selected" : ""} ${consumableDrag?.id === consumableId ? "is-dragging" : ""} ${touchDrag?.active && touchDrag.kind === "consumable" && touchDrag.id === consumableId && touchDrag.source === area ? "is-touch-drag-origin" : ""} ${ticketDropTarget === consumableTicketDropKey(consumableId) ? "is-ticket-drop-target" : ""}`}
         key={item.key}
         style={deckEditorCardStackStyle(consumableIds.length)}
+        data-deck-editor-ticket-id={consumableId}
         draggable
+        onPointerDown={(event) => beginTouchPointerDrag(event, "consumable", consumableId, area, undefined, item.key)}
         onDragStart={(event) => beginConsumableDrag(event, consumableId, area, item.key)}
         onDragEnd={finishConsumableDrag}
         onDragOver={(event) => handleTicketDragOverConsumable(event, consumable)}
@@ -603,6 +167,10 @@ export function DeckEditorModal(props: DeckEditorModalProps) {
         }}
         onBlur={consumablePreview.clear}
         onClick={() => {
+          if (suppressTouchClickRef.current) {
+            suppressTouchClickRef.current = false;
+            return;
+          }
           if (area === "inventory" || ["paintTicket", "cloneTicket", "extractTicket", "extractPlusTicket", "transformTicket", "bombTicket", "darkTicket"].includes(consumable.type)) {
             selectExtractionTicket(consumable);
           } else {
@@ -631,24 +199,36 @@ export function DeckEditorModal(props: DeckEditorModalProps) {
     if (pendingRemoval) {
       return (
         <div
-          className={`deck-editor-card is-pending-removal ${pendingRemovalBlinkDim ? "is-blink-dim" : ""} rarity-${card.rarity} ${card.rarity === "legendary" ? "is-painted" : ""} ${deckEditorDrag?.cardId === cardId ? "is-dragging" : ""}`}
+          className={`deck-editor-card is-pending-removal ${pendingRemovalBlinkDim ? "is-blink-dim" : ""} rarity-${card.rarity} ${card.rarity === "legendary" ? "is-painted" : ""} ${deckEditorDrag?.cardId === cardId ? "is-dragging" : ""} ${touchDrag?.active && touchDrag.kind === "card" && touchDrag.id === cardId && touchDrag.source === "pendingRemoval" ? "is-touch-drag-origin" : ""}`}
           key={item.key}
           style={deckEditorCardStackStyle(cardIds.length)}
           draggable
+          onPointerDown={(event) => beginTouchPointerDrag(event, "card", cardId, "pendingRemoval", undefined, item.key)}
           onDragStart={(event) => beginDeckEditorDrag(event, cardId, "pendingRemoval", undefined, item.key)}
           onDragEnd={finishDeckEditorDrag}
           onMouseEnter={(event) => moveDeckCardPreview(event, card)}
           onMouseMove={(event) => moveDeckCardPreview(event, card)}
           onMouseLeave={clearCardPreview}
-          onContextMenu={item.area === "floor" ? (event) => {
-            event.preventDefault();
-            onMoveCard({
-              cardId,
-              source: { area: "pendingRemoval" },
-              target: { area: "deck", deckId: effectiveOriginDeckIdForCard(cardId) ?? editingDeck?.id },
-            });
-          } : undefined}
-          aria-label={`${card.name} ${cardIds.length}장, 제거 예정${item.area === "floor" ? ", 우클릭하면 원래 덱으로 복귀" : ""}`}
+            onContextMenu={item.area === "floor" ? (event) => {
+              event.preventDefault();
+              onMoveCard({
+                cardId,
+                source: { area: "pendingRemoval" },
+                target: { area: "deck", deckId: effectiveOriginDeckIdForCard(cardId) ?? editingDeck?.id },
+              });
+            } : undefined}
+            onClick={item.area === "floor" ? () => {
+              if (suppressTouchClickRef.current) {
+                suppressTouchClickRef.current = false;
+                return;
+              }
+              onMoveCard({
+                cardId,
+                source: { area: "pendingRemoval" },
+                target: { area: "deck", deckId: effectiveOriginDeckIdForCard(cardId) ?? editingDeck?.id },
+              });
+            } : undefined}
+            aria-label={`${card.name} ${cardIds.length}장, 제거 예정${item.area === "floor" ? ", 우클릭하면 원래 덱으로 복귀" : ""}`}
         >
           <DeckEditorCardIcon card={card} count={cardIds.length} showNewBadge={cardIds.some((id) => transformedCardNewIds.has(id))} />
           <span className="pending-removal-icon" aria-label="제거 예정" title="제거 예정">
@@ -664,10 +244,13 @@ export function DeckEditorModal(props: DeckEditorModalProps) {
     return (
       <button
         type="button"
-        className={`deck-editor-card rarity-${card.rarity} ${card.rarity === "legendary" ? "is-painted" : ""} ${deckEditorDrag?.cardId === cardId ? "is-dragging" : ""} ${ticketDropTarget === location ? "is-ticket-drop-target" : ""}`}
+        className={`deck-editor-card rarity-${card.rarity} ${card.rarity === "legendary" ? "is-painted" : ""} ${deckEditorDrag?.cardId === cardId ? "is-dragging" : ""} ${touchDrag?.active && touchDrag.kind === "card" && touchDrag.id === cardId && touchDrag.source === area ? "is-touch-drag-origin" : ""} ${ticketDropTarget === location ? "is-ticket-drop-target" : ""}`}
         key={item.key}
         style={deckEditorCardStackStyle(cardIds.length)}
+        data-ticket-card-id={cardId}
+        data-ticket-card-area={area}
         draggable
+        onPointerDown={(event) => beginTouchPointerDrag(event, "card", cardId, area, undefined, item.key)}
         onDragStart={(event) => beginDeckEditorDrag(event, cardId, area, undefined, item.key)}
         onDragEnd={finishDeckEditorDrag}
         onDragOver={(event) => handleTicketDragOverCard(event, card, area, undefined, cardId)}
@@ -682,14 +265,20 @@ export function DeckEditorModal(props: DeckEditorModalProps) {
         }}
         onBlur={clearCardPreview}
         onClick={() => {
+          if (suppressTouchClickRef.current) {
+            suppressTouchClickRef.current = false;
+            return;
+          }
           if (area === "inventory") {
-            if (!applySelectedCardTicket(card, "inventory", undefined, cardId)) onMoveCard({
-              cardId,
-              source: { area: "inventory" },
-              target: { area: "deck", deckId: editingDeck?.id },
-            });
-          } else if (!applySelectedCardTicket(card, "floor", undefined, cardId)) {
-            onMoveCard({ cardId, source: { area: "floor" }, target: { area: "inventory" } });
+            const ticketApplied = applySelectedCardTicket(card, "inventory", undefined, cardId);
+            if (!ticketApplied && document.documentElement.dataset.deviceMode !== "mobile") {
+              onMoveCard({ cardId, source: { area: "inventory" }, target: { area: "deck", deckId: editingDeck?.id } });
+            }
+          } else {
+            const ticketApplied = applySelectedCardTicket(card, "floor", undefined, cardId);
+            if (!ticketApplied && document.documentElement.dataset.deviceMode !== "mobile") {
+              onMoveCard({ cardId, source: { area: "floor" }, target: { area: "inventory" } });
+            }
           }
         }}
         onContextMenu={area === "inventory" ? (event) => {
@@ -697,8 +286,8 @@ export function DeckEditorModal(props: DeckEditorModalProps) {
           onMoveCard({ cardId, source: { area: "inventory" }, target: { area: "floor" } });
         } : undefined}
         aria-label={area === "inventory"
-          ? `${card.name}, 좌클릭하면 선택한 덱으로 이동, 우클릭하면 바닥으로 이동`
-          : `${card.name}, 인벤토리에 줍기`}
+          ? `${card.name}, 끌어서 덱 또는 바닥으로 이동`
+          : `${card.name}, 끌어서 이동`}
       >
         <DeckEditorCardIcon card={card} count={cardIds.length} showNewBadge={cardIds.some((id) => transformedCardNewIds.has(id))} />
       </button>
@@ -746,26 +335,32 @@ export function DeckEditorModal(props: DeckEditorModalProps) {
   };
 
   return (
-    <div className="deck-editor-overlay" role="dialog" aria-modal="true" aria-labelledby="deck-editor-title">
+    <div
+      className="deck-editor-overlay"
+      role="dialog"
+      aria-modal="true"
+      aria-label="덱 편집"
+      onClick={(event) => {
+        if (!(event.target instanceof HTMLElement)
+          || !event.target.matches(".deck-editor-overlay, .deck-editor-stage, .deck-editor-panel")) return;
+        event.stopPropagation();
+        if (deckEditorDragRef.current || consumableDragRef.current || deckCaseDragRef.current || touchDrag?.active) return;
+        if (suppressTouchClickRef.current) {
+          suppressTouchClickRef.current = false;
+          return;
+        }
+        confirmDeckEditor();
+      }}
+    >
 
             <div className="deck-editor-stage">
-              <section className="deck-editor-panel" onClick={(event) => event.stopPropagation()}>
-              <header className="deck-editor-header">
-                <div>
-                  <h2 id="deck-editor-title">덱 편집</h2>
-                </div>
-                {deckEditorErrorMessage && <p className="deck-editor-message" role="status">{deckEditorErrorMessage}</p>}
-                <div className="deck-editor-header-costs">
-                  <div className="deck-editor-sort" aria-label="카드 정렬 방식">
-                    <button type="button" className={deckEditorSort === "cost" ? "is-active" : ""} onClick={() => setDeckEditorSort("cost")}>코스트 순</button>
-                    <button type="button" className={deckEditorSort === "rarity" ? "is-active" : ""} onClick={() => setDeckEditorSort("rarity")}>희귀도 순</button>
-                  </div>
-                </div>
-              </header>
-
+              <section className="deck-editor-panel" onClick={(event) => {
+                if (event.target !== event.currentTarget) event.stopPropagation();
+              }}>
               <div className="deck-editor-columns">
                 <section
                   className={`deck-editor-column inventory-column ${deckEditorDropTarget === "inventory" ? "is-drop-target" : ""}`}
+                  data-deck-editor-area="inventory"
                   onDragOver={(event) => {
                     const itemDrag = consumableDragRef.current ?? consumableDrag;
                     if (itemDrag?.source === "floor") {
@@ -811,6 +406,8 @@ export function DeckEditorModal(props: DeckEditorModalProps) {
                         <div
                           className={`deck-editor-deck-row empty-deck-row ${deckCaseDrag?.source === "floor" && deckCaseDropSlot === index ? "is-deck-drop-target" : ""}`}
                           key={`empty-deck-${index}`}
+                          role="group"
+                          aria-label="빈 덱 슬롯"
                           onDragOver={(event) => {
                             const drag = deckCaseDragRef.current ?? deckCaseDrag;
                             if (drag?.source !== "floor") return;
@@ -824,9 +421,7 @@ export function DeckEditorModal(props: DeckEditorModalProps) {
                             if (drag?.source === "floor") pickUpFloorDeck(drag.deckId);
                             finishDeckCaseDrag();
                           }}
-                        >
-                          <strong>덱 {index + 1}</strong><span>빈 덱 칸</span>
-                        </div>
+                        />
                       );
                     }
                     const isSelected = deck.id === editingDeck?.id;
@@ -836,6 +431,8 @@ export function DeckEditorModal(props: DeckEditorModalProps) {
                       <section
                         className={`deck-editor-deck-row ${isSelected ? "is-selected" : ""} ${deck.id === activeDeck?.id ? "is-active-deck" : ""} ${deckEditorDropTarget === "deck" && deckEditorDeckId === deck.id ? "is-drop-target" : ""}`}
                         key={deck.id}
+                        data-deck-editor-area="deck"
+                        data-deck-editor-deck-id={deck.id}
                         onDragOver={(event) => {
                           if (handleTicketDragOverDeck(event, deck)) return;
                           const drag = deckEditorDragRef.current ?? deckEditorDrag;
@@ -886,13 +483,20 @@ export function DeckEditorModal(props: DeckEditorModalProps) {
                             if (!cardDrag || (cardDrag.source === "deck" && cardDrag.deckId === deck.id)) return;
                             dropDeckEditorCard(event, "deck", deck.id);
                           }}
-                          onClick={() => setDeckEditorDeckId(deck.id)}
+                          onClick={() => {
+                            setDeckEditorDeckId(deck.id);
+                            applySelectedTicketToDeck(deck);
+                          }}
+                          onDoubleClick={() => {
+                            if (deckCaseDragRef.current || touchDrag?.active || suppressTouchClickRef.current) return;
+                            onSelectActiveDeck(deck.id);
+                          }}
+                          title="더블클릭하여 사용할 덱으로 선택"
                           onContextMenu={(event) => {
                             event.preventDefault();
                             dropOwnedDeck(deck.id);
                           }}
                         >
-                          <span>덱 {index + 1}{deck.id === activeDeck?.id ? " · 사용 중" : ""}</span>
                           <strong>
                             <DeckName
                               deck={deck}
@@ -928,9 +532,7 @@ export function DeckEditorModal(props: DeckEditorModalProps) {
                     );
                   })}
                 </div>
-              </div>
-
-              <section className="deck-editor-floor-section">
+              <section className="deck-editor-floor-section" data-deck-editor-area="floor" aria-label="바닥 아이템">
                 <div className="area-flow-arrow floor-inventory-flow" aria-hidden="true">
                   <span />
                   <span />
@@ -986,16 +588,8 @@ export function DeckEditorModal(props: DeckEditorModalProps) {
                 </div>
               </section>
 
-              <footer className="deck-editor-footer">
-                <div className="deck-editor-footer-actions">
-                  <button
-                    type="button"
-                    className="confirm"
-                    onClick={confirmDeckEditor}
-                    disabled={deckEditorInventoryItemCount > inventoryCapacity}
-                  >확인</button>
-                </div>
-              </footer>
+              </div>
+
               </section>
               {hoveredDeckCard && !deckEditorDrag && (
                 <aside
@@ -1019,7 +613,7 @@ export function DeckEditorModal(props: DeckEditorModalProps) {
                 </aside>
               )}
             </div>
-            {mapMessage && <p key={mapMessageNonce} className="map-message deck-editor-map-message" role="status" aria-live="polite">{mapMessage}</p>}
+            {(deckEditorErrorMessage || mapMessage) && <p key={mapMessageNonce} className="map-message deck-editor-map-message" role="status" aria-live="polite">{deckEditorErrorMessage || mapMessage}</p>}
           
     </div>
   );

@@ -8,8 +8,6 @@ import {
 } from "./cards.ts";
 import { obsidianDaggerForgesRemaining } from "./forgeRules.ts";
 
-export const IRON_WALL_COST = 2;
-export const IRON_WALL_RESISTANCE = 2;
 
 export type CardKeywordInfo = {
   name: string;
@@ -46,7 +44,7 @@ export function cardEnergyCost(
 export function cardPoolCost(card: CardBlueprint) {
   return UNPLAYABLE_CARD_EFFECTS.has(card.effect)
     ? -1
-    : card.effect === "ironWall" ? IRON_WALL_COST : card.cost ?? -1;
+    : card.cost ?? -1;
 }
 
 export function cardPoolShare(count: number, total: number) {
@@ -56,6 +54,7 @@ export function cardPoolShare(count: number, total: number) {
 const CARD_KEYWORD_DESCRIPTIONS: Record<string, string> = {
   "룰": "전투 동안 지속되는 규칙을 추가합니다. 사용 시 이번 전투 동안 카드가 사라집니다.",
   "소멸": "사용 시 이번 전투 동안 사라집니다.",
+  "보존": "턴이 끝나도 손패에서 버려지지 않습니다.",
   "토큰": "전투 도중 생성된 카드입니다. 사용하면 사라지고, 사용하지 않은 채 버려져도 사라집니다.",
   "재련": "조건을 만족하는 카드 위에 놓으면 강화 효과가 적용됩니다. 강화 효과는 전투 동안 유지됩니다.",
   "주문": "비용이 1 높은 주문 카드 위에 놓을 수 있습니다.",
@@ -65,11 +64,11 @@ const CARD_KEYWORD_DESCRIPTIONS: Record<string, string> = {
   "버리기 X": "사용 시 손패의 다른 카드 X장을 버립니다. 버릴 카드가 X장보다 적으면 사용할 수 없습니다.",
   "힘": "힘 X는 피해를 X만큼 증가시킵니다.",
   "강인함": "강인함 X는 방어와 마법 방어 획득량을 X만큼 증가시킵니다.",
-  "물리 저항": "받는 물리 피해가 절반이 됩니다. (소수점은 버립니다.)",
-  "마법 저항": "받는 마법 피해가 절반이 됩니다. (소수점은 버립니다.)",
-  "물리 취약": "받는 물리 피해가 2배가 됩니다.",
-  "마법 취약": "받는 마법 피해가 2배가 됩니다.",
+  "저항": "받는 공격 피해가 30% 감소합니다. 음수라면 30% 증가합니다. 숫자는 남은 턴 수입니다. 추가 턴에는 줄지 않으며 공격 외의 피해에는 적용되지 않습니다.",
   "면역": "지속 중에는 피해를 받지 않습니다.",
+  "증폭": "가하는 공격 피해가 30% 증가합니다. 숫자는 남은 턴 수이며 약화와 서로 상쇄됩니다.",
+  "취약": "받는 공격 피해가 30% 증가합니다. 숫자는 남은 턴 수이며 저항과 서로 상쇄됩니다.",
+  "약화": "가하는 공격 피해가 30% 감소합니다. 숫자는 남은 턴 수이며 증폭과 서로 상쇄됩니다.",
 };
 
 const CARD_KEYWORD_PREVIEWS: Record<string, CardKeywordInfo["preview"]> = {
@@ -84,6 +83,8 @@ export function getCardKeywordInfos(card: Card): CardKeywordInfo[] {
   if (card.rule) add("룰");
   if (card.exhaust && !card.rule) add("소멸");
   if (card.token) add("토큰");
+  if (card.retain) add("보존");
+  if (card.effect === "fermentedSlime") add("에너지");
   if (card.effect === "wish") add("토큰");
   if (card.effect === "obsidianDagger" || card.effect === "odinSpear" || (
     !["astronomyResearch", "necromancyResearch", "massDeal"].includes(card.effect)
@@ -99,9 +100,11 @@ export function getCardKeywordInfos(card: Card): CardKeywordInfo[] {
   if (CARD_POOL_ENERGY_EFFECTS.has(card.effect)) add("에너지");
   if (card.discardCost !== undefined) add("버리기 X");
   if (card.effect === "obsidianDagger") add("소멸");
-  if (card.effect === "ironWall" || card.effect === "plateArmorDefense") add("물리 저항");
-  if (card.effect === "blessing") add("마법 저항");
-  if (card.effect === "berserk") add("물리 취약");
+  if (card.effect === "plateArmorDefense") add("저항");
+  if (["resistanceWard", "fourSeasons", "unyielding"].includes(card.effect)) add("저항");
+  if (["battleCry", "battlePreparation", "fourSeasons"].includes(card.effect)) add("증폭");
+  if (["shatter", "fourSeasons", "demolish"].includes(card.effect)) add("취약");
+  if (["kneeStrike", "scaleArmor", "fourSeasons", "demolish"].includes(card.effect)) add("약화");
   if (card.effect === "transcend") add("면역");
   if (CARD_POOL_STAR_EFFECTS.has(card.effect) || ["grimoire", "meteor", "supernova"].includes(card.effect)) add("★");
   if (["warmUp", "weaponSharpen", "augment", "orion", "combatManual", "relic", "transcend", "evolutionTheory", "strategyBook"].includes(card.effect)) add("힘");

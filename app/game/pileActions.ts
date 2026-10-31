@@ -4,10 +4,13 @@ import type { GameState } from "./battleState";
 import type { EnemyState } from "./enemies";
 import type { Card } from "./cards";
 import type { DragState, Phase } from "./battleUiTypes";
-import { cardEnergyCost, canForgeCardOnto, canPlaceBySolitaireRule, cardForgeCount, getFloodPyramid, getSpellStraight } from "./cardEffects";
-import { cardCostAfterForgePlacement } from "./forgeRules";
-import { applyPlayerAttack } from "./enemies";
-import { drawRandomFromPiles } from "./battleState";
+import { cardEnergyCost, canForgeCardOnto, canPlaceBySolitaireRule, cardForgeCount, getFloodPyramid, getSpellStraight } from "./cardEffects.ts";
+import { cardCostAfterForgePlacement } from "./forgeRules.ts";
+import { applyPlayerAttack } from "./enemies.ts";
+import { drawRandomFromPiles } from "./battleState.ts";
+import { applySolitaireEnemyPassives, blockedPileIndexes } from "./enemyPassives.ts";
+
+import { resolveEnemyDefeats } from "./enemyDefeatRules.ts";
 
 type ResearchDrawKind = "astronomy" | "necromancy";
 
@@ -18,6 +21,9 @@ type MoveCardToPileContext = {
   grantBattleReward: (regionNumber: number) => void;
   battleRewardRegionRef: RefObject<number>;
   lowestHealthEnemy: (enemies: EnemyState[]) => EnemyState | undefined;
+  maxPlayerHp?: number;
+  oneUpUsedRef?: RefObject<boolean>;
+  setOneUpUsed?: (value: boolean) => void;
 };
 type DrawSelectedPileContext = {
   game: GameState;
@@ -157,7 +163,7 @@ export function createMoveCardToPile(context: MoveCardToPileContext) {
       const metallurgyResearchCount = forgeApplied
         ? current.activeRuleCards.filter((card) => card.effect === "metallurgyResearch").length
         : 0;
-      const forgedCardsToRetrieve = metallurgyResearchCount > 0
+      const forgedCardsToRetrieve = metallurgyResearchCount > 0 && !blockedPileIndexes(current.enemies).includes(targetPileIndex)
         ? placedCards.filter((_, index) => forgeResults[index].applied)
         : [];
       if (forgedCardsToRetrieve.length > 0) {
@@ -173,7 +179,7 @@ export function createMoveCardToPile(context: MoveCardToPileContext) {
         : current.initialDeck;
       const spellStraight = getSpellStraight(nextPiles[targetPileIndex]);
       const floodPyramid = spellStraight ? null : getFloodPyramid(nextPiles[targetPileIndex]);
-      let nextEnemies = current.enemies;
+      let nextEnemies = applySolitaireEnemyPassives(current.enemies);
       let nextEnergy = current.energy;
       let nextStars = current.stars - 1;
       const blacksmithTriggered = forgeApplied && blessings.includes("blacksmith") && !current.blacksmithForgeUsedThisTurn;
@@ -196,8 +202,10 @@ export function createMoveCardToPile(context: MoveCardToPileContext) {
               nextEnemies = nextEnemies.map((enemy) => enemy.id === target.id
                 ? applyPlayerAttack(
                   enemy,
-                  enemy.isBoss && blessings.includes("bossSlayer") ? (spell.value + current.strength) * 2 : spell.value + current.strength,
+                  spell.value + current.strength,
                   1,
+                  undefined,
+                  { amplification: current.playerAmplification, multiplier: enemy.isBoss && blessings.includes("bossSlayer") ? 2 : 1 },
                 )
                 : enemy);
             }
@@ -205,8 +213,10 @@ export function createMoveCardToPile(context: MoveCardToPileContext) {
             nextEnemies = nextEnemies.map((enemy) => enemy.hp > 0
               ? applyPlayerAttack(
                 enemy,
-                enemy.isBoss && blessings.includes("bossSlayer") ? (spell.value + current.strength) * 2 : spell.value + current.strength,
+                spell.value + current.strength,
                 1,
+                undefined,
+                { amplification: current.playerAmplification, multiplier: enemy.isBoss && blessings.includes("bossSlayer") ? 2 : 1 },
               )
               : enemy);
           } else if (spell.effect === "ventilate") {
@@ -250,13 +260,18 @@ export function createMoveCardToPile(context: MoveCardToPileContext) {
         ];
       }
 
+      const deaths = resolveEnemyDefeats({ ...current, enemies: nextEnemies, hand: nextHand },
+        { blessings, maxPlayerHp: context.maxPlayerHp, oneUpUsed: context.oneUpUsedRef?.current });
+      if (deaths.oneUpUsed && context.oneUpUsedRef) { context.oneUpUsedRef.current = true; context.setOneUpUsed?.(true); }
+      const defeated = deaths.state;
+      const nextStatus = defeated.playerHp === 0 ? "lost" : nextEnemies.length > 0 && defeated.enemies.every(enemy => enemy.hp === 0) ? "won" : current.status;
       return {
-        ...current,
+        ...defeated,
         piles: nextPiles,
         initialDeck: nextInitialDeck,
-        hand: nextHand,
+        hand: defeated.hand,
         discard: spellStraight || floodPyramid ? [...current.discard, ...autoDiscard] : current.discard,
-        enemies: nextEnemies,
+        enemies: defeated.enemies,
         energy: nextEnergy,
         stars: nextStars,
         forgeCount: current.forgeCount + forgeAppliedCount,
@@ -266,7 +281,7 @@ export function createMoveCardToPile(context: MoveCardToPileContext) {
           : current.removedFromReshuffleIds,
         pendingDraws: floodPyramid ? current.pendingDraws + autoDraws : current.pendingDraws,
         starsSpent: current.starsSpent + 1,
-        status: spellStraight && nextEnemies.every((enemy) => enemy.hp === 0) ? "won" : current.status,
+        status: nextStatus,
         message: spellStraight ? "주문 스트레이트 발동!" : floodPyramid ? "범람 피라미드 발동!" : finalAction,
       };
     });
@@ -277,7 +292,7 @@ export function createDrawSelectedPile(context: DrawSelectedPileContext) {
   const { game, phase, setGame, pendingOriginsRef, setPhase } = context;
   return (pileIndex: number) => {
     if ((game.pendingDraws < 1 && game.pendingPileDrawCount < 1) || game.pendingResearchDraw !== null || phase !== "playing" || game.status !== "playing") return;
-    if (game.piles.every((pile) => pile.length === 0)) {
+    if (game.piles.every((pile, index) => pile.length === 0 || blockedPileIndexes(game.enemies).includes(index))) {
       setGame((current) => ({
         ...current,
         pendingDraws: 0,
@@ -285,6 +300,10 @@ export function createDrawSelectedPile(context: DrawSelectedPileContext) {
         pendingDashRandomDraws: 0,
         message: "드로우할 카드가 없습니다.",
       }));
+      return;
+    }
+    if (blockedPileIndexes(game.enemies).includes(pileIndex)) {
+      setGame(current => ({ ...current, message: "봉인된 파일에서는 카드를 뽑을 수 없습니다." }));
       return;
     }
     const pile = game.piles[pileIndex];
@@ -305,7 +324,7 @@ export function createDrawSelectedPile(context: DrawSelectedPileContext) {
     if (dashRandomCount > 0) {
       const previewPiles = game.piles.map((currentPile) => [...currentPile]);
       for (let index = 0; index < drawCount; index += 1) previewPiles[pileIndex]?.pop();
-      dashRandomResult = drawRandomFromPiles(previewPiles, dashRandomCount);
+      dashRandomResult = drawRandomFromPiles(previewPiles, dashRandomCount, Math.random, blockedPileIndexes(game.enemies));
     }
     const originIds = new Set([card.id, ...(dashRandomResult?.hand.map((drawnCard) => drawnCard.id) ?? [])]);
     const origins = new Map<number, DOMRect>();
@@ -374,7 +393,7 @@ export function createDrawSelectedPile(context: DrawSelectedPileContext) {
       const action = isDashDraw
         ? `${pileIndex + 1}번 파일에서 ${drawnCards.length}장 드로우 · 무작위 파일에서 ${randomDrawnCards.length}장 추가 드로우`
         : `${pileIndex + 1}번 파일에서 ${drawnCards.length}장 드로우`;
-      const remainingCardCount = finalPiles.reduce((total, currentPile) => total + currentPile.length, 0);
+      const remainingCardCount = finalPiles.reduce((total, currentPile, index) => total + (blockedPileIndexes(current.enemies).includes(index) ? 0 : currentPile.length), 0);
       const nextPendingDraws = isDashDraw
         ? 0
         : current.pendingPileDrawCount > 0
@@ -404,6 +423,10 @@ export function createDrawAstronomyResearchCard(context: DrawAstronomyResearchCa
   return (pileIndex: number, allowAutoPay = false) => {
     const canDrawDirectly = allowAutoPay && game.pendingResearchDraw === null;
     if ((game.pendingResearchDraw !== "astronomy" && !canDrawDirectly) || phase !== "playing" || game.status !== "playing") return;
+    if (blockedPileIndexes(game.enemies).includes(pileIndex)) {
+      setGame(current => ({ ...current, message: "봉인된 파일에서는 카드를 뽑을 수 없습니다." }));
+      return;
+    }
     const expectedCardId = game.piles[pileIndex]?.at(-1)?.id;
     if (expectedCardId === undefined) {
       setGame((current) => ({ ...current, message: "이 파일은 비어 있습니다. 카드가 있는 파일을 선택하세요." }));

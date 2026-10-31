@@ -5,7 +5,9 @@ import { getCardKeywordInfos } from "../game/cardEffects";
 import type { BlessingId } from "../game/blessingRules";
 import { BLESSING_INFO } from "../game/blessingRules";
 import type { Consumable, DeckEdition } from "../game/rewards";
+import { CARD_PREVIEW_FRAME_WIDTH, CARD_PREVIEW_FRAME_HEIGHT, cardKeywordPopoverWidth } from "../components/cardPreviewLayout";
 
+const KEYWORD_POPOVER_GAP = 16;
 type KeywordHoverRequest = { card: Card; right: number; top: number };
 
 export function useFloatingPreviews({
@@ -42,8 +44,7 @@ export function useFloatingPreviews({
     if (!keywordHoverRequest) return;
     const timer = window.setTimeout(() => {
       const margin = 12;
-      const offset = 16;
-      const left = keywordHoverRequest.right + offset;
+      const left = keywordHoverRequest.right + KEYWORD_POPOVER_GAP;
       const anchorTop = Math.max(margin, keywordHoverRequest.top);
       setHoveredCardKeywords({
         card: keywordHoverRequest.card,
@@ -110,15 +111,16 @@ export function useFloatingPreviews({
     }
     const margin = 12;
     const offset = 18;
-    const previewWidth = 136;
-    const previewHeight = 191;
+    const previewWidth = CARD_PREVIEW_FRAME_WIDTH;
+    const previewHeight = CARD_PREVIEW_FRAME_HEIGHT;
     const previewLeft = placement === "left" && anchorLeft !== undefined
       ? anchorLeft - previewWidth - offset
       : anchorRight + offset;
     const previewTop = Math.max(margin, Math.min(anchorTop + offset, window.innerHeight - previewHeight - margin));
     const previewRight = previewLeft + previewWidth;
+    const keywordWidth = cardKeywordPopoverWidth(getCardKeywordInfos(card));
     const keywordAnchorRight = placement === "left"
-      ? previewLeft - 16 - 310
+      ? previewLeft - keywordWidth - KEYWORD_POPOVER_GAP * 2
       : previewRight;
     scheduleCardKeywordHover(card, keywordAnchorRight, previewTop);
     setHoveredDeckCard(card);

@@ -1,10 +1,10 @@
-import { BASIC_CARD_POOL, RARE_CARD_POOL, SPECIAL_CARD_POOL, type Card } from "./cards";
+import { BASIC_CARD_POOL, RARE_CARD_POOL, SPECIAL_CARD_POOL, type Card } from "./cards.ts";
 import {
   SEWER_ENCOUNTER_COUNT,
   getBossEncounterIndex,
   getEncounterRegionNumber,
   getEncounterSpawnPool,
-} from "./enemies";
+} from "./enemies.ts";
 import {
   EIGHT_DIRECTIONS,
   MAP_ENEMY_SAFE_RADIUS,
@@ -13,8 +13,8 @@ import {
   chebyshevDistance,
   createMapEnemyWorld,
   type MapEnemyWorld,
-} from "./mapEnemies";
-import { consumableTypeFromRoll, createConsumable, type Consumable } from "./rewards";
+} from "./mapEnemies.ts";
+import { consumableTypeFromRoll, createConsumable, type Consumable } from "./rewards.ts";
 
 export type MapPosition = { x: number; y: number };
 export type RoomType =
@@ -218,19 +218,42 @@ export function nextRegionEntry(regionIndex: number): MapPosition {
   return { x: 0, y: regionStartY(Math.min(REGION_COUNT - 1, regionIndex + 1)) };
 }
 
+// Base terrain depends only on the seed. Runtime changes (bombs, used shrines,
+// defeated bosses) are applied by the caller and must not enter this cache.
+const geometryBySeed = new Map<number, {
+  rooms: Map<string, RoomType>;
+  portals: Map<number, Set<number>>;
+}>();
+
+function mapGeometry(seed: number) {
+  let geometry = geometryBySeed.get(seed);
+  if (!geometry) {
+    if (geometryBySeed.size >= 2) geometryBySeed.delete(geometryBySeed.keys().next().value!);
+    geometry = { rooms: new Map(), portals: new Map() };
+    geometryBySeed.set(seed, geometry);
+  }
+  return geometry;
+}
+
 function isPortalColumn(x: number, regionIndex: number, seed: number) {
+  const portals = mapGeometry(seed).portals;
+  const cached = portals.get(regionIndex);
+  if (cached) return cached.has(x);
   const bottomY = regionStartY(regionIndex) + regionHeight(regionIndex) - 1;
   const candidates = Array.from(
     { length: DUNGEON_MAX_X - DUNGEON_MIN_X + 1 },
     (_, index) => DUNGEON_MIN_X + index,
   ).filter((column) =>
     seededRoll({ x: column, y: bottomY }, seed, regionIndex + 101) < PORTAL_NODE_CHANCE);
-  if (candidates.length > 0) return candidates.includes(x);
-  const fallback = DUNGEON_MIN_X + Math.floor(
-    seededRoll({ x: regionIndex, y: bottomY }, seed, 911)
-      * (DUNGEON_MAX_X - DUNGEON_MIN_X + 1),
-  );
-  return x === fallback;
+  if (candidates.length === 0) {
+    candidates.push(DUNGEON_MIN_X + Math.floor(
+      seededRoll({ x: regionIndex, y: bottomY }, seed, 911)
+        * (DUNGEON_MAX_X - DUNGEON_MIN_X + 1),
+    ));
+  }
+  const columns = new Set(candidates);
+  portals.set(regionIndex, columns);
+  return columns.has(x);
 }
 
 function getFixedRoomType(position: MapPosition, seed: number): RoomType | null {
@@ -342,6 +365,16 @@ function isRockClusterCell(position: MapPosition, seed: number) {
 }
 
 export function getRoomType(position: MapPosition, seed: number): RoomType {
+  const rooms = mapGeometry(seed).rooms;
+  const key = mapRoomKey(position);
+  const cached = rooms.get(key);
+  if (cached !== undefined) return cached;
+  const type = generateRoomType(position, seed);
+  if (type !== "void") rooms.set(key, type);
+  return type;
+}
+
+function generateRoomType(position: MapPosition, seed: number): RoomType {
   const fixedType = getFixedRoomType(position, seed);
   if (fixedType !== null) return fixedType;
   const specialType = getSpecialRoomType(position, seed);

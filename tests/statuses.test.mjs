@@ -1,19 +1,23 @@
 import assert from "node:assert/strict";
 import test from "node:test";
 
-import { addResistance, addVulnerability, decayThenAddVulnerability, vulnerabilityMultiplier } from "../app/game/statuses.ts";
+import { addResistance, decayStatus, calculateAttackDamage } from "../app/game/statuses.ts";
 
-test("resistance and vulnerability immediately cancel each other", () => {
-  assert.deepEqual(addVulnerability({ resistance: 4, vulnerability: 0 }, 3), { resistance: 1, vulnerability: 0 });
-  assert.deepEqual(addVulnerability({ resistance: 1, vulnerability: 0 }, 3), { resistance: 0, vulnerability: 2 });
-  assert.deepEqual(addVulnerability({ resistance: 2, vulnerability: 0 }, 2), { resistance: 0, vulnerability: 0 });
-  assert.deepEqual(addResistance({ resistance: 0, vulnerability: 3 }, 1), { resistance: 0, vulnerability: 2 });
-  assert.equal(vulnerabilityMultiplier(0), 1);
-  assert.equal(vulnerabilityMultiplier(1), 2);
+test("signed durations cancel and move one step toward zero without crossing it", () => {
+  assert.equal(addResistance(3, -5), -2);
+  assert.deepEqual([3, 1, 0, -1, -3].map(decayStatus), [2, 0, 0, 0, -2]);
+  assert.equal(addResistance(-3, 2, true), -3);
+  assert.equal(addResistance(0, -2, true), -2);
+  assert.equal(decayStatus(-3), -2);
 });
 
-test("turn-start vulnerability is added after the old value decays", () => {
-  assert.deepEqual(decayThenAddVulnerability({ resistance: 0, vulnerability: 0 }, 1), { resistance: 0, vulnerability: 1 });
-  assert.deepEqual(decayThenAddVulnerability({ resistance: 0, vulnerability: 2 }, 1), { resistance: 0, vulnerability: 2 });
-  assert.deepEqual(decayThenAddVulnerability({ resistance: 1, vulnerability: 0 }, 1), { resistance: 0, vulnerability: 1 });
+test("attack modifiers use only the duration's sign and round after every multiplier", () => {
+  assert.equal(calculateAttackDamage(6, { amplification: 1, resistance: -1 }), 10);
+  assert.equal(calculateAttackDamage(6, { amplification: 8, resistance: -8 }), 10);
+  assert.equal(calculateAttackDamage(6, { amplification: 1, resistance: -1, multiplier: 2 }), 20);
+  assert.equal(calculateAttackDamage(10, { amplification: 1, resistance: 1 }), 9);
+  assert.equal(calculateAttackDamage(10, { amplification: -1, resistance: 1 }), 4);
+  assert.equal(calculateAttackDamage(10, { resistance: -2, ignoreNegativeResistance: true }), 10);
+  assert.equal(calculateAttackDamage(10, { resistance: 2, ignoreNegativeResistance: true }), 7);
+  assert.equal(calculateAttackDamage(1, { resistance: 1 }), 0);
 });

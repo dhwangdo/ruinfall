@@ -1,5 +1,6 @@
-import type { CSSProperties } from "react";
+import type { CSSProperties, KeyboardEvent as ReactKeyboardEvent, PointerEvent as ReactPointerEvent } from "react";
 import { MAX_PLAYER_HP } from "../game/battleState";
+import type { RunResetHoldControls } from "../hooks/useRunKeyboardControls";
 
 type MapTopbarProps = {
   runPlayerHp: number;
@@ -9,9 +10,9 @@ type MapTopbarProps = {
   mapTraveling: boolean;
   canEditDeck: boolean;
   onGoldDebugClick: () => void;
-  onOpenDeckViewer: () => void;
   onWait: () => void;
   onEditDeck: () => void;
+  restartHold: RunResetHoldControls;
 };
 
 export function MapTopbar({
@@ -22,10 +23,29 @@ export function MapTopbar({
   mapTraveling,
   canEditDeck,
   onGoldDebugClick,
-  onOpenDeckViewer,
   onWait,
   onEditDeck,
+  restartHold,
 }: MapTopbarProps) {
+  const handleRestartPointerDown = (event: ReactPointerEvent<HTMLButtonElement>) => {
+    if (event.button !== 0) return;
+    event.preventDefault();
+    restartHold.start("pointer");
+    try {
+      event.currentTarget.setPointerCapture(event.pointerId);
+    } catch {
+      // The pointer may already have ended on older mobile browsers.
+    }
+  };
+
+  const handleRestartKeyDown = (event: ReactKeyboardEvent<HTMLButtonElement>) => {
+    if (event.key !== " " && event.key !== "Enter") return;
+    event.preventDefault();
+    if (!event.repeat) restartHold.start("buttonKeyboard");
+  };
+
+  const restartButtonStyle = { "--restart-hold-progress": restartHold.progress } as CSSProperties;
+
   return (
     <header className="topbar map-topbar">
       <div className="map-top-actions">
@@ -49,15 +69,6 @@ export function MapTopbar({
         </div>
         <button
           type="button"
-          className="deck-viewer-trigger"
-          onClick={onOpenDeckViewer}
-          aria-label={`덱 보기, 현재 ${deckCardCount}장`}
-        >
-          <span className="deck-stack-icon" aria-hidden="true" />
-          <span>덱 보기</span>
-        </button>
-        <button
-          type="button"
           className="map-wait-trigger"
           onClick={onWait}
           disabled={mapTraveling}
@@ -65,15 +76,39 @@ export function MapTopbar({
         >
           한 턴 쉼
         </button>
+        <button
+          type="button"
+          className="map-restart-trigger"
+          style={restartButtonStyle}
+          title="버튼 또는 R키를 1초간 눌러 다시하기 · 현재 진행을 초기화합니다"
+          aria-label="버튼 또는 R키를 길게 눌러 다시하기. 현재 진행을 초기화합니다"
+          onPointerDown={handleRestartPointerDown}
+          onPointerUp={() => restartHold.stop("pointer")}
+          onPointerCancel={() => restartHold.stop("pointer")}
+          onPointerLeave={() => restartHold.stop("pointer")}
+          onLostPointerCapture={() => restartHold.stop("pointer")}
+          onKeyDown={handleRestartKeyDown}
+          onKeyUp={(event) => {
+            if (event.key === " " || event.key === "Enter") restartHold.stop("buttonKeyboard");
+          }}
+          onBlur={() => {
+            restartHold.stop("pointer");
+            restartHold.stop("buttonKeyboard");
+          }}
+          onContextMenu={(event) => event.preventDefault()}
+        >
+          <span className="map-restart-progress" aria-hidden="true" />
+          <span className="map-restart-label">다시하기</span>
+        </button>
         {canEditDeck && (
           <button
             type="button"
             className="deck-editor-trigger"
             onClick={onEditDeck}
-            aria-label={`덱 편집, 현재 ${deckCardCount}장`}
+            aria-label={`인벤토리 열기, 현재 덱 ${deckCardCount}장`}
           >
             <span className="deck-stack-icon" aria-hidden="true" />
-            <span>덱 편집</span>
+            <span>인벤토리</span>
           </button>
         )}
       </div>

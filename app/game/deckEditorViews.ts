@@ -1,13 +1,12 @@
 import type { Card } from "./cards.ts";
 import { CARD_RARITY_SORT_RANK, UNPLAYABLE_CARD_EFFECTS } from "./cards.ts";
-import { IRON_WALL_COST } from "./cardEffects.ts";
 
 export type DeckEditorCardGroup = { card: Card; cardIds: number[] };
 
 function cardSortCost(card: Card) {
   return UNPLAYABLE_CARD_EFFECTS.has(card.effect)
     ? -1
-    : card.effect === "ironWall" ? IRON_WALL_COST : card.cost ?? -1;
+    : card.cost ?? -1;
 }
 
 export function groupAndSortDeckEditorCards(

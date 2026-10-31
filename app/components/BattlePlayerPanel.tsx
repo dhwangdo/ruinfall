@@ -2,12 +2,16 @@ import type { MouseEvent as ReactMouseEvent } from "react";
 import type { Card } from "../game/cards";
 import type { GameState } from "../game/battleState";
 import { DECK_EDITION_INFO, DECK_EDITION_SCORES, type DeckEdition } from "../game/rewards";
+import { BattleStatusBadge } from "./BattleStatusBadge";
+import { BATTLE_STATUS_DESCRIPTION as STATUS } from "./battleStatusDescriptions";
+import { statusLabel } from "../game/statuses";
 
 type BattlePlayerPanelProps = {
   game: GameState;
   playerName: string;
   maxPlayerHp: number;
   combatManualBonus: number;
+  ignoreNegativeResistance?: boolean;
   damagePopup?: { key: string; text: string };
   onMoveDeckCardPreview: (event: ReactMouseEvent<HTMLElement>, card: Card) => void;
   onClearCardPreview: () => void;
@@ -22,6 +26,7 @@ export function BattlePlayerPanel({
   playerName,
   maxPlayerHp,
   combatManualBonus,
+  ignoreNegativeResistance = false,
   damagePopup,
   onMoveDeckCardPreview,
   onClearCardPreview,
@@ -61,21 +66,20 @@ export function BattlePlayerPanel({
           )}
         </div>
         <div className="combat-buffs" aria-label="현재 강화 효과">
-          {game.strength + combatManualBonus > 0 && <span className="is-buff">힘 {game.strength + combatManualBonus}</span>}
-          {game.agility + combatManualBonus > 0 && <span className="is-buff">강인함 {game.agility + combatManualBonus}</span>}
-          {game.defenseMultiplier > 1 && <span className="is-buff">방어 ×{game.defenseMultiplier}</span>}
-          {game.damageTakenMultiplier > 1 && <span className="is-debuff">받는 피해 ×{game.damageTakenMultiplier}</span>}
-          {game.invulnerable && <span className="is-buff">피해 면역</span>}
-          {game.doubleNextAttack && <span className="is-buff">다음 공격 2회</span>}
+          {game.strength + combatManualBonus > 0 && <BattleStatusBadge description={STATUS.strength}>힘 {game.strength + combatManualBonus}</BattleStatusBadge>}
+          {game.agility + combatManualBonus > 0 && <BattleStatusBadge description={STATUS.agility}>강인함 {game.agility + combatManualBonus}</BattleStatusBadge>}
+          {game.defenseMultiplier > 1 && <BattleStatusBadge description={STATUS.defenseMultiplier}>방어 ×{game.defenseMultiplier}</BattleStatusBadge>}
+          {game.damageTakenMultiplier > 1 && <BattleStatusBadge kind="debuff" description={STATUS.damageTakenMultiplier}>받는 피해 ×{game.damageTakenMultiplier}</BattleStatusBadge>}
+          {game.invulnerable && <BattleStatusBadge description={STATUS.invulnerable}>피해 면역</BattleStatusBadge>}
+          {game.doubleNextAttack && <BattleStatusBadge description={STATUS.doubleNextAttack}>다음 공격 2회</BattleStatusBadge>}
+          {(game.pendingBattlePreparation ?? 0) > 0 && <BattleStatusBadge description={`다음 플레이어 턴 시작 시 증폭과 에너지를 각각 ${game.pendingBattlePreparation} 얻습니다. 추가 턴도 포함합니다.`}>싸움 준비 {game.pendingBattlePreparation}</BattleStatusBadge>}
           {game.pendingRadiance.map(({ turns, count }, index) => (
-            <span className="is-buff" key={`light-travel-time-${index}`}>
+            <BattleStatusBadge key={`light-travel-time-${index}`} description={`${turns}턴 뒤 턴 시작 시 광채 ${count}장을 손패에 생성합니다.`}>
               광행시간 {turns}턴 · 광채 {count}장
-            </span>
+            </BattleStatusBadge>
           ))}
-          {game.playerPhysicalResistance > 0 && <span className="is-buff">물리 저항 {game.playerPhysicalResistance}</span>}
-          {game.playerPhysicalVulnerability > 0 && <span className="is-debuff">물리 취약 {game.playerPhysicalVulnerability}</span>}
-          {game.playerMagicResistance > 0 && <span className="is-buff">마법 저항 {game.playerMagicResistance}</span>}
-          {game.playerMagicVulnerability > 0 && <span className="is-debuff">마법 취약 {game.playerMagicVulnerability}</span>}
+          {(game.playerResistance ?? 0) !== 0 && <BattleStatusBadge kind={game.playerResistance < 0 ? "debuff" : "buff"} description={STATUS.resistance(game.playerResistance, ignoreNegativeResistance)}>{statusLabel("resistance", game.playerResistance)}</BattleStatusBadge>}
+          {(game.playerAmplification ?? 0) !== 0 && <BattleStatusBadge kind={game.playerAmplification < 0 ? "debuff" : "buff"} description={STATUS.amplification(game.playerAmplification)}>{statusLabel("amplification", game.playerAmplification)}</BattleStatusBadge>}
           {game.activeRuleCards.map((ruleCard) => (
             <span
               className="is-buff rule-buff"

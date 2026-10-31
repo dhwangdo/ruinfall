@@ -25,6 +25,7 @@ test("server-renders the exploration map", async () => {
   assert.doesNotMatch(html, /THE DESCENT/);
   assert.match(html, /class="map-viewport"/);
   assert.match(html, /class="map-room /);
+  assert.doesNotMatch(html, /telemetry-export-trigger|적별 피해 기록 TXT 저장/);
   assert.match(html, /aria-label=/);
   assert.doesNotMatch(html, /codex-preview|react-loading-skeleton/);
 });

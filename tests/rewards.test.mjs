@@ -20,6 +20,13 @@ import {
   ticketBasePrice,
 } from "../app/game/shopRules.ts";
 
+test("cached region shapes cannot be changed by a previous caller", () => {
+  const expected = rollRegionDeckShape(3, () => 0.5);
+  const changed = rollRegionDeckShape(3, () => 0.5);
+  changed.capacity = -100;
+  assert.deepEqual(rollRegionDeckShape(3, () => 0.5), expected);
+});
+
 test("deck rewards leave the rare-card pity chance unchanged", () => {
   assert.equal(nextRareCardDropChance(0.17, []), 0.17);
 });
@@ -125,8 +132,14 @@ test("region deck uses its shape and adds deck-size blessing capacity last", () 
   assert.deepEqual(blessed.editions, base.editions);
 });
 
-test("the starter deck starts with no high-rarity slots", () => {
-  assert.equal(createStarterDeck().rareSlotCapacity, 0);
+test("the starter deck has six physical defense cards and no magic defense card", () => {
+  const deck = createStarterDeck();
+  assert.equal(deck.rareSlotCapacity, 0);
+  assert.equal(deck.cards.length, 16);
+  assert.equal(new Set(deck.cards.map((card) => card.id)).size, 16);
+  assert.equal(deck.cards.filter((card) => card.name === "타격").length, 6);
+  assert.equal(deck.cards.filter((card) => card.name === "방어" && card.damageType === "physical").length, 6);
+  assert.equal(deck.cards.some((card) => card.name === "마법 방어"), false);
 });
 
 test("region filler bags still leave three eighths of slots empty", () => {

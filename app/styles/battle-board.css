@@ -1,0 +1,793 @@
+.battlefield {
+  position: relative;
+  min-height: 865px;
+  overflow: hidden;
+  border: 1px solid #69746f;
+  border-radius: 5px;
+  background: var(--battle-board-color, var(--felt));
+  box-shadow: 0 3px 10px rgba(35, 36, 31, .2);
+}
+.battle-choice-prompt {
+  position: absolute;
+  z-index: 30;
+  top: 50%;
+  left: 50%;
+  transform: translate(-50%, -50%);
+  padding: 12px 20px;
+  border: 1px solid rgba(255, 239, 178, .9);
+  border-radius: 7px;
+  color: #fff5c7;
+  background: rgba(20, 31, 26, .92);
+  box-shadow: 0 5px 18px rgba(0, 0, 0, .42);
+  font: 800 18px Arial, sans-serif;
+  pointer-events: none;
+}
+.enemy-zone {
+  position: relative;
+  min-height: 220px;
+  padding: 18px 20px 12px;
+  overflow-x: auto;
+  overflow-y: hidden;
+}
+
+.deck-card-painted {
+  flex: none;
+  padding: 2px 5px;
+  border: 1px solid #b5742c;
+  border-radius: 9px;
+  color: #55321b;
+  background: #f4cf80;
+  font: 800 9px Arial, sans-serif;
+}
+
+.enemies-row {
+  display: flex;
+  width: max-content;
+  min-width: 100%;
+  justify-content: center;
+  flex-wrap: nowrap;
+  gap: clamp(36px, 10vw, 120px);
+  padding-inline: 10px;
+}
+
+.enemies-row.is-crowded { gap: 18px; }
+.enemies-row.is-crowded .enemy-unit { width: 190px; }
+.enemies-row.is-crowded .unit-stats,
+.enemies-row.is-crowded .enemy-health { width: 166px; }
+
+.enemy-unit {
+  position: relative;
+  display: grid;
+  justify-items: center;
+  width: 250px;
+  min-height: 185px;
+  padding: 11px 14px 8px;
+  border: 2px solid transparent;
+  border-radius: 5px;
+  color: inherit;
+  background: transparent;
+  cursor: pointer;
+  transition: background .15s ease, border-color .15s ease, opacity .15s ease;
+}
+
+.enemy-unit:hover:not(:disabled) { background: rgba(255,255,255,.055); }
+.enemy-unit:focus-visible { outline: 2px solid #f1df8e; outline-offset: 2px; }
+.enemy-unit.is-defeated { cursor: default; }
+
+.enemy-unit.is-attacking {
+  z-index: 30;
+  animation: enemy-strike .35s cubic-bezier(.2,.76,.3,1);
+  pointer-events: none;
+}
+
+@keyframes enemy-strike {
+  0% { transform: translateY(0) scale(1); }
+  18% { transform: translateY(-16px) scale(.96); }
+  55% { transform: translateY(610px) scale(1.07); }
+  67% { transform: translateY(575px) scale(1.03); }
+  100% { transform: translateY(0) scale(1); }
+}
+
+.dragging-strike .enemy-unit:not(.is-defeated) {
+  border-color: rgba(255,255,255,.72);
+  background: rgba(255,255,255,.1);
+}
+
+.enemy-unit.is-defeated { opacity: .42; filter: grayscale(.8); }
+
+.drop-prompt {
+  display: none;
+  position: absolute;
+  z-index: 4;
+  border: 1px dashed rgba(255,255,255,.9);
+  border-radius: 4px;
+  color: white;
+  background: rgba(25, 66, 50, .86);
+  font: 700 12px Arial, sans-serif;
+  pointer-events: none;
+}
+
+.attack-prompt { top: 58px; left: 50%; padding: 10px 18px; transform: translateX(-50%); white-space: nowrap; }
+.dragging-strike .enemy-unit:not(.is-defeated) .attack-prompt { display: block; }
+
+.intent {
+  position: absolute;
+  z-index: 3;
+  top: -42px;
+  left: -50px;
+  right: auto;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: auto;
+  color: #fff;
+  transform: none;
+}
+
+.intent-card {
+  position: relative;
+  min-width: 40px;
+  min-height: 40px;
+  padding: 0;
+  border: 0;
+  background: transparent;
+}
+.intent-icons {
+  position: relative;
+  display: flex;
+  align-items: center;
+  gap: 2px;
+  filter: drop-shadow(0 2px 2px rgba(0,0,0,.34));
+}
+.intent-icons.is-multi-attack { flex-direction: column; gap: 3px; }
+.intent-icons.is-multi-attack.is-same-type { flex-direction: row; }
+.intent-icon {
+  position: relative;
+  display: grid;
+  place-items: center;
+  width: 48px;
+  height: 48px;
+  color: #fff;
+  font-family: Arial, sans-serif;
+}
+.intent-icon strong { font: 700 24px/1 Arial, sans-serif; }
+.intent-icon-physical {
+  width: 48px;
+  height: 65px;
+}
+.intent-icon-physical svg {
+  display: block;
+  width: 48px;
+  height: 65px;
+  overflow: visible;
+}
+.intent-icon-physical path {
+  fill: #de7024;
+  stroke: #a9531b;
+  stroke-width: 1;
+  stroke-linejoin: round;
+}
+.intent-icon-physical strong {
+  position: absolute;
+  top: 43%;
+  left: 50%;
+  transform: translate(-50%, -50%);
+}
+.intent-icon-magic {
+  width: 48px;
+  height: 48px;
+  border-radius: 50%;
+  background: #4080bf;
+}
+.intent-effect-icon {
+  position: relative;
+  display: grid;
+  place-items: center;
+  width: 32px;
+  height: 32px;
+  cursor: default;
+  color: #a82ee2;
+  font: 900 42px/1 "Malgun Gothic", sans-serif;
+}
+.intent-tooltip {
+  position: fixed;
+  z-index: 1000;
+  width: max-content;
+  max-width: min(280px, calc(100vw - 24px));
+  max-height: calc(100vh - 24px);
+  overflow: auto;
+  overflow-wrap: anywhere;
+  padding: 7px 9px;
+  border: 1px solid #161616;
+  border-radius: 2px;
+  color: #111;
+  background: #fff;
+  box-shadow: 0 2px 5px rgba(0,0,0,.28);
+  font: 700 12px/1.45 "Malgun Gothic", sans-serif;
+  pointer-events: none;
+}
+.intent-effect-icon.is-superscript {
+  /* Keep the effect marker beside the attack pattern, not above it. */
+  align-self: center;
+  margin: 0 0 0 2px;
+}
+.intent-icons.is-effect-only .intent-effect-icon { width: 52px; height: 60px; font-size: 72px; }
+.intent.is-defeated {
+  color: #d0d0d0;
+}
+.intent.is-defeated > strong { font: 700 12px Arial, sans-serif; }
+
+.attack-symbol {
+  position: relative;
+  width: 48px;
+  height: 62px;
+  filter: drop-shadow(0 2px 2px rgba(0,0,0,.32));
+}
+
+.attack-symbol.physical .intent-symbol-core {
+  position: absolute;
+  top: 0;
+  left: 12px;
+  display: grid;
+  place-items: center;
+  width: 24px;
+  height: 43px;
+  padding-top: 7px;
+  clip-path: polygon(50% 0, 100% 18%, 78% 100%, 22% 100%, 0 18%);
+  color: white;
+  background: var(--intent-color);
+}
+
+.attack-symbol.physical .intent-symbol-core strong,
+.attack-symbol.magic .intent-symbol-core strong {
+  font: 800 15px Arial, sans-serif;
+  text-shadow: 0 1px 2px rgba(0,0,0,.55);
+}
+.attack-symbol.physical .intent-symbol-detail {
+  position: absolute;
+  top: 39px;
+  left: 4px;
+  width: 40px;
+  height: 6px;
+  border-radius: 3px;
+  background: var(--intent-dark);
+}
+.attack-symbol.physical .intent-symbol-handle {
+  position: absolute;
+  top: 44px;
+  left: 20px;
+  width: 8px;
+  height: 16px;
+  border-bottom: 4px solid var(--intent-dark);
+  border-radius: 0 0 5px 5px;
+  background: #5c4d3c;
+}
+
+.attack-symbol.magic .intent-symbol-core {
+  position: absolute;
+  top: 0;
+  left: 2px;
+  display: grid;
+  place-items: center;
+  width: 34px;
+  height: 34px;
+  clip-path: polygon(50% 0, 100% 50%, 50% 100%, 0 50%);
+  color: white;
+  background: var(--intent-color);
+}
+.attack-symbol.magic .intent-symbol-detail {
+  position: absolute;
+  top: 26px;
+  left: 29px;
+  width: 7px;
+  height: 35px;
+  border-radius: 4px;
+  background: var(--intent-color);
+  transform: rotate(-34deg);
+  transform-origin: top center;
+}
+.attack-symbol.magic .intent-symbol-handle {
+  position: absolute;
+  top: 3px;
+  right: 1px;
+  width: 8px;
+  height: 8px;
+  background: var(--intent-color);
+  transform: rotate(45deg);
+}
+
+.monster {
+  position: relative;
+  width: 70px;
+  height: 75px;
+  margin-top: 12px;
+}
+
+.monster-face {
+  position: absolute;
+  inset: 11px 7px 0;
+  border: 2px solid #2d3f34;
+  border-radius: 46% 46% 42% 42%;
+  background: #c0af83;
+}
+
+.monster-face b {
+  position: absolute;
+  top: 24px;
+  width: 7px;
+  height: 7px;
+  border-radius: 50%;
+  background: #292929;
+}
+
+.monster-face b:first-child { left: 13px; }
+.monster-face b:nth-child(2) { right: 13px; }
+.monster-face span {
+  position: absolute;
+  bottom: 13px;
+  left: 50%;
+  width: 20px;
+  height: 7px;
+  border-bottom: 2px solid #292929;
+  transform: translateX(-50%);
+}
+
+.monster-horns i {
+  position: absolute;
+  top: 2px;
+  width: 14px;
+  height: 24px;
+  border: 5px solid #6b6757;
+  border-bottom: 0;
+  border-radius: 70% 70% 0 0;
+}
+
+.monster-horns i:first-child { left: 10px; transform: rotate(-20deg); }
+.monster-horns i:last-child { right: 10px; transform: rotate(20deg); }
+
+.enemy-unit.goblin .monster { transform: scale(.88); }
+.enemy-unit.goblin .monster-face { background: #9eb279; border-radius: 40% 48% 46% 38%; }
+.enemy-unit.goblin .monster-horns i { width: 10px; height: 18px; border-width: 4px; }
+.enemy-unit.rat .monster { transform: scale(.82); }
+.enemy-unit.rat .monster-face { background: #857967; border-radius: 48% 48% 42% 42%; }
+.enemy-unit.rat .monster-horns i { width: 19px; height: 19px; border: 3px solid #b49d91; border-radius: 50%; }
+.enemy-unit.gargoyle .monster-face { background: #747876; border-radius: 34% 42% 32% 38%; }
+.enemy-unit.gargoyle .monster-horns i { border-color: #999e9b; transform: rotate(18deg); }
+.enemy-unit.slime .monster-face { inset: 18px 3px 0; border-radius: 46% 54% 34% 38%; background: #dc8037; }
+.enemy-unit.slime .monster-horns { display: none; }
+.enemy-unit.golem .monster { transform: scale(1.04); }
+.enemy-unit.golem .monster-face { inset: 12px 5px 2px; border-radius: 12px; background: #7f8585; border-color: #42494a; }
+.enemy-unit.golem .monster-horns i { top: 7px; width: 12px; height: 18px; border-color: #555d5e; border-radius: 3px 3px 0 0; }
+.enemy-unit.goblin .monster { transform: scale(.9); }
+.enemy-unit.goblin .monster-face { background: #8da558; border-radius: 40% 48% 42% 38%; border-color: #394a28; }
+.enemy-unit.goblin .monster-horns i { width: 10px; height: 18px; border-color: #6e7e3d; }
+.enemy-unit.snake .monster { transform: scaleX(.72) scaleY(1.08); }
+.enemy-unit.snake .monster-face { background: #718c55; border-radius: 50% 50% 28% 28%; }
+.enemy-unit.snake .monster-horns i { width: 8px; height: 15px; border-width: 3px; }
+.enemy-unit.scavenger .monster-face { background: #8a694d; border-radius: 36% 44% 42% 32%; }
+.enemy-unit.scavenger .monster-horns i { border-color: #4b4640; }
+
+.enemy-unit.hungryDog .monster-face { background: #987554; border-radius: 40% 40% 35% 35%; }
+.enemy-unit.hungryDog .monster-horns i { height: 24px; border-color: #624831; }
+.enemy-unit.knifeFighter .monster-horns,
+.enemy-unit.opportunist .monster-horns,
+.enemy-unit.chainPrisoner .monster-horns { display: none; }
+.enemy-unit.knifeFighter .monster-face { background: #b49a84; border-top: 12px solid #493d37; }
+.enemy-unit.opportunist .monster-face { background: #b5a581; border-top: 12px solid #716345; }
+.enemy-unit.chainPrisoner .monster-face { background: #92968d; border-radius: 12px; border-bottom: 7px solid #565a5e; }
+.enemy-unit.clayDoll .monster-face { background: #a17c62; border-radius: 30% 40% 25% 30%; }
+.enemy-unit.crackedGuardian .monster-face { background: linear-gradient(115deg, #888d89 48%, #414a47 49%, #414a47 53%, #888d89 54%); border-radius: 5px; border-color: #b4b8af; }
+.enemy-unit.crackedGuardian .monster-horns i { border-color: #828b85; border-radius: 2px; }
+.enemy-unit.weaverSpider .monster-face { background: #665065; border-radius: 48%; }
+.enemy-unit.weaverSpider .monster-horns i { width: 26px; height: 8px; top: 30px; border-color: #998298; border-radius: 0; }
+.enemy-unit.powderToad .monster-face { background: #96924b; border-radius: 45% 45% 30% 30%; border-bottom: 6px solid #a35a3b; }
+.enemy-unit.powderToad .monster-horns i { height: 12px; border-color: #d1ae55; border-radius: 50%; }
+.enemy-unit.broodRoach .monster-face,
+.enemy-unit.roachHatchling .monster-face { background: #805b3d; border-radius: 45%; border-color: #4b392b; }
+.enemy-unit.broodRoach .monster-horns i,
+.enemy-unit.roachHatchling .monster-horns i { width: 5px; height: 25px; border-width: 2px; border-color: #a28d68; }
+.enemy-unit.roachHatchling .monster { transform: scale(.65); }
+
+.unit-stats { width: 220px; text-align: center; }
+.unit-stats > strong { display: block; margin: 5px 0 7px; color: white; font-size: 14px; font-weight: 600; }
+.healthbar { position: relative; height: 28px; overflow: hidden; border: 2px solid #512522; border-radius: 3px; background: #2c2825; box-shadow: inset 0 1px 3px rgba(0,0,0,.5); }
+.healthbar i { display: block; height: 100%; background: #b34a42; transition: width .2s ease; }
+.healthbar span { position: absolute; inset: 0; display: grid; place-items: center; color: white; font: 800 16px Arial, sans-serif; text-shadow: 0 1px 2px #000, 0 0 3px #000; }
+.enemy-health-row {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 3px;
+  width: 220px;
+}
+.enemy-health-popup-anchor { position: relative; flex: 0 0 160px; width: 160px; }
+.enemy-health { width: 100%; }
+.enemy-intent-description {
+  display: inline-block;
+  max-width: 100%;
+  margin-top: 5px;
+  padding: 5px 8px;
+  border: 1px solid #161616;
+  border-radius: 2px;
+  color: #111;
+  background: #fff;
+  box-shadow: 0 2px 5px rgba(0,0,0,.28);
+  font: 700 12px/1.45 "Malgun Gothic", sans-serif;
+  overflow-wrap: anywhere;
+}
+.enemy-action-cancelled { font: 700 14px/1.3 "Malgun Gothic", sans-serif; white-space: nowrap; }
+.combat-popup {
+  position: absolute;
+  z-index: 12;
+  pointer-events: none;
+  white-space: normal;
+  animation: combat-popup-rise 1.15s ease-out forwards;
+}
+.enemy-combat-popup {
+  left: 50%;
+  bottom: calc(100% + 3px);
+  transform: translateX(-50%);
+  color: #ffd6ce;
+  font: 900 30px/1 Arial, sans-serif;
+  text-shadow: 0 2px 2px #541b18, 0 0 7px rgba(0,0,0,.55);
+}
+.enemy-combat-popup.is-buff {
+  color: #ffe09a;
+  font: 800 17px/1.15 "Malgun Gothic", sans-serif;
+  text-shadow: 0 2px 2px rgba(55,37,8,.86), 0 0 6px rgba(0,0,0,.42);
+}
+.player-health-popup-anchor { position: relative; width: 165px; }
+.player-health { width: 100%; }
+.player-combat-popup {
+  left: 50%;
+  bottom: calc(100% + 3px);
+  transform: translateX(-50%);
+  color: #ffd6ce;
+  font: 900 30px/1 Arial, sans-serif;
+  text-shadow: 0 2px 2px #541b18, 0 0 7px rgba(0,0,0,.55);
+}
+.player-combat-popup.is-blocked {
+  color: #d8edf8;
+  font-size: 24px;
+  text-shadow: 0 2px 2px #17435b;
+}
+@keyframes combat-popup-rise {
+  0% { opacity: 0; transform: translate(-50%, 12px) scale(.78); }
+  22% { opacity: 1; transform: translate(-50%, 0) scale(1.08); }
+  100% { opacity: 0; transform: translate(-50%, -34px) scale(1); }
+}
+.enemy-effects {
+  flex-wrap: wrap;
+  margin-top: 6px;
+}
+
+.battle-topbar {
+  position: absolute;
+  top: 8px;
+  right: 12px;
+  z-index: 12;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.battle-topbar .turn-badge { color: rgba(37, 37, 37, .62); }
+
+.debug-theme-panel {
+  position: absolute;
+  top: 8px;
+  left: 10px;
+  z-index: 80;
+  width: 238px;
+  border: 1px solid #777;
+  border-radius: 4px;
+  color: #f4f4f4;
+  background: rgba(20,22,23,.97);
+  box-shadow: 0 5px 18px rgba(0,0,0,.45);
+  font: 12px Arial, sans-serif;
+}
+
+.debug-theme-panel > summary {
+  padding: 9px 11px;
+  cursor: pointer;
+  font-weight: 800;
+  user-select: none;
+}
+
+.debug-theme-controls {
+  display: grid;
+  gap: 6px;
+  max-height: min(68vh, 590px);
+  padding: 5px 9px 10px;
+  overflow-y: auto;
+  border-top: 1px solid #555;
+}
+
+.debug-theme-controls label {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) 32px 72px;
+  align-items: center;
+  gap: 7px;
+}
+
+.debug-theme-controls input[type="color"] {
+  width: 32px;
+  height: 25px;
+  padding: 1px;
+  border: 1px solid #999;
+  border-radius: 3px;
+  background: transparent;
+  cursor: pointer;
+}
+
+.debug-theme-controls .debug-theme-hex {
+  width: 72px;
+  min-width: 0;
+  padding: 5px 6px;
+  border: 1px solid #777;
+  border-radius: 3px;
+  color: #f2f2f2;
+  background: #292c2e;
+  font: 10px Consolas, monospace;
+}
+
+.debug-theme-controls .debug-orbit-control {
+  grid-template-columns: minmax(0, 1fr) 111px;
+  padding-top: 4px;
+  border-top: 1px solid #4d5052;
+}
+
+.debug-orbit-control select {
+  min-width: 0;
+  padding: 5px 6px;
+  border: 1px solid #777;
+  border-radius: 3px;
+  color: #f2f2f2;
+  background: #292c2e;
+  font: 10px Arial, sans-serif;
+}
+
+.debug-theme-controls .debug-orbit-range {
+  grid-template-columns: minmax(0, 1fr) 88px 35px;
+}
+
+.debug-orbit-range input[type="range"] {
+  width: 88px;
+  accent-color: #39aee6;
+}
+
+.debug-orbit-range output {
+  color: #f0d59c;
+  font: 700 10px Consolas, monospace;
+  text-align: right;
+}
+
+.debug-theme-controls button {
+  margin-top: 3px;
+  padding: 7px 8px;
+  border: 1px solid #918979;
+  border-radius: 3px;
+  color: #222;
+  background: #eee8da;
+  cursor: pointer;
+  font-weight: 800;
+}
+
+.debug-constellation-picker {
+  display: grid;
+  gap: 6px;
+  margin: 4px 0 0;
+  padding: 8px 0 0;
+  border: 0;
+  border-top: 1px solid #4d5052;
+}
+.debug-constellation-picker legend { padding: 0; color: #f0d59c; font-weight: 800; }
+.debug-theme-controls .debug-constellation-picker > button { margin: 0; padding: 5px; }
+.debug-constellation-picker > div { display: grid; grid-template-columns: repeat(4, 1fr); gap: 4px; }
+.debug-theme-controls .debug-constellation-picker > div > button {
+  position: relative;
+  height: 64px;
+  margin: 0;
+  padding: 1px;
+  overflow: hidden;
+  border-color: #696d72;
+  background: #17234f;
+}
+.debug-constellation-picker button.is-selected { outline: 2px solid #e0b94e; outline-offset: -2px; }
+.debug-constellation-picker svg { display: block; width: 100%; height: 100%; }
+.constellation-preview-lines { fill: none; stroke: #c28a00; stroke-width: 2.4; stroke-linecap: round; stroke-dasharray: 5 8; opacity: .8; }
+.constellation-preview-stars { fill: #17234f; stroke: #c28a00; stroke-width: 2.6; stroke-linejoin: round; opacity: .94; }
+.debug-constellation-picker button span {
+  position: absolute;
+  right: 2px;
+  bottom: 1px;
+  padding: 1px 3px;
+  color: white;
+  background: rgba(23,35,79,.8);
+  font: 8px Arial, sans-serif;
+}
+.pile-zone {
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  --pile-card-w: 120.89px;
+  min-height: 275px;
+  padding: 12px 22px 10px;
+  border-top: 1px solid rgba(255,255,255,.23);
+  border-bottom: 1px solid rgba(0,0,0,.18);
+  background: rgba(0,0,0,.045);
+}
+
+.section-label {
+  display: flex;
+  justify-content: space-between;
+  margin: 0 auto 9px;
+  max-width: 760px;
+  color: rgba(255,255,255,.82);
+  font-family: Arial, sans-serif;
+}
+
+.section-label span { font-size: 12px; font-weight: 700; }
+.section-label small { font-size: 10px; }
+
+.piles {
+  display: grid;
+  grid-auto-flow: column;
+  grid-auto-columns: var(--pile-card-w);
+  gap: 6px;
+  width: max-content;
+  margin-inline: auto;
+}
+.piles-scroll {
+  flex: 1 1 auto;
+  min-height: 72px;
+  width: 100%;
+  overflow-x: auto;
+  overflow-y: hidden;
+  padding-bottom: 24px;
+  overscroll-behavior-x: contain;
+  scrollbar-width: none;
+  cursor: grab;
+  touch-action: none;
+}
+.piles-scroll::-webkit-scrollbar { display: none; }
+.piles-scroll.is-panning {
+  cursor: grabbing;
+  user-select: none;
+}
+.piles > .pile-resource {
+  width: max-content;
+  align-self: end;
+  justify-self: start;
+}
+
+.solitaire-pile {
+  position: relative;
+  /* 파일은 손패와 별도의 8pt 카드 규격을 쓴다. */
+  --card-w: var(--pile-card-w);
+  --card-h: 170px;
+  --card-effect-size: 8pt;
+  --card-effect-minimum-scale: 0.8611111111111112; /* about 6.89pt of 8pt */
+  --card-name-size: 9.78pt;
+  width: var(--card-w);
+  height: var(--pile-stack-height, 271px);
+  border-radius: 6px;
+  transition: background .15s ease, box-shadow .15s ease;
+}
+
+.solitaire-pile.is-draw-choice {
+  cursor: pointer;
+  background: rgba(255,224,125,.13);
+  box-shadow: inset 0 0 0 3px rgba(255,224,125,.82), 0 0 12px rgba(255,224,125,.28);
+}
+.solitaire-pile.is-draw-choice:hover { background: rgba(255,224,125,.22); }
+.solitaire-pile.is-draw-empty { opacity: .38; }
+.solitaire-pile.is-discard-target {
+  outline: 3px dashed #df5353;
+  outline-offset: 4px;
+  background: rgba(185, 39, 39, .13);
+  box-shadow: 0 0 14px rgba(226, 72, 72, .42);
+}
+.sealed-pile-label {
+  position: absolute;
+  top: -22px;
+  left: 50%;
+  transform: translateX(-50%);
+  padding: 2px 9px;
+  background: #693d83;
+  color: #fff;
+  border: 1px solid #b28fc8;
+  border-radius: 3px;
+  font-size: 12px;
+  font-weight: 700;
+  z-index: 5;
+  white-space: nowrap;
+  pointer-events: none;
+}
+
+.solitaire-pile.is-sealed {
+  outline: 2px dashed #aa7cc5;
+  outline-offset: 3px;
+}
+
+.discard-target-label {
+  position: absolute;
+  z-index: 12;
+  right: 50%;
+  bottom: -21px;
+  transform: translateX(50%);
+  padding: 2px 7px;
+  border-radius: 9px;
+  background: #8d2525;
+  color: #fff4e8;
+  font: 800 11px/1.2 Arial, sans-serif;
+  white-space: nowrap;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, .35);
+}
+
+.dragging-solitaire .stacked-card.is-solitaire-drop-target,
+.dragging-solitaire .empty-slot.is-solitaire-drop-target {
+  z-index: 20;
+  outline: 1px solid rgba(150, 225, 255, .56);
+  outline-offset: 1px;
+  box-shadow:
+    0 0 4px 1px rgba(121, 213, 255, .68),
+    0 0 11px 3px rgba(81, 187, 241, .38),
+    inset 0 0 9px rgba(142, 225, 255, .2);
+}
+.dragging-solitaire .stacked-card.is-forge-drop-target,
+.dragging-solitaire .empty-slot.is-forge-drop-target {
+  z-index: 20;
+  outline: 1px solid rgba(255, 193, 104, .82);
+  outline-offset: 1px;
+  box-shadow:
+    0 0 5px 2px rgba(255, 173, 66, .92),
+    0 0 15px 5px rgba(239, 126, 31, .62),
+    inset 0 0 12px rgba(255, 189, 96, .3);
+}
+.dragging-solitaire .stacked-card.is-hovered-solitaire-drop-target,
+.dragging-solitaire .empty-slot.is-hovered-solitaire-drop-target {
+  outline: 3px solid #fff06a;
+  outline-offset: 4px;
+}
+
+.stacked-card,
+.empty-slot {
+  position: absolute;
+  left: 0;
+  width: var(--card-w);
+  height: var(--card-h);
+  border-radius: 5px;
+}
+
+.empty-slot {
+  top: 0;
+  border: 1px solid rgba(255,255,255,.32);
+  background: rgba(0,0,0,.035);
+}
+
+.stacked-card {
+  position: absolute;
+  z-index: var(--stack-index, 0);
+  overflow: hidden;
+  border: 1px solid #454545;
+  box-shadow: 0 1px 2px rgba(0,0,0,.28);
+}
+
+.pile-draggable-card {
+  cursor: grab;
+  touch-action: none;
+  user-select: none;
+  -webkit-user-select: none;
+  transition: transform .12s ease, opacity .12s ease;
+}
+
+.pile-draggable-card:hover,
+.pile-draggable-card:focus-visible {
+  z-index: 50;
+  outline: 2px solid #e3d49a;
+  transform: translateY(-4px);
+}
+
+.pile-draggable-card:active { cursor: grabbing; }
+.pile-draggable-card.is-dragging { opacity: .16; }

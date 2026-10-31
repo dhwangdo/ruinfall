@@ -30,30 +30,34 @@ export function DeckName({
 
   return (
     <span className="deck-name-with-editions">
-      {`덱 "${deck.name}"`}
+      <span className="deck-name-label">{`덱 「${deck.name}」`}</span>
       {editions.length > 0 && " "}
-      {editions.map((edition) => (
-        <span
-          className="deck-edition-name"
-          key={edition}
-          style={{ color: getDeckEditionColor(edition) }}
-          onMouseEnter={showEditionTooltips && onEditionTooltipHover
-            ? (event) => onEditionTooltipHover(event, edition)
-            : undefined}
-          onMouseMove={showEditionTooltips && onEditionTooltipHover
-            ? (event) => onEditionTooltipHover(event, edition)
-            : undefined}
-          onMouseLeave={showEditionTooltips && onEditionTooltipLeave ? onEditionTooltipLeave : undefined}
-        >
-          {`[${DECK_EDITION_INFO[edition].name}]`}
-          {showEditionTooltips && !onEditionTooltipHover && (
-            <span className="deck-edition-tooltip" role="tooltip">
-              <strong>{DECK_EDITION_INFO[edition].name}</strong>
-              <span>{DECK_EDITION_INFO[edition].description}</span>
+      {editions.length > 0 && (
+        <span className="deck-name-editions">
+          {editions.map((edition) => (
+            <span
+              className="deck-edition-name"
+              key={edition}
+              style={{ color: getDeckEditionColor(edition) }}
+              onMouseEnter={showEditionTooltips && onEditionTooltipHover
+                ? (event) => onEditionTooltipHover(event, edition)
+                : undefined}
+              onMouseMove={showEditionTooltips && onEditionTooltipHover
+                ? (event) => onEditionTooltipHover(event, edition)
+                : undefined}
+              onMouseLeave={showEditionTooltips && onEditionTooltipLeave ? onEditionTooltipLeave : undefined}
+            >
+              {`[${DECK_EDITION_INFO[edition].name}]`}
+              {showEditionTooltips && !onEditionTooltipHover && (
+                <span className="deck-edition-tooltip" role="tooltip">
+                  <strong>{DECK_EDITION_INFO[edition].name}</strong>
+                  <span>{DECK_EDITION_INFO[edition].description}</span>
+                </span>
+              )}{" "}
             </span>
-          )}{" "}
+          ))}
         </span>
-      ))}
+      )}
     </span>
   );
 }

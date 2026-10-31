@@ -96,6 +96,39 @@ test("restore preparation removes God's Lament charges in a safe area", () => {
   assert.equal(prepared.godsLamentCharges, 0);
 });
 
+test("restoring a map removes retired encounters without renumbering surviving enemies", () => {
+  const indices = [0, 1, 6, 7, 9, 14];
+  const saved = {
+    mapPosition: { x: 0, y: 0 }, mapSeed: 5, blessings: [],
+    mapEnemyWorld: { enemies: indices.map((encounterIndex) => ({ id: `enemy-${encounterIndex}`, encounterIndex })) },
+    mapEnemyCellMemory: Object.fromEntries(indices.map((encounterIndex) => [String(encounterIndex), { encounterIndex }])),
+    inventoryCards: [{ id: 1, effect: "slime", name: "유독성 점액", damageType: "magic" }],
+  };
+  const prepared = prepareRunRestore(saved, () => false);
+  assert.deepEqual(prepared.mapEnemyWorld.enemies.map((enemy) => enemy.encounterIndex), [1, 6, 14]);
+  assert.deepEqual(Object.values(prepared.mapEnemyCellMemory).map((memory) => memory.encounterIndex), [1, 6, 14]);
+  assert.equal(prepared.inventoryCards[0].damageType, "physical");
+  assert.equal(saved.mapEnemyWorld.enemies.length, 6);
+});
+
+test("restoring old resistance cards removes iron wall and blessing and updates plate armor in every storage", () => {
+  const base = { id: 99, kind: "skill", rarity: "special", cost: 1, value: 8, draw: 0, damageType: "physical", revealed: false };
+  const oldCards = ["ironWall", "blessing", "berserk"].map(effect => ({ ...base, effect, name: effect }));
+  const plate = { ...base, effect: "plateArmorDefense", name: "판금 갑옷", forged: true };
+  const deck = { id: "resistance-deck", name: "old", capacity: 20, editions: ["resistance"], editionColors: {}, cards: [...oldCards, plate] };
+  const restored = prepareRunRestore({
+    mapPosition: { x: 0, y: 0 }, mapSeed: 5, blessings: ["vulnerabilityInsurance", "glassCannon"],
+    ownedDecks: [deck], inventoryCards: deck.cards, roomDrops: { "1:1": deck.cards },
+    roomDeckDrops: { "1:1": [deck] }, roomShops: { "1:1": deck.cards.map(card => ({ card, id: card.effect, price: 1, sold: false })) },
+  }, () => false);
+  for (const cards of [restored.ownedDecks[0].cards, restored.inventoryCards, restored.roomDrops["1:1"],
+    restored.roomDeckDrops["1:1"][0].cards, restored.roomShops["1:1"].map(offer => offer.card)]) {
+    assert.deepEqual(cards.map(card => [card.effect, card.value, card.forged]), [["plateArmorDefense", 5, true]]);
+  }
+  assert.deepEqual(restored.ownedDecks[0].editions, ["resistance"]);
+  assert.equal(deck.cards.length, 4);
+});
+
 test("old saves discard removed cards and restore changed cards everywhere", () => {
   const oldSteelHeart = {
     id: 1, kind: "skill", effect: "steelHeart", rarity: "rare", name: "강철의 계약",

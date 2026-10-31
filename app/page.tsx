@@ -1,14 +1,37 @@
 "use client";
 
-import { animateCardToPlayer, animateEnemyCardDelivery, animatePlayedCardToCenter } from "./components/cardAnimations";
-import { createDrawAstronomyResearchCard, createDrawSelectedPile, createMoveCardToPile } from "./game/pileActions";
+import { blockedPileIndexes } from "./game/enemyPassives.ts";
+
+import { useLocationDialogs } from "./hooks/useLocationDialogs";
+import { createShopActions } from "./controllers/shopActions";
+import { createBlessingActions } from "./controllers/blessingActions";
+import { createLocationActions } from "./controllers/locationActions";
+
+import { createBattleSessionActions } from "./controllers/battleSessionActions";
+import { useBattleSession, useBattleRewardFallback } from "./hooks/useBattleSession";
+
+import { useRunInventory } from "./hooks/useRunInventory";
+import { useRunWorld } from "./hooks/useRunWorld";
+import { useRunPlayer } from "./hooks/useRunPlayer";
+
+import {
+  animateCardToPlayer,
+  animateEnemyCardDelivery,
+  animatePlayedCardToCenter,
+} from "./components/cardAnimations";
+import {
+  createDrawAstronomyResearchCard,
+  createDrawSelectedPile,
+  createMoveCardToPile,
+} from "./game/pileActions";
 import { createResolvePlayedCard } from "./game/cardPlayAction";
-import type { DamagePopup, DragState, Phase } from "./game/battleUiTypes";
+import type { DragState } from "./game/battleUiTypes";
 import { createEndTurn } from "./game/endTurnAction";
 import { createDrawCards } from "./game/drawCards";
 import {
   Fragment,
   useEffect,
+  useEffectEvent,
   useLayoutEffect,
   useRef,
   useState,
@@ -18,7 +41,13 @@ import {
 import { CardFace } from "./components/CardFace";
 import { CardKeywordPopover } from "./components/CardKeywordPopover";
 import { DeckName } from "./components/DeckName";
-import { BattleThemeControls, DEFAULT_BATTLE_THEME_COLORS, type BattleThemeColors, type CardWatermarkStyle, type StarOrbitStyle } from "./components/BattleThemeControls";
+import {
+  BattleThemeControls,
+  DEFAULT_BATTLE_THEME_COLORS,
+  type BattleThemeColors,
+  type CardWatermarkStyle,
+  type StarOrbitStyle,
+} from "./components/BattleThemeControls";
 import { BattleEnemyUnit } from "./components/BattleEnemyUnit";
 import { BattleHandArea } from "./components/BattleHandArea";
 import { BattleDeckCheckModal } from "./components/BattleDeckCheckModal";
@@ -36,78 +65,48 @@ import { CardPoolStatsPanel } from "./components/CardPoolStatsPanel";
 import { MapBoard } from "./components/MapBoard";
 import { MapDeckSelector } from "./components/MapDeckSelector";
 import { MapRoomActions } from "./components/MapRoomActions";
-import { DeckViewerModal } from "./components/DeckViewerModal";
-import {
-  useMapCamera,
-} from "./hooks/useMapCamera";
+import { useMapCamera } from "./hooks/useMapCamera";
 import { useMapKeyboardMovement } from "./hooks/useMapKeyboardMovement";
 import { useMapKeyboardShortcuts } from "./hooks/useMapKeyboardShortcuts";
 import { RESET_HOLD_DURATION_MS, useRunKeyboardControls } from "./hooks/useRunKeyboardControls";
-import { useDeckEditorSession } from "./hooks/useDeckEditorSession";
+import { useRunMapContent } from "./hooks/useRunMapContent";
+import { createTicketActions } from "./controllers/ticketActions";
+import { createDeckEditorMoves } from "./controllers/deckEditorMoves";
+import { useRunDeckEditor } from "./hooks/useRunDeckEditor";
 import { useFloatingPreviews } from "./hooks/useFloatingPreviews";
 import { useBattleInteractionState } from "./hooks/useBattleInteractionState";
 import { useBattlePointerInput } from "./hooks/useBattlePointerInput";
-import { useRunSaveLifecycle } from "./hooks/useRunSaveLifecycle";
-import type { ShrineCardConversionResult } from "./game/shrineRules";
-import {
-  CONSTELLATION_PRESETS,
-  constellationPresetCssImage,
-} from "./cardConstellations";
+import { useRunPersistence } from "./hooks/useRunPersistence";
+import { CONSTELLATION_PRESETS, constellationPresetCssImage } from "./cardConstellations";
 import { MapTopbar } from "./components/MapTopbar";
 import {
   ALL_CARD_BLUEPRINTS,
-  BASIC_CARD_POOL,
-  CARD_RARITY_SORT_RANK,
   DEBUG_CARD_RARITIES,
-  RARE_CARD_POOL,
-  SPECIAL_CARD_POOL,
-  STARTER_CARD_POOL,
   UNPLAYABLE_CARD_EFFECTS,
   createAdrenalineCard,
   isAttackCard,
+  canTargetEnemy,
   type Card,
   type CardBlueprint,
 } from "./game/cards";
-import {
-  IRON_WALL_COST,
-  canPlaceBySolitaireRule,
-  cardEnergyCost,
-} from "./game/cardEffects";
+import { canPlaceBySolitaireRule, cardEnergyCost } from "./game/cardEffects";
 import { canPayEnergyCost, maximumBattleEnergy } from "./game/combatEconomy";
-import {
-  MAX_PLAYER_HP,
-  dealtState,
-  waitingState,
-  type GameState,
-} from "./game/battleState";
+import { MAX_PLAYER_HP, waitingState, type GameState } from "./game/battleState";
 import { sortBattleHandByCost } from "./game/battleHandRules";
+import { attackPreview } from "./game/attackPreview";
 import {
   CONSUMABLE_TYPES,
   DEBUG_ALL_CARDS_DECK_ID,
   DECK_EDITION_INFO,
-  STARTING_DECK_SIZE,
-  createBossBattleReward,
-  createBattleReward,
-  createBattleRewardCard,
   createConsumable,
   createDebugAllCardsDeck,
   createRegionDeck,
   createStarterDeck,
-  getDeckEditionColor,
   type Consumable,
   type ConsumableType,
-  type DeckCase,
-  type ShopOffer,
 } from "./game/rewards";
-import { nextRareCardDropChance } from "./game/rewardRules";
-import { TICKET_TYPES, ticketBasePrice, type TicketType } from "./game/shopRules";
-import {
-  consumeTicketById as consumeTicketFromAreas,
-  findTicketById as findTicketInAreas,
-  groupConsumables,
-  sortConsumableGroupsByTier,
-  setBombTicketArmed,
-} from "./game/ticketRules";
+import { type TicketType } from "./game/shopRules";
+import { groupConsumables, sortConsumableGroupsByTier } from "./game/ticketRules";
 import {
   createDeckName,
   createRandomPlayerName,
@@ -121,77 +120,38 @@ import {
   REGION_COUNT,
   SAFE_AREA_LAYOUT_MAX_OFFSET_X,
   SAFE_AREA_LAYOUT_MIN_OFFSET_X,
-  createMapEnemyWorldForPositions,
-  createMapFloorDropsForPositions,
-  getDungeonRegionIndex,
   getRegionNumber,
   getRoomType,
   getSafeAreaRegionIndex,
-  isHigherRegionMapEnemy,
   isSafeAreaBoundaryPosition,
   isSafeAreaEditAllowed,
   isSafeAreaPosition,
   isWalkableRoom,
   mapRoomKey,
-  nextRegionEntry,
   parseMapRoomKey,
-  regionHeight,
-  regionStartY,
   safeAreaCenterX,
   safeAreaCenterY,
-  safeAreaEntry,
   visibleMapRoomKeys,
   type MapPosition,
 } from "./game/mapRules";
-import {
-  applyPlayerTurnStart,
-  createSewerEncounterByIndex,
-  getEncounterRegionNumber,
-  type EnemyState,
-} from "./game/enemies";
+import { type EnemyState } from "./game/enemies";
 import {
   chebyshevDistance,
-  clearMapEnemiesNear,
   MAP_ENEMY_DISTANCE_FIELD_RADIUS,
   MAP_PLAYER_VISION_HORIZONTAL_RADIUS,
   MAP_PLAYER_VISION_VERTICAL_RADIUS,
-  updateEnemyCellMemory,
-  type MapEnemyCellMemory,
   type MapEnemyWorld,
 } from "./game/mapEnemies";
 import { resolveMapTurn as resolveMapTurnRules } from "./game/mapTurn";
-import {
-  advanceBombs,
-  applyBombDamage,
-  positionsInSquare,
-  type MapBomb,
-} from "./game/mapEffects";
-import { RUN_SAVE_POLICY, clearRunSave, readRunSave } from "./game/saveGame";
-import { createRunSaveSnapshot, prepareRunRestore } from "./game/runSaveState";
-import {
-  countRareSlotCards,
-  usesRareCardSlot,
-  validateDeckEditorCardMove,
-  type DeckEditorCardLocation,
-  type DeckEditorMoveBlockReason,
-} from "./game/deckEditorRules";
-import { transitionDeckEditorCardCollections } from "./game/deckEditorTransitions";
+import { advanceBombs, applyBombDamage, positionsInSquare, type MapBomb } from "./game/mapEffects";
+import { RUN_SAVE_POLICY, clearRunSave } from "./game/saveGame";
+import { countRareSlotCards } from "./game/deckEditorRules";
 import { groupAndSortDeckEditorCards } from "./game/deckEditorViews";
+import { BLESSING_INFO, resolveLethalDamage, shouldPreserveTicket } from "./game/blessingRules";
 import {
-  BLESSING_INFO,
-  hasUniqueCardEffects,
-  resolveLethalDamage,
-  rollBlessingOffers as createBlessingOffers,
-  rollGamblingBlessings,
-  shouldPreserveTicket,
-  type BlessingId,
-  type BlessingOfferId,
-} from "./game/blessingRules";
-import {
-  beginTelemetryBattle,
   beginTelemetryRun,
   createTelemetryRecorder,
-  exportTelemetryText,
+  flushTelemetry,
   finishTelemetryBattle,
   finishTelemetryRun,
   hasActiveTelemetryRun,
@@ -199,62 +159,19 @@ import {
   recordTelemetryCardPlayed,
   recordTelemetryConsumableAcquired,
   recordTelemetryDeckAcquired,
-  recordTelemetryGoldAcquired,
   resetTelemetryRecorder,
-  type TelemetryAcquisitionSource,
 } from "./game/telemetry";
 import {
   telemetryCardSnapshot,
   telemetryConsumableSnapshot,
   telemetryDeckSnapshot,
-  telemetryEnemySnapshot,
 } from "./game/telemetrySnapshots";
-import type {
-  BattleEncounter,
-  MapBattleEnemy,
-  PendingBattleStart,
-  SavedRunState,
-  TreasureChestReward,
-} from "./game/runTypes";
-
-type Screen = "map" | "battle";
-type TicketDropArea = "deck" | "inventory" | "floor";
-const REMOVED_DECK_EDITIONS = new Set(["transparent", "golden", "debug", "firepower", "growth"]);
-
-function removeDeletedDeckEditions(deck: DeckCase): DeckCase {
-  const editions = deck.editions.filter((edition) => !REMOVED_DECK_EDITIONS.has(edition as string));
-  return {
-    ...deck,
-    editions,
-    editionColors: Object.fromEntries(editions.map((edition) => [
-      edition,
-      deck.editionColors[edition] ?? getDeckEditionColor(edition),
-    ])),
-  };
-}
-function randomItem<T>(items: readonly T[]): T {
-  return items[Math.floor(Math.random() * items.length)];
-}
-
-function randomGameRoll() {
-  return Math.random();
-}
-
- 
-
- 
-
-
-
-
-
-
 
 const DEBUG_PLAYER_HP = 999;
 const GAME_VERSION = "v0.1.2";
 const COMMIT_HASH = process.env.NEXT_PUBLIC_COMMIT_HASH ?? "dev";
 const COMMIT_DATE = process.env.NEXT_PUBLIC_COMMIT_DATE ?? "unknown";
-const INVENTORY_CAPACITY = 18;
+const INVENTORY_CAPACITY = 15;
 const MAX_OWNED_DECKS = 3;
 const DEBUG_MAX_OWNED_DECKS = 10;
 const MAP_TRAVEL_STEP_MS = 140;
@@ -271,7 +188,7 @@ function canUseResearchDraw(state: GameState, research: ResearchDrawKind) {
   const uses = research === "astronomy" ? state.astronomyResearchUses : state.necromancyResearchUses;
   const cost = research === "astronomy" ? 2 : 3;
   const hasCards = research === "astronomy"
-    ? state.piles.some((pile) => pile.length > 0)
+    ? state.piles.some((pile, index) => pile.length > 0 && !blockedPileIndexes(state.enemies).includes(index))
     : state.discard.length > 0;
   return state.activeRuleCards.filter((card) => card.effect === effect).length > uses
     && state.stars >= cost
@@ -299,51 +216,72 @@ function lowestHealthEnemy(enemies: EnemyState[]) {
     .reduce<EnemyState | undefined>((lowest, enemy) => !lowest || enemy.hp < lowest.hp ? enemy : lowest, undefined);
 }
 
-
-
 function isStarterOrBasicCard(card: Pick<Card, "rarity">) {
   return card.rarity === "starter" || card.rarity === "basic";
 }
 
-
 export default function Home() {
-  const [screen, setScreen] = useState<Screen>("map");
-  const [playerName, setPlayerName] = useState(createRandomPlayerName);
-  const [playerNameSetupOpen, setPlayerNameSetupOpen] = useState(true);
-  const [runPlayerHp, setRunPlayerHp] = useState(MAX_PLAYER_HP);
-  const runPlayerHpRef = useRef(MAX_PLAYER_HP);
-  const [mapSeed, setMapSeed] = useState(1);
-  const [mapPosition, setMapPosition] = useState<MapPosition>(MAP_START);
-  const [seenRooms, setSeenRooms] = useState<Set<string>>(
-    () => new Set([mapRoomKey(MAP_START)]),
-  );
-  const [safeAreaEntrySeenRooms, setSafeAreaEntrySeenRooms] = useState<Set<string> | null>(null);
-  const [mapEnemyWorld, setMapEnemyWorld] = useState<MapEnemyWorld>(() => ({
-    enemies: [],
-  }));
-  const [defeatedBossRegions, setDefeatedBossRegions] = useState<Set<number>>(() => new Set());
-  const [mapEnemyCellMemory, setMapEnemyCellMemory] = useState<MapEnemyCellMemory>({});
-  const [mapBombs, setMapBombs] = useState<MapBomb[]>([]);
-  const mapBombsRef = useRef<MapBomb[]>([]);
-  const [destroyedShopRooms, setDestroyedShopRooms] = useState<Set<string>>(() => new Set());
-  const [collapsedShrineRooms, setCollapsedShrineRooms] = useState<Set<string>>(() => new Set());
-  const [collapsedRecoveryShrineRooms, setCollapsedRecoveryShrineRooms] = useState<Set<string>>(() => new Set());
-  const [collapsedVitalityShrineRooms, setCollapsedVitalityShrineRooms] = useState<Set<string>>(() => new Set());
-  const [collapsedMindEyeShrineRooms, setCollapsedMindEyeShrineRooms] = useState<Set<string>>(() => new Set());
-  const [collapsedTransformShrineRooms, setCollapsedTransformShrineRooms] = useState<Set<string>>(() => new Set());
-  const [collapsedCombinationShrineRooms, setCollapsedCombinationShrineRooms] = useState<Set<string>>(() => new Set());
-  const [collapsedTreasureChestRooms, setCollapsedTreasureChestRooms] = useState<Set<string>>(() => new Set());
-  const [treasureChestReward, setTreasureChestReward] = useState<TreasureChestReward | null>(null);
-  const [vitalityShrineMaxHpBonus, setVitalityShrineMaxHpBonus] = useState(0);
-  const [shrineOpen, setShrineOpen] = useState(false);
-  const [transformShrineOpen, setTransformShrineOpen] = useState(false);
-  const [combinationShrineOpen, setCombinationShrineOpen] = useState(false);
-  const [usedHealRooms, setUsedHealRooms] = useState<Set<string>>(() => new Set());
-  const [usedBlessingRooms, setUsedBlessingRooms] = useState<Set<string>>(() => new Set());
-  const [rockBombHits, setRockBombHits] = useState<Record<string, number>>({});
-  const [activeMapEnemyIds, setActiveMapEnemyIds] = useState<string[]>([]);
-  const [activeBattleRoom, setActiveBattleRoom] = useState<string | null>(null);
-  const mapBattleQueueRef = useRef<MapBattleEnemy[]>([]);
+  const world = useRunWorld();
+  const {
+    mapSeed, setMapSeed, mapPosition, setMapPosition, seenRooms, setSeenRooms,
+    setSafeAreaEntrySeenRooms, mapEnemyWorld, setMapEnemyWorld,
+    defeatedBossRegions, setDefeatedBossRegions, mapEnemyCellMemory, setMapEnemyCellMemory,
+    mapBombs, mapBombsRef, setDestroyedShopRooms, setCollapsedShrineRooms,
+    setCollapsedRecoveryShrineRooms, setCollapsedVitalityShrineRooms,
+    setCollapsedMindEyeShrineRooms, setCollapsedTransformShrineRooms,
+    setCollapsedCombinationShrineRooms, setCollapsedTreasureChestRooms, setUsedHealRooms,
+    setUsedBlessingRooms, setRockBombHits, generatedMapRoomKeysRef, setMapBombsSynced,
+    effectiveRoomType,
+  } = world;
+  const player = useRunPlayer();
+  const {
+    playerName, setPlayerName, playerNameSetupOpen, setPlayerNameSetupOpen, runPlayerHp,
+    setRunPlayerHp, runPlayerHpRef, mindEyeMovesRemaining, setMindEyeMovesRemaining,
+    mindEyeMovesRemainingRef, godsLamentCharges, setGodsLamentCharges, godsLamentChargesRef,
+    darkTicketTurnsRemaining, setDarkTicketTurnsRemaining, darkTicketTurnsRemainingRef,
+    vitalityShrineMaxHpBonus, setVitalityShrineMaxHpBonus, blessingOffers, setBlessingOffers,
+    setBlessingSeenOfferIds, blessings, setBlessings, blessingRerollCost,
+    setBlessingRerollCost, oneUpUsed, setOneUpUsed, oneUpUsedRef,
+  } = player;
+  const inventory = useRunInventory();
+  const { ownedDecks, setOwnedDecks, activeDeckId, setActiveDeckId,
+    inventoryCards, setInventoryCards, inventoryConsumables, setInventoryConsumables, inventoryConsumablesRef,
+    roomDrops, setRoomDrops, roomConsumableDrops, setRoomConsumableDrops,
+    roomDeckDrops, setRoomDeckDrops, roomShops, setRoomShops, gold, setGold,
+    nextCardIdRef, nextConsumableIdRef, nextConsumable,
+    deckDropChanceRef, rareCardDropChanceRef, deckPityBattlesRemainingRef } = inventory;
+  const dialogs = useLocationDialogs();
+  const {
+    treasureChestReward,
+    setTreasureChestReward,
+    shrineOpen,
+    setShrineOpen,
+    transformShrineOpen,
+    setTransformShrineOpen,
+    combinationShrineOpen,
+    setCombinationShrineOpen,
+    shopOpen,
+    setShopOpen,
+    blessingOpen,
+    setBlessingOpen,
+    activeShopRoom,
+    setActiveShopRoom,
+    openedCardPack,
+    setOpenedCardPack,
+    } = dialogs;
+  const battle = useBattleSession();
+  const {
+    screen, setScreen, setActiveMapEnemyIds, setActiveBattleRoom, mapBattleQueueRef, previousBattleDeckIdRef, pendingBattleStart,
+    setPendingBattleStart, battleDeckCheckEnabled, setBattleDeckCheckEnabled, battleDeckPreviewId,
+    setBattleDeckPreviewId, battleRewards, setBattleRewards, battleRewardDecks,
+    setBattleRewardDecks, battleRewardConsumables, setBattleRewardConsumables, battleRewardGold,
+    setBattleRewardGold, game, setGame, telemetryPreviousGameRef, phase, setPhase,
+    attackingEnemyId, setAttackingEnemyId, damagePopup, setDamagePopup, enemyPopups,
+    animatedEnemyHp, setAnimatedEnemyHp, battleRewardRegionRef,
+    battleRewardIsBossRef, battleRewardIsOutOfDepthRef, dyingEnemyIds, setDyingEnemyIds,
+    battleCardView, setBattleCardView, pendingOriginsRef, pendingEnemyTokenIdsRef,
+    pendingPileTokenSourcesRef, handCardRefs, pendingDiscardPlay, setPendingDiscardPlay, getGame, later, clearBattleTimers, showEnemyPopup,
+  } = battle;
   const [mapTraveling, setMapTraveling] = useState(false);
   const mapCamera = useMapCamera({ enabled: screen === "map", position: mapPosition, travelLocked: mapTraveling });
   const {
@@ -355,12 +293,6 @@ export default function Home() {
     resetZoom: resetMapZoom,
     stopFocus: stopMapCameraFocus,
   } = mapCamera;
-  const [mindEyeMovesRemaining, setMindEyeMovesRemaining] = useState(0);
-  const mindEyeMovesRemainingRef = useRef(0);
-  const [godsLamentCharges, setGodsLamentCharges] = useState(3);
-  const godsLamentChargesRef = useRef(3);
-  const [darkTicketTurnsRemaining, setDarkTicketTurnsRemaining] = useState(0);
-  const darkTicketTurnsRemainingRef = useRef(0);
   const [mapTravelStepMs, setMapTravelStepMs] = useState(MAP_TRAVEL_STEP_MS);
   const [mapCollisionEnemyIds, setMapCollisionEnemyIds] = useState<string[]>([]);
   const [mapBattleFlash, setMapBattleFlash] = useState(false);
@@ -383,27 +315,9 @@ export default function Home() {
   const [mapMessage, setMapMessage] = useState("");
   const [mapMessageNonce, setMapMessageNonce] = useState(0);
   const [mapWaitNoticeNonce, setMapWaitNoticeNonce] = useState(0);
-  const [ownedDecks, setOwnedDecks] = useState<DeckCase[]>(() => [createStarterDeck()]);
-  const [activeDeckId, setActiveDeckId] = useState("starter");
-  const previousBattleDeckIdRef = useRef<string | null>(null);
-  const [pendingBattleStart, setPendingBattleStart] = useState<PendingBattleStart | null>(null);
-  const [battleDeckCheckEnabled, setBattleDeckCheckEnabled] = useState(true);
-  const [battleDeckPreviewId, setBattleDeckPreviewId] = useState<string | null>(null);
   const [deckSelectorOpen, setDeckSelectorOpen] = useState(false);
   const [deckSelectorClosing, setDeckSelectorClosing] = useState(false);
   const [deckSelectorClosingDeckId, setDeckSelectorClosingDeckId] = useState<string | null>(null);
-  const [deckSelectionAttention, setDeckSelectionAttention] = useState(false);
-  const [inventoryCards, setInventoryCards] = useState<Card[]>([]);
-  const [inventoryConsumables, setInventoryConsumables] = useState<Consumable[]>(() => [
-    createConsumable("extractTicket", "starter-extract"),
-  ]);
-  const inventoryConsumablesRef = useRef<Consumable[]>([]);
-  const [roomDrops, setRoomDrops] = useState<Record<string, Card[]>>({});
-  const [roomConsumableDrops, setRoomConsumableDrops] = useState<Record<string, Consumable[]>>({});
-  const [roomDeckDrops, setRoomDeckDrops] = useState<Record<string, DeckCase[]>>({});
-  const [roomShops, setRoomShops] = useState<Record<string, ShopOffer[]>>({});
-  const generatedMapRoomKeysRef = useRef<Set<string>>(new Set([mapRoomKey(MAP_START)]));
-
   useEffect(() => {
     if (debugMode && screen === "battle") {
       document.body.style.backgroundColor = battleThemeColors.outer;
@@ -414,46 +328,20 @@ export default function Home() {
       document.body.style.removeProperty("background-color");
     };
   }, [battleThemeColors.outer, debugMode, screen]);
-  const [shopOpen, setShopOpen] = useState(false);
-  const [blessingOpen, setBlessingOpen] = useState(false);
-  const [blessingOffers, setBlessingOffers] = useState<BlessingOfferId[]>([]);
-  const [blessingSeenOfferIds, setBlessingSeenOfferIds] = useState<Set<BlessingId>>(() => new Set());
-  const [blessings, setBlessings] = useState<BlessingId[]>([]);
-  const [blessingRerollCost, setBlessingRerollCost] = useState(5);
-  const [oneUpUsed, setOneUpUsed] = useState(false);
-  const oneUpUsedRef = useRef(false);
-  const [activeShopRoom, setActiveShopRoom] = useState<string | null>(null);
-  const [shopMessage, setShopMessage] = useState("필요한 물건을 골라보세요.");
-  const [gold, setGold] = useState(0);
-  const [battleRewards, setBattleRewards] = useState<Card[]>([]);
-  const [battleRewardDecks, setBattleRewardDecks] = useState<DeckCase[]>([]);
-  const [battleRewardConsumables, setBattleRewardConsumables] = useState<Consumable[]>([]);
-  const [battleRewardGold, setBattleRewardGold] = useState(0);
+  const editor = useRunDeckEditor();
   const {
-    isOpen: deckEditorOpen,
-    snapshot: deckEditorSnapshot,
-    beginSession: beginDeckEditorSession,
-    finishSession: finishDeckEditorSession,
-  } = useDeckEditorSession();
-  const deckEditorHighRarityInsertionOriginsRef = useRef<Record<number, "inventory" | "floor">>({});
-  const [deckEditorDeckId, setDeckEditorDeckId] = useState("");
-  const [deckViewerOpen, setDeckViewerOpen] = useState(false);
-  const [deckViewerDeckId, setDeckViewerDeckId] = useState("");
-  const deckViewerGridRef = useRef<HTMLDivElement | null>(null);
+    deckEditorOpen, beginDeckEditorSession, finishDeckEditorSession,
+    deckEditorHighRarityInsertionOriginsRef, deckEditorDeckId, setDeckEditorDeckId,
+    pendingRemovedCards, setPendingRemovedCards, pendingRemovedCardAreas,
+    setPendingRemovedCardAreas, setDeckEditorReleasedCardIds, pendingRemovalBlinkDim,
+    pendingPaintTicketId, setPendingPaintTicketId, pendingCloneTicketId, setPendingCloneTicketId,
+    pendingExtractTicketId, setPendingExtractTicketId, pendingTransformTicketId,
+    setPendingTransformTicketId, setArmedBombTicketIds, deckEditorMessage, setDeckEditorMessage,
+    transformedCardNewIds, setTransformedCardNewIds, deckEditorSort, setDeckEditorSort,
+    effectiveOriginDeckIdForCard,
+  } = editor;
   const cardKeywordPopoverRef = useRef<HTMLElement | null>(null);
-  const [pendingRemovedCards, setPendingRemovedCards] = useState<Card[]>([]);
-  const [pendingRemovedCardAreas, setPendingRemovedCardAreas] = useState<Record<number, "inventory" | "floor">>({});
-  const [deckEditorReleasedCardIds, setDeckEditorReleasedCardIds] = useState<Set<number>>(() => new Set());
-  const [pendingRemovalBlinkDim, setPendingRemovalBlinkDim] = useState(false);
   const [consumableDragActive, setConsumableDragActive] = useState(false);
-  const [pendingPaintTicketId, setPendingPaintTicketId] = useState<string | null>(null);
-  const [pendingCloneTicketId, setPendingCloneTicketId] = useState<string | null>(null);
-  const [pendingExtractTicketId, setPendingExtractTicketId] = useState<string | null>(null);
-  const [pendingTransformTicketId, setPendingTransformTicketId] = useState<string | null>(null);
-  const [armedBombTicketIds, setArmedBombTicketIds] = useState<Set<string>>(() => new Set());
-  const [deckEditorMessage, setDeckEditorMessage] = useState("휴식 구역에서는 카드를 바닥으로 추출하고, 일반 구역에서는 제거 예정 상태로 만듭니다.");
-  const [openedCardPack, setOpenedCardPack] = useState<Card[] | null>(null);
-  const [battleCardView, setBattleCardView] = useState<"deck" | "piles" | "discard" | null>(null);
   const [researchDragPreview, setResearchDragPreview] = useState<{
     card: Card;
     count: number;
@@ -462,11 +350,6 @@ export default function Home() {
     width: number;
     height: number;
   } | null>(null);
-  const [dyingEnemyIds, setDyingEnemyIds] = useState<Set<string>>(() => new Set());
-  const [transformedCardNewIds, setTransformedCardNewIds] = useState<Set<number>>(() => new Set());
-  const [deckEditorSort, setDeckEditorSort] = useState<"cost" | "rarity">("rarity");
-  const [deckViewerSort, setDeckViewerSort] = useState<"cost" | "rarity">("rarity");
-  const [game, setGame] = useState<GameState>(waitingState);
   const battleInteraction = useBattleInteractionState();
   const {
     selectedHandCardId,
@@ -485,7 +368,6 @@ export default function Home() {
 
   useLayoutEffect(() => {
     // 의도적인 파생 전투 상태 동기화: 빈 파일 수가 바뀌면 여백의 미 힘을 즉시 반영한다.
-    // eslint-disable-next-line react-hooks/set-state-in-effect
     setGame((current) => {
       const nextBonus = current.deckEditions.includes("whiteSpace")
         ? current.piles.filter((pile) => pile.length === 0).length * 2
@@ -497,24 +379,10 @@ export default function Home() {
         whiteSpaceStrengthBonus: nextBonus,
       };
     });
-  }, [game.piles, game.deckEditions, game.whiteSpaceStrengthBonus]);
+  }, [game.piles, game.deckEditions, game.whiteSpaceStrengthBonus, setGame]);
   const [telemetry] = useState(() => createTelemetryRecorder());
-  const telemetryPreviousGameRef = useRef<GameState | null>(null);
-  const [telemetryMessage, setTelemetryMessage] = useState("");
-  const [phase, setPhase] = useState<Phase>("drawing");
-  const [attackingEnemyId, setAttackingEnemyId] = useState<string | null>(null);
-  const [damagePopup, setDamagePopup] = useState<DamagePopup | null>(null);
-  const [enemyPopups, setEnemyPopups] = useState<Record<string, DamagePopup>>({});
-  const [animatedEnemyHp, setAnimatedEnemyHp] = useState<Record<string, number>>({});
-  const enemyPopupKeyRef = useRef(0);
-  const nextCardIdRef = useRef(STARTING_DECK_SIZE);
-  const battleRewardRegionRef = useRef(1);
-  const battleRewardIsBossRef = useRef(false);
-  const battleRewardIsOutOfDepthRef = useRef(false);
-  const deckPityBattlesRemainingRef = useRef(3);
   const debugGoldClicksRef = useRef<number[]>([]);
   const debugPreviousActiveDeckIdRef = useRef<string | null>(null);
-  const nextConsumableIdRef = useRef(1);
   const deckSelectorCloseTimerRef = useRef<number | null>(null);
   const [deckPreviewSuppressed, setDeckPreviewSuppressed] = useState(false);
   const {
@@ -541,10 +409,6 @@ export default function Home() {
     consumablePreviewSuppressed: dragging !== null,
     cardKeywordPopoverRef,
   });
-  const deckDropChanceRef = useRef(0.25);
-  const rareCardDropChanceRef = useRef(0.05);
-  const [saveReady, setSaveReady] = useState(false);
-  const { saveRunNow, queueRunSave, cancelQueuedSave, updateSaveSnapshot } = useRunSaveLifecycle();
 
   const activeDeck = ownedDecks.find((deck) => deck.id === activeDeckId) ?? ownedDecks[0];
   const consumableDescription = (consumable: Consumable) => consumable.type === "mapTicket" && blessings.includes("cartographer")
@@ -563,22 +427,50 @@ export default function Home() {
     if (runPlayerHp > maxPlayerHp) {
       runPlayerHpRef.current = maxPlayerHp;
       // This state correction must happen immediately when the maximum decreases.
-      // eslint-disable-next-line react-hooks/set-state-in-effect
       setRunPlayerHp(maxPlayerHp);
     } else if (runPlayerHpRef.current > maxPlayerHp) {
       runPlayerHpRef.current = maxPlayerHp;
     }
     if (game.playerHp > maxPlayerHp) {
+      // Clamp battle HP immediately when a blessing changes the maximum.
       setGame((current) => current.playerHp > maxPlayerHp
         ? { ...current, playerHp: maxPlayerHp }
         : current);
     }
-  }, [game.playerHp, maxPlayerHp, runPlayerHp]);
+  }, [game.playerHp, maxPlayerHp, runPlayerHp, runPlayerHpRef, setRunPlayerHp, setGame]);
   const blessingVisionBonus = (blessings.includes("vision") ? 1 : 0) + (blessings.includes("bioluminescence") ? 2 : 0);
   const mindEyeVisionBonus = mindEyeMovesRemaining > 0 ? 2 : 0;
   const visionHorizontalRadius = MAP_PLAYER_VISION_HORIZONTAL_RADIUS + blessingVisionBonus + mindEyeVisionBonus;
   const visionVerticalRadius = MAP_PLAYER_VISION_VERTICAL_RADIUS + blessingVisionBonus + mindEyeVisionBonus;
   const editingDeck = ownedDecks.find((deck) => deck.id === deckEditorDeckId) ?? activeDeck;
+
+  const { materializeMapContent, materializeVisibleMapContent, rememberPlayerVision, initializeMap } = useRunMapContent({
+    world, inventory, player, visionHorizontalRadius, visionVerticalRadius,
+  });
+
+  const { saveReady, saveRunNow, queueRunSave, cancelQueuedSave } = useRunPersistence({
+    world, inventory, player,
+    allowed: !playerNameSetupOpen && screen === "map" && !mapTraveling && !deckEditorOpen,
+    status: game.status,
+    onInitialize: initializeMap,
+    counters: { deckDropChanceRef, rareCardDropChanceRef, deckPityBattlesRemainingRef },
+    onRestore: (state) => {
+      player.restorePlayer(state);
+      world.restoreWorld(state);
+      inventory.restoreInventory(state);
+      setMapEnemyWorld(materializeMapContent(
+        positionsInSquare(state.mapPosition, 5), state.mapSeed, state.mapEnemyWorld, [],
+      ));
+      nextCardIdRef.current = state.nextCardId;
+      nextConsumableIdRef.current = state.nextConsumableId;
+      deckDropChanceRef.current = state.deckDropChance;
+      rareCardDropChanceRef.current = state.rareCardDropChance;
+      deckPityBattlesRemainingRef.current = state.deckPityBattlesRemaining;
+      setGame(waitingState());
+      setPhase("drawing");
+      setScreen("map");
+    },
+  });
 
   const ensureTelemetryRun = () => {
     if (hasActiveTelemetryRun(telemetry)) return;
@@ -590,16 +482,19 @@ export default function Home() {
     });
   };
 
-  const exportTelemetryLog = () => {
-    const blob = new Blob([exportTelemetryText(telemetry)], { type: "text/plain;charset=utf-8" });
-    const url = URL.createObjectURL(blob);
-    const anchor = document.createElement("a");
-    anchor.href = url;
-    anchor.download = `ruinfall-damage-${new Date().toISOString().replace(/[:.]/g, "-")}.txt`;
-    anchor.click();
-    URL.revokeObjectURL(url);
-    setTelemetryMessage(`적별 피해 기록을 TXT로 저장했습니다. (탐험 ${telemetry.store.runs.length}개)`);
-  };
+  useEffect(() => {
+    const flush = () => flushTelemetry(telemetry);
+    const onVisibilityChange = () => {
+      if (document.visibilityState === "hidden") flush();
+    };
+    window.addEventListener("pagehide", flush);
+    document.addEventListener("visibilitychange", onVisibilityChange);
+    return () => {
+      window.removeEventListener("pagehide", flush);
+      document.removeEventListener("visibilitychange", onVisibilityChange);
+      flush();
+    };
+  }, [telemetry]);
 
   useEffect(() => {
     const previous = telemetryPreviousGameRef.current;
@@ -608,28 +503,14 @@ export default function Home() {
       finishTelemetryBattle(telemetry, game.status === "won" ? "won" : "lost", game.turn, game.playerHp);
     }
     telemetryPreviousGameRef.current = game;
-  }, [game, screen, telemetry]);
-  useLayoutEffect(() => {
-    if (!deckViewerOpen) return;
-    deckViewerGridRef.current?.scrollTo({ top: 0, left: 0 });
-  }, [deckViewerDeckId, deckViewerOpen, deckViewerSort]);
+  }, [game, screen, telemetry, telemetryPreviousGameRef]);
   useEffect(() => {
     if (!ownedDecks.some((deck) => deck.id === "starter" && deck.name === "")) return;
     const timer = window.setTimeout(() => setOwnedDecks((current) => current.map((deck) => deck.id === "starter" && deck.name === ""
       ? { ...deck, name: createDeckName() }
       : deck)), 0);
     return () => window.clearTimeout(timer);
-  }, [ownedDecks]);
-  useEffect(() => {
-    inventoryConsumablesRef.current = inventoryConsumables;
-  }, [inventoryConsumables]);
-  useEffect(() => {
-    if (!deckEditorOpen) return;
-    const blinkTimer = window.setInterval(() => {
-      setPendingRemovalBlinkDim((current) => !current);
-    }, 525);
-    return () => window.clearInterval(blinkTimer);
-  }, [deckEditorOpen]);
+  }, [ownedDecks, setOwnedDecks]);
   useEffect(() => () => {
     if (deckSelectorCloseTimerRef.current !== null) {
       window.clearTimeout(deckSelectorCloseTimerRef.current);
@@ -669,28 +550,6 @@ export default function Home() {
     }
     openDeckSelector();
   };
-  const setMapBombsSynced = (bombs: MapBomb[]) => {
-    mapBombsRef.current = bombs;
-    setMapBombs(bombs);
-  };
-  const effectiveRoomType = (position: MapPosition) => {
-    const baseType = getRoomType(position, mapSeed);
-    const roomKey = mapRoomKey(position);
-    const safeRegion = getSafeAreaRegionIndex(position, mapSeed);
-    if (baseType === "boss" && safeRegion !== null && defeatedBossRegions.has(safeRegion)) return "empty";
-    if (baseType === "shop" && destroyedShopRooms.has(roomKey)) return "empty";
-    if (baseType === "shrine" && collapsedShrineRooms.has(roomKey)) return "empty";
-    if (baseType === "recoveryShrine" && collapsedRecoveryShrineRooms.has(roomKey)) return "empty";
-    if (baseType === "vitalityShrine" && collapsedVitalityShrineRooms.has(roomKey)) return "empty";
-    if (baseType === "mindEyeShrine" && collapsedMindEyeShrineRooms.has(roomKey)) return "empty";
-    if (baseType === "transformShrine" && collapsedTransformShrineRooms.has(roomKey)) return "empty";
-    if (baseType === "combinationShrine" && collapsedCombinationShrineRooms.has(roomKey)) return "empty";
-    if (baseType === "treasureChest" && collapsedTreasureChestRooms.has(roomKey)) return "empty";
-    if (baseType === "heal" && usedHealRooms.has(roomKey)) return "empty";
-    if (baseType === "blessing" && usedBlessingRooms.has(roomKey)) return "empty";
-    if (baseType === "rock" && (rockBombHits[roomKey] ?? 0) >= 3) return "empty";
-    return baseType;
-  };
   const isSafeAreaSealed = (regionIndex: number) => {
     const centerX = safeAreaCenterX(regionIndex, mapSeed);
     const centerY = safeAreaCenterY(regionIndex, mapSeed);
@@ -717,7 +576,6 @@ export default function Home() {
       ...current.filter((currentDeck) => currentDeck.id !== DEBUG_ALL_CARDS_DECK_ID),
     ]);
     setActiveDeckId(deck.id);
-    setDeckSelectionAttention(true);
     setMapMessage(`디버그 덱 ALL 생성: 모든 카드 ${deck.cards.length}장`);
     setDebugMode(true);
   };
@@ -728,7 +586,6 @@ export default function Home() {
       ?? ownedDecks.find((deck) => deck.id !== DEBUG_ALL_CARDS_DECK_ID);
     setOwnedDecks((current) => current.filter((deck) => deck.id !== DEBUG_ALL_CARDS_DECK_ID));
     setActiveDeckId(restoredDeck?.id ?? "");
-    setDeckSelectionAttention(false);
     setCardPoolStatsOpen(false);
     debugPreviousActiveDeckIdRef.current = null;
     debugGoldClicksRef.current = [];
@@ -744,13 +601,6 @@ export default function Home() {
     if (debugMode) exitDebugMode();
     else enterDebugMode();
   };
-  const updateActiveDeckCards = (updater: Card[] | ((cards: Card[]) => Card[])) => {
-    setOwnedDecks((current) => current.map((deck) => {
-      if (deck.id !== activeDeck?.id) return deck;
-      const cards = typeof updater === "function" ? updater(deck.cards) : updater;
-      return { ...deck, cards };
-    }));
-  };
   const inventoryItemCount = inventoryCards.length + inventoryConsumables.filter((item) =>
     !blessings.includes("lightTicket") || item.type === "cardPack").length;
   const pendingInventoryCardCount = pendingRemovedCards.filter((card) => pendingRemovedCardAreas[card.id] === "inventory").length;
@@ -759,11 +609,6 @@ export default function Home() {
     ? deckEditorMessage
     : null;
 
-  const nextConsumable = (type: ConsumableType) => {
-    const id = `consumable-${nextConsumableIdRef.current}`;
-    nextConsumableIdRef.current += 1;
-    return createConsumable(type, id);
-  };
   const spawnDebugItemOnFloor = () => {
     if (!debugMode) return;
     const roomKey = mapRoomKey(mapPosition);
@@ -848,214 +693,40 @@ export default function Home() {
     }
     setMapMessage(`디버그 ${regionNumber}지역 덱 ${decks.length}개를 바닥에 생성했습니다.`);
   };
-  const updateDeckCards = (deckId: string | undefined, updater: Card[] | ((cards: Card[]) => Card[])) => {
-    if (!deckId) return;
-    setOwnedDecks((current) => current.map((deck) => {
-      if (deck.id !== deckId) return deck;
-      const cards = typeof updater === "function" ? updater(deck.cards) : updater;
-      return { ...deck, cards };
-    }));
-  };
-  const grantBattleReward = (regionNumber: number) => {
-    ensureTelemetryRun();
-    const rewardDeck = ownedDecks.find((deck) => deck.id === previousBattleDeckIdRef.current) ?? activeDeck;
-    const isEligibleForDeckPity = !battleRewardIsBossRef.current;
-    const pityForcesDeck = isEligibleForDeckPity && deckPityBattlesRemainingRef.current === 1;
-    const reward = battleRewardIsBossRef.current
-      ? createBossBattleReward(
-        nextCardIdRef.current,
-        blessings.includes("bossSlayer") ? regionNumber + 1 : undefined,
-        blessings.includes("deckSize") ? 5 : 0,
-      )
-      : createBattleReward(
-        regionNumber,
-        nextCardIdRef.current,
-        deckDropChanceRef.current,
-        blessings.includes("deckSize") ? 5 : 0,
-        rareCardDropChanceRef.current,
-        battleRewardIsOutOfDepthRef.current || pityForcesDeck,
-      );
-    [...reward.cards, ...reward.decks.flatMap((deck) => deck.cards)].forEach((card) => {
-      recordTelemetryCardAcquired(telemetry, telemetryCardSnapshot(card), "battle-reward");
-    });
-    const rewardConsumables = reward.consumableTypes.map((type) => nextConsumable(type));
-    const generatedCardCount = reward.cards.length + reward.decks.reduce((total, deck) => total + deck.cards.length, 0);
-    nextCardIdRef.current += generatedCardCount;
-    if (!battleRewardIsBossRef.current) {
-      deckPityBattlesRemainingRef.current = reward.decks.length > 0
-        ? 0
-        : Math.max(0, deckPityBattlesRemainingRef.current - 1);
-      deckDropChanceRef.current = reward.decks.length > 0
-        ? 0.25
-        : Math.min(1, deckDropChanceRef.current + 0.1);
-      rareCardDropChanceRef.current = nextRareCardDropChance(
-        rareCardDropChanceRef.current,
-        reward.cards,
-      );
-    }
-    const rewardGold = reward.gold * (rewardDeck?.editions.includes("greedy") ? 2 : 1) * (blessings.includes("greed") ? 2 : 1);
-    setBattleRewardGold(rewardGold);
-    setBattleRewards(reward.cards);
-    setBattleRewardDecks(reward.decks);
-    setBattleRewardConsumables(rewardConsumables);
-  };
+  const { grantBattleReward, confirmBattleDeck, returnToMap, beginMapEnemyBattle } = createBattleSessionActions({
+    battle, inventory, world, player, interaction: battleInteraction, telemetry, ensureTelemetryRun,
+    clearMapTravel: () => clearMapTravel(),
+    closeMapOverlays: () => {
+      finishDeckEditorSession();
+      setDeckSelectorOpen(false);
+    },
+    clearCardPreview: () => {
+      setHoveredDeckCard(null);
+      clearCardKeywordHover();
+    },
+    drawCards: () => drawCards(),
+    rememberPlayerVision,
+    queueRunSave,
+  });
+  useBattleRewardFallback(battle, grantBattleReward);
 
-  // 전투 승리 상태가 먼저 반영되는 경로에서도 보상이 비어 있지 않도록 보완한다.
-  useEffect(() => {
-    if (
-      screen === "battle"
-      && game.status === "won"
-      && battleRewardGold === 0
-      && battleRewards.length === 0
-      && battleRewardDecks.length === 0
-      && battleRewardConsumables.length === 0
-    ) {
-      grantBattleReward(battleRewardRegionRef.current);
-    }
-  }, [screen, game.status, battleRewardGold, battleRewards.length, battleRewardDecks.length, battleRewardConsumables.length, mapPosition]);
+  const { openShop, buyShopOffer, openCardPack } = createShopActions({
+    inventory, world, player, editor, dialogs, telemetry, ensureTelemetryRun, inventoryCapacity, inventoryItemCount, queueRunSave,
+  });
+  const { grantConsumables, openBlessings, chooseBlessing, rerollBlessings } = createBlessingActions({
+    inventory, world, player, battle, dialogs, telemetry, ensureTelemetryRun,
+    maxPlayerHp, inventoryCapacity, queueRunSave, materializeMapContent, setMapMessage,
+  });
+  const {
+    useCurrentPortal, useCurrentHeal, useCurrentRecoveryShrine, useCurrentVitalityShrine,
+    activateMindEye, useCurrentMindEyeShrine, openTransformShrine, transformCardsAtShrine,
+    openCombinationShrine, combineCardsAtShrine, openTreasureChest, openShrine, extractCardsAtShrine,
+  } = createLocationActions({
+    inventory, world, player, dialogs, telemetry, ensureTelemetryRun, maxPlayerHp,
+    inventoryCapacity, blessingVisionBonus, queueRunSave, setMapMessage, showMapMessage,
+    isSafeAreaSealed, focusMapOn, materializeMapContent, materializeVisibleMapContent, rememberPlayerVision,
+  });
 
-  const createShopStock = (depth: number): ShopOffer[] => {
-    const regionPriceMultiplier = 1.3 ** Math.max(0, depth - 1);
-    const variedPrice = (basePrice: number) => Math.floor(basePrice * (0.8 + Math.random() * 0.4) * regionPriceMultiplier);
-    const specialBlueprints = [...SPECIAL_CARD_POOL];
-    const specialCards = Array.from({ length: 3 }, (_, slot) => {
-      const blueprintIndex = Math.floor(Math.random() * specialBlueprints.length);
-      const blueprint = specialBlueprints.splice(blueprintIndex, 1)[0];
-      const card = { ...blueprint, id: nextCardIdRef.current, revealed: false };
-      nextCardIdRef.current += 1;
-      return {
-        id: `shop-special-${depth}-${slot}-${card.id}`,
-        price: variedPrice(50),
-        card,
-        sold: false,
-      };
-    });
-    const makeRareCardOffer = (slot: number): ShopOffer => {
-      const blueprint = RARE_CARD_POOL[Math.floor(Math.random() * RARE_CARD_POOL.length)];
-      const card = { ...blueprint, id: nextCardIdRef.current, revealed: false };
-      nextCardIdRef.current += 1;
-      return {
-        id: `shop-card-${depth}-${slot}-${card.id}`,
-        price: variedPrice(160),
-        card,
-        sold: false,
-      };
-    };
-    const extractTicket = nextConsumable("extractTicket");
-    const extractPlusTicket = nextConsumable("extractPlusTicket");
-    const ticketTypes = CONSUMABLE_TYPES.filter((type) => type !== "extractTicket" && type !== "extractPlusTicket") as TicketType[];
-    const randomTickets = Array.from({ length: 2 }, (_, slot) => {
-      const typeIndex = Math.floor(Math.random() * ticketTypes.length);
-      const type = ticketTypes.splice(typeIndex, 1)[0];
-      const consumable = nextConsumable(type);
-      return {
-        id: `shop-ticket-${depth}-${slot}-${consumable.id}`,
-        price: variedPrice(ticketBasePrice(type)),
-        consumable,
-        sold: false,
-      };
-    });
-    const cardPack = nextConsumable("cardPack");
-    return [
-      ...specialCards,
-      {
-        id: `shop-ticket-${depth}-extract-${extractTicket.id}`,
-        price: variedPrice(ticketBasePrice("extractTicket")),
-        consumable: extractTicket,
-        sold: false,
-      },
-      {
-        id: `shop-ticket-${depth}-extract-plus-${extractPlusTicket.id}`,
-        price: variedPrice(ticketBasePrice("extractPlusTicket")),
-        consumable: extractPlusTicket,
-        sold: false,
-      },
-      ...randomTickets,
-      { id: `shop-pack-${depth}-${cardPack.id}`, price: variedPrice(120), consumable: cardPack, sold: false },
-      makeRareCardOffer(7),
-    ];
-  };
-
-  const openShop = (roomKey: string, depth: number) => {
-    if (!roomShops[roomKey]) {
-      const stock = createShopStock(depth);
-      setRoomShops((current) => ({ ...current, [roomKey]: stock }));
-    }
-    setActiveShopRoom(roomKey);
-    setShopMessage("필요한 물건을 골라보세요.");
-    setShopOpen(true);
-    queueRunSave(RUN_SAVE_POLICY.stateChangeDelayMs);
-  };
-
-  const buyShopOffer = (offerId: string) => {
-    if (!activeShopRoom) return;
-    const offer = (roomShops[activeShopRoom] ?? []).find((item) => item.id === offerId);
-    if (!offer || offer.sold) return;
-    if (gold < offer.price) {
-      setShopMessage(`🪙 ${offer.price - gold}이 부족합니다.`);
-      return;
-    }
-    setGold((current) => current - offer.price);
-    const inventoryFull = inventoryItemCount >= inventoryCapacity;
-    if (offer.card) {
-      ensureTelemetryRun();
-      recordTelemetryCardAcquired(telemetry, telemetryCardSnapshot(offer.card), "shop");
-      if (inventoryFull) setRoomDrops((current) => ({ ...current, [activeShopRoom]: [...(current[activeShopRoom] ?? []), offer.card!] }));
-      else setInventoryCards((current) => [...current, offer.card!]);
-    }
-    if (offer.consumable) {
-      ensureTelemetryRun();
-      recordTelemetryConsumableAcquired(telemetry, telemetryConsumableSnapshot(offer.consumable), "shop");
-      if (inventoryFull) setRoomConsumableDrops((current) => ({ ...current, [activeShopRoom]: [...(current[activeShopRoom] ?? []), offer.consumable!] }));
-      else setInventoryConsumables((current) => [...current, offer.consumable!]);
-    }
-    setRoomShops((current) => ({
-      ...current,
-      [activeShopRoom]: (current[activeShopRoom] ?? []).map((item) =>
-        item.id === offerId ? { ...item, sold: true } : item),
-    }));
-    setShopMessage(`${offer.card?.name ?? offer.consumable?.name}을(를) 구매했습니다.${inventoryFull ? " 인벤토리가 가득 차 바닥에 놓았습니다." : ""}`);
-    queueRunSave(RUN_SAVE_POLICY.stateChangeDelayMs);
-  };
-
-  const openCardPack = (packId: string) => {
-    const pack = inventoryConsumables.find((item) => item.id === packId && item.type === "cardPack");
-    if (!pack) return;
-    let rareChance = rareCardDropChanceRef.current;
-    const cards = Array.from({ length: 5 }, () => {
-      const card = createBattleRewardCard(nextCardIdRef.current, rareChance);
-      nextCardIdRef.current += 1;
-      rareChance = card.rarity === "rare"
-        ? 0.05
-        : Math.min(1, rareChance + 0.02);
-      return card;
-    });
-    if (blessings.includes("packInsurance") && !cards.some((card) => card.rarity === "rare")) {
-      const last = cards.at(-1)!;
-      cards[cards.length - 1] = { ...randomItem(RARE_CARD_POOL), id: last.id, revealed: false };
-      rareChance = .05;
-    }
-    ensureTelemetryRun();
-    cards.forEach((card) => recordTelemetryCardAcquired(telemetry, telemetryCardSnapshot(card), "card-pack"));
-    rareCardDropChanceRef.current = rareChance;
-    const freeSlotsAfterPack = Math.max(0, inventoryCapacity - (inventoryItemCount - 1));
-    const inventoryCardsFromPack = cards.slice(0, freeSlotsAfterPack);
-    const floorCardsFromPack = cards.slice(freeSlotsAfterPack);
-    setInventoryConsumables((current) => current.filter((item) => item.id !== packId));
-    setInventoryCards((current) => [...current, ...inventoryCardsFromPack]);
-    if (floorCardsFromPack.length > 0) {
-      const roomKey = mapRoomKey(mapPosition);
-      setRoomDrops((current) => ({
-        ...current,
-        [roomKey]: [...(current[roomKey] ?? []), ...floorCardsFromPack],
-      }));
-      setDeckEditorMessage(`인벤토리에 들어가지 못한 카드 ${floorCardsFromPack.length}장을 바닥에 놓았습니다.`);
-    }
-    setOpenedCardPack(cards);
-  };
-  const pendingOriginsRef = useRef(new Map<number, DOMRect>());
-  const pendingEnemyTokenIdsRef = useRef(new Set<number>());
-  const pendingPileTokenSourcesRef = useRef(new Map<number, string>());
   const researchDragImageRef = useRef<HTMLCanvasElement | null>(null);
   const researchDragActiveRef = useRef(false);
   const clearResearchDrag = () => {
@@ -1064,17 +735,8 @@ export default function Home() {
     researchDragImageRef.current = null;
     setResearchDragPreview(null);
   };
-  const handCardRefs = useRef(new Map<number, HTMLButtonElement>());
-  const [pendingDiscardPlay, setPendingDiscardPlay] = useState<{ card: Card; targetEnemyId?: string } | null>(null);
-  const timersRef = useRef<number[]>([]);
   const mapTravelTimerRef = useRef<number | null>(null);
   const pileScrollRef = useRef<HTMLDivElement | null>(null);
-
-  const later = (callback: () => void, delay: number) => {
-    const timer = window.setTimeout(callback, delay);
-    timersRef.current.push(timer);
-    return timer;
-  };
 
   const captureDrawOrigins = (cards: Card[]) => {
     const drawnIds = new Set(cards.map((card) => card.id));
@@ -1127,12 +789,7 @@ export default function Home() {
       });
     }, 0);
     return () => window.clearTimeout(timer);
-  }, [game.hand, game.stars, game.status, screen]);
-
-  const clearBattleTimers = () => {
-    timersRef.current.forEach((timer) => window.clearTimeout(timer));
-    timersRef.current = [];
-  };
+  }, [game.hand, game.stars, game.status, screen, setGame]);
 
   const clearMapTravel = () => {
     if (mapTravelTimerRef.current !== null) {
@@ -1145,274 +802,8 @@ export default function Home() {
     setMapTraveling(false);
   };
 
-  const materializeMapContent = (
-    positions: readonly MapPosition[],
-    seed = mapSeed,
-    world: MapEnemyWorld = mapEnemyWorld,
-    seenPositions: readonly MapPosition[] = positions,
-  ) => {
-    const uniquePositions = [...new Map(positions.map((position) => [mapRoomKey(position), position])).values()];
-    const freshPositions = uniquePositions.filter((position) => !generatedMapRoomKeysRef.current.has(mapRoomKey(position)));
-    const seenRoomKeys = seenPositions.map(mapRoomKey);
-    if (seenRoomKeys.length > 0) {
-      setSeenRooms((current) => new Set([...current, ...seenRoomKeys]));
-    }
-    if (freshPositions.length === 0) return world;
-
-    const freshRoomKeys = freshPositions.map(mapRoomKey);
-    freshRoomKeys.forEach((roomKey) => generatedMapRoomKeysRef.current.add(roomKey));
-    const generatedEnemies = createMapEnemyWorldForPositions(seed, freshPositions);
-    const existingEnemyIds = new Set(world.enemies.map((enemy) => enemy.id));
-    const nextWorld = {
-      ...world,
-      enemies: [
-        ...world.enemies,
-        ...generatedEnemies.enemies.filter((enemy) => !existingEnemyIds.has(enemy.id)),
-      ],
-    };
-    const floorDrops = createMapFloorDropsForPositions(seed, freshPositions);
-    if (Object.keys(floorDrops.cards).length > 0) {
-      setRoomDrops((current) => {
-        const next = { ...current };
-        Object.entries(floorDrops.cards).forEach(([roomKey, cards]) => {
-          next[roomKey] = [...(next[roomKey] ?? []), ...cards];
-        });
-        return next;
-      });
-    }
-    if (Object.keys(floorDrops.consumables).length > 0) {
-      setRoomConsumableDrops((current) => {
-        const next = { ...current };
-        Object.entries(floorDrops.consumables).forEach(([roomKey, consumables]) => {
-          next[roomKey] = [...(next[roomKey] ?? []), ...consumables];
-        });
-        return next;
-      });
-    }
-    return nextWorld;
-  };
-
-  const materializeVisibleMapContent = (
-    position: MapPosition,
-    seed = mapSeed,
-    world: MapEnemyWorld = mapEnemyWorld,
-    horizontalRadius = visionHorizontalRadius,
-    verticalRadius = visionVerticalRadius,
-  ) => {
-    const visibleKeys = visibleMapRoomKeys(position, seed, horizontalRadius, verticalRadius);
-    const visiblePositions = [...visibleKeys].map(parseMapRoomKey);
-    return materializeMapContent(
-      [...visiblePositions, ...positionsInSquare(position, 5)],
-      seed,
-      world,
-      visiblePositions,
-    );
-  };
-
-  const rememberPlayerVision = (
-    position: MapPosition,
-    seed = mapSeed,
-    enemies = mapEnemyWorld.enemies,
-    previousEnemies: typeof mapEnemyWorld.enemies = [],
-    baseSeenRooms?: ReadonlySet<string> | null,
-  ) => {
-    const blessingBonus = (blessings.includes("vision") ? 1 : 0) + (blessings.includes("bioluminescence") ? 2 : 0);
-    const mindEyeBonus = mindEyeMovesRemainingRef.current > 0 ? 2 : 0;
-    const horizontalRadius = MAP_PLAYER_VISION_HORIZONTAL_RADIUS + blessingBonus + mindEyeBonus;
-    const verticalRadius = MAP_PLAYER_VISION_VERTICAL_RADIUS + blessingBonus + mindEyeBonus;
-    const visibleKeys = visibleMapRoomKeys(position, seed, horizontalRadius, verticalRadius);
-    setSeenRooms((current) => new Set([...(baseSeenRooms ?? current), ...visibleKeys]));
-    setMapEnemyCellMemory((current) => updateEnemyCellMemory(current, enemies, visibleKeys, previousEnemies));
-  };
-
-  const showEnemyPopup = (enemyId: string, text: string, kind: "damage" | "buff" = "damage") => {
-    enemyPopupKeyRef.current += 1;
-    const popup = { key: `${enemyId}-${enemyPopupKeyRef.current}`, text, kind };
-    setEnemyPopups((current) => ({ ...current, [enemyId]: popup }));
-    later(() => setEnemyPopups((current) => {
-      if (current[enemyId]?.key !== popup.key) return current;
-      const { [enemyId]: _, ...remaining } = current;
-      return remaining;
-    }), 1150);
-  };
-
-  const startBattleNow = (
-    encounters: BattleEncounter[],
-    playerHp: number,
-    battleDeckId: string,
-  ) => {
-    const battleDeck = ownedDecks.find((deck) => deck.id === battleDeckId) ?? activeDeck;
-    ensureTelemetryRun();
-    previousBattleDeckIdRef.current = battleDeck?.id ?? null;
-    setPendingBattleStart(null);
-    setBattleDeckPreviewId(null);
-    battleRewardRegionRef.current = Math.max(
-      1,
-      ...encounters.map((encounter) => getEncounterRegionNumber(encounter.encounterIndex)),
-    );
-    clearBattleTimers();
-    setPileClearNotice(false);
-    clearMapTravel();
-    finishDeckEditorSession();
-    setDeckViewerOpen(false);
-    setDeckSelectorOpen(false);
-    setDragging(null);
-    setBattleCardView(null);
-    setSelectedHandCardId(null);
-    setDyingEnemyIds(new Set());
-    setAnimatedEnemyHp({});
-    setHoveredDeckCard(null);
-    clearCardKeywordHover();
-    setAttackingEnemyId(null);
-    setDamagePopup(null);
-    setBattleRewards([]);
-    setBattleRewardDecks([]);
-    setBattleRewardConsumables([]);
-    setBattleRewardGold(0);
-    pendingEnemyTokenIdsRef.current.clear();
-    pendingPileTokenSourcesRef.current.clear();
-    const godsLamentApplies = godsLamentChargesRef.current > 0;
-    const remainingGodsLamentCharges = Math.max(
-      0,
-      godsLamentChargesRef.current - (godsLamentApplies ? 1 : 0),
-    );
-    const battleEnemies = encounters.flatMap((encounter) =>
-      createSewerEncounterByIndex(encounter.encounterIndex).map((enemy) => {
-        const currentHp = Math.max(0, enemy.hp - (encounter.damageTaken ?? 0));
-        return {
-          ...enemy,
-          isBoss: encounter.isBoss,
-          hp: godsLamentApplies ? Math.floor(currentHp * 0.7) : currentHp,
-          strength: blessings.includes("absorption") ? enemy.strength - 1 : enemy.strength,
-        };
-      }));
-    godsLamentChargesRef.current = remainingGodsLamentCharges;
-    setGodsLamentCharges(remainingGodsLamentCharges);
-    const absorptionStrength = blessings.includes("absorption")
-      ? battleEnemies.filter((enemy) => enemy.hp > 0).length
-      : 0;
-    if (!battleDeck) {
-      const noDeckGame = {
-        ...dealtState(0, [], battleEnemies.map(applyPlayerTurnStart)),
-        playerHp: 0,
-        status: "lost" as const,
-        message: "사용할 덱이 없어 쓰러졌습니다.",
-      };
-      telemetryPreviousGameRef.current = noDeckGame;
-      setPhase("playing");
-      setGame(noDeckGame);
-      setScreen("battle");
-      return;
-    }
-    const wolfTalismanCount = battleDeck.cards.filter((card) => card.effect === "wolfTalisman").length;
-    const turtleTalismanCount = battleDeck.cards.filter((card) => card.effect === "turtleTalisman").length;
-    const dealtGame = dealtState(
-      playerHp,
-      battleDeck.cards,
-      battleEnemies.map(applyPlayerTurnStart),
-      battleDeck.editions,
-      blessings.includes("clairvoyance") ? .25 : 0,
-    );
-    const highlanderActive = blessings.includes("highlander") && hasUniqueCardEffects(battleDeck.cards);
-    const deckHighlanderActive = battleDeck.editions.includes("deckHighlander")
-      && battleDeck.cards.length >= battleDeck.capacity
-      && hasUniqueCardEffects(battleDeck.cards);
-    const startingResistance = !blessings.includes("glassCannon") && battleDeck.editions.includes("resistance") ? 1 : 0;
-    const nextGame = {
-      ...dealtGame,
-      hand: blessings.includes("ninja") && encounters.some((encounter) => encounter.awareness === "sleeping")
-        ? [...dealtGame.hand, { ...createAdrenalineCard(), id: nextCardIdRef.current++ }]
-        : dealtGame.hand,
-      strength: dealtGame.strength
-        + (blessings.includes("swordShield") ? 1 : 0)
-        + (battleDeck.editions.includes("giant") ? 3 : 0)
-        + wolfTalismanCount
-        + absorptionStrength,
-      agility: dealtGame.agility
-        + (blessings.includes("swordShield") ? 1 : 0)
-        + (battleDeck.editions.includes("giant") ? 3 : 0)
-        + turtleTalismanCount,
-      playerPhysicalResistance: dealtGame.playerPhysicalResistance + startingResistance,
-      playerMagicResistance: dealtGame.playerMagicResistance + startingResistance,
-      invulnerable: battleDeck.editions.includes("invincible"),
-      stars: dealtGame.stars + (blessings.includes("binaryStars") ? 2 : 0) + (highlanderActive ? 1 : 0),
-      energy: dealtGame.energy
-        + (blessings.includes("glassCannon") ? 1 : 0)
-        + (deckHighlanderActive ? 1 : 0),
-      playerPhysicalBlock: dealtGame.playerPhysicalBlock,
-      playerThorns: blessings.includes("thornCoat") ? 5 : 0,
-      highlanderActive,
-      deckHighlanderActive,
-      clairvoyanceActive: blessings.includes("clairvoyance"),
-    };
-    const goblin = battleEnemies.find((enemy) => enemy.variant === "goblin");
-    const goblinRelic = nextGame.piles[0]?.find((card) => card.effect === "relic" && card.enemyToken);
-    if (goblin && goblinRelic) pendingPileTokenSourcesRef.current.set(goblinRelic.id, goblin.id);
-    const defeatedByBomb = battleEnemies.every((enemy) => enemy.hp === 0);
-    const battleStartState = defeatedByBomb
-      ? { ...nextGame, status: "won" as const, message: "폭발 피해로 모든 적이 쓰러졌습니다." }
-      : nextGame;
-    beginTelemetryBattle(telemetry, {
-      region: battleRewardRegionRef.current,
-      deck: telemetryDeckSnapshot(battleDeck),
-      enemies: battleEnemies.map(telemetryEnemySnapshot),
-      startingPlayerHp: playerHp,
-    });
-    if (defeatedByBomb) finishTelemetryBattle(telemetry, "won", battleStartState.turn, battleStartState.playerHp);
-    telemetryPreviousGameRef.current = battleStartState;
-    setPhase(defeatedByBomb ? "playing" : "drawing");
-    setGame(battleStartState);
-    setScreen("battle");
-    if (defeatedByBomb) grantBattleReward(battleRewardRegionRef.current);
-    else later(drawCards, 360);
-  };
-
-  const startBattle = (
-    encounters: BattleEncounter[],
-    playerHp = runPlayerHp,
-  ) => {
-    battleRewardIsBossRef.current = encounters.some((encounter) => encounter.isBoss === true);
-    battleRewardIsOutOfDepthRef.current = encounters.some((encounter) =>
-      encounter.isBoss !== true && isHigherRegionMapEnemy(encounter.encounterIndex, mapPosition, mapSeed));
-    if (battleDeckCheckEnabled && ownedDecks.length >= 2) {
-      setDeckSelectionAttention(true);
-      setPendingBattleStart({ encounters, playerHp });
-      setBattleDeckPreviewId(activeDeckId);
-      return;
-    }
-    startBattleNow(encounters, playerHp, activeDeckId);
-  };
-
-  const confirmBattleDeck = (battleDeckId: string) => {
-    if (!pendingBattleStart) return;
-    const battleDeck = ownedDecks.find((deck) => deck.id === battleDeckId);
-    if (!battleDeck) return;
-    setActiveDeckId(battleDeckId);
-    startBattleNow(pendingBattleStart.encounters, pendingBattleStart.playerHp, battleDeckId);
-  };
-
-  useEffect(() => {
-    const seedTimer = window.setTimeout(() => {
-      const nextSeed = createRandomMapSeed();
-      const initialVisibleKeys = visibleMapRoomKeys(MAP_START, nextSeed);
-      const initialVisiblePositions = [...initialVisibleKeys].map(parseMapRoomKey);
-      generatedMapRoomKeysRef.current = new Set();
-      const initialWorld = materializeMapContent(
-        [...initialVisiblePositions, ...positionsInSquare(MAP_START, 5)],
-        nextSeed,
-        { enemies: [] },
-        initialVisiblePositions,
-      );
-      setMapSeed(nextSeed);
-      setMapEnemyWorld(initialWorld);
-      setMapEnemyCellMemory({});
-      setSeenRooms(initialVisibleKeys);
-    }, 0);
-    return () => {
-      window.clearTimeout(seedTimer);
-      clearBattleTimers();
-      if (mapTravelTimerRef.current !== null) window.clearTimeout(mapTravelTimerRef.current);
-    };
+  useEffect(() => () => {
+    if (mapTravelTimerRef.current !== null) window.clearTimeout(mapTravelTimerRef.current);
   }, []);
 
   useEffect(() => {
@@ -1425,146 +816,6 @@ export default function Home() {
     void position;
   };
 
-  const rollBlessingOffers = (owned = blessings, excluded: readonly BlessingId[] = []) =>
-    createBlessingOffers(owned, 3, Math.random, excluded);
-  const grantConsumables = (
-    type: ConsumableType,
-    count: number,
-    ticketsAreFree = blessings.includes("lightTicket"),
-    source: TelemetryAcquisitionSource = "other",
-  ) => {
-    const items = Array.from({ length: count }, () => nextConsumable(type));
-    ensureTelemetryRun();
-    items.forEach((item) => recordTelemetryConsumableAcquired(
-      telemetry,
-      telemetryConsumableSnapshot(item),
-      source,
-    ));
-    const usedSlots = inventoryCards.length + inventoryConsumablesRef.current.filter((item) =>
-      !ticketsAreFree || item.type === "cardPack").length;
-    const inventoryCount = ticketsAreFree && type !== "cardPack"
-      ? items.length
-      : Math.min(items.length, Math.max(0, inventoryCapacity - usedSlots));
-    const inventoryItems = items.slice(0, inventoryCount);
-    const floorItems = items.slice(inventoryCount);
-    if (inventoryItems.length > 0) {
-      const nextInventory = [...inventoryConsumablesRef.current, ...inventoryItems];
-      inventoryConsumablesRef.current = nextInventory;
-      setInventoryConsumables(nextInventory);
-    }
-    if (floorItems.length > 0) {
-      const roomKey = mapRoomKey(mapPosition);
-      setRoomConsumableDrops((current) => ({ ...current, [roomKey]: [...(current[roomKey] ?? []), ...floorItems] }));
-    }
-  };
-  const applyAcquiredBlessing = (blessing: BlessingId, acquiredTogether: readonly BlessingId[] = []) => {
-    if (blessing === "sturdy") {
-      const nextHp = blessings.includes("forbiddenKnowledge") || acquiredTogether.includes("forbiddenKnowledge")
-        ? Math.min(20, runPlayerHpRef.current)
-        : runPlayerHpRef.current + 20;
-      runPlayerHpRef.current = nextHp;
-      setRunPlayerHp(nextHp);
-    }
-    if (blessing === "forbiddenKnowledge") {
-      runPlayerHpRef.current = Math.min(20, runPlayerHpRef.current);
-      setRunPlayerHp((current) => Math.min(20, current));
-    }
-    if (blessing === "vision" || blessing === "bioluminescence") {
-      const allOwned = new Set([...blessings, ...acquiredTogether, blessing]);
-      const bonus = (allOwned.has("vision") ? 1 : 0) + (allOwned.has("bioluminescence") ? 2 : 0);
-      const revealedWorld = materializeMapContent([...visibleMapRoomKeys(
-        mapPosition, mapSeed,
-        MAP_PLAYER_VISION_HORIZONTAL_RADIUS + bonus,
-        MAP_PLAYER_VISION_VERTICAL_RADIUS + bonus,
-      )].map(parseMapRoomKey), mapSeed, mapEnemyWorld);
-      setMapEnemyWorld(revealedWorld);
-    }
-    if (blessing === "deckSize") setOwnedDecks((current) => current.map((deck) => ({ ...deck, capacity: deck.capacity + 5 })));
-    if (blessing === "oparts") {
-      const currentRegion = getRegionNumber(mapPosition, mapSeed);
-      const futureDeck = createRegionDeck(
-        currentRegion + 2,
-        nextCardIdRef.current,
-        blessings.includes("deckSize") || acquiredTogether.includes("deckSize") ? 5 : 0,
-      );
-      nextCardIdRef.current += futureDeck.cards.length;
-      ensureTelemetryRun();
-      recordTelemetryDeckAcquired(telemetry, telemetryDeckSnapshot(futureDeck), "blessing");
-      const roomKey = mapRoomKey(mapPosition);
-      setRoomDeckDrops((current) => ({
-        ...current,
-        [roomKey]: [...(current[roomKey] ?? []), futureDeck],
-      }));
-      setMapMessage(`오파츠의 힘으로 ${currentRegion + 2}지역 덱이 바닥에 나타났습니다.`);
-    }
-    const ticketsAreFree = blessings.includes("lightTicket") || acquiredTogether.includes("lightTicket");
-    if (blessing === "cartographer") grantConsumables("mapTicket", 2, ticketsAreFree, "blessing");
-    if (blessing === "bombardier") grantConsumables("bombTicket", 8, ticketsAreFree, "blessing");
-    if (blessing === "transformer") grantConsumables("transformTicket", 4, ticketsAreFree, "blessing");
-    if (blessing === "mirror") grantConsumables("cloneTicket", 2, ticketsAreFree, "blessing");
-    if (blessing === "goldRush") {
-      ensureTelemetryRun();
-      recordTelemetryGoldAcquired(telemetry, 300, "blessing");
-      setGold((current) => current + 300);
-    }
-  };
-  const openBlessings = () => {
-    if (blessingOffers.length === 0) {
-      const next = rollBlessingOffers();
-      setBlessingOffers(next);
-      setBlessingSeenOfferIds(new Set(next.filter((id): id is BlessingId => id !== "empty")));
-    }
-    setBlessingOpen(true);
-    queueRunSave(RUN_SAVE_POLICY.stateChangeDelayMs);
-  };
-  const chooseBlessing = (blessing: BlessingOfferId) => {
-    if (!blessingOffers.includes(blessing)) return;
-    if (blessing !== "empty" && blessings.includes(blessing)) return;
-    if (blessing !== "empty") {
-      const acquired: BlessingId[] = [blessing];
-      if (blessing === "gambling") {
-        acquired.push(...rollGamblingBlessings([...blessings, blessing]).filter((id): id is BlessingId => id !== "empty"));
-      }
-      setBlessings((current) => [...current, ...acquired.filter((id) => !current.includes(id))]);
-      acquired.forEach((id) => applyAcquiredBlessing(id, acquired));
-    }
-    setUsedBlessingRooms((current) => new Set(current).add(mapRoomKey(mapPosition)));
-    setBlessingOffers([]);
-    setBlessingSeenOfferIds(new Set());
-    setBlessingOpen(false);
-    queueRunSave(RUN_SAVE_POLICY.stateChangeDelayMs);
-  };
-  const rerollBlessings = () => {
-    if (runPlayerHpRef.current < blessingRerollCost) return;
-    const lethal = resolveLethalDamage(
-      runPlayerHpRef.current,
-      blessingRerollCost,
-      maxPlayerHp,
-      blessings.includes("oneUp") && !oneUpUsedRef.current,
-    );
-    runPlayerHpRef.current = lethal.hp;
-    setRunPlayerHp(lethal.hp);
-    if (lethal.usedOneUp) {
-      oneUpUsedRef.current = true;
-      setOneUpUsed(true);
-    }
-    if (lethal.hp === 0) {
-      finishTelemetryRun(telemetry, "lost");
-      setBlessingOpen(false);
-      setGame({ ...waitingState(0, []), status: "lost", message: "축복 리롤의 대가로 쓰러졌습니다." });
-      setPhase("playing");
-      setScreen("battle");
-      return;
-    }
-    setBlessingRerollCost((current) => current + 2);
-    const nextOffers = rollBlessingOffers(blessings, [...blessingSeenOfferIds]);
-    setBlessingOffers(nextOffers);
-    setBlessingSeenOfferIds((current) => new Set([
-      ...current,
-      ...nextOffers.filter((id): id is BlessingId => id !== "empty"),
-    ]));
-    queueRunSave(RUN_SAVE_POLICY.stateChangeDelayMs);
-  };
   const consumeMindEyeMove = () => {
     setMindEyeMovesRemaining((current) => {
       const next = Math.max(0, current - 1);
@@ -1678,41 +929,6 @@ export default function Home() {
     };
   };
 
-  const useCurrentPortal = () => {
-    const roomType = effectiveRoomType(mapPosition);
-    if (roomType === "portal") {
-      const regionIndex = getDungeonRegionIndex(mapPosition);
-      if (regionIndex === null) return;
-      const destination = safeAreaEntry(regionIndex, mapSeed);
-      const revealedWorld = materializeVisibleMapContent(destination, mapSeed, mapEnemyWorld);
-      const nextWorld = clearMapEnemiesNear(revealedWorld, destination);
-      setSafeAreaEntrySeenRooms(new Set(seenRooms));
-      godsLamentChargesRef.current = 0;
-      setGodsLamentCharges(0);
-      setMapPosition(destination);
-      rememberPlayerVision(destination, mapSeed, nextWorld.enemies, revealedWorld.enemies);
-      setMapEnemyWorld(nextWorld);
-      focusMapOn(destination);
-      return;
-    }
-    if (roomType !== "safePortal") return;
-    const regionIndex = getSafeAreaRegionIndex(mapPosition, mapSeed);
-    if (regionIndex === null) return;
-    if (regionIndex >= REGION_COUNT - 1) return;
-    const destination = nextRegionEntry(regionIndex);
-    const revealedWorld = materializeVisibleMapContent(destination, mapSeed, mapEnemyWorld);
-    const nextWorld = clearMapEnemiesNear(revealedWorld, destination);
-    const discardSafeAreaMemory = safeAreaEntrySeenRooms !== null && isSafeAreaSealed(regionIndex);
-    const baseSeenRooms = discardSafeAreaMemory ? safeAreaEntrySeenRooms : null;
-    godsLamentChargesRef.current = 3;
-    setGodsLamentCharges(3);
-    setMapPosition(destination);
-    rememberPlayerVision(destination, mapSeed, nextWorld.enemies, revealedWorld.enemies, baseSeenRooms);
-    setSafeAreaEntrySeenRooms(null);
-    setMapEnemyWorld(nextWorld);
-    focusMapOn(destination);
-  };
-
   const resolveMapStep = (
     currentPosition: MapPosition,
     nextPosition: MapPosition,
@@ -1740,272 +956,6 @@ export default function Home() {
       return next;
     });
     return result;
-  };
-
-  const beginMapEnemyBattle = (
-    enemies: MapBattleEnemy[],
-    roomKey: string,
-  ) => {
-    const [firstEnemy, ...remainingEnemies] = enemies;
-    if (!firstEnemy) return;
-    mapBattleQueueRef.current = remainingEnemies;
-    setActiveMapEnemyIds(enemies.map((enemy) => enemy.id));
-    setActiveBattleRoom(roomKey);
-    startBattle([firstEnemy], runPlayerHpRef.current);
-  };
-
-  const useCurrentHeal = () => {
-    if (effectiveRoomType(mapPosition) !== "heal") return;
-    const roomKey = mapRoomKey(mapPosition);
-    runPlayerHpRef.current = maxPlayerHp;
-    setRunPlayerHp(maxPlayerHp);
-    setUsedHealRooms((current) => new Set(current).add(roomKey));
-  };
-
-  const applyShrinePilgrimBonus = () => {
-    if (!blessings.includes("shrinePilgrim")) return;
-    if (!blessings.includes("forbiddenKnowledge")) {
-      setVitalityShrineMaxHpBonus((current) => current + 2);
-    }
-    const nextMaxHp = blessings.includes("forbiddenKnowledge") ? 20 : maxPlayerHp + 2;
-    const nextHp = Math.min(nextMaxHp, runPlayerHpRef.current + 2);
-    runPlayerHpRef.current = nextHp;
-    setRunPlayerHp(nextHp);
-  };
-
-  const useCurrentRecoveryShrine = () => {
-    if (effectiveRoomType(mapPosition) !== "recoveryShrine") return;
-    const roomKey = mapRoomKey(mapPosition);
-    const healAmount = blessings.includes("forbiddenKnowledge") ? 0 : Math.floor(maxPlayerHp * 0.3);
-    const previousHp = runPlayerHpRef.current;
-    const nextHp = Math.min(maxPlayerHp, previousHp + healAmount);
-    runPlayerHpRef.current = nextHp;
-    setRunPlayerHp(nextHp);
-    applyShrinePilgrimBonus();
-    const preserved = shouldPreserveTicket(blessings.includes("archaeologist"));
-    if (!preserved) setCollapsedRecoveryShrineRooms((current) => new Set(current).add(roomKey));
-    showMapMessage(`체력을 ${nextHp - previousHp} 회복했습니다. 회복의 성소가 ${preserved ? "보존되었습니다." : "붕괴했습니다."}`);
-    queueRunSave();
-  };
-
-  const useCurrentVitalityShrine = () => {
-    if (effectiveRoomType(mapPosition) !== "vitalityShrine") return;
-    const roomKey = mapRoomKey(mapPosition);
-    setVitalityShrineMaxHpBonus((current) => current + 5);
-    applyShrinePilgrimBonus();
-    const preserved = shouldPreserveTicket(blessings.includes("archaeologist"));
-    if (!preserved) setCollapsedVitalityShrineRooms((current) => new Set(current).add(roomKey));
-    showMapMessage(`최대 체력이 5 증가했습니다. 현재 체력은 변하지 않습니다. 건강의 성소가 ${preserved ? "보존되었습니다." : "붕괴했습니다."}`);
-    queueRunSave();
-  };
-
-  const activateMindEye = () => {
-    setMindEyeMovesRemaining((current) => {
-      const next = current + 20;
-      mindEyeMovesRemainingRef.current = next;
-      return next;
-    });
-    const revealedWorld = materializeMapContent([...visibleMapRoomKeys(
-      mapPosition, mapSeed,
-      MAP_PLAYER_VISION_HORIZONTAL_RADIUS + blessingVisionBonus + 2,
-      MAP_PLAYER_VISION_VERTICAL_RADIUS + blessingVisionBonus + 2,
-    )].map(parseMapRoomKey), mapSeed, mapEnemyWorld);
-    setMapEnemyWorld(revealedWorld);
-  };
-
-  const useCurrentMindEyeShrine = () => {
-    if (effectiveRoomType(mapPosition) !== "mindEyeShrine") return;
-    const roomKey = mapRoomKey(mapPosition);
-    activateMindEye();
-    applyShrinePilgrimBonus();
-    const preserved = shouldPreserveTicket(blessings.includes("archaeologist"));
-    if (!preserved) setCollapsedMindEyeShrineRooms((current) => new Set(current).add(roomKey));
-    showMapMessage(`심안: 20번 이동 동안 시야 거리 +2를 얻었습니다. 심안의 성소가 ${preserved ? "보존되었습니다." : "붕괴했습니다."}`);
-    queueRunSave();
-  };
-
-  const openTransformShrine = () => {
-    if (effectiveRoomType(mapPosition) !== "transformShrine") return;
-    setTransformShrineOpen(true);
-  };
-
-  const transformCardsAtShrine = (selectedCardIds: number[]): ShrineCardConversionResult | null => {
-    if (effectiveRoomType(mapPosition) !== "transformShrine") return null;
-    const selectedCards = inventoryCards.filter((card) => selectedCardIds.includes(card.id));
-    if (selectedCards.length !== 2) return null;
-    const transformedCards = selectedCards.map((card) => transformedCard(card));
-    if (transformedCards.some((card) => !card)) {
-      setMapMessage("전설 카드는 변환할 수 없습니다.");
-      return null;
-    }
-    const convertedCards = transformedCards.map((card) => card!);
-    const transformedById = new Map(selectedCards.map((card, index) => [card.id, convertedCards[index]]));
-    setInventoryCards((current) => current.map((card) => transformedById.get(card.id) ?? card));
-    const roomKey = mapRoomKey(mapPosition);
-    applyShrinePilgrimBonus();
-    const preserved = shouldPreserveTicket(blessings.includes("archaeologist"));
-    const collapsed = !preserved;
-    if (collapsed) setCollapsedTransformShrineRooms((current) => new Set(current).add(roomKey));
-    setMapMessage(`카드 2장을 변환했습니다. 변환의 성소가 ${preserved ? "보존되었습니다." : "붕괴했습니다."}`);
-    queueRunSave();
-    return { before: selectedCards, after: convertedCards, collapsed };
-  };
-
-  const openCombinationShrine = () => {
-    if (effectiveRoomType(mapPosition) !== "combinationShrine") return;
-    setCombinationShrineOpen(true);
-  };
-
-  const combineCardsAtShrine = (selectedCardIds: number[]): ShrineCardConversionResult | null => {
-    if (effectiveRoomType(mapPosition) !== "combinationShrine") return null;
-    const selectedCards = inventoryCards.filter((card) => selectedCardIds.includes(card.id));
-    if (selectedCards.length !== 5 || selectedCards.some((card) => card.rarity !== "special")) return null;
-    const selectedIds = new Set(selectedCards.map((card) => card.id));
-    const remainingCards = inventoryCards.filter((card) => !selectedIds.has(card.id));
-    const rareCard: Card = {
-      ...randomItem(RARE_CARD_POOL),
-      id: nextCardIdRef.current,
-      revealed: false,
-    };
-    nextCardIdRef.current += 1;
-    const usedSlots = remainingCards.length + inventoryConsumablesRef.current.filter((item) =>
-      !blessings.includes("lightTicket") || item.type === "cardPack").length;
-    const roomKey = mapRoomKey(mapPosition);
-    applyShrinePilgrimBonus();
-    const destination = usedSlots < inventoryCapacity ? "inventory" : "floor";
-    if (destination === "inventory") {
-      setInventoryCards([...remainingCards, rareCard]);
-    } else {
-      setInventoryCards(remainingCards);
-      setRoomDrops((current) => ({
-        ...current,
-        [roomKey]: [...(current[roomKey] ?? []), rareCard],
-      }));
-    }
-    const preserved = shouldPreserveTicket(blessings.includes("archaeologist"));
-    const collapsed = !preserved && randomGameRoll() < 0.5;
-    if (collapsed) setCollapsedCombinationShrineRooms((current) => new Set(current).add(roomKey));
-    setMapMessage(`특별 카드 5장을 ${rareCard.name}(으)로 조합했습니다.${destination === "floor" ? " 인벤토리가 가득 차 바닥에 놓았습니다." : ""} 조합의 성소는 ${collapsed ? "붕괴했습니다." : "보존되었습니다."}`);
-    queueRunSave();
-    return { before: selectedCards, after: [rareCard], collapsed, destination };
-  };
-
-  const raiseNearbyEnemiesBySound = (center: MapPosition) => {
-    setMapEnemyWorld((current) => ({
-      ...current,
-      enemies: current.enemies.map((enemy) => {
-        if (enemy.isBoss || chebyshevDistance(enemy.position, center) > 5) return enemy;
-        return {
-          ...enemy,
-          awareness: enemy.awareness === "sleeping" ? "awake" : "alerted",
-        };
-      }),
-    }));
-  };
-
-  const openTreasureChest = () => {
-    if (effectiveRoomType(mapPosition) !== "treasureChest") return;
-    const roomKey = mapRoomKey(mapPosition);
-    const regionNumber = getRegionNumber(mapPosition, mapSeed);
-    const rewardCards: Card[] = [];
-    const rewardConsumables: Consumable[] = [];
-    const rewardDecks: DeckCase[] = [];
-    let remainingRolls = 3;
-    let rolls = 0;
-    let bonusRolls = 0;
-    while (remainingRolls > 0) {
-      remainingRolls -= 1;
-      rolls += 1;
-      const roll = randomGameRoll();
-      if (roll < 0.2) {
-        const deck = createRegionDeck(regionNumber, nextCardIdRef.current, blessings.includes("deckSize") ? 5 : 0);
-        nextCardIdRef.current += deck.cards.length;
-        rewardDecks.push(deck);
-      } else if (roll < 0.4) {
-        rewardCards.push({ ...randomItem(SPECIAL_CARD_POOL), id: nextCardIdRef.current, revealed: false });
-        nextCardIdRef.current += 1;
-      } else if (roll < 0.6) {
-        rewardCards.push({ ...randomItem(RARE_CARD_POOL), id: nextCardIdRef.current, revealed: false });
-        nextCardIdRef.current += 1;
-      } else if (roll < 0.9) {
-        rewardConsumables.push(nextConsumable(randomItem(TICKET_TYPES)));
-      } else if (roll < 0.99) {
-        remainingRolls += 2;
-        bonusRolls += 2;
-      } else {
-        remainingRolls += 5;
-        bonusRolls += 5;
-      }
-    }
-    ensureTelemetryRun();
-    rewardCards.forEach((card) => recordTelemetryCardAcquired(
-      telemetry,
-      telemetryCardSnapshot(card),
-      "treasure-chest",
-    ));
-    rewardConsumables.forEach((consumable) => recordTelemetryConsumableAcquired(
-      telemetry,
-      telemetryConsumableSnapshot(consumable),
-      "treasure-chest",
-    ));
-    rewardDecks.forEach((deck) => recordTelemetryDeckAcquired(
-      telemetry,
-      telemetryDeckSnapshot(deck),
-      "treasure-chest",
-    ));
-    if (rewardCards.length > 0) setRoomDrops((current) => ({
-      ...current,
-      [roomKey]: [...(current[roomKey] ?? []), ...rewardCards],
-    }));
-    if (rewardConsumables.length > 0) setRoomConsumableDrops((current) => ({
-      ...current,
-      [roomKey]: [...(current[roomKey] ?? []), ...rewardConsumables],
-    }));
-    if (rewardDecks.length > 0) setRoomDeckDrops((current) => ({
-      ...current,
-      [roomKey]: [...(current[roomKey] ?? []), ...rewardDecks],
-    }));
-    setCollapsedTreasureChestRooms((current) => new Set(current).add(roomKey));
-    setTreasureChestReward({
-      cards: rewardCards,
-      consumables: rewardConsumables,
-      decks: rewardDecks,
-      rolls,
-      bonusRolls,
-    });
-    raiseNearbyEnemiesBySound(mapPosition);
-    setMapMessage("");
-    queueRunSave();
-  };
-
-  const openShrine = () => {
-    if (effectiveRoomType(mapPosition) !== "shrine") return;
-    setShrineOpen(true);
-  };
-
-  const extractCardsAtShrine = (deckId: string, cardIds: number[]) => {
-    if (effectiveRoomType(mapPosition) !== "shrine") return null;
-    const sourceDeck = ownedDecks.find((deck) => deck.id === deckId);
-    if (!sourceDeck) return null;
-    const selectedIds = new Set(cardIds);
-    const selectedCards = sourceDeck.cards.filter((card) => selectedIds.has(card.id));
-    if (selectedCards.length === 0 || selectedCards.some((card) => card.rarity === "rare")) return null;
-    const roomKey = mapRoomKey(mapPosition);
-    const extractedIds = new Set(selectedCards.map((card) => card.id));
-    setOwnedDecks((current) => current.map((deck) => deck.id === sourceDeck.id
-      ? { ...deck, cards: deck.cards.filter((item) => !extractedIds.has(item.id)) }
-      : deck));
-    setRoomDrops((current) => ({
-      ...current,
-      [roomKey]: [...(current[roomKey] ?? []), ...selectedCards],
-    }));
-    applyShrinePilgrimBonus();
-    setDeckSelectionAttention(true);
-    const preserved = shouldPreserveTicket(blessings.includes("archaeologist"));
-    if (!preserved) setCollapsedShrineRooms((current) => new Set(current).add(roomKey));
-    setMapMessage(`${selectedCards.map((card) => card.name).join(", ")} 추출 완료. 추출의 성소가 ${preserved ? "보존되었습니다." : "붕괴했습니다."}`);
-    queueRunSave(RUN_SAVE_POLICY.stateChangeDelayMs);
-    return selectedCards;
   };
 
   const animateMapCollision = (
@@ -2167,81 +1117,6 @@ export default function Home() {
     advance();
   };
 
-  const returnToMap = () => {
-    const battleRoom = activeBattleRoom;
-    if (battleRoom) {
-      const landingDrops = [...(roomDrops[battleRoom] ?? []), ...battleRewards];
-      setRoomDrops((current) => ({
-        ...current,
-        [battleRoom]: landingDrops,
-      }));
-      ensureTelemetryRun();
-      recordTelemetryGoldAcquired(telemetry, battleRewardGold, "battle-reward");
-      battleRewardDecks.forEach((deck) => recordTelemetryDeckAcquired(
-        telemetry,
-        telemetryDeckSnapshot(deck),
-        "battle-reward",
-      ));
-      battleRewardConsumables.forEach((consumable) => recordTelemetryConsumableAcquired(
-        telemetry,
-        telemetryConsumableSnapshot(consumable),
-        "battle-reward",
-      ));
-      setGold((current) => current + battleRewardGold);
-      if (battleRewardDecks.length > 0) setRoomDeckDrops((current) => ({
-        ...current,
-        [battleRoom]: [...(current[battleRoom] ?? []), ...battleRewardDecks],
-      }));
-      if (battleRewardConsumables.length > 0) setRoomConsumableDrops((current) => ({
-        ...current,
-        [battleRoom]: [...(current[battleRoom] ?? []), ...battleRewardConsumables],
-      }));
-    }
-
-    const nextEnemy = mapBattleQueueRef.current.shift();
-    if (nextEnemy && battleRoom) {
-      const nextPlayerHp = game.playerHp;
-      runPlayerHpRef.current = nextPlayerHp;
-      setRunPlayerHp(nextPlayerHp);
-      setBattleRewards([]);
-      setBattleRewardDecks([]);
-      setBattleRewardConsumables([]);
-      setBattleRewardGold(0);
-      battleRewardIsBossRef.current = nextEnemy.isBoss === true;
-      battleRewardIsOutOfDepthRef.current = nextEnemy.isBoss !== true
-        && isHigherRegionMapEnemy(nextEnemy.encounterIndex, mapPosition, mapSeed);
-      startBattleNow(
-        [nextEnemy],
-        nextPlayerHp,
-        previousBattleDeckIdRef.current ?? activeDeckId,
-      );
-      return;
-    }
-
-    if (activeMapEnemyIds.length > 0 && battleRoom) {
-      const defeatedBossRegionIndices = mapEnemyWorld.enemies
-        .filter((enemy) => activeMapEnemyIds.includes(enemy.id) && enemy.isBoss)
-        .map((enemy) => getEncounterRegionNumber(enemy.encounterIndex) - 1);
-      if (defeatedBossRegionIndices.length > 0) {
-        setDefeatedBossRegions((current) => new Set([...current, ...defeatedBossRegionIndices]));
-      }
-      const remainingEnemies = mapEnemyWorld.enemies.filter((enemy) => !activeMapEnemyIds.includes(enemy.id));
-      setMapEnemyWorld({ ...mapEnemyWorld, enemies: remainingEnemies });
-      rememberPlayerVision(mapPosition, mapSeed, remainingEnemies);
-    }
-    runPlayerHpRef.current = game.playerHp;
-    setRunPlayerHp(game.playerHp);
-    setBattleRewards([]);
-    setBattleRewardDecks([]);
-    setBattleRewardConsumables([]);
-    setBattleRewardGold(0);
-    setActiveMapEnemyIds([]);
-    setActiveBattleRoom(null);
-    mapBattleQueueRef.current = [];
-    setScreen("map");
-    queueRunSave(RUN_SAVE_POLICY.stateChangeDelayMs);
-  };
-
   const startNewRun = () => {
     cancelQueuedSave();
     clearBattleTimers();
@@ -2307,7 +1182,6 @@ export default function Home() {
     setBattleDeckPreviewId(null);
     setOwnedDecks([starterDeck]);
     setActiveDeckId(starterDeck.id);
-    setDeckSelectionAttention(false);
     setInventoryCards([]);
     nextConsumableIdRef.current = 1;
     setInventoryConsumables([nextConsumable("extractTicket")]);
@@ -2331,7 +1205,6 @@ export default function Home() {
     rareCardDropChanceRef.current = 0.05;
     deckPityBattlesRemainingRef.current = 3;
     finishDeckEditorSession();
-    setDeckViewerOpen(false);
     setHoveredDeckCard(null);
     clearCardKeywordHover();
     setPendingPaintTicketId(null);
@@ -2345,167 +1218,13 @@ export default function Home() {
     setScreen("map");
   };
 
-  useEffect(() => {
-    const timer = window.setTimeout(() => {
-      const saved = readRunSave<SavedRunState>();
-      if (saved) {
-      const state = prepareRunRestore(saved.state, isSafeAreaPosition);
-      setPlayerName(state.playerName);
-      setPlayerNameSetupOpen(false);
-      setRunPlayerHp(state.runPlayerHp);
-      runPlayerHpRef.current = state.runPlayerHp;
-      setMapSeed(state.mapSeed);
-      setMapPosition(state.mapPosition);
-      setSeenRooms(new Set(state.seenRooms));
-      generatedMapRoomKeysRef.current = new Set([
-        ...state.seenRooms,
-        ...Object.keys(state.roomDrops),
-        ...Object.keys(state.roomConsumableDrops),
-      ]);
-      setSafeAreaEntrySeenRooms(state.safeAreaEntrySeenRooms ? new Set(state.safeAreaEntrySeenRooms) : null);
-      setDefeatedBossRegions(new Set(state.defeatedBossRegions));
-      setMapEnemyCellMemory(state.mapEnemyCellMemory);
-      setMapBombs(state.mapBombs);
-      mapBombsRef.current = state.mapBombs;
-      setDestroyedShopRooms(new Set(state.destroyedShopRooms));
-      setCollapsedShrineRooms(new Set(state.collapsedShrineRooms));
-      setCollapsedRecoveryShrineRooms(new Set(state.collapsedRecoveryShrineRooms));
-      setCollapsedVitalityShrineRooms(new Set(state.collapsedVitalityShrineRooms));
-      setCollapsedMindEyeShrineRooms(new Set(state.collapsedMindEyeShrineRooms));
-      setCollapsedTransformShrineRooms(new Set(state.collapsedTransformShrineRooms));
-      setCollapsedCombinationShrineRooms(new Set(state.collapsedCombinationShrineRooms));
-      setCollapsedTreasureChestRooms(new Set(state.collapsedTreasureChestRooms));
-      setVitalityShrineMaxHpBonus(state.vitalityShrineMaxHpBonus);
-      setUsedHealRooms(new Set(state.usedHealRooms));
-      setUsedBlessingRooms(new Set(state.usedBlessingRooms));
-      setRockBombHits(state.rockBombHits);
-      setMindEyeMovesRemaining(state.mindEyeMovesRemaining);
-      mindEyeMovesRemainingRef.current = state.mindEyeMovesRemaining;
-      setGodsLamentCharges(state.godsLamentCharges);
-      godsLamentChargesRef.current = state.godsLamentCharges;
-      setDarkTicketTurnsRemaining(state.darkTicketTurnsRemaining);
-      darkTicketTurnsRemainingRef.current = state.darkTicketTurnsRemaining;
-      const savedOwnedDecks = state.ownedDecks.map(removeDeletedDeckEditions);
-      const savedRoomDeckDrops = Object.fromEntries(Object.entries(state.roomDeckDrops).map(([roomKey, decks]) => [
-        roomKey,
-        decks.map(removeDeletedDeckEditions),
-      ]));
-      setOwnedDecks(savedOwnedDecks);
-      setActiveDeckId(state.activeDeckId);
-      setInventoryCards(state.inventoryCards);
-      setInventoryConsumables(state.inventoryConsumables);
-      inventoryConsumablesRef.current = state.inventoryConsumables;
-      setRoomDrops(state.roomDrops);
-      setRoomConsumableDrops(state.roomConsumableDrops);
-      const restoredWorld = materializeMapContent(
-        positionsInSquare(state.mapPosition, 5),
-        state.mapSeed,
-        state.mapEnemyWorld,
-        [],
-      );
-      setMapEnemyWorld(restoredWorld);
-      setRoomDeckDrops(savedRoomDeckDrops);
-      setRoomShops(state.roomShops);
-      setBlessingOffers(state.blessingOffers);
-      setBlessingSeenOfferIds(new Set(state.blessingSeenOfferIds));
-      setBlessings(state.blessings);
-      setBlessingRerollCost(state.blessingRerollCost);
-      setOneUpUsed(state.oneUpUsed);
-      oneUpUsedRef.current = state.oneUpUsed;
-      setGold(state.gold);
-      nextCardIdRef.current = state.nextCardId;
-      nextConsumableIdRef.current = state.nextConsumableId;
-      deckDropChanceRef.current = state.deckDropChance;
-      rareCardDropChanceRef.current = state.rareCardDropChance;
-      deckPityBattlesRemainingRef.current = state.deckPityBattlesRemaining;
-      setGame(waitingState());
-      setPhase("drawing");
-        setScreen("map");
-      }
-      setSaveReady(true);
-    }, 0);
-    return () => window.clearTimeout(timer);
-  }, []);
-
-  useEffect(() => {
-    updateSaveSnapshot(createRunSaveSnapshot({
-      playerName,
-      runPlayerHp,
-      mapSeed,
-      mapPosition,
-      seenRooms,
-      safeAreaEntrySeenRooms,
-      mapEnemyWorld,
-      defeatedBossRegions,
-      mapEnemyCellMemory,
-      mapBombs,
-      destroyedShopRooms,
-      collapsedShrineRooms,
-      collapsedRecoveryShrineRooms,
-      collapsedVitalityShrineRooms,
-      collapsedMindEyeShrineRooms,
-      collapsedTransformShrineRooms,
-      collapsedCombinationShrineRooms,
-      collapsedTreasureChestRooms,
-      vitalityShrineMaxHpBonus,
-      usedHealRooms,
-      usedBlessingRooms,
-      rockBombHits,
-      mindEyeMovesRemaining,
-      godsLamentCharges,
-      darkTicketTurnsRemaining,
-      ownedDecks,
-      activeDeckId,
-      inventoryCards,
-      inventoryConsumables,
-      roomDrops,
-      roomConsumableDrops,
-      roomDeckDrops,
-      roomShops,
-      blessingOffers,
-      blessingSeenOfferIds,
-      blessings,
-      blessingRerollCost,
-      oneUpUsed,
-      gold,
-      nextCardId: nextCardIdRef.current,
-      nextConsumableId: nextConsumableIdRef.current,
-      deckDropChance: deckDropChanceRef.current,
-      rareCardDropChance: rareCardDropChanceRef.current,
-      deckPityBattlesRemaining: deckPityBattlesRemainingRef.current,
-    }), saveReady && !playerNameSetupOpen && screen === "map" && !mapTraveling && !deckEditorOpen);
-  }, [
-    activeDeckId, blessingRerollCost, blessings,
-    collapsedCombinationShrineRooms, collapsedMindEyeShrineRooms, collapsedRecoveryShrineRooms,
-    collapsedShrineRooms, collapsedTransformShrineRooms, collapsedTreasureChestRooms,
-    collapsedVitalityShrineRooms,
-    deckEditorOpen, defeatedBossRegions,
-    destroyedShopRooms, gold, inventoryCards, inventoryConsumables, vitalityShrineMaxHpBonus,
-    mapBombs, mapEnemyCellMemory, mapEnemyWorld, mapPosition, mapSeed, mapTraveling,
-    darkTicketTurnsRemaining, godsLamentCharges, mindEyeMovesRemaining, ownedDecks, playerName, playerNameSetupOpen, rockBombHits,
-    blessingOffers, blessingSeenOfferIds, roomConsumableDrops, roomDeckDrops, roomDrops, roomShops, runPlayerHp,
-    oneUpUsed, safeAreaEntrySeenRooms, saveReady, screen, seenRooms, updateSaveSnapshot, usedBlessingRooms, usedHealRooms,
-  ]);
-
-  useEffect(() => {
-    if (game.status === "lost") clearRunSave();
-  }, [game.status]);
-
-  const resetHoldProgress = useRunKeyboardControls({
+  const restartHold = useRunKeyboardControls({
     playerNameSetupOpen,
     saveRunNow,
     showMapMessage,
     clearRunSave,
     startNewRun,
   });
-
-  const originalDeckIdForCard = (cardId: number) => {
-    return deckEditorSnapshot?.originDeckIdsByCardId[cardId] ?? null;
-  };
-
-  const effectiveOriginDeckIdForCard = (cardId: number) => deckEditorReleasedCardIds.has(cardId)
-    ? null
-    : originalDeckIdForCard(cardId);
 
   useEffect(() => {
     const frame = window.requestAnimationFrame(clearFloatingTooltips);
@@ -2522,7 +1241,6 @@ export default function Home() {
     combinationShrineOpen,
     deckSelectorOpen,
     deckEditorOpen,
-    deckViewerOpen,
     openedCardPack,
     battleCardView,
     cardPoolStatsOpen,
@@ -2544,541 +1262,35 @@ export default function Home() {
     row.scrollLeft += delta * 1.5;
   };
 
-  const deckEditorMoveErrorMessage = (reason: DeckEditorMoveBlockReason, targetDeck?: DeckCase) => {
-    if (reason === "rare-locked") return "희귀·전설 카드는 덱끼리 직접 옮기거나 일반 이동으로 꺼낼 수 없습니다. 덱에 넣을 때는 인벤토리·바닥에서 옮기고, 추출할 때는 추출 티켓+를 사용하세요.";
-    if (reason === "inventory-full") return "인벤토리가 가득 찼습니다.";
-    if (reason === "deck-full") return `${targetDeck?.name ?? "현재 덱"}에는 더 이상 카드를 넣을 수 없습니다.`;
-    if (reason === "rare-slots-full") return `${targetDeck?.name ?? "현재 덱"}의 희귀·전설 슬롯이 가득 찼습니다.`;
-    if (reason === "extract-original-only") return "추출 티켓은 편집 시작 당시 덱에 있던 카드에만 사용할 수 있습니다.";
-    if (reason === "origin-locked") return "현재 위치에서는 편집 시작 당시의 원래 덱으로만 되돌릴 수 있습니다.";
-    return "이미 같은 위치에 있습니다.";
-  };
-
-  const moveDeckEditorCard = ({
-    cardId,
-    source,
-    target: requestedTarget,
-    viaExtractionTicket = false,
-    allowsRareExtraction = false,
-    inventorySlotsFreed = 0,
-    beforeCommit,
-  }: {
-    cardId: number;
-    source: DeckEditorCardLocation;
-    target: DeckEditorCardLocation;
-    viaExtractionTicket?: boolean;
-    allowsRareExtraction?: boolean;
-    inventorySlotsFreed?: number;
-    beforeCommit?: () => boolean;
-  }) => {
-    const roomKey = mapRoomKey(mapPosition);
-    const collections = {
-      ownedDecks,
-      inventoryCards,
-      floorCards: roomDrops[roomKey] ?? [],
-      pendingRemovedCards,
-      pendingRemovedCardAreas,
-    };
-    const previewTransition = transitionDeckEditorCardCollections(collections, {
-      cardId, source, target: requestedTarget, action: "move",
-    });
-    const card = previewTransition?.card;
-    if (!card) return false;
-    let target = requestedTarget;
-    const temporaryRareReturnArea = deckEditorHighRarityInsertionOriginsRef.current[cardId];
-    if (!viaExtractionTicket && usesRareCardSlot(card) && source.area === "deck"
-      && target.area === "floor" && temporaryRareReturnArea) {
-      target = temporaryRareReturnArea === "inventory" && deckEditorInventoryItemCount >= inventoryCapacity
-        ? { area: "floor" }
-        : { area: temporaryRareReturnArea };
-    }
-    const sourceDeck = source.area === "deck"
-      ? ownedDecks.find((deck) => deck.id === source.deckId)
-      : undefined;
-    const targetDeck = target.area === "deck"
-      ? ownedDecks.find((deck) => deck.id === target.deckId)
-      : undefined;
-    if (source.area === "deck" && !sourceDeck) return false;
-    if (target.area === "deck" && !targetDeck) return false;
-    const targetDeckRareCardCount = targetDeck
-      ? countRareSlotCards(targetDeck.cards)
-      : 0;
-    const positionIsSafeArea = isSafeAreaPosition(mapPosition, mapSeed);
-    const safeArea = positionIsSafeArea
-      ? isSafeAreaEditAllowed(mapPosition, mapSeed, defeatedBossRegions)
-      : blessings.includes("forbiddenKnowledge");
-    const validation = validateDeckEditorCardMove({
-      source,
-      target,
-      safeArea,
-      originalOriginDeckId: originalDeckIdForCard(cardId),
-      effectiveOriginDeckId: effectiveOriginDeckIdForCard(cardId),
-      targetDeckCardCount: targetDeck?.cards.length,
-      targetDeckCapacity: targetDeck?.capacity,
-      targetDeckRareCardCount,
-      targetDeckRareSlotCapacity: targetDeck
-        ? Math.max(targetDeck.rareSlotCapacity ?? 0, countRareSlotCards(targetDeck.cards))
-        : 0,
-      inventoryItemCount: deckEditorInventoryItemCount,
-      inventoryCapacity,
-      inventorySlotsFreed,
-      viaExtractionTicket,
-      allowsRareExtraction,
-      temporaryRareReturnArea: source.area === "deck" ? temporaryRareReturnArea : undefined,
-      isRare: usesRareCardSlot(card),
-    });
-    if (!validation.allowed) {
-      if (validation.reason !== "same-location") {
-        setDeckEditorMessage(deckEditorMoveErrorMessage(validation.reason, targetDeck));
-      }
-      return false;
-    }
-    if (beforeCommit && !beforeCommit()) return false;
-
-    const committedTransition = transitionDeckEditorCardCollections(collections, {
-      cardId, source, target, action: validation.action,
-    });
-    if (!committedTransition) return false;
-    const nextCollections = committedTransition.collections;
-    if (source.area === "floor") {
+  const { moveDeckEditorCard } = createDeckEditorMoves({
+    inventory, world, player, editor, inventoryCapacity, deckEditorInventoryItemCount,
+    onFloorCardAcquired: (card) => {
       ensureTelemetryRun();
       recordTelemetryCardAcquired(telemetry, telemetryCardSnapshot(card), "floor");
-    }
-    setOwnedDecks(nextCollections.ownedDecks);
-    setInventoryCards(nextCollections.inventoryCards);
-    setRoomDrops((current) => ({ ...current, [roomKey]: nextCollections.floorCards }));
-    setPendingRemovedCards(nextCollections.pendingRemovedCards);
-    setPendingRemovedCardAreas(nextCollections.pendingRemovedCardAreas);
+    },
+    clearCardPreview: () => {
+      setHoveredDeckCard(null);
+      clearCardKeywordHover();
+    },
+  });
 
-    if (usesRareCardSlot(card)) {
-      if ((source.area === "inventory" || source.area === "floor") && target.area === "deck") {
-        deckEditorHighRarityInsertionOriginsRef.current[cardId] = source.area;
-      } else if (source.area === "deck" && (target.area === "inventory" || target.area === "floor")) {
-        delete deckEditorHighRarityInsertionOriginsRef.current[cardId];
-      }
-    }
-
-    if (validation.action === "schedule-removal") {
-      setDeckEditorMessage(`${card.name}을(를) 제거 예정 상태로 만들었습니다.`);
-    } else if (target.area === "deck") {
-      setDeckEditorDeckId(target.deckId!);
-      setDeckEditorMessage(validation.action === "restore-removal"
-        ? `${card.name} 제거를 취소하고 ${targetDeck!.name}(으)로 되돌렸습니다.`
-        : `${card.name}을(를) ${targetDeck!.name}(으)로 옮겼습니다.`);
-    } else if (target.area === "inventory") {
-      setDeckEditorMessage(`${card.name}을(를) 인벤토리로 옮겼습니다.`);
-    } else {
-      setDeckEditorMessage(`${card.name}을(를) 실제 바닥으로 옮겼습니다.`);
-    }
-    setHoveredDeckCard(null);
-    clearCardKeywordHover();
-    return true;
-  };
-
-  const moveFloorConsumableToInventory = (consumableId: string) => {
-    if (inventoryItemCount >= inventoryCapacity) {
-      showMapMessage("인벤토리가 가득찼습니다!");
-      return;
-    }
-    const roomKey = mapRoomKey(mapPosition);
-    const consumable = (roomConsumableDrops[roomKey] ?? []).find((item) => item.id === consumableId);
-    if (!consumable) return;
-    setRoomConsumableDrops((current) => ({
-      ...current,
-      [roomKey]: (current[roomKey] ?? []).filter((item) => item.id !== consumableId),
-    }));
-    setInventoryConsumables((current) => {
-      const next = current.some((item) => item.id === consumable.id)
-        ? current
-        : [...current, consumable];
-      inventoryConsumablesRef.current = next;
-      return next;
-    });
-    setDeckEditorMessage(`${consumable.name}을(를) 인벤토리에 주웠습니다.`);
-  };
-
-  const moveInventoryConsumableToFloor = (consumableId: string) => {
-    const consumable = inventoryConsumablesRef.current.find((item) => item.id === consumableId)
-      ?? inventoryConsumables.find((item) => item.id === consumableId);
-    if (!consumable) return;
-    const roomKey = mapRoomKey(mapPosition);
-    setInventoryConsumables((current) => {
-      const next = current.filter((item) => item.id !== consumableId);
-      inventoryConsumablesRef.current = next;
-      return next;
-    });
-    setRoomConsumableDrops((current) => ({
-      ...current,
-      [roomKey]: [...(current[roomKey] ?? []), consumable],
-    }));
-    if (pendingPaintTicketId === consumableId) setPendingPaintTicketId(null);
-    if (pendingCloneTicketId === consumableId) setPendingCloneTicketId(null);
-    if (pendingExtractTicketId === consumableId) setPendingExtractTicketId(null);
-    if (pendingTransformTicketId === consumableId) setPendingTransformTicketId(null);
-    setArmedBombTicketIds((current) => {
-      const next = new Set(current);
-      next.delete(consumableId);
-      return next;
-    });
-    setDeckEditorMessage(`${consumable.name}을(를) 바닥에 놓았습니다.`);
-  };
-
-  const findTicketById = (ticketId: string, type?: ConsumableType) => {
-    const roomKey = mapRoomKey(mapPosition);
-    return findTicketInAreas(ticketId, type, {
-      inventory: inventoryConsumablesRef.current,
-      floor: roomConsumableDrops[roomKey] ?? [],
-    });
-  };
-
-  const consumeTicketById = (ticketId: string, type: ConsumableType) => {
-    const roomKey = mapRoomKey(mapPosition);
-    const consumed = consumeTicketFromAreas(ticketId, type, {
-      inventory: inventoryConsumablesRef.current,
-      floor: roomConsumableDrops[roomKey] ?? [],
-    });
-    if (!consumed) return false;
-    const preserved = shouldPreserveTicket(blessings.includes("oneMore"));
-    if (blessings.includes("healingMileage")) {
-      const nextHp = Math.min(maxPlayerHp, runPlayerHpRef.current + 2);
-      runPlayerHpRef.current = nextHp;
-      setRunPlayerHp(nextHp);
-    }
-    if (!preserved) {
-      const nextInventory = [...consumed.inventory];
-      inventoryConsumablesRef.current = nextInventory;
-      setInventoryConsumables(nextInventory);
-      setRoomConsumableDrops((current) => ({
-        ...current,
-        [roomKey]: (current[roomKey] ?? []).filter((item) => item.id !== ticketId),
-      }));
-    }
-    return true;
-  };
-
-  const extractionTicketFreesInventorySlot = (ticket: Consumable | null) => Boolean(
-    (ticket?.type === "extractTicket" || ticket?.type === "extractPlusTicket")
-    && inventoryConsumablesRef.current.some((item) => item.id === ticket.id)
-    && !blessings.includes("lightTicket")
-    && !blessings.includes("oneMore"),
-  );
-
-  const canApplyTicketToCard = (
-    ticket: Consumable | null,
-    card: Card,
-    area: TicketDropArea,
-    deck?: DeckCase,
-  ) => {
-    if (!ticket || !["paintTicket", "cloneTicket", "extractTicket", "extractPlusTicket", "transformTicket"].includes(ticket.type)) return false;
-    if (ticket.type === "paintTicket") return area === "deck";
-    if (ticket.type === "extractTicket" || ticket.type === "extractPlusTicket") return area === "deck" && Boolean(
-      deck
-      && (ticket.type === "extractPlusTicket" || !usesRareCardSlot(card))
-      && originalDeckIdForCard(card.id) !== null
-      && effectiveOriginDeckIdForCard(card.id) !== null
-      && deck.cards.some((item) => item.id === card.id),
-    );
-    return card.rarity !== "legendary";
-  };
-
-  const applyTicketToCard = (
-    ticketId: string,
-    card: Card,
-    area: TicketDropArea,
-    deck?: DeckCase,
-    targetCardId = card.id,
-  ) => {
-    const ticket = findTicketById(ticketId);
-    if (!ticket || !canApplyTicketToCard(ticket, card, area, deck)) return;
-    const targetCard = card.id === targetCardId ? card : { ...card, id: targetCardId };
-    if (ticket.type === "paintTicket" && area === "deck" && deck) {
-      paintDeckCard(targetCardId, ticket.id, deck.id);
-    } else if (ticket.type === "cloneTicket") {
-      cloneCardWithTicket(targetCard, ticket.id);
-    } else if ((ticket.type === "extractTicket" || ticket.type === "extractPlusTicket") && area === "deck" && deck) {
-      extractDeckCardWithTicket(targetCardId, deck.id, ticket.id);
-    } else if (ticket.type === "transformTicket") {
-      transformCardWithTicket(targetCard, area, deck?.id, ticket.id);
-    }
-  };
-
-  const canApplyTicketToDeck = (ticketId: string, deck: DeckCase) => {
-    const ticket = findTicketById(ticketId);
-    return ticket?.type === "expandTicket" && ownedDecks.some((ownedDeck) => ownedDeck.id === deck.id);
-  };
-
-  const applyTicketToDeck = (ticketId: string, deck: DeckCase) => {
-    const ticket = findTicketById(ticketId, "expandTicket");
-    const targetDeck = ownedDecks.find((ownedDeck) => ownedDeck.id === deck.id);
-    if (!ticket || !targetDeck || !consumeTicketById(ticket.id, "expandTicket")) return;
-    setOwnedDecks((current) => current.map((ownedDeck) => ownedDeck.id !== targetDeck.id
-      ? ownedDeck
-      : {
-        ...ownedDeck,
-        rareSlotCapacity: Math.max(ownedDeck.rareSlotCapacity ?? 0, countRareSlotCards(ownedDeck.cards)) + 1,
-      }));
-    setDeckEditorMessage(`${targetDeck.name}의 희귀 슬롯이 1 늘었습니다.`);
-    queueRunSave(RUN_SAVE_POLICY.stateChangeDelayMs);
-  };
-
-  const closeDeckEditorAfterMapTicket = () => {
-    finishDeckEditorSession();
-    setPendingRemovedCards([]);
-    setPendingRemovedCardAreas({});
-    setDeckEditorReleasedCardIds(new Set());
-    setHoveredDeckCard(null);
-    clearCardKeywordHover();
-    setPendingPaintTicketId(null);
-    setPendingCloneTicketId(null);
-    setPendingExtractTicketId(null);
-    setPendingTransformTicketId(null);
-    deckEditorHighRarityInsertionOriginsRef.current = {};
-    setArmedBombTicketIds(new Set());
-  };
-
-  const consumeMindEyeTicket = (consumableId: string) => {
-    const ticket = findTicketById(consumableId, "mindEyeTicket");
-    if (!ticket || !consumeTicketById(ticket.id, "mindEyeTicket")) return;
-    closeDeckEditorAfterMapTicket();
-    activateMindEye();
-    showMapMessage("심안: 20번 이동 동안 시야 거리 +2를 얻었습니다.");
-    queueRunSave(RUN_SAVE_POLICY.stateChangeDelayMs);
-  };
-
-  const consumeDarkTicket = (consumableId: string) => {
-    const ticket = findTicketById(consumableId, "darkTicket");
-    if (!ticket || !consumeTicketById(ticket.id, "darkTicket")) return;
-    closeDeckEditorAfterMapTicket();
-    setDarkTicketTurnsRemaining((current) => {
-      const next = current + 20;
-      darkTicketTurnsRemainingRef.current = next;
-      return next;
-    });
-    showMapMessage("어둠: 20턴 동안 적의 인식 거리가 1 감소합니다.");
-  };
-
-  const installArmedFloorBombs = () => {
-    const roomKey = mapRoomKey(mapPosition);
-    const armedBombs = (roomConsumableDrops[roomKey] ?? []).filter((item) =>
-      item.type === "bombTicket" && item.armedMovesRemaining !== undefined);
-    if (armedBombs.length === 0) return;
-    setRoomConsumableDrops((current) => ({
-      ...current,
-      [roomKey]: (current[roomKey] ?? []).filter((item) => !armedBombs.some((bomb) => bomb.id === item.id)),
-    }));
-    setMapBombsSynced([
-      ...mapBombsRef.current,
-      ...armedBombs.map((bomb) => ({
-        id: `bomb-${bomb.id}`,
-        ticketId: bomb.id,
-        position: { ...mapPosition },
-        movesRemaining: bomb.armedMovesRemaining!,
-      })),
-    ]);
-  };
-
-  const findCardByIdForTicket = (cardId: number) => {
-    const roomKey = mapRoomKey(mapPosition);
-    return ownedDecks.flatMap((deck) => deck.cards).find((card) => card.id === cardId)
-      ?? inventoryCards.find((card) => card.id === cardId)
-      ?? (roomDrops[roomKey] ?? []).find((card) => card.id === cardId);
-  };
-
-  const grantCardToInventoryOrFloor = (card: Card) => {
-    const usedSlots = inventoryCards.length + inventoryConsumablesRef.current.filter((item) =>
-      !blessings.includes("lightTicket") || item.type === "cardPack").length;
-    if (usedSlots < inventoryCapacity) {
-      setInventoryCards((current) => [...current, card]);
-      return "inventory" as const;
-    }
-    const roomKey = mapRoomKey(mapPosition);
-    setRoomDrops((current) => ({
-      ...current,
-      [roomKey]: [...(current[roomKey] ?? []), card],
-    }));
-    return "floor" as const;
-  };
-
-  const cloneCardWithTicket = (card: Card, ticketId = pendingCloneTicketId) => {
-    if (!ticketId) return;
-    const ticket = findTicketById(ticketId, "cloneTicket");
-    const targetCard = findCardByIdForTicket(card.id);
-    if (!ticket || !targetCard) return;
-    if (targetCard.rarity === "legendary") {
-      setDeckEditorMessage("전설 카드는 복제할 수 없습니다.");
-      return;
-    }
-    if (!consumeTicketById(ticket.id, "cloneTicket")) return;
-    const clone = { ...targetCard, id: nextCardIdRef.current, revealed: false };
-    nextCardIdRef.current += 1;
-    const destination = grantCardToInventoryOrFloor(clone);
-    setPendingCloneTicketId(null);
-    setDeckEditorMessage(`${targetCard.name}을(를) 복제했습니다.${destination === "floor" ? " 인벤토리가 가득 차 바닥에 놓았습니다." : ""}`);
-  };
-
-  const cloneConsumableWithTicket = (targetId: string, ticketId = pendingCloneTicketId) => {
-    if (!ticketId) return;
-    const sourceTicket = findTicketById(ticketId, "cloneTicket");
-    const target = findTicketById(targetId);
-    if (!sourceTicket || !target || target.id === sourceTicket.id || target.type === "cloneTicket") return;
-    if (!consumeTicketById(sourceTicket.id, "cloneTicket")) return;
-    grantConsumables(target.type, 1);
-    setPendingCloneTicketId(null);
-    setDeckEditorMessage(`${target.name}을(를) 복제했습니다.`);
-  };
-
-  const selectExtractionTicket = (consumable: Consumable) => {
-    if (pendingTransformTicketId && consumable.id !== pendingTransformTicketId) {
-      transformConsumableWithTicket(consumable.id);
-      return;
-    }
-    if (pendingCloneTicketId && consumable.id !== pendingCloneTicketId) {
-      cloneConsumableWithTicket(consumable.id);
-      return;
-    }
-    if (consumable.type === "cardPack") {
-      openCardPack(consumable.id);
-      return;
-    }
-    if (consumable.type === "expandTicket") {
-      setDeckEditorMessage("확장 티켓은 원하는 덱에 드래그해 사용합니다.");
-      return;
-    }
-    if (consumable.type === "mindEyeTicket") {
-      consumeMindEyeTicket(consumable.id);
-      return;
-    }
-    if (consumable.type === "darkTicket") {
-      consumeDarkTicket(consumable.id);
-      return;
-    }
-    if (consumable.type === "bombTicket") {
-      const cancelling = consumable.armedMovesRemaining !== undefined;
-      const roomKey = mapRoomKey(mapPosition);
-      const nextBombState = setBombTicketArmed(consumable.id, !cancelling, {
-        inventory: inventoryConsumablesRef.current,
-        floor: roomConsumableDrops[roomKey] ?? [],
-      });
-      setArmedBombTicketIds((current) => {
-        const next = new Set(current);
-        if (cancelling) next.delete(consumable.id);
-        else next.add(consumable.id);
-        return next;
-      });
-      inventoryConsumablesRef.current = nextBombState.inventory;
-      setInventoryConsumables(nextBombState.inventory);
-      setRoomConsumableDrops((current) => ({
-        ...current,
-        [roomKey]: setBombTicketArmed(consumable.id, !cancelling, {
-          inventory: inventoryConsumablesRef.current,
-          floor: current[roomKey] ?? [],
-        }).floor,
-      }));
-      setPendingPaintTicketId(null);
-      setPendingCloneTicketId(null);
-      setPendingExtractTicketId(null);
-      setPendingTransformTicketId(null);
-      setDeckEditorMessage(cancelling
-        ? "폭탄 점화를 취소했습니다."
-        : "폭탄을 점화했습니다. 바닥에 내려놓고 편집을 확인하면 설치됩니다.");
-      return;
-    }
-    if (consumable.type === "cloneTicket") {
-      setArmedBombTicketIds(new Set());
-      const cancelling = pendingCloneTicketId === consumable.id;
-      setPendingCloneTicketId(cancelling ? null : consumable.id);
-      setPendingPaintTicketId(null);
-      setPendingExtractTicketId(null);
-      setPendingTransformTicketId(null);
-      setDeckEditorMessage(cancelling ? "복제를 취소했습니다." : "복제할 카드나 티켓을 클릭하세요.");
-      return;
-    }
-    if (consumable.type === "paintTicket") {
-      setArmedBombTicketIds(new Set());
-      setPendingPaintTicketId((current) => current === consumable.id ? null : consumable.id);
-      setPendingCloneTicketId(null);
-      setPendingExtractTicketId(null);
-      setPendingTransformTicketId(null);
-      setDeckEditorMessage(
-        pendingPaintTicketId === consumable.id ? "색칠을 취소했습니다." : "색칠할 덱 카드 1장을 클릭하세요.",
-      );
-      return;
-    }
-    if (consumable.type === "extractTicket" || consumable.type === "extractPlusTicket") {
-      const cancelling = pendingExtractTicketId === consumable.id;
-      setPendingExtractTicketId(cancelling ? null : consumable.id);
-      setPendingPaintTicketId(null);
-      setPendingCloneTicketId(null);
-      setPendingTransformTicketId(null);
-      setDeckEditorMessage(cancelling ? "추출을 취소했습니다." : `${consumable.name}을(를) 사용할 덱 카드를 클릭하세요.`);
-      return;
-    }
-    if (consumable.type === "transformTicket") {
-      const cancelling = pendingTransformTicketId === consumable.id;
-      setPendingTransformTicketId(cancelling ? null : consumable.id);
-      setPendingPaintTicketId(null);
-      setPendingCloneTicketId(null);
-      setPendingExtractTicketId(null);
-      setDeckEditorMessage(cancelling ? "변환을 취소했습니다." : "변환할 카드나 티켓을 클릭하세요.");
-      return;
-    }
-    if (consumable.type === "mapTicket") {
-      if (isSafeAreaPosition(mapPosition, mapSeed)) {
-        setDeckEditorMessage("안전 구역에서는 지도 티켓을 사용할 수 없습니다.");
-        return;
-      }
-      const regionIndex = getDungeonRegionIndex(mapPosition);
-      if (regionIndex === null) {
-        setDeckEditorMessage("던전 지역 안에서만 사용할 수 있습니다.");
-        return;
-      }
-      const candidates: MapPosition[] = [];
-      const specialRoomTypes = new Set([
-        "shop",
-        "shrine",
-        "vitalityShrine",
-        "mindEyeShrine",
-        "transformShrine",
-        "combinationShrine",
-        "treasureChest",
-        "blessing",
-      ]);
-      for (let y = regionStartY(regionIndex); y < regionStartY(regionIndex) + regionHeight(regionIndex); y += 1) {
-        for (let x = DUNGEON_MIN_X; x <= DUNGEON_MAX_X; x += 1) {
-          const position = { x, y };
-          const type = effectiveRoomType(position);
-          if (specialRoomTypes.has(type) && !seenRooms.has(mapRoomKey(position))) candidates.push(position);
-        }
-      }
-      candidates.sort((left, right) => chebyshevDistance(left, mapPosition) - chebyshevDistance(right, mapPosition));
-      const revealed = candidates.slice(0, blessings.includes("cartographer") ? 4 : 2);
-      const nearest = revealed[0];
-      if (!nearest) {
-        setDeckEditorMessage("같은 지역에 아직 밝히지 않은 특수 지형이 없습니다.");
-        return;
-      }
-      const mapTicket = findTicketById(consumable.id, "mapTicket");
-      if (!mapTicket || !consumeTicketById(mapTicket.id, "mapTicket")) return;
-      closeDeckEditorAfterMapTicket();
-      const revealedWorld = materializeMapContent(revealed, mapSeed, mapEnemyWorld);
-      setMapEnemyWorld(revealedWorld);
-      startMapTicketCameraTour(mapPosition, revealed);
-      const revealedNames = revealed.map((position) => {
-        const type = effectiveRoomType(position);
-        if (type === "shop") return "상점";
-        if (type === "shrine") return "추출의 성소";
-        if (type === "vitalityShrine") return "건강의 성소";
-        if (type === "mindEyeShrine") return "심안의 성소";
-        if (type === "transformShrine") return "변환의 성소";
-        if (type === "combinationShrine") return "조합의 성소";
-        if (type === "treasureChest") return "보물 상자";
-        return "축복";
-      });
-      setDeckEditorMessage(`${revealedNames.join(", ")} ${revealed.length}곳의 위치를 밝혔습니다.`);
-      queueRunSave(RUN_SAVE_POLICY.stateChangeDelayMs);
-      return;
-    }
-  };
+  // This factory creates event callbacks; refs are read only when a callback runs.
+  const ticketActions = createTicketActions({
+    inventory, world, player, editor, inventoryCapacity, inventoryItemCount, deckEditorInventoryItemCount,
+    maxPlayerHp, editingDeck, moveDeckEditorCard, queueRunSave, showMapMessage,
+    activateMindEye, grantConsumables, openCardPack, materializeMapContent, startMapTicketCameraTour,
+    clearCardPreview: () => {
+      setHoveredDeckCard(null);
+      clearCardKeywordHover();
+    },
+  });
+  const {
+    moveFloorConsumableToInventory, moveInventoryConsumableToFloor,
+    findTicketById, canApplyTicketToCard, applyTicketToCard,
+    canApplyTicketToDeck, applyTicketToDeck, installArmedFloorBombs,
+    selectExtractionTicket,
+    applySelectedCardTicket, canApplyTicketToConsumable, applyTicketToConsumable,
+  } = ticketActions;
 
   const pickUpFloorDeck = (deckId: string) => {
     if (ownedDecks.length >= maxOwnedDecks) {
@@ -3095,22 +1307,8 @@ export default function Home() {
     ensureTelemetryRun();
     recordTelemetryDeckAcquired(telemetry, telemetryDeckSnapshot(deck), "floor");
     setOwnedDecks((current) => [...current, deck]);
-    setDeckSelectionAttention(true);
     setDeckEditorMessage(`덱 '${deck.name}'을(를) 주웠습니다. 보유 덱 ${ownedDecks.length + 1} / ${maxOwnedDecks}`);
     queueRunSave();
-  };
-
-  const paintDeckCard = (cardId: number, ticketId = pendingPaintTicketId, deckId = editingDeck?.id) => {
-    if (!ticketId) return;
-    const deck = ownedDecks.find((item) => item.id === deckId);
-    const card = deck?.cards.find((item) => item.id === cardId);
-    if (!card) return;
-    const ticket = findTicketById(ticketId, "paintTicket");
-    if (!ticket) return;
-    if (!consumeTicketById(ticket.id, "paintTicket")) return;
-    updateDeckCards(deck?.id, (current) => current.map((item) => item.id === cardId ? { ...item, colored: true } : item));
-    setPendingPaintTicketId(null);
-    setDeckEditorMessage(`${card.name}을(를) 색칠했습니다.`);
   };
 
   const quickPickUpFloorItems = () => {
@@ -3150,7 +1348,6 @@ export default function Home() {
         [roomKey]: (current[roomKey] ?? []).filter((deck) => !pickedDecks.some((picked) => picked.id === deck.id)),
       }));
       setOwnedDecks((current) => [...current, ...pickedDecks]);
-      setDeckSelectionAttention(true);
     }
     if (floorCards.length + floorConsumables.length > freeItemSlots) {
       showMapMessage("인벤토리가 가득찼습니다!");
@@ -3169,141 +1366,8 @@ export default function Home() {
       [roomKey]: [...(current[roomKey] ?? []), deck],
     }));
     if (activeDeckId === deckId) setActiveDeckId(remainingDecks[0]?.id ?? "");
-    setHoveredDeckCard(null);
+    clearFloatingTooltips();
     setDeckEditorMessage(`${deck.name}을(를) 바닥에 놓았습니다.`);
-  };
-
-  const extractDeckCardWithTicket = (cardId: number, deckId: string, ticketId = pendingExtractTicketId) => {
-    if (!ticketId) return;
-    const deck = ownedDecks.find((item) => item.id === deckId);
-    const card = deck?.cards.find((item) => item.id === cardId);
-    if (!deck || !card) return;
-    const ticket = findTicketById(ticketId);
-    if (!ticket || (ticket.type !== "extractTicket" && ticket.type !== "extractPlusTicket")) return;
-    const ticketFreesInventorySlot = extractionTicketFreesInventorySlot(ticket);
-    const targetArea = deckEditorInventoryItemCount - (ticketFreesInventorySlot ? 1 : 0) < inventoryCapacity
-      ? "inventory"
-      : "floor";
-    const moved = moveDeckEditorCard({
-      cardId,
-      source: { area: "deck", deckId },
-      target: { area: targetArea },
-      viaExtractionTicket: true,
-      allowsRareExtraction: ticket.type === "extractPlusTicket",
-      inventorySlotsFreed: ticketFreesInventorySlot ? 1 : 0,
-      beforeCommit: () => consumeTicketById(ticket.id, ticket.type),
-    });
-    if (!moved) return;
-    setDeckEditorReleasedCardIds((current) => new Set(current).add(cardId));
-    setPendingExtractTicketId(null);
-    setDeckEditorMessage(`${card.name}을(를) 덱에서 추출했습니다.${targetArea === "floor" ? " 인벤토리가 가득 차 바닥에 놓았습니다." : ""}`);
-  };
-
-  const transformedCard = (card: Card) => {
-    if (card.rarity === "legendary") return null;
-    const pool = card.rarity === "starter"
-      ? STARTER_CARD_POOL
-      : card.rarity === "basic" ? BASIC_CARD_POOL : card.rarity === "special" ? SPECIAL_CARD_POOL : RARE_CARD_POOL;
-    const candidates = pool.filter((blueprint) => blueprint.name !== card.name);
-    if (candidates.length === 0) return null;
-    const blueprint = randomItem(candidates);
-    return { ...blueprint, id: card.id, revealed: card.revealed } as Card;
-  };
-
-  const transformCardWithTicket = (card: Card, area: "deck" | "inventory" | "floor", deckId?: string, ticketId = pendingTransformTicketId) => {
-    if (!ticketId) return;
-    const ticket = findTicketById(ticketId, "transformTicket");
-    const roomKey = mapRoomKey(mapPosition);
-    const targetCard = area === "deck" && deckId
-      ? ownedDecks.find((deck) => deck.id === deckId)?.cards.find((item) => item.id === card.id)
-      : area === "inventory"
-        ? inventoryCards.find((item) => item.id === card.id)
-        : (roomDrops[roomKey] ?? []).find((item) => item.id === card.id);
-    if (!ticket || !targetCard) return;
-    const transformed = transformedCard(targetCard);
-    if (!transformed) {
-      setDeckEditorMessage(targetCard.rarity === "legendary" ? "전설 카드는 변화시킬 수 없습니다." : "변환할 다른 카드가 없습니다.");
-      return;
-    }
-    if (!consumeTicketById(ticket.id, "transformTicket")) return;
-    if (area === "deck" && deckId) {
-      updateDeckCards(deckId, (current) => current.map((item) => item.id === targetCard.id ? transformed : item));
-    } else if (area === "inventory") {
-      setInventoryCards((current) => current.map((item) => item.id === targetCard.id ? transformed : item));
-    } else {
-      setRoomDrops((current) => ({
-        ...current,
-        [roomKey]: (current[roomKey] ?? []).map((item) => item.id === targetCard.id ? transformed : item),
-      }));
-    }
-    setTransformedCardNewIds((current) => new Set(current).add(targetCard.id));
-    setPendingTransformTicketId(null);
-    setDeckEditorMessage(`${targetCard.name}을(를) ${transformed.name}(으)로 변환했습니다.`);
-    queueRunSave(RUN_SAVE_POLICY.stateChangeDelayMs);
-  };
-
-  const applySelectedCardTicket = (
-    card: Card,
-    area: "inventory" | "floor" | "deck",
-    deckId?: string,
-    targetCardId = card.id,
-  ) => {
-    if (pendingCloneTicketId) {
-      cloneCardWithTicket(card);
-      return true;
-    }
-    if (pendingPaintTicketId && area === "deck" && deckId) {
-      paintDeckCard(targetCardId, pendingPaintTicketId, deckId);
-      return true;
-    }
-    if (pendingExtractTicketId && area === "deck" && deckId) {
-      extractDeckCardWithTicket(targetCardId, deckId, pendingExtractTicketId);
-      return true;
-    }
-    if (pendingTransformTicketId) {
-      transformCardWithTicket(card, area, deckId);
-      return true;
-    }
-    return false;
-  };
-
-  const transformConsumableWithTicket = (targetId: string, ticketId = pendingTransformTicketId) => {
-    if (!ticketId || targetId === ticketId) return;
-    const sourceTicket = findTicketById(ticketId, "transformTicket");
-    const target = findTicketById(targetId);
-    if (!sourceTicket || !target || target.id === sourceTicket.id || target.type === "cardPack") return;
-    const candidates = CONSUMABLE_TYPES.filter((type) => type !== target.type);
-    const transformed = nextConsumable(randomItem(candidates));
-    if (!consumeTicketById(sourceTicket.id, "transformTicket")) return;
-    if (inventoryConsumablesRef.current.some((item) => item.id === targetId)) {
-      const nextInventory = inventoryConsumablesRef.current.map((item) => item.id === targetId ? transformed : item);
-      inventoryConsumablesRef.current = nextInventory;
-      setInventoryConsumables(nextInventory);
-    }
-    const roomKey = mapRoomKey(mapPosition);
-    setRoomConsumableDrops((current) => ({
-      ...current,
-      [roomKey]: (current[roomKey] ?? []).map((item) => item.id === targetId ? transformed : item),
-    }));
-    setPendingTransformTicketId(null);
-    setDeckEditorMessage(`${target.name}을(를) ${transformed.name}(으)로 변환했습니다.`);
-    queueRunSave(RUN_SAVE_POLICY.stateChangeDelayMs);
-  };
-
-  const canApplyTicketToConsumable = (ticketId: string, targetId: string) => {
-    const ticket = findTicketById(ticketId);
-    const target = findTicketById(targetId);
-    if (!ticket || !target || ticket.id === target.id) return false;
-    if (ticket.type === "cloneTicket") return target.type !== "cloneTicket";
-    if (ticket.type === "transformTicket") return target.type !== "cardPack";
-    return false;
-  };
-
-  const applyTicketToConsumable = (ticketId: string, targetId: string) => {
-    if (!canApplyTicketToConsumable(ticketId, targetId)) return;
-    const ticket = findTicketById(ticketId);
-    if (ticket?.type === "cloneTicket") cloneConsumableWithTicket(targetId, ticketId);
-    if (ticket?.type === "transformTicket") transformConsumableWithTicket(targetId, ticketId);
   };
 
   const swapOwnedDecks = (draggedDeckId: string, targetDeckId: string) => {
@@ -3352,13 +1416,9 @@ export default function Home() {
       setDeckEditorMessage(`카드와 소모품을 합쳐 ${inventoryCapacity}개 이하로 줄여야 편집을 확인할 수 있습니다.`);
       return;
     }
-    const deckWasEdited = deckEditorSnapshot !== null
-      && JSON.stringify(deckEditorSnapshot.decks) !== JSON.stringify(ownedDecks);
-    const nextActiveDeckId = ownedDecks.some((deck) => deck.id === deckEditorDeckId)
-      ? deckEditorDeckId
-      : ownedDecks[0]?.id;
-    if (nextActiveDeckId) setActiveDeckId(nextActiveDeckId);
-    if (deckWasEdited) setDeckSelectionAttention(true);
+    if (!ownedDecks.some((deck) => deck.id === activeDeckId)) {
+      setActiveDeckId(ownedDecks[0]?.id ?? "");
+    }
     installArmedFloorBombs();
     deckEditorHighRarityInsertionOriginsRef.current = {};
     finishDeckEditorSession();
@@ -3366,8 +1426,7 @@ export default function Home() {
     setPendingRemovedCardAreas({});
     setDeckEditorReleasedCardIds(new Set());
     setTransformedCardNewIds(new Set());
-    setHoveredDeckCard(null);
-    clearCardKeywordHover();
+    clearFloatingTooltips();
     setPendingPaintTicketId(null);
     setPendingCloneTicketId(null);
     setPendingExtractTicketId(null);
@@ -3382,7 +1441,6 @@ export default function Home() {
     confirmDeckEditor,
     escapeTargets: [
       { open: cardPoolStatsOpen, close: () => setCardPoolStatsOpen(false) },
-      { open: deckViewerOpen, close: () => setDeckViewerOpen(false) },
       { open: treasureChestReward !== null, close: () => setTreasureChestReward(null) },
       { open: shrineOpen, close: () => setShrineOpen(false) },
       { open: transformShrineOpen, close: () => setTransformShrineOpen(false) },
@@ -3393,7 +1451,6 @@ export default function Home() {
     ],
     screen,
     mapTraveling,
-    deckViewerOpen,
     handleGoldDebugClick,
     openDeckEditor,
     quickPickUpFloorItems,
@@ -3420,9 +1477,10 @@ export default function Home() {
     clearMapKeyboardMovement,
   });
 
+  const centerCurrentMap = useEffectEvent(() => centerMapOn(mapPosition));
   useLayoutEffect(() => {
     if (screen !== "map") return;
-    const frame = window.requestAnimationFrame(() => centerMapOn(mapPosition));
+    const frame = window.requestAnimationFrame(() => centerCurrentMap());
     return () => window.cancelAnimationFrame(frame);
   }, [screen, mapPosition]);
 
@@ -3484,7 +1542,7 @@ export default function Home() {
       if (!game.clearPlan) setPhase("playing");
     }, finishDelay);
     return () => window.clearTimeout(timer);
-  }, [game.hand, game.clearPlan]);
+  }, [game.hand, game.clearPlan, handCardRefs, pendingEnemyTokenIdsRef, pendingOriginsRef, setPhase]);
 
   useLayoutEffect(() => {
     if (screen !== "battle" || pendingPileTokenSourcesRef.current.size === 0) return;
@@ -3504,7 +1562,7 @@ export default function Home() {
       }
       pendingPileTokenSourcesRef.current.delete(cardId);
     });
-  }, [screen, game.piles]);
+  }, [screen, game.piles, pendingPileTokenSourcesRef]);
 
   const defeatEnemiesForDebug = () => {
     if (!debugMode || game.status !== "playing") return;
@@ -3532,6 +1590,7 @@ export default function Home() {
   const resolvePlayedCard = (card: Card, targetEnemyId?: string, discardCostPaid = false) => createResolvePlayedCard({
     setGame,
     game,
+    getGame,
     phase,
     blessings,
     setAnimatedEnemyHp,
@@ -3546,8 +1605,6 @@ export default function Home() {
     setOneUpUsed,
     captureDrawOrigins,
     nextCardIdRef,
-    lowestHealthEnemy,
-    isStarterOrBasicCard,
   })(card, targetEnemyId, discardCostPaid);
 
   const playCard = (card: Card, targetEnemyId?: string, discardCostPaid = false) => {
@@ -3621,7 +1678,7 @@ export default function Home() {
       && game.activeRuleCards.filter((card) => card.effect === researchEffect).length
         > (research === "astronomy" ? game.astronomyResearchUses : game.necromancyResearchUses)
       && game.stars >= researchCost
-      && (research === "astronomy" ? game.piles.some((pile) => pile.length > 0) : game.discard.length > 0);
+      && (research === "astronomy" ? game.piles.some((pile, index) => pile.length > 0 && !blockedPileIndexes(game.enemies).includes(index)) : game.discard.length > 0);
     setGame((current) => {
       if (current.status !== "playing" || current.pendingResearchDraw !== null) return current;
       const effect = researchEffect;
@@ -3629,7 +1686,7 @@ export default function Home() {
       const usedUses = research === "astronomy" ? current.astronomyResearchUses : current.necromancyResearchUses;
       const cost = research === "astronomy" ? 2 : 3;
       const hasCards = research === "astronomy"
-        ? current.piles.some((pile) => pile.length > 0)
+        ? current.piles.some((pile, index) => pile.length > 0 && !blockedPileIndexes(current.enemies).includes(index))
         : current.discard.length > 0;
       if (availableUses <= usedUses) {
         return { ...current, message: "이 연구 룰은 이번 턴에 더 사용할 수 없습니다." };
@@ -3697,7 +1754,7 @@ export default function Home() {
   const playHandCardOnDoubleClick = (card: Card) => {
     // During a forced discard, the ordinary click is the card-selection input.
     if (game.pendingDiscards > 0) return;
-    const targetEnemy = isAttackCard(card)
+    const targetEnemy = canTargetEnemy(card)
       ? game.enemies.find((enemy) => enemy.hp > 0)
       : undefined;
     playCard(card, targetEnemy?.id);
@@ -3708,7 +1765,7 @@ export default function Home() {
     && card.kind !== "strike"
     && card.effect !== "doubleHit"
     && !UNPLAYABLE_CARD_EFFECTS.has(card.effect)
-    && !["slime", "combatManual", "grimoire"].includes(card.effect)
+    && !["slime", "combatManual", "grimoire", "scaleArmor"].includes(card.effect)
   );
 
   const playSelectedHandCardOnCenter = () => {
@@ -3732,7 +1789,7 @@ export default function Home() {
   const playSelectedHandCardOnEnemy = (enemyId: string) => {
     if (screen !== "battle" || phase !== "playing" || game.status !== "playing" || selectedHandCardId === null) return;
     const card = game.hand.find((item) => item.id === selectedHandCardId);
-    if (!card || !isAttackCard(card)) return;
+    if (!card || !canTargetEnemy(card)) return;
     setSelectedHandCardId(null);
     playCard(card, enemyId);
   };
@@ -3802,6 +1859,9 @@ export default function Home() {
 
   const moveCardToPile = (drag: DragState, targetPileIndex: number) => createMoveCardToPile({
     setGame,
+    maxPlayerHp,
+    oneUpUsedRef,
+    setOneUpUsed,
     phase,
     blessings,
     grantBattleReward,
@@ -3879,17 +1939,18 @@ export default function Home() {
     animateCardToPlayer,
   })();
 
+  const endTurnFromKeyboard = useEffectEvent(() => endTurn());
   useEffect(() => {
     const endTurnWithKey = (event: KeyboardEvent) => {
       const target = event.target as HTMLElement | null;
       if (target?.closest("input, textarea, select, [contenteditable='true']")) return;
       if (screen !== "battle" || event.key.toLowerCase() !== "e") return;
       event.preventDefault();
-      endTurn();
+      endTurnFromKeyboard();
     };
     window.addEventListener("keydown", endTurnWithKey);
     return () => window.removeEventListener("keydown", endTurnWithKey);
-  }, [endTurn, screen]);
+  }, [screen]);
 
   const controlsLocked =
     phase !== "playing" ||
@@ -3938,19 +1999,9 @@ export default function Home() {
     const safeAreaRegionIndex = inSafeArea ? getSafeAreaRegionIndex(mapPosition, mapSeed) : null;
     const safeAreaMemoryRestricted = safeAreaRegionIndex !== null && isSafeAreaSealed(safeAreaRegionIndex);
     const canEditDeck = true;
-    const viewedDeck = ownedDecks.find((deck) => deck.id === deckViewerDeckId) ?? activeDeck;
     const currentFloorCards = roomDrops[currentRoomKey] ?? [];
     const currentFloorConsumables = roomConsumableDrops[currentRoomKey] ?? [];
     const currentFloorDecks = roomDeckDrops[currentRoomKey] ?? [];
-    const hasRoomActionNotice = Boolean(mapMessage && !deckEditorOpen)
-      || ["shop", "shrine", "recoveryShrine", "vitalityShrine", "mindEyeShrine", "transformShrine", "combinationShrine", "treasureChest", "boss", "blessing", "portal", "safePortal", "heal"].includes(currentRoomType)
-      || currentFloorCards.length > 0
-      || currentFloorConsumables.length > 0
-      || currentFloorDecks.length > 0;
-    const cardRarityRank = (card: Card) => CARD_RARITY_SORT_RANK[card.rarity];
-    const cardSortCost = (card: Card) => UNPLAYABLE_CARD_EFFECTS.has(card.effect)
-      ? -1
-      : card.effect === "ironWall" ? IRON_WALL_COST : card.cost ?? -1;
     const inventoryCardGroups = groupAndSortDeckEditorCards(inventoryCards, deckEditorSort, transformedCardNewIds);
     const floorCardGroups = groupAndSortDeckEditorCards(currentFloorCards, deckEditorSort, transformedCardNewIds);
     const removedInventoryCardGroups = groupAndSortDeckEditorCards(
@@ -3972,15 +2023,6 @@ export default function Home() {
     );
     const inventoryConsumableGroups = sortConsumableGroupsByTier(groupConsumables(inventoryConsumables));
     const floorConsumableGroups = groupConsumables(currentFloorConsumables);
-    const deckViewerCards = [...(viewedDeck?.cards ?? [])].sort((left, right) => {
-      const primary = deckViewerSort === "cost"
-        ? cardSortCost(left) - cardSortCost(right)
-        : cardRarityRank(left) - cardRarityRank(right);
-      const secondary = deckViewerSort === "cost"
-        ? cardRarityRank(left) - cardRarityRank(right)
-        : cardSortCost(left) - cardSortCost(right);
-      return primary || secondary || left.name.localeCompare(right.name, "ko");
-    });
     const floorItemNames = [
       ...currentFloorCards.map((card) => card.name),
       ...currentFloorConsumables.map((consumable) => consumable.name),
@@ -4028,13 +2070,6 @@ export default function Home() {
             <span>{hoveredBlessingTooltip.description}</span>
           </aside>
         )}
-        {resetHoldProgress > 0 && (
-          <div className="save-reset-hold" role="status">
-            <strong>새 탐험 초기화</strong>
-            <span>R을 계속 누르세요 · {Math.ceil(RESET_HOLD_DURATION_MS / 1000 * (1 - resetHoldProgress))}초</span>
-            <i style={{ width: `${resetHoldProgress * 100}%` }} />
-          </div>
-        )}
         {!saveReady && (
           <div className="player-name-overlay save-loading-overlay" role="status" aria-live="polite">
             <div className="save-loading-dialog">탐험을 불러오는 중...</div>
@@ -4061,7 +2096,6 @@ export default function Home() {
                 setPlayerNameSetupOpen(false);
               }}
             >
-              <p>새 탐험</p>
               <h2 id="player-name-title">이름을 정하세요</h2>
               <input
                 type="text"
@@ -4110,16 +2144,12 @@ export default function Home() {
           mapTraveling={mapTraveling}
           canEditDeck={canEditDeck}
           onGoldDebugClick={handleGoldDebugClick}
-          onOpenDeckViewer={() => {
-            setDeckViewerDeckId(activeDeck?.id ?? "");
-            setDeckViewerOpen(true);
-          }}
           onWait={waitOnMap}
+          restartHold={restartHold}
           onEditDeck={() => openDeckEditor(usesSafeAreaDeckRules
             ? "덱 카드를 인벤토리로 회수할 수 있습니다. 희귀도에 따라 골드를 냅니다."
             : "좌클릭: 바닥 → 인벤토리 → 덱. 덱 카드 우클릭·바닥 드래그: 제거 예정 상태")}
         />
-        {telemetryMessage && <span className="telemetry-status" role="status" aria-live="polite">{telemetryMessage}</span>}
         {(blessings.length > 0 || mindEyeMovesRemaining > 0 || godsLamentCharges > 0 || darkTicketTurnsRemaining > 0) && (
           <aside className="map-blessing-list" aria-label="획득한 축복">
             {blessings.map((blessing) => (
@@ -4222,18 +2252,13 @@ export default function Home() {
           {cardPoolStatsOpen && <CardPoolStatsPanel onClose={() => setCardPoolStatsOpen(false)} />}
           <MapDeckSelector
             ownedDecks={ownedDecks}
+            maxOwnedDecks={maxOwnedDecks}
             activeDeck={activeDeck}
-            noticeVisible={hasRoomActionNotice}
             open={deckSelectorOpen}
             closing={deckSelectorClosing}
             closingDeckId={deckSelectorClosingDeckId}
-            selectionAttention={deckSelectionAttention}
-            onToggle={() => {
-              setDeckSelectionAttention(false);
-              toggleDeckSelector();
-            }}
+            onToggle={toggleDeckSelector}
             onSelectDeck={(deck) => {
-              if (deck.id !== activeDeck?.id) setDeckSelectionAttention(true);
               setActiveDeckId(deck.id);
               closeDeckSelector(deck.id);
             }}
@@ -4262,16 +2287,6 @@ export default function Home() {
             onUseHeal={useCurrentHeal}
             onQuickPickup={quickPickUpFloorItems}
           />
-          <button
-            type="button"
-            className="telemetry-export-trigger map-telemetry-trigger"
-            onClick={exportTelemetryLog}
-            title="적별 피해 기록을 TXT 파일로 저장"
-            aria-label="적별 피해 기록 TXT 저장"
-          >
-            <span aria-hidden="true">⇩</span>
-            <span>기록 저장</span>
-          </button>
           <label className="map-battle-check-toggle">
             <input
               type="checkbox"
@@ -4282,7 +2297,6 @@ export default function Home() {
                 if (!enabled) {
                   setPendingBattleStart(null);
                   setBattleDeckPreviewId(null);
-                  setDeckSelectionAttention(false);
                 }
               }}
             />
@@ -4378,6 +2392,7 @@ export default function Home() {
             activeDeckId: activeDeck?.id,
             deckEditorDeckId,
             setDeckEditorDeckId,
+            onSelectActiveDeck: setActiveDeckId,
             pickUpFloorDeck,
             swapOwnedDecks,
             dropOwnedDeck,
@@ -4466,23 +2481,6 @@ export default function Home() {
           </div>
         )}
 
-        {deckViewerOpen && (
-          <DeckViewerModal
-            viewedDeck={viewedDeck}
-            ownedDecks={ownedDecks}
-            maxOwnedDecks={maxOwnedDecks}
-            sort={deckViewerSort}
-            cards={deckViewerCards}
-            gridRef={deckViewerGridRef}
-            onClose={() => setDeckViewerOpen(false)}
-            onSelectDeck={setDeckViewerDeckId}
-            onSortChange={setDeckViewerSort}
-            onEditionTooltipHover={showDeckEditionTooltip}
-            onEditionTooltipLeave={() => setHoveredDeckEditionTooltip(null)}
-            onCardKeywordHover={showCardKeywordOnly}
-            onClearCardKeywordHover={() => { setHoveredDeckCard(null); clearCardKeywordHover(); }}
-          />
-        )}
       </main>
     );
   }
@@ -4547,11 +2545,11 @@ export default function Home() {
       >
         {GAME_VERSION} · {COMMIT_HASH} · {COMMIT_DATE}
       </span>
-      {resetHoldProgress > 0 && (
+      {restartHold.progress > 0 && (
         <div className="save-reset-hold" role="status">
           <strong>새 탐험 초기화</strong>
-          <span>R을 계속 누르세요 · {Math.ceil(RESET_HOLD_DURATION_MS / 1000 * (1 - resetHoldProgress))}초</span>
-          <i style={{ width: `${resetHoldProgress * 100}%` }} />
+          <span>R을 계속 누르세요 · {Math.ceil(RESET_HOLD_DURATION_MS / 1000 * (1 - restartHold.progress))}초</span>
+          <i style={{ width: `${restartHold.progress * 100}%` }} />
         </div>
       )}
       <section
@@ -4689,9 +2687,8 @@ export default function Home() {
                         pointerEvents: "none",
                       });
                       document.body.appendChild(dragImage);
-                      // eslint-disable-next-line react-hooks/refs
+                      // eslint-disable-next-line react-hooks/refs -- This is the dragstart handler.
                       researchDragImageRef.current = dragImage;
-                      // eslint-disable-next-line react-hooks/refs
                       researchDragActiveRef.current = true;
                       setResearchDragPreview({
                         card,
@@ -4725,7 +2722,7 @@ export default function Home() {
             aria-live="polite"
           >
             <div className={`card-face ${hoveredDeckCard.kind} ${hoveredDeckCard.damageType}`}>
-              <CardFace card={hoveredDeckCard} ruleCostReduction={lawResearchCount} forgeCount={game.forgeCount} />
+              <CardFace card={hoveredDeckCard} {...attackPreview(game.playerAmplification)} strength={game.strength + combatManualBonus + backToBasicsBonus(hoveredDeckCard)} agility={game.agility + combatManualBonus + backToBasicsBonus(hoveredDeckCard)} defenseMultiplier={game.defenseMultiplier} radiancePlayedThisTurn={game.radiancePlayedThisTurn} ruleCostReduction={lawResearchCount} forgeCount={game.forgeCount} />
             </div>
           </aside>
         )}
@@ -4753,16 +2750,15 @@ export default function Home() {
                 <BattleEnemyUnit
                   key={enemy.id}
                   enemy={enemy}
+                  playerEnergy={game.energy}
+                  playerHandCount={game.hand.length}
                   dying={dying}
                   defeated={defeated}
                   displayedHp={animatedEnemyHp[enemy.id] ?? enemy.hp}
                   popup={enemyPopups[enemy.id]}
                   attacking={attackingEnemyId === enemy.id}
-                  physicalResistance={game.playerPhysicalResistance}
-                  magicResistance={game.playerMagicResistance}
-                  physicalVulnerability={game.playerPhysicalVulnerability}
-                  magicVulnerability={game.playerMagicVulnerability}
-                  vulnerabilityMultiplier={blessings.includes("vulnerabilityInsurance") ? 1.5 : 2}
+                  resistance={game.playerResistance}
+                  ignoreNegativeResistance={blessings.includes("vulnerabilityInsurance")}
                   onSelect={playSelectedHandCardOnEnemy}
                 />
               );
@@ -4772,6 +2768,8 @@ export default function Home() {
 
         <BattlePileZone
           game={game}
+          attackTarget={game.enemies.find(enemy => enemy.hp > 0 && dragOverDropTarget === `enemy:${enemy.id}`)}
+          bossSlayer={blessings.includes("bossSlayer")}
           dragging={dragging}
           dragOverDropTarget={dragOverDropTarget}
           pileClearNotice={pileClearNotice}
@@ -4833,6 +2831,7 @@ export default function Home() {
           <div className="player-status-column">
             <BattlePlayerPanel
               game={game}
+              ignoreNegativeResistance={blessings.includes("vulnerabilityInsurance")}
               playerName={playerName}
               maxPlayerHp={maxPlayerHp}
               combatManualBonus={combatManualBonus}
@@ -4848,6 +2847,8 @@ export default function Home() {
 
           <BattleHandArea
             game={game}
+            attackTarget={game.enemies.find(enemy => enemy.hp > 0 && dragOverDropTarget === `enemy:${enemy.id}`)}
+            bossSlayer={blessings.includes("bossSlayer")}
             phase={phase}
             dragging={dragging}
             selectedHandCardId={selectedHandCardId}
@@ -4893,7 +2894,6 @@ export default function Home() {
             showConsumablePreview={showConsumablePreview}
             setHoveredConsumable={setHoveredConsumable}
             onContinue={game.status === "won" ? returnToMap : startNewRun}
-            onExportTelemetry={exportTelemetryLog}
           />
         )}
 
@@ -4927,7 +2927,7 @@ export default function Home() {
                 }}
                 key={card.id}
               >
-                <CardFace card={card} strength={game.strength + combatManualBonus + backToBasicsBonus(card)} agility={game.agility + combatManualBonus + backToBasicsBonus(card)} defenseMultiplier={game.defenseMultiplier} ruleCostReduction={lawResearchCount} forgeCount={game.forgeCount} radiancePlayedThisTurn={game.radiancePlayedThisTurn} />
+                <CardFace card={card} {...attackPreview(game.playerAmplification, game.enemies.find(enemy => enemy.hp > 0 && dragOverDropTarget === `enemy:${enemy.id}`), blessings.includes("bossSlayer"))} strength={game.strength + combatManualBonus + backToBasicsBonus(card)} agility={game.agility + combatManualBonus + backToBasicsBonus(card)} defenseMultiplier={game.defenseMultiplier} ruleCostReduction={lawResearchCount} forgeCount={game.forgeCount} radiancePlayedThisTurn={game.radiancePlayedThisTurn} />
               </div>
             ))}
           </div>

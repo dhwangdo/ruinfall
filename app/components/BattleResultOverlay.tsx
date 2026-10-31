@@ -23,7 +23,6 @@ type BattleResultOverlayProps = {
   showConsumablePreview: (item: Consumable, right: number, top: number) => void;
   setHoveredConsumable: Dispatch<SetStateAction<Consumable | null>>;
   onContinue: () => void;
-  onExportTelemetry: () => void;
 };
 
 export function BattleResultOverlay({
@@ -42,7 +41,6 @@ export function BattleResultOverlay({
   showConsumablePreview,
   setHoveredConsumable,
   onContinue,
-  onExportTelemetry,
 }: BattleResultOverlayProps) {
   const won = status === "won";
 
@@ -116,18 +114,6 @@ export function BattleResultOverlay({
           </div>
         )}
         <button onClick={onContinue}>{won ? "다음" : "새 탐험 시작"}</button>
-        {!won && (
-          <button
-            type="button"
-            className="telemetry-export-trigger result-telemetry-trigger"
-            onClick={onExportTelemetry}
-            title="적별 피해 기록을 TXT 파일로 저장"
-            aria-label="적별 피해 기록 TXT 저장"
-          >
-            <span aria-hidden="true">⇩</span>
-            <span>기록 저장</span>
-          </button>
-        )}
       </div>
     </div>
   );

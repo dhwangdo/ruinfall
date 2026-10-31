@@ -330,6 +330,14 @@ export function advanceMapEnemies(
   movementBounds: GridBounds = defaultMovementBounds(enemies, playerPosition),
   detectionDistanceReduction = 0,
 ) {
+  if (!enemies.some((enemy) => !enemy.isBoss && !frozenEnemyIds.has(enemy.id)
+    && chebyshevDistance(enemy.position, activeCenter) <= MAP_ENEMY_ACTIVE_RADIUS)) {
+    return {
+      enemies,
+      collisionEnemyIds: enemies.filter((enemy) => positionKey(enemy.position) === positionKey(playerPosition))
+        .map((enemy) => enemy.id),
+    };
+  }
   const nextEnemies = enemies.map((enemy) => ({
     ...enemy,
     position: { ...enemy.position },
@@ -379,12 +387,12 @@ export function advanceMapEnemies(
     .filter((enemy) => !alertedMoverIds.has(enemy.id))
     .map((enemy) => positionKey(enemy.position)));
   blockedCellKeys.delete(playerKey);
-  const distanceField = createEightDirectionDistanceField(
+  const distanceField = alertedMovers.length > 0 ? createEightDirectionDistanceField(
     playerPosition,
     isWalkable,
     movementBounds,
     blockedCellKeys,
-  );
+  ) : new Map<string, number>();
   const alertedOptions = new Map<string, MovementOption[]>();
   for (const enemy of alertedMovers) {
     const startDistance = distanceField.get(positionKey(enemy.position));

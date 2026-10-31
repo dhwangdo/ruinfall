@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback, useEffect, useLayoutEffect, useRef, useState, type CSSProperties, type Dispatch, type RefObject, type SetStateAction } from "react";
+import { useCallback, useEffect, useLayoutEffect, useRef, useState, useSyncExternalStore, type CSSProperties, type Dispatch, type RefObject, type SetStateAction } from "react";
 import { CardFace } from "./CardFace";
 import { HAND_PASSIVE_EFFECTS, UNPLAYABLE_CARD_EFFECTS, type Card } from "../game/cards";
 import { cardEnergyCost } from "../game/cardEffects";
@@ -8,6 +8,8 @@ import type { GameState } from "../game/battleState";
 import type { DragState, Phase } from "../game/battleUiTypes";
 import type { useBattlePointerInput } from "../hooks/useBattlePointerInput";
 import { handCardAtPointer } from "./handHitTest";
+import type { EnemyState } from "../game/enemies";
+import { attackPreview } from "../game/attackPreview";
 
 type BattleDragHandlers = Pick<
   ReturnType<typeof useBattlePointerInput>,
@@ -16,6 +18,8 @@ type BattleDragHandlers = Pick<
 
 type BattleHandAreaProps = {
   game: GameState;
+  attackTarget?: EnemyState;
+  bossSlayer?: boolean;
   phase: Phase;
   dragging: DragState | null;
   selectedHandCardId: number | null;
@@ -47,8 +51,15 @@ const HAND_WHEEL_STEP = 70;
 const HAND_WHEEL_MIN_CARDS = 9;
 const HAND_EDGE_MARGIN = 12;
 
+const subscribeDeviceMode = () => () => {};
+const getMobileDeviceMode = () => typeof document !== "undefined"
+  && document.documentElement.dataset.deviceMode === "mobile";
+const getServerDeviceMode = () => false;
+
 export function BattleHandArea({
   game,
+  attackTarget,
+  bossSlayer,
   phase,
   dragging,
   selectedHandCardId,
@@ -80,10 +91,14 @@ export function BattleHandArea({
   const clearCardHoverRef = useRef(onClearCardHover);
   const lastPointerRef = useRef<{ x: number; y: number } | null>(null);
   const [handMetrics, setHandMetrics] = useState({ width: 600, cardWidth: 136, cardHeight: 191 });
+  const mobileLayout = useSyncExternalStore(subscribeDeviceMode, getMobileDeviceMode, getServerDeviceMode);
   const [windowStart, setWindowStart] = useState(0);
+  const handArcRadius = mobileLayout ? 900 : HAND_ARC_RADIUS;
+  const handAngleStep = mobileLayout ? 2.2 : HAND_ANGLE_STEP;
+  const handCardStep = mobileLayout ? 70 : HAND_CARD_STEP;
   const fittingCardCount = [9, 7, 5, 3, 1].find((count) => {
-    const angle = (count - 1) / 2 * HAND_ANGLE_STEP * Math.PI / 180;
-    const outerEdge = HAND_ARC_RADIUS * Math.sin(angle)
+    const angle = (count - 1) / 2 * handAngleStep * Math.PI / 180;
+    const outerEdge = handArcRadius * Math.sin(angle)
       + handMetrics.cardWidth / 2 * Math.cos(angle)
       + handMetrics.cardHeight * Math.sin(angle);
     return outerEdge * 2 + HAND_EDGE_MARGIN * 2 <= handMetrics.width;
@@ -98,17 +113,32 @@ export function BattleHandArea({
   const leftHiddenCount = displayedHand.slice(0, Math.max(0, clampedWindowStart)).filter(Boolean).length;
   const rightHiddenCount = displayedHand.slice(clampedWindowStart + visibleCardCount).filter(Boolean).length;
   const handCenterIndex = clampedWindowStart + Math.max(0, (visibleCardCount - 1) / 2);
-  const trackCenterOffset = handMetrics.cardWidth / 2 + handCenterIndex * HAND_CARD_STEP;
+  const trackCenterOffset = handMetrics.cardWidth / 2 + handCenterIndex * handCardStep;
   const edgeDistance = Math.max(0, (visibleCardCount - 1) / 2);
-  const edgeAngle = edgeDistance * HAND_ANGLE_STEP * Math.PI / 180;
-  const handBottomClearance = Math.max(52, Math.ceil(
-    HAND_ARC_RADIUS * (1 - Math.cos(edgeAngle))
+  const edgeAngle = edgeDistance * handAngleStep * Math.PI / 180;
+  const handBottomClearance = Math.max(mobileLayout ? 36 : 52, Math.ceil(
+    handArcRadius * (1 - Math.cos(edgeAngle))
     + handMetrics.cardWidth / 2 * Math.sin(edgeAngle)
     + 16,
   ));
   const selectedHandIndex = selectedHandCardId === null
     ? -1
     : displayedHand.findIndex((card) => card?.id === selectedHandCardId);
+  const selectedHandCard = game.hand.find((card) => card.id === selectedHandCardId);
+
+  const moveHandWindow = (direction: -1 | 1) => {
+    setWindowStart((current) => Math.max(0, Math.min(maxWindowStart, current + direction)));
+    setSelectedHandCardId(null);
+    setHoveredHandCardId(null);
+    onClearCardHover();
+  };
+
+  const activateSelectedHandCard = () => {
+    if (!selectedHandCard || controlsLocked) return;
+    setSelectedHandCardId(null);
+    if (game.pendingDiscards > 0) onDiscardSelectedCard(selectedHandCard.id);
+    else onPlayHandCardOnDoubleClick(selectedHandCard);
+  };
 
   useLayoutEffect(() => {
     windowStartRef.current = windowStart;
@@ -330,12 +360,12 @@ export function BattleHandArea({
 
   const handFanStyle = (index: number) => {
     const distanceFromCenter = index - handCenterIndex;
-    const angle = distanceFromCenter * HAND_ANGLE_STEP * Math.PI / 180;
-    const xOffset = HAND_ARC_RADIUS * Math.sin(angle) - distanceFromCenter * HAND_CARD_STEP;
+    const angle = distanceFromCenter * handAngleStep * Math.PI / 180;
+    const xOffset = handArcRadius * Math.sin(angle) - distanceFromCenter * handCardStep;
     return {
       "--hand-x": `${xOffset}px`,
-      "--hand-angle": `${distanceFromCenter * HAND_ANGLE_STEP}deg`,
-      "--hand-y": `${HAND_ARC_RADIUS * (1 - Math.cos(angle))}px`,
+      "--hand-angle": `${distanceFromCenter * handAngleStep}deg`,
+      "--hand-y": `${handArcRadius * (1 - Math.cos(angle))}px`,
     } as CSSProperties;
   };
 
@@ -392,6 +422,10 @@ export function BattleHandArea({
               onClick={(event) => {
                 if (game.pendingDiscards > 0 && handCardAtPointer(event.clientX, event.clientY) === card.id) {
                   onDiscardSelectedCard(card.id);
+                  return;
+                }
+                if (mobileLayout && phase === "playing" && game.status === "playing" && !controlsLocked) {
+                  setSelectedHandCardId(card.id);
                 }
               }}
               onDoubleClick={(event) => {
@@ -402,6 +436,7 @@ export function BattleHandArea({
             >
               <CardFace
                 card={card}
+                {...attackPreview(game.playerAmplification, dragging?.card.id === card.id ? attackTarget : undefined, bossSlayer)}
                 starsSpent={game.starsSpent}
                 strength={game.strength + combatManualBonus + backToBasicsBonus(card)}
                 agility={game.agility + combatManualBonus + backToBasicsBonus(card)}
@@ -428,6 +463,16 @@ export function BattleHandArea({
         )}
       </div>
       <div className="controls">
+        <div className="mobile-hand-actions">
+          {leftHiddenCount > 0 && <button type="button" className="hand-window-step" onClick={() => moveHandWindow(-1)}>← {leftHiddenCount}</button>}
+          <button type="button" onClick={onSortHand} disabled={controlsLocked || phase !== "playing" || game.status !== "playing"}>
+            손패 정렬
+          </button>
+          <button type="button" onClick={activateSelectedHandCard} disabled={!selectedHandCard || controlsLocked || phase !== "playing" || game.status !== "playing"}>
+            {game.pendingDiscards > 0 ? "선택 카드 버리기" : "선택 카드 사용"}
+          </button>
+          {rightHiddenCount > 0 && <button type="button" className="hand-window-step" onClick={() => moveHandWindow(1)}>{rightHiddenCount} →</button>}
+        </div>
         <button className="end-turn" onClick={onEndTurn} disabled={controlsLocked}>
           턴 종료 (E) <span>→</span>
         </button>

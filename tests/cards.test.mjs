@@ -17,12 +17,12 @@ import {
 import { getCardKeywordInfos } from "../app/game/cardEffects.ts";
 
 test("card pools preserve the current content counts", () => {
-  assert.equal(STARTER_CARD_POOL.length, 3);
+  assert.equal(STARTER_CARD_POOL.length, 2);
   assert.equal(BASIC_CARD_POOL.length, 6);
-  assert.equal(SPECIAL_CARD_POOL.length, 36);
-  assert.equal(RARE_CARD_POOL.length, 17);
+  assert.equal(SPECIAL_CARD_POOL.length, 40);
+  assert.equal(RARE_CARD_POOL.length, 20);
   assert.equal(LEGENDARY_CARD_POOL.length, 6);
-  assert.equal(ALL_CARD_BLUEPRINTS.length, 69);
+  assert.equal(ALL_CARD_BLUEPRINTS.length, 75);
 });
 
 test("special card pool contains the updated cards and excludes sharpen cards", () => {
@@ -43,6 +43,9 @@ test("special card pool contains the updated cards and excludes sharpen cards", 
   assert.equal(cardGivesMagicDefense(silverSword), true);
   assert.equal(card("불티"), undefined);
   assert.equal(card("잔바위"), undefined);
+  assert.equal(card("철벽"), undefined);
+  assert.equal(card("가호"), undefined);
+  assert.equal(card("판금 갑옷")?.value, 5);
   assert.equal(SPECIAL_CARD_POOL.some((item) => ["무기 연마", "방어구 연마"].includes(item.name)), false);
 });
 
@@ -101,7 +104,6 @@ test("current card data keeps key balance values and removed systems absent", ()
     [
       { name: "타격", cost: 1, value: 6 },
       { name: "방어", cost: 1, value: 5 },
-      { name: "마법 방어", cost: 1, value: 5 },
     ],
   );
   assert.equal(SPECIAL_CARD_POOL.find((card) => card.name === "별의 방주")?.value, 10);

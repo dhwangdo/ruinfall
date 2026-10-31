@@ -3,11 +3,12 @@ import { RARE_CARD_POOL, SPECIAL_CARD_POOL, type Card } from "./cards.ts";
 import { countRareSlotCards } from "./deckEditorRules.ts";
 import type { Consumable, DeckCase } from "./rewards.ts";
 import type { SavedRunState } from "./runTypes";
+import { isEncounterAvailable } from "./enemies.ts";
 
-const REMOVED_EFFECTS = new Set(["sacrifice", "magicCrystal", "delay", "boneArmor", "steelHeart"]);
+const REMOVED_EFFECTS = new Set(["sacrifice", "magicCrystal", "delay", "boneArmor", "steelHeart", "ironWall", "blessing", "berserk"]);
 const REMOVED_CARD_NAMES = new Set(["불티", "잔바위", "유예", "뼈 갑옷", "환기"]);
 const RESTORED_EFFECTS = new Set([
-  "rapidFire", "supernova", "meteor", "sturdyStance", "lawResearch", "economicsResearch", "lightTravelTime", "wolfTalisman", "turtleTalisman", "obsidianDagger",
+  "rapidFire", "supernova", "meteor", "sturdyStance", "lawResearch", "economicsResearch", "lightTravelTime", "wolfTalisman", "turtleTalisman", "obsidianDagger", "plateArmorDefense",
 ]);
 
 function restoreLegacyCard(card: Card): Card | null {
@@ -16,6 +17,7 @@ function restoreLegacyCard(card: Card): Card | null {
   delete restored.ritualCost;
   delete restored.spellRank;
   delete restored.magicCrystalStage;
+  if (restored.effect === "slime") restored.damageType = "physical";
   if (RESTORED_EFFECTS.has(restored.effect)) {
     const blueprint = [...SPECIAL_CARD_POOL, ...RARE_CARD_POOL].find((item) => item.effect === restored.effect);
     if (blueprint) {
@@ -143,6 +145,11 @@ export function prepareRunRestore(
 
   return {
     ...state,
+    mapEnemyWorld: {
+      enemies: (state.mapEnemyWorld?.enemies ?? []).filter((enemy) => isEncounterAvailable(enemy.encounterIndex)),
+    },
+    mapEnemyCellMemory: Object.fromEntries(Object.entries(state.mapEnemyCellMemory ?? {})
+      .filter(([, memory]) => isEncounterAvailable(memory.encounterIndex))),
     ownedDecks: (state.ownedDecks ?? []).map(restoreLegacyDeck),
     inventoryCards: restoreLegacyCards(state.inventoryCards ?? []),
     inventoryConsumables: removeDeletedTickets(state.inventoryConsumables ?? []),

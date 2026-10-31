@@ -9,7 +9,6 @@ export function useMapKeyboardShortcuts({
   escapeTargets,
   screen,
   mapTraveling,
-  deckViewerOpen,
   handleGoldDebugClick,
   openDeckEditor,
   quickPickUpFloorItems,
@@ -28,7 +27,6 @@ export function useMapKeyboardShortcuts({
   escapeTargets: EscapeTarget[];
   screen: "map" | "battle";
   mapTraveling: boolean;
-  deckViewerOpen: boolean;
   handleGoldDebugClick: () => void;
   openDeckEditor: (message: string) => void;
   quickPickUpFloorItems: () => void;
@@ -68,7 +66,7 @@ export function useMapKeyboardShortcuts({
         return;
       }
 
-      if (screen !== "map" || mapTraveling || deckEditorOpen || deckViewerOpen) return;
+      if (screen !== "map" || mapTraveling || deckEditorOpen) return;
       if (event.code === "KeyB" && !event.repeat) {
         event.preventDefault();
         handleGoldDebugClick();
@@ -130,7 +128,6 @@ export function useMapKeyboardShortcuts({
     escapeTargets,
     screen,
     mapTraveling,
-    deckViewerOpen,
     handleGoldDebugClick,
     openDeckEditor,
     quickPickUpFloorItems,

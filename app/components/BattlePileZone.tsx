@@ -7,6 +7,9 @@ import { canForgeCardOnto, canPlaceBySolitaireRule } from "../game/cardEffects";
 import type { GameState } from "../game/battleState";
 import type { DragState } from "../game/battleUiTypes";
 import type { useBattlePointerInput } from "../hooks/useBattlePointerInput";
+import type { EnemyState } from "../game/enemies";
+import { attackPreview } from "../game/attackPreview";
+import { blockedPileIndexes } from "../game/enemyPassives";
 
 type BattleDragHandlers = Pick<
   ReturnType<typeof useBattlePointerInput>,
@@ -15,6 +18,8 @@ type BattleDragHandlers = Pick<
 
 type BattlePileZoneProps = {
   game: GameState;
+  attackTarget?: EnemyState;
+  bossSlayer?: boolean;
   dragging: DragState | null;
   dragOverDropTarget: string | null;
   pileClearNotice: boolean;
@@ -35,6 +40,8 @@ const DEFAULT_STACK_OFFSET = 27;
 
 export function BattlePileZone({
   game,
+  attackTarget,
+  bossSlayer,
   dragging,
   dragOverDropTarget,
   pileClearNotice,
@@ -52,6 +59,7 @@ export function BattlePileZone({
   const pilePanRef = useRef<{ startX: number; scrollLeft: number } | null>(null);
   const [pilePanning, setPilePanning] = useState(false);
   const lawResearchCount = game.activeRuleCards.filter((card) => card.effect === "lawResearch").length;
+  const blocked = blockedPileIndexes(game.enemies);
   const discardPileCounts = game.enemies.reduce((counts, enemy) => {
     const intent = enemy.actions[enemy.intentIndex];
     if (enemy.hp > 0 && intent.discardCount && enemy.discardPileIndex !== undefined) {
@@ -115,6 +123,7 @@ export function BattlePileZone({
           {game.piles.map((pile, index) => {
             const stackOffset = DEFAULT_STACK_OFFSET;
             const discardCount = discardPileCounts.get(index) ?? 0;
+            const sealed = blocked.includes(index);
             const targetCard = pile.at(-1);
             const activeDrag = dragging;
             const isValidSolitaireDrop = activeDrag !== null
@@ -128,7 +137,7 @@ export function BattlePileZone({
             const isHoveredSolitaireDrop = isValidSolitaireDrop && dragOverDropTarget === `pile:${index}`;
             return (
               <div
-                className={`solitaire-pile ${discardCount > 0 ? "is-discard-target" : ""} ${game.pendingDraws > 0 || game.pendingPileDrawCount > 0 || game.pendingSweep || game.pendingResearchDraw === "astronomy" ? pile.length > 0 ? "is-draw-choice" : "is-draw-empty" : ""}`}
+                className={`solitaire-pile ${sealed ? "is-sealed" : ""} ${discardCount > 0 ? "is-discard-target" : ""} ${game.pendingDraws > 0 || game.pendingPileDrawCount > 0 || game.pendingSweep || game.pendingResearchDraw === "astronomy" ? pile.length > 0 && !sealed ? "is-draw-choice" : "is-draw-empty" : ""}`}
                 key={index}
                 style={{ "--pile-stack-height": `${CARD_HEIGHT + Math.max(0, pile.length - 1) * stackOffset}px` } as CSSProperties}
                 data-pile-index={index}
@@ -143,6 +152,7 @@ export function BattlePileZone({
               >
                 {pile.length === 0 && <div className={`empty-slot ${isValidSolitaireDrop ? isForgeDrop ? "is-forge-drop-target" : "is-solitaire-drop-target" : ""} ${isHoveredSolitaireDrop ? "is-hovered-solitaire-drop-target" : ""}`} aria-hidden="true" />}
                 {discardCount > 0 && <span className="discard-target-label">버리기 {discardCount}</span>}
+                {sealed && <span className="sealed-pile-label" title="이 파일에서는 카드를 뽑을 수 없습니다. 솔리테어 이동은 가능합니다.">봉인</span>}
                 {pile.map((card, cardIndex) => {
                   const isTop = cardIndex === pile.length - 1;
                   const faceUp = card.revealed;
@@ -184,7 +194,7 @@ export function BattlePileZone({
                       onBlur={faceUp ? onClearCardHover : undefined}
                     >
                       {faceUp
-                        ? <CardFace card={card} strength={game.strength + combatManualBonus + backToBasicsBonus(card)} agility={game.agility + combatManualBonus + backToBasicsBonus(card)} defenseMultiplier={game.defenseMultiplier} ruleCostReduction={lawResearchCount} forgeCount={game.forgeCount} radiancePlayedThisTurn={game.radiancePlayedThisTurn} />
+                        ? <CardFace card={card} {...attackPreview(game.playerAmplification, dragging?.card.id === card.id ? attackTarget : undefined, bossSlayer)} strength={game.strength + combatManualBonus + backToBasicsBonus(card)} agility={game.agility + combatManualBonus + backToBasicsBonus(card)} defenseMultiplier={game.defenseMultiplier} ruleCostReduction={lawResearchCount} forgeCount={game.forgeCount} radiancePlayedThisTurn={game.radiancePlayedThisTurn} />
                         : <span className={`card-back-pattern ${card.colored ? "is-painted" : ""}`} />}
                     </div>
                   );

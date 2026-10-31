@@ -1,5 +1,5 @@
 import { useEffect, useRef, type Dispatch, type PointerEvent, type RefObject, type SetStateAction } from "react";
-import { isAttackCard, type Card } from "../game/cards";
+import { canTargetEnemy, type Card } from "../game/cards";
 import type { DragState, Phase } from "../game/battleUiTypes";
 import type { GameState } from "../game/battleState";
 import type { ActiveBattleDrag } from "./useBattleInteractionState";
@@ -199,7 +199,7 @@ export function useBattlePointerInput({
         return;
       }
 
-      const isTargetedAttack = isAttackCard(current.card);
+      const isTargetedAttack = canTargetEnemy(current.card);
       const resolvedTargetEnemyId = targetEnemyId
         ?? (isTargetedAttack && dropZone === "defend"
           ? game.enemies.find((enemy) => enemy.hp > 0)?.id

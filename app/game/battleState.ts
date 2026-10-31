@@ -1,7 +1,8 @@
-import { dealCardsEvenlyToPiles, dealCardsToFixedPiles } from "./cardRules";
-import { createAdrenalineCard, createRelicCard, type Card } from "./cards";
-import { createSewerEncounter, type EnemyState } from "./enemies";
-import { createDeck, type DeckEdition } from "./rewards";
+import { dealCardsEvenlyToPiles, dealCardsToFixedPiles } from "./cardRules.ts";
+import { createAdrenalineCard, createRelicCard, type Card } from "./cards.ts";
+import { createSewerEncounter, type EnemyState } from "./enemies.ts";
+import { createDeck, type DeckEdition } from "./rewards.ts";
+import { blockedPileIndexes, preparePileSeals } from "./enemyPassives.ts";
 
 export const MAX_PLAYER_HP = 50;
 
@@ -26,6 +27,8 @@ export type GameState = {
   pendingDashRandomDraws: number;
   /** 광행시간: 생성까지 남은 턴과 도착할 광채 수를 카드별로 저장한다. */
   pendingRadiance: Array<{ turns: number; count: number }>;
+  /** Amplification and extra energy waiting for the next player turn. */
+  pendingBattlePreparation: number;
   /** 연구 룰 카드의 추가 드로우 선택 상태. */
   pendingResearchDraw: "astronomy" | "necromancy" | null;
   astronomyResearchUses: number;
@@ -37,10 +40,8 @@ export type GameState = {
   playerHp: number;
   playerPhysicalBlock: number;
   playerMagicBlock: number;
-  playerPhysicalResistance: number;
-  playerMagicResistance: number;
-  playerPhysicalVulnerability: number;
-  playerMagicVulnerability: number;
+  playerResistance: number;
+  playerAmplification: number;
   strength: number;
   /** 여백의 미가 현재 빈 파일 수에 따라 제공 중인 힘 보너스. */
   whiteSpaceStrengthBonus: number;
@@ -110,10 +111,11 @@ export function prepareDeckForPiles(deck: Card[]) {
   return shuffle(deck.map((card) => ({ ...card, revealed: false })));
 }
 
-export function drawFromPiles(piles: Card[][]) {
+export function drawFromPiles(piles: Card[][], blocked: readonly number[] = []) {
   const nextPiles = piles.map((pile) => [...pile]);
   const hand: Card[] = [];
-  nextPiles.forEach((pile) => {
+  nextPiles.forEach((pile, index) => {
+    if (blocked.includes(index)) return;
     const card = pile.pop();
     if (card) hand.push({ ...card, revealed: true });
     if (pile.length > 0) pile[pile.length - 1] = { ...pile[pile.length - 1], revealed: true };
@@ -121,10 +123,11 @@ export function drawFromPiles(piles: Card[][]) {
   return { piles: nextPiles, hand };
 }
 
-export function drawFromPileIndexes(piles: Card[][], indexes: number[]) {
+export function drawFromPileIndexes(piles: Card[][], indexes: number[], blocked: readonly number[] = []) {
   const nextPiles = piles.map((pile) => [...pile]);
   const hand: Card[] = [];
   for (const index of indexes) {
+    if (blocked.includes(index)) continue;
     const pile = nextPiles[index];
     if (!pile) continue;
     const card = pile.pop();
@@ -134,10 +137,10 @@ export function drawFromPileIndexes(piles: Card[][], indexes: number[]) {
   return { piles: nextPiles, hand };
 }
 
-export function drawFromFirstPile(piles: Card[][]) {
+export function drawFromFirstPile(piles: Card[][], blocked: readonly number[] = []) {
   const nextPiles = piles.map((pile) => [...pile]);
   const pile = nextPiles[0];
-  const card = pile?.pop();
+  const card = blocked.includes(0) ? undefined : pile?.pop();
   if (!card) return { piles: nextPiles, hand: [] as Card[] };
   if (pile.length > 0) pile[pile.length - 1] = { ...pile[pile.length - 1], revealed: true };
   return { piles: nextPiles, hand: [{ ...card, revealed: true }] };
@@ -153,15 +156,15 @@ export function drawOneFromPiles(piles: Card[][]) {
   return { piles: nextPiles, hand: [{ ...card, revealed: true }] };
 }
 
-export function drawRandomFromPiles(piles: Card[][], count: number) {
+export function drawRandomFromPiles(piles: Card[][], count: number, random = Math.random, blocked: readonly number[] = []) {
   const nextPiles = piles.map((pile) => [...pile]);
   const hand: Card[] = [];
   for (let draw = 0; draw < count; draw += 1) {
     const availableIndexes = nextPiles
-      .map((pile, index) => pile.length > 0 ? index : -1)
+      .map((pile, index) => pile.length > 0 && !blocked.includes(index) ? index : -1)
       .filter((index) => index >= 0);
     if (availableIndexes.length === 0) break;
-    const pileIndex = availableIndexes[Math.floor(Math.random() * availableIndexes.length)];
+    const pileIndex = availableIndexes[Math.floor(random() * availableIndexes.length)];
     const pile = nextPiles[pileIndex];
     const card = pile.pop();
     if (card) hand.push({ ...card, revealed: true });
@@ -188,6 +191,7 @@ export function waitingState(
     pendingPileDrawCount: 0,
     pendingDashRandomDraws: 0,
     pendingRadiance: [],
+    pendingBattlePreparation: 0,
     pendingResearchDraw: null,
     astronomyResearchUses: 0,
     necromancyResearchUses: 0,
@@ -198,10 +202,8 @@ export function waitingState(
     playerHp,
     playerPhysicalBlock: 0,
     playerMagicBlock: 0,
-    playerPhysicalResistance: 0,
-    playerMagicResistance: 0,
-    playerPhysicalVulnerability: 0,
-    playerMagicVulnerability: 0,
+    playerResistance: 0,
+    playerAmplification: 0,
     strength: 0,
     whiteSpaceStrengthBonus: 0,
     temporaryStrength: 0,
@@ -252,8 +254,9 @@ export function dealtState(
     ? [createRelicCard(-10000)]
     : [];
   if (encounterTokens.length > 0) initialPiles[0].unshift(encounterTokens[0]);
+  enemies = preparePileSeals(enemies, initialPiles, 1);
   const startingDraw = deckEditions.includes("drawPlus")
-    ? drawRandomFromPiles(initialPiles, 1)
+    ? drawRandomFromPiles(initialPiles, 1, Math.random, blockedPileIndexes(enemies))
     : { piles: initialPiles, hand: [] as Card[] };
   return {
     ...waitingState(playerHp, enemies),

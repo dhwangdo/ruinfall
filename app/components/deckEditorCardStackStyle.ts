@@ -9,6 +9,7 @@ export function deckEditorCardStackStyle(count: number): CSSProperties | undefin
   });
   return {
     marginLeft: layers * 7,
+    "--editor-stack-width": `${layers * 7}px`,
     "--editor-stack-shadow": shadows.join(", "),
   } as CSSProperties;
 }

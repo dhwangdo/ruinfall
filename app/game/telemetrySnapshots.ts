@@ -1,13 +1,13 @@
-import { cardForgeCount } from "./cardEffects";
-import type { Card } from "./cards";
-import type { EnemyState } from "./enemies";
-import type { Consumable, DeckCase } from "./rewards";
+import { cardForgeCount } from "./cardEffects.ts";
+import type { Card } from "./cards.ts";
+import type { EnemyState } from "./enemies.ts";
+import type { Consumable, DeckCase } from "./rewards.ts";
 import type {
   TelemetryCardSnapshot,
   TelemetryConsumableSnapshot,
   TelemetryDeckSnapshot,
   TelemetryEnemySnapshot,
-} from "./telemetry";
+} from "./telemetry.ts";
 
 export function telemetryCardSnapshot(card: Card): TelemetryCardSnapshot {
   return {

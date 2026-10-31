@@ -1,6 +1,8 @@
-import { useEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 
 export const RESET_HOLD_DURATION_MS = 1_000;
+
+type ResetHoldSource = "shortcut" | "pointer" | "buttonKeyboard";
 
 type RunKeyboardControlsOptions = {
   playerNameSetupOpen: boolean;
@@ -14,20 +16,52 @@ export function useRunKeyboardControls(options: RunKeyboardControlsOptions) {
   const [resetHoldProgress, setResetHoldProgress] = useState(0);
   const resetHoldStartedAtRef = useRef<number | null>(null);
   const resetHoldTimerRef = useRef<number | null>(null);
+  const resetHoldSourcesRef = useRef(new Set<ResetHoldSource>());
+  const resetHoldCompletedRef = useRef(false);
   const optionsRef = useRef(options);
 
   useEffect(() => {
     optionsRef.current = options;
   });
 
-  useEffect(() => {
-    const stopResetHold = () => {
-      resetHoldStartedAtRef.current = null;
+  const cancelResetHold = useCallback(() => {
+    resetHoldSourcesRef.current.clear();
+    resetHoldCompletedRef.current = false;
+    resetHoldStartedAtRef.current = null;
+    if (resetHoldTimerRef.current !== null) window.clearInterval(resetHoldTimerRef.current);
+    resetHoldTimerRef.current = null;
+    setResetHoldProgress(0);
+  }, []);
+
+  const stopResetHold = useCallback((source: ResetHoldSource) => {
+    resetHoldSourcesRef.current.delete(source);
+    if (resetHoldSourcesRef.current.size === 0) cancelResetHold();
+  }, [cancelResetHold]);
+
+  const startResetHold = useCallback((source: ResetHoldSource) => {
+    if (optionsRef.current.playerNameSetupOpen) return;
+    resetHoldSourcesRef.current.add(source);
+    if (resetHoldTimerRef.current !== null || resetHoldCompletedRef.current) return;
+    resetHoldStartedAtRef.current = performance.now();
+    resetHoldTimerRef.current = window.setInterval(() => {
+      const startedAt = resetHoldStartedAtRef.current;
+      if (startedAt === null) return;
+      const progress = Math.min(1, (performance.now() - startedAt) / RESET_HOLD_DURATION_MS);
+      setResetHoldProgress(progress);
+      if (progress < 1) return;
       if (resetHoldTimerRef.current !== null) window.clearInterval(resetHoldTimerRef.current);
       resetHoldTimerRef.current = null;
+      resetHoldStartedAtRef.current = null;
+      // Release every held input before allowing another reset.
+      resetHoldCompletedRef.current = true;
       setResetHoldProgress(0);
-    };
+      const currentOptions = optionsRef.current;
+      currentOptions.clearRunSave();
+      currentOptions.startNewRun();
+    }, 50);
+  }, []);
 
+  useEffect(() => {
     const onKeyDown = (event: KeyboardEvent) => {
       const currentOptions = optionsRef.current;
       const target = event.target as HTMLElement | null;
@@ -41,34 +75,31 @@ export function useRunKeyboardControls(options: RunKeyboardControlsOptions) {
       if (event.code !== "KeyR" || event.repeat || currentOptions.playerNameSetupOpen
         || target?.isContentEditable || target?.matches("input, textarea, select")) return;
       event.preventDefault();
-      resetHoldStartedAtRef.current = performance.now();
-      resetHoldTimerRef.current = window.setInterval(() => {
-        const startedAt = resetHoldStartedAtRef.current;
-        if (startedAt === null) return;
-        const progress = Math.min(1, (performance.now() - startedAt) / RESET_HOLD_DURATION_MS);
-        setResetHoldProgress(progress);
-        if (progress < 1) return;
-        stopResetHold();
-        const latestOptions = optionsRef.current;
-        latestOptions.clearRunSave();
-        latestOptions.startNewRun();
-      }, 50);
+      startResetHold("shortcut");
     };
 
     const onKeyUp = (event: KeyboardEvent) => {
-      if (event.code === "KeyR") stopResetHold();
+      if (event.code === "KeyR") stopResetHold("shortcut");
+    };
+
+    const onVisibilityChange = () => {
+      if (document.hidden) cancelResetHold();
     };
 
     window.addEventListener("keydown", onKeyDown);
     window.addEventListener("keyup", onKeyUp);
-    window.addEventListener("blur", stopResetHold);
+    window.addEventListener("blur", cancelResetHold);
+    document.addEventListener("visibilitychange", onVisibilityChange);
     return () => {
       window.removeEventListener("keydown", onKeyDown);
       window.removeEventListener("keyup", onKeyUp);
-      window.removeEventListener("blur", stopResetHold);
-      stopResetHold();
+      window.removeEventListener("blur", cancelResetHold);
+      document.removeEventListener("visibilitychange", onVisibilityChange);
+      cancelResetHold();
     };
-  }, [options.playerNameSetupOpen]);
+  }, [options.playerNameSetupOpen, cancelResetHold, startResetHold, stopResetHold]);
 
-  return resetHoldProgress;
+  return { progress: resetHoldProgress, start: startResetHold, stop: stopResetHold };
 }
+
+export type RunResetHoldControls = ReturnType<typeof useRunKeyboardControls>;

@@ -170,7 +170,23 @@ function loadStore(): TelemetryStore {
   }
 }
 
+const pendingWrites = new WeakMap<TelemetryRecorder, ReturnType<typeof setTimeout>>();
+
+/** Bound write frequency without postponing an ongoing battle indefinitely. */
 function persist(recorder: TelemetryRecorder) {
+  if (typeof window === "undefined" || pendingWrites.has(recorder)) return;
+  pendingWrites.set(recorder, setTimeout(() => flushTelemetry(recorder), 250));
+}
+
+function cancelPendingWrite(recorder: TelemetryRecorder) {
+  const timer = pendingWrites.get(recorder);
+  if (timer !== undefined) clearTimeout(timer);
+  pendingWrites.delete(recorder);
+}
+
+export function flushTelemetry(recorder: TelemetryRecorder) {
+  if (!pendingWrites.has(recorder)) return;
+  cancelPendingWrite(recorder);
   if (typeof window === "undefined") return;
   try {
     window.localStorage.setItem(TELEMETRY_STORAGE_KEY, JSON.stringify(recorder.store));
@@ -228,6 +244,7 @@ export function beginTelemetryRun(recorder: TelemetryRecorder, input: RunStart) 
   recorder.activeRunId = run.id;
   recorder.activeBattleId = null;
   persist(recorder);
+  flushTelemetry(recorder);
 }
 
 export function beginTelemetryBattle(recorder: TelemetryRecorder, input: BattleStart) {
@@ -249,6 +266,7 @@ export function beginTelemetryBattle(recorder: TelemetryRecorder, input: BattleS
   activeRun(recorder)!.battles.push(battle);
   recorder.activeBattleId = battle.id;
   persist(recorder);
+  flushTelemetry(recorder);
 }
 
 export function recordTelemetryDamage(recorder: TelemetryRecorder, dealt: number, taken: number, turn = 1) {
@@ -268,6 +286,20 @@ export function recordTelemetryDamage(recorder: TelemetryRecorder, dealt: number
   }
   battle.damageDealt += safeDealt;
   battle.damageTaken += safeTaken;
+  persist(recorder);
+}
+
+export function registerTelemetryEnemies(recorder: TelemetryRecorder, enemies: TelemetryEnemySnapshot[]) {
+  const battle = activeBattle(recorder);
+  if (!battle) return;
+  const knownIds = new Set(battle.enemies.map(enemy => enemy.id));
+  const additions = enemies.filter(enemy => {
+    if (knownIds.has(enemy.id)) return false;
+    knownIds.add(enemy.id);
+    return true;
+  });
+  if (additions.length === 0) return;
+  battle.enemies.push(...additions);
   persist(recorder);
 }
 
@@ -345,6 +377,7 @@ export function finishTelemetryBattle(
   battle.endingPlayerHp = endingPlayerHp;
   recorder.activeBattleId = null;
   persist(recorder);
+  flushTelemetry(recorder);
   if (result === "lost") finishTelemetryRun(recorder, "lost");
 }
 
@@ -355,9 +388,11 @@ export function finishTelemetryRun(recorder: TelemetryRecorder, result: "won" | 
   run.result = result;
   recorder.activeBattleId = null;
   persist(recorder);
+  flushTelemetry(recorder);
 }
 
 export function resetTelemetryRecorder(recorder: TelemetryRecorder) {
+  cancelPendingWrite(recorder);
   recorder.store = emptyStore();
   recorder.activeRunId = null;
   recorder.activeBattleId = null;
@@ -368,41 +403,4 @@ export function resetTelemetryRecorder(recorder: TelemetryRecorder) {
       // 로그 초기화 실패가 게임 플레이를 막지는 않게 한다.
     }
   }
-}
-
-export function exportTelemetryJson(recorder: TelemetryRecorder) {
-  return JSON.stringify({ ...recorder.store, exportedAt: new Date().toISOString() }, null, 2);
-}
-
-function formatTelemetryAmount(amount: number) {
-  return Number.isInteger(amount)
-    ? String(amount)
-    : amount.toFixed(2).replace(/0+$/, "").replace(/\.$/, "");
-}
-
-export function exportTelemetryText(recorder: TelemetryRecorder) {
-  const lines = ["Ruinfall 피해 기록", `저장 시각: ${new Date().toISOString()}`, ""];
-  recorder.store.runs.forEach((run, runIndex) => {
-    lines.push(`탐험 ${runIndex + 1}`);
-    run.acquisitions.forEach((acquisition) => {
-      if (acquisition.kind === "gold") lines.push(`골드 +${formatTelemetryAmount(acquisition.amount ?? 0)}`);
-      if (acquisition.kind === "consumable") lines.push(`소모품 획득: ${acquisition.consumable?.name ?? "이름 없음"}`);
-      if (acquisition.kind === "deck") lines.push(`덱 획득: '${acquisition.deck?.name ?? "이름 없음"}'`);
-    });
-    run.battles.forEach((battle, battleIndex) => {
-      lines.push(`전투 ${battleIndex + 1}`);
-      const entries = battle.enemies
-        .map((enemy) => ({ enemy, amount: battle.damageByEnemy?.[enemy.id] ?? 0 }))
-        .filter(({ amount }) => amount > 0);
-      if (entries.length === 0) {
-        const enemyNames = battle.enemies.map((enemy) => enemy.name).join(", ") || "적";
-        lines.push(`${enemyNames}랑 싸워서 0 피해`);
-      }
-      else entries.forEach(({ enemy, amount }) => lines.push(`${enemy.name}에게 ${formatTelemetryAmount(amount)} 피해를 받았습니다.`));
-    });
-    if (run.battles.length === 0) lines.push("전투 기록 없음");
-    lines.push("");
-  });
-  if (recorder.store.runs.length === 0) lines.push("기록 없음");
-  return lines.join("\n");
 }

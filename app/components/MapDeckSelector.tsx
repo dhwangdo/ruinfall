@@ -1,40 +1,54 @@
 import type { CSSProperties } from "react";
 import { DeckName } from "./DeckName";
 import type { DeckCase } from "../game/rewards";
+import { useMapDeckSelectorDrag } from "../hooks/useMapDeckSelectorDrag";
 
 type MapDeckSelectorProps = {
   ownedDecks: DeckCase[];
+  maxOwnedDecks: number;
   activeDeck: DeckCase | undefined;
-  noticeVisible: boolean;
   open: boolean;
   closing: boolean;
   closingDeckId: string | null;
-  selectionAttention: boolean;
   onToggle: () => void;
   onSelectDeck: (deck: DeckCase) => void;
 };
 
 export function MapDeckSelector({
   ownedDecks,
+  maxOwnedDecks,
   activeDeck,
-  noticeVisible,
   open,
   closing,
   closingDeckId,
-  selectionAttention,
   onToggle,
   onSelectDeck,
 }: MapDeckSelectorProps) {
+  const { selectorRef, triggerRef, offset, dragging, onPointerDown, onPointerMove, onPointerEnd, allowClick } = useMapDeckSelectorDrag();
+  const slotCount = Math.max(maxOwnedDecks, ownedDecks.length);
+  const centerIndex = (slotCount - 1) / 2;
   return (
-    <div className={`map-deck-selector ${noticeVisible ? "is-notice-visible" : ""}`}>
+    <div
+      ref={selectorRef}
+      className={`map-deck-selector ${dragging ? "is-dragging" : ""}`}
+      style={{ translate: `${offset.x}px ${offset.y}px` }}
+    >
       <div onPointerDown={(event) => event.stopPropagation()}>
         {open && (
-          <div className={`map-deck-selector-menu ${closing ? "is-closing" : "is-opening"}`} role="menu" aria-label="전투에 사용할 덱">
-            {Array.from({ length: 3 }, (_, index) => {
+          <div
+            className={`map-deck-selector-menu ${closing ? "is-closing" : "is-opening"}`}
+            style={{ "--deck-stagger": `${140 / Math.max(1, slotCount - 1)}ms` } as CSSProperties}
+            role="menu"
+            aria-label="전투에 사용할 덱"
+          >
+            {Array.from({ length: slotCount }, (_, index) => {
               const deck = ownedDecks[index];
               const itemStyle = {
-                "--deck-offset": index - 1,
-                "--deck-arc-inset": Math.abs(index - 1),
+                "--deck-offset": index - centerIndex,
+                "--deck-arc-inset": Math.abs(index - centerIndex),
+                "--deck-angle": `${Math.max(-30, Math.min(30, (index - centerIndex) * 15))}deg`,
+                "--deck-index": index,
+                "--deck-reverse-index": slotCount - 1 - index,
               } as CSSProperties;
               if (!deck) {
                 return <span className="map-deck-empty-slot" key={`empty-deck-${index}`} style={itemStyle}>빈 덱 슬롯</span>;
@@ -58,16 +72,22 @@ export function MapDeckSelector({
         )}
         <button
           type="button"
+          ref={triggerRef}
           className={`map-deck-selector-trigger ${open && !closing ? "is-open" : ""}`}
-          onClick={onToggle}
+          onPointerDown={onPointerDown}
+          onPointerMove={onPointerMove}
+          onPointerUp={onPointerEnd}
+          onPointerCancel={onPointerEnd}
+          onLostPointerCapture={onPointerEnd}
+          onClick={(event) => { if (allowClick(event)) onToggle(); }}
+          title="클릭하여 덱 선택 · 드래그하여 위치 이동"
           aria-expanded={open && !closing}
           aria-label={`전투 덱 선택. 현재 ${activeDeck?.name ?? "없음"}`}
         >
           <span className="deck-stack-icon" aria-hidden="true" />
-          <strong>{activeDeck?.name ? `덱 '${activeDeck.name}'` : "덱 준비 중"}</strong>
+          <strong>{activeDeck?.name ? `덱 「${activeDeck.name}」` : "덱 준비 중"}</strong>
           <small>({activeDeck?.cards.length ?? 0}/{activeDeck?.capacity ?? 0})</small>
         </button>
-        {selectionAttention && <span className="map-deck-selector-attention" aria-label="덱 변경 후 전투 덱을 확인하세요">!</span>}
       </div>
     </div>
   );

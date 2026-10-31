@@ -4,6 +4,8 @@ export type CardRarity = "status" | "starter" | "basic" | "special" | "rare" | "
 export type SolitaireRule = "top" | "bottom" | "spell";
 
 export type CardEffect =
+  | "battleCry" | "shatter" | "kneeStrike" | "resistanceWard" | "battlePreparation"
+  | "scaleArmor" | "fourSeasons" | "unyielding" | "demolish"
   | "strike"
   | "pommel"
   | "defend"
@@ -35,9 +37,7 @@ export type CardEffect =
   | "nebula"
   | "lightTravelTime"
   | "mirrorImage"
-  | "blessing"
   | "odinSpear"
-  | "berserk"
   | "transcend"
   | "rapidFire"
   | "iceShield"
@@ -54,7 +54,6 @@ export type CardEffect =
   | "wish"
   | "strategyBook"
   | "warmUp"
-  | "ironWall"
   | "fourHit"
   | "silverSword"
   | "doubleHit"
@@ -73,6 +72,7 @@ export type CardEffect =
   | "endStart"
   | "superStrategist"
   | "slime"
+  | "fermentedSlime"
   | "relic"
   | "soil"
   | "rock"
@@ -117,6 +117,8 @@ export type Card = {
   exhaust?: boolean;
   /** Token cards participate in the current cycle once, then leave on reshuffle. */
   token?: boolean;
+  /** Remains in hand across turn ends, until used or explicitly discarded. */
+  retain?: boolean;
   /** Enemy-created cards use enemy-only handling such as pool exclusion. */
   enemyToken?: boolean;
   /** Power-like rule card marker shown on the card face. */
@@ -144,6 +146,10 @@ export function isAttackCard(card: { kind: CardKind; effect: CardEffect }) {
   return card.kind === "strike" || ATTACK_CARD_EFFECTS.has(card.effect);
 }
 
+export function canTargetEnemy(card: { kind: CardKind; effect: CardEffect }) {
+  return isAttackCard(card) || card.effect === "scaleArmor";
+}
+
 export const HAND_PASSIVE_EFFECTS = new Set<CardEffect>(["combatManual", "grimoire", "strategyBook"]);
 export const UNPLAYABLE_CARD_EFFECTS = new Set<CardEffect>([
   "slime", "soil", "rock", "combatManual", "grimoire", "wolfTalisman", "turtleTalisman",
@@ -152,7 +158,6 @@ export const UNPLAYABLE_CARD_EFFECTS = new Set<CardEffect>([
 export const STARTER_CARD_POOL: CardBlueprint[] = [
   { kind: "strike", effect: "strike", rarity: "starter", name: "타격", cost: 1, value: 6, draw: 0, damageType: "physical" },
   { kind: "skill", effect: "defend", rarity: "starter", name: "방어", cost: 1, value: 5, draw: 0, damageType: "physical" },
-  { kind: "skill", effect: "defend", rarity: "starter", name: "마법 방어", cost: 1, value: 5, draw: 0, damageType: "magic" },
 ];
 
 export const BASIC_CARD_POOL: CardBlueprint[] = [
@@ -170,6 +175,12 @@ export const LEGACY_SPECIAL_CARD_POOL: CardBlueprint[] = [
 
 // 현재 플레이에 등장하는 추가 카드는 이 목록만 사용합니다.
 export const SPECIAL_CARD_POOL: CardBlueprint[] = [
+  { kind: "skill", effect: "battleCry", rarity: "special", name: "기합", cost: 0, value: 1, draw: 0, damageType: "physical" },
+  { kind: "strike", effect: "shatter", rarity: "special", name: "파쇄", cost: 1, value: 6, draw: 0, damageType: "physical" },
+  { kind: "strike", effect: "kneeStrike", rarity: "special", name: "무릎차기", cost: 1, value: 10, draw: 0, damageType: "physical" },
+  { kind: "skill", effect: "resistanceWard", rarity: "special", name: "가호", cost: 1, value: 2, draw: 0, damageType: "physical" },
+  { kind: "skill", effect: "battlePreparation", rarity: "special", name: "싸움 준비", cost: 1, value: 2, draw: 0, damageType: "physical" },
+  { kind: "skill", effect: "scaleArmor", rarity: "special", name: "비늘 갑옷", cost: 2, value: 8, draw: 0, damageType: "physical" },
   { kind: "skill", effect: "astronomyResearch", rarity: "special", name: "천문학 연구", cost: 0, value: 3, draw: 0, damageType: "physical", exhaust: true, rule: true },
   { kind: "skill", effect: "necromancyResearch", rarity: "special", name: "강령학 연구", cost: 0, value: 3, draw: 0, damageType: "physical", exhaust: true, rule: true },
   { kind: "skill", effect: "metallurgyResearch", rarity: "special", name: "금속학 연구", cost: 1, value: 1, draw: 0, damageType: "physical", exhaust: true, rule: true },
@@ -189,7 +200,7 @@ export const SPECIAL_CARD_POOL: CardBlueprint[] = [
   { kind: "strike", effect: "silverSword", rarity: "special", name: "은검", cost: 1, value: 12, draw: 0, damageType: "physical" },
   { kind: "skill", effect: "battlePlan", rarity: "special", name: "전략가", cost: 1, value: 2, draw: 1, damageType: "physical" },
   { kind: "skill", effect: "plateArmor", rarity: "special", name: "낡은 노심", cost: 1, value: 1, draw: 0, damageType: "physical", forgeCost: 3 },
-  { kind: "skill", effect: "plateArmorDefense", rarity: "special", name: "판금 갑옷", cost: 1, value: 8, draw: 0, damageType: "physical", forgeCost: 3 },
+  { kind: "skill", effect: "plateArmorDefense", rarity: "special", name: "판금 갑옷", cost: 1, value: 5, draw: 0, damageType: "physical", forgeCost: 3 },
   { kind: "skill", effect: "pruning", rarity: "special", name: "과감한 결단", cost: 0, value: 2, draw: 0, damageType: "physical", discardCost: 2, discardEnergyGain: 2 },
   { kind: "strike", effect: "strike", rarity: "special", name: "과감한 돌진", cost: 1, value: 15, draw: 0, damageType: "physical", discardCost: 1 },
   { kind: "skill", effect: "defend", rarity: "special", name: "과감한 회피", cost: 1, value: 15, draw: 0, damageType: "physical", discardCost: 2 },
@@ -201,14 +212,15 @@ export const SPECIAL_CARD_POOL: CardBlueprint[] = [
   { kind: "strike", effect: "strike", rarity: "special", name: "묵직한 한 방", cost: 3, value: 30, draw: 0, damageType: "physical" },
   { kind: "strike", effect: "exchange", rarity: "special", name: "치환 합금", cost: 3, value: 15, draw: 0, damageType: "physical", forgeAny: true },
   { kind: "strike", effect: "doubleHit", rarity: "special", name: "청동 철퇴", cost: 2, value: 15, draw: 0, damageType: "physical", forgeCosts: [2, 3] },
-  { kind: "skill", effect: "ironWall", rarity: "special", name: "철벽", cost: 2, value: 2, draw: 0, damageType: "physical" },
   { kind: "skill", effect: "mirrorImage", rarity: "special", name: "거울상", cost: 0, value: 0, draw: 0, damageType: "physical" },
-  { kind: "skill", effect: "blessing", rarity: "special", name: "가호", cost: 1, value: 1, draw: 0, damageType: "magic", forgeCost: 2 },
-  { kind: "skill", effect: "wolfTalisman", rarity: "special", name: "늑대 부적", value: 1, draw: 0, damageType: "physical" },
-  { kind: "skill", effect: "turtleTalisman", rarity: "special", name: "거북이 부적", value: 1, draw: 0, damageType: "physical" },
+  { kind: "skill", effect: "wolfTalisman", rarity: "special", name: "늑대 부적", value: 2, draw: 0, damageType: "physical" },
+  { kind: "skill", effect: "turtleTalisman", rarity: "special", name: "거북이 부적", value: 2, draw: 0, damageType: "physical" },
 ];
 
 export const RARE_CARD_POOL: CardBlueprint[] = [
+  { kind: "skill", effect: "fourSeasons", rarity: "rare", name: "사계절", cost: 2, value: 2, draw: 0, damageType: "physical", discardCost: 3 },
+  { kind: "skill", effect: "unyielding", rarity: "rare", name: "불굴", cost: 1, value: 5, draw: 0, damageType: "physical", exhaust: true },
+  { kind: "strike", effect: "demolish", rarity: "rare", name: "개박살", cost: 3, value: 15, draw: 0, damageType: "physical" },
   { kind: "skill", effect: "wish", rarity: "rare", name: "소원", cost: 0, value: 0, draw: 0, damageType: "physical" },
   { kind: "skill", effect: "strategyBook", rarity: "rare", name: "병법서", cost: 2, value: 4, draw: 0, damageType: "physical", exhaust: true },
   { kind: "skill", effect: "evolutionTheory", rarity: "rare", name: "진화론", cost: 2, value: 1, draw: 0, damageType: "physical", exhaust: true, rule: true },
@@ -278,23 +290,26 @@ export const CARD_POOL_DRAW_EFFECTS = new Set<CardEffect>([
   "pommel", "deflect", "prepare", "drawEachPile", "dash", "quickStep", "battlePlan", "fileDraw", "flood", "adrenaline", "astronomyResearch", "necromancyResearch",
 ]);
 export const CARD_POOL_ENERGY_EFFECTS = new Set<CardEffect>([
-  "focus", "adrenaline", "pruning", "berserk", "ventilate", "plateArmor", "charge", "flood", "endStart", "supernova", "aries", "economicsResearch",
+  "battlePreparation",
+  "focus", "adrenaline", "pruning", "ventilate", "plateArmor", "charge", "flood", "endStart", "supernova", "aries", "economicsResearch",
 ]);
 export const CARD_POOL_DEFENSE_EFFECTS = new Set<CardEffect>([
+  "scaleArmor",
   "defend", "deflect", "iceShield", "waterWave", "plateArmorDefense", "starGuard", "starArk", "ironWave", "ironRampage", "suppression", "odinSpear", "silverSword", "sturdyStance",
 ]);
 export const CARD_POOL_STAR_EFFECTS = new Set<CardEffect>([
   "battlePlan", "rulerCompass", "starlight", "starGuard", "starArk", "superStrategist", "flood", "aries", "astronomyResearch", "necromancyResearch", "nebula",
 ]);
 export const CARD_POOL_STATUS_EFFECTS = new Set<CardEffect>([
-  "warmUp", "rapidFire", "counter", "supernova", "blessing", "mirrorImage", "lightTravelTime", "wolfTalisman", "turtleTalisman",
+  "battleCry", "shatter", "kneeStrike", "resistanceWard", "battlePreparation", "scaleArmor", "fourSeasons", "unyielding", "demolish",
+  "warmUp", "rapidFire", "counter", "supernova", "mirrorImage", "lightTravelTime", "wolfTalisman", "turtleTalisman",
 ]);
 
 type DefenseCardLike = Pick<CardBlueprint, "effect" | "damageType">;
 
 export function cardGivesPhysicalDefense(card: DefenseCardLike) {
   if (card.effect === "defend") return card.damageType === "physical";
-  return ["deflect", "starGuard", "plateArmorDefense", "ironWave", "ironRampage", "suppression", "starArk", "odinSpear", "sturdyStance"].includes(card.effect);
+  return ["scaleArmor", "deflect", "starGuard", "plateArmorDefense", "ironWave", "ironRampage", "suppression", "starArk", "odinSpear", "sturdyStance"].includes(card.effect);
 }
 
 export function cardGivesMagicDefense(card: DefenseCardLike) {
@@ -343,11 +358,17 @@ export function createSlimeCard(id: number): Card {
     name: "유독성 점액",
     value: 1,
     draw: 0,
-    damageType: "magic",
+    damageType: "physical",
     revealed: true,
     token: true,
     enemyToken: true,
   };
+}
+
+export function createFermentedSlimeCard(id: number): Card {
+  return { id, kind: "skill", effect: "fermentedSlime", rarity: "status", name: "발효 점액",
+    cost: 0, value: 1, draw: 0, damageType: "physical", revealed: true,
+    token: true, enemyToken: true, retain: true };
 }
 
 export function createSoilCard(id: number): Card {

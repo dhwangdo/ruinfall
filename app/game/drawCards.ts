@@ -1,8 +1,10 @@
 import type { Dispatch, RefObject, SetStateAction } from "react";
 import type { BlessingId } from "./blessingRules";
 import type { GameState } from "./battleState";
-import { createRadianceCard, createRockCard, createSlimeCard, createSoilCard, type Card } from "./cards";
-import { drawFromPiles, drawRandomFromPiles } from "./battleState";
+import { createRadianceCard, createRockCard, createSlimeCard, createSoilCard, createFermentedSlimeCard, type Card } from "./cards.ts";
+import { drawFromPiles, drawRandomFromPiles } from "./battleState.ts";
+import { preparePileSeals, blockedPileIndexes } from "./enemyPassives.ts";
+import { applyScheduledPreparation } from "./cardStatusEffects.ts";
 
 const CARD_RARITY_PRIORITY: Record<Card["rarity"], number> = {
   status: 0,
@@ -65,6 +67,9 @@ export function createDrawCards(context: DrawCardsContext) {
     pendingOriginsRef.current = origins;
     setPhase("drawing");
     setGame((current) => {
+      current = applyScheduledPreparation(current);
+      current = { ...current, enemies: preparePileSeals(current.enemies, current.piles, current.turn) };
+      const blocked = blockedPileIndexes(current.enemies);
       // 현재 화면에 보이는 의도가 흙이면, 적 행동을 기다리지 않고
       // 이번 턴 드로우 직후 각 파일에 흙을 놓는다.
       const soilSourceEnemyIds = current.enemies.flatMap((enemy) => {
@@ -108,13 +113,13 @@ export function createDrawCards(context: DrawCardsContext) {
       );
       const soilCardsForDeck = soilCardsByPile.flat().map((card) => ({ ...card, revealed: false }));
       const rockCardsForDeck = rockCardsByPile.flat().map((card) => ({ ...card, revealed: false }));
-      const draw = drawFromPiles(current.piles);
+      const draw = drawFromPiles(current.piles, blocked);
       const clearPlan = current.clearPlan;
       const clearedAllPiles = clearPlan !== null;
       const turnStartExtraDrawCount = (current.deckEditions.includes("persistentDraw") ? 1 : 0)
         + (blessings.includes("starlessAge") ? 1 : 0);
       const additionalStartDraw = !clearedAllPiles && turnStartExtraDrawCount > 0
-        ? drawRandomFromPiles(draw.piles, turnStartExtraDrawCount)
+        ? drawRandomFromPiles(draw.piles, turnStartExtraDrawCount, Math.random, blocked)
         : { piles: draw.piles, hand: [] as Card[] };
       const drawPiles = additionalStartDraw.piles;
       const topSlotByCardId = new Map<number, number>();
@@ -207,6 +212,8 @@ export function createDrawCards(context: DrawCardsContext) {
       const toxicSlimes = current.toxicSlimeAdded
         ? []
         : toxicSlimeSources.map(() => createSlimeCard(nextCardIdRef.current++));
+      const fermentedSlimes = current.toxicSlimeAdded ? [] : current.enemies.flatMap(enemy => enemy.hp > 0
+        ? Array.from({ length: enemy.fermentedSlimeCount ?? 0 }, () => createFermentedSlimeCard(nextCardIdRef.current++)) : []);
       toxicSlimes.forEach((card, index) => {
         const sourceEnemy = toxicSlimeSources[index];
         const source = sourceEnemy
@@ -242,10 +249,11 @@ export function createDrawCards(context: DrawCardsContext) {
             ...(rockCardsByPile[index] ?? []),
           ]),
         enemies: enemiesAfterDiscardTargeting,
-        hand: [...current.hand, ...initialDraw, ...toxicSlimes, ...opticalRadiances],
+        hand: [...current.hand, ...initialDraw, ...toxicSlimes, ...fermentedSlimes, ...opticalRadiances],
         initialDeck: [
           ...current.initialDeck,
           ...toxicSlimes.map((card) => ({ ...card, revealed: false })),
+          ...fermentedSlimes,
           ...soilCardsForDeck,
           ...rockCardsForDeck,
         ],
@@ -274,7 +282,7 @@ export function createDrawCards(context: DrawCardsContext) {
         defenseMultiplier: 1,
         damageTakenMultiplier: 1,
         invulnerable: current.turn === 1 && current.deckEditions.includes("invincible"),
-        toxicSlimeAdded: current.toxicSlimeAdded || toxicSlimes.length > 0,
+        toxicSlimeAdded: true,
         message: clearedAllPiles ? "CLEAR! 새 파일을 배치합니다."
           : toxicSlimes.length > 0
           ? `${draw.hand.length}장을 가져왔습니다. 주황 슬라임이 유독성 점액을 손패에 넣었습니다.`
