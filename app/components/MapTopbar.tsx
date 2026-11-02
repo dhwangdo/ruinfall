@@ -62,13 +62,13 @@ export function MapTopbar({
           </div>
           <button
             type="button"
-            className="map-gold map-gold-debug-trigger"
+            className="map-currency-count map-gold map-gold-debug-trigger"
             onClick={onGoldDebugClick}
             aria-label={`골드 ${gold}`}
           >
-            <strong>$ {gold}</strong>
+            $ {gold}
           </button>
-          <span className="map-key-count" aria-label={`열쇠 ${keys}개`}>열쇠 {keys}</span>
+          <span className="map-currency-count map-key-count" aria-label={`열쇠 ${keys}개`}>열쇠 {keys}</span>
         </div>
         <button
           type="button"

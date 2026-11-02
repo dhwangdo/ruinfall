@@ -1,6 +1,8 @@
 import assert from "node:assert/strict";
 import test from "node:test";
 import { rollFilledRareSlots } from "../app/game/rareSlotRules.ts";
+import { regionDeckShapeDistribution } from "../app/game/regionDeckRules.ts";
+import { STARTER_CARD_POOL, BASIC_CARD_POOL } from "../app/game/cards.ts";
 
 import {
   nextRareCardDropChance,
@@ -106,20 +108,41 @@ test("recycling editions are mutually exclusive", () => {
 });
 
 test("region deck shape keeps the chosen sum and rejects rare overflow", () => {
-  for (const [roll, expectedSum] of [[0.79, 0], [0.85, 1], [0.95, 2]]) {
-    const values = [roll, 0.37];
-    const shape = rollRegionDeckShape(7, () => values.shift());
-    assert.equal(shape.sum, expectedSum);
-    assert.equal(shape.x + shape.y + shape.z, expectedSum);
-    assert.ok(shape.x >= -7);
-    assert.ok(shape.y >= -(7 - 1));
-    assert.ok(shape.z >= -7);
-    assert.equal(shape.capacity, 20 + (7 + shape.x) * 5);
-    assert.equal(shape.rareSlotCapacity, 8 + shape.y);
-    assert.ok(shape.rareSlotCapacity >= 2);
-    assert.ok(shape.rareSlotCapacity <= shape.capacity);
-    assert.equal(shape.editionBudget, (7 + shape.z) * 10);
+  for (let k = 1; k <= 7; k++) {
+    const sumCounts = Array(7).fill(0);
+    for (let a = 1; a <= 3; a++) for (let b = 1; b <= 3; b++) for (let c = 1; c <= 3; c++) {
+      const values = [(a - .5) / 3, (b - .5) / 3, (c - .5) / 3, .37];
+      const shape = rollRegionDeckShape(k, () => values.shift());
+      assert.equal(shape.sum, a + b + c - 6);
+      sumCounts[shape.sum + 3]++;
+      assert.equal(shape.x + shape.y + shape.z, shape.sum);
+    }
+    assert.deepEqual(sumCounts, [1, 3, 6, 7, 6, 3, 1]);
+    const distribution = regionDeckShapeDistribution(k);
+    assert.ok(Math.abs(distribution.reduce((sum, entry) => sum + entry.probability, 0) - 1) < 1e-12);
+    for (const { shape } of distribution) {
+      assert.ok(shape.x >= -k && shape.y >= -k && shape.z >= -k);
+      assert.equal(shape.capacity, 20 + 5 * (k + shape.x));
+      assert.equal(shape.rareSlotCapacity, k + shape.y);
+      assert.ok(shape.rareSlotCapacity >= 0 && shape.rareSlotCapacity <= shape.capacity);
+      assert.equal(shape.editionBudget, 10 * (k + shape.z));
+    }
   }
+});
+
+test("shape sampling uses distance rather than squared distance within the rolled sum", () => {
+  // At k=1,s=0: origin, six permutations of (1,0,-1), three of (2,-1,-1).
+  const expectedOrigin = 1 / (1 + 6 * 1.75 ** -Math.SQRT2 + 3 * 1.75 ** -Math.sqrt(6));
+  const origin = regionDeckShapeDistribution(1).find(({ shape }) => shape.x === 0 && shape.y === 0 && shape.z === 0);
+  assert.ok(Math.abs(origin.probability / (7 / 27) - expectedOrigin) < 1e-12);
+  let origins = 0;
+  const samples = 10000;
+  for (let index = 0; index < samples; index++) {
+    const values = [.5, .5, .5, (index + .5) / samples];
+    const shape = rollRegionDeckShape(1, () => values.shift());
+    if (shape.x === 0 && shape.y === 0 && shape.z === 0) origins++;
+  }
+  assert.ok(Math.abs(origins / samples - expectedOrigin) < 1 / samples);
 });
 
 test("region deck uses its shape and adds deck-size blessing capacity last", () => {
@@ -131,8 +154,18 @@ test("region deck uses its shape and adds deck-size blessing capacity last", () 
   assert.equal(base.cards.filter((card) => card.rarity === "rare").length, rollFilledRareSlots(shape.rareSlotCapacity, () => .5));
   assert.ok(base.rareSlotCapacity >= base.cards.filter((card) => card.rarity === "rare").length);
   assert.equal(base.rareSlotCapacity, shape.rareSlotCapacity);
+  assert.deepEqual(base.generation, { k: 2, s: shape.sum, x: shape.x, y: shape.y, z: shape.z });
+  assert.deepEqual(blessed.generation, base.generation);
   assert.deepEqual(blessed.cards, base.cards);
   assert.deepEqual(blessed.editions, base.editions);
+});
+
+test("regional distance means match the chosen square-root spread", () => {
+  for (const [region, expected] of [[1, 1.605813616947457], [3, 2.920963677960506], [7, 4.694220120145332]]) {
+    const mean = regionDeckShapeDistribution(region).reduce((sum, { shape, probability }) =>
+      sum + probability * Math.hypot(shape.x, shape.y, shape.z), 0);
+    assert.ok(Math.abs(mean - expected) < 1e-10, `region ${region}: ${mean}`);
+  }
 });
 
 test("the starter deck has 20 cards, capacity 25, and every starter/basic type", () => {
@@ -149,16 +182,18 @@ test("the starter deck has 20 cards, capacity 25, and every starter/basic type",
   assert.equal(deck.cards.some((card) => card.name === "마법 방어"), false);
 });
 
-test("region filler bags leave one quarter of bag entries empty", () => {
-  const shape = rollRegionDeckShape(1, () => 0);
-  const deck = createRegionDeck(1, 200, 0, () => 0);
-  const remainingSlots = shape.capacity - shape.rareSlotCapacity;
-  const bagSize = Math.max(Math.floor((remainingSlots * 2) / 8) * 8, 8);
-  assert.equal(deck.capacity, shape.capacity);
-  assert.equal(deck.cards.length, 1 + remainingSlots - bagSize / 4);
+test("independent filler slots can all pick the same kind without bag quotas", () => {
+  for (const [roll, kind] of [[.125, "empty"], [.375, "starter"], [.625, "basic"], [.875, "special"]]) {
+    const shapeRolls = [0, 0, 0, 0]; // k=1,s=-3: 20 normal slots, no rare slots or editions.
+    const deck = createRegionDeck(1, 200, 0, () => shapeRolls.length ? shapeRolls.shift() : roll);
+    assert.equal(deck.capacity, 20);
+    assert.equal(deck.rareSlotCapacity, 0);
+    assert.equal(deck.cards.length, kind === "empty" ? 0 : 20);
+    assert.ok(deck.cards.every(card => card.rarity === kind));
+  }
 });
 
-test("generated filler slots follow the requested 2:1:3:2 distribution", () => {
+test("generated filler slots give empty, starter, basic, special equal shares", () => {
   let seed = 39471;
   const random = () => ((seed = (Math.imul(seed, 1664525) + 1013904223) >>> 0) / 4294967296);
   const counts = { empty: 0, starter: 0, basic: 0, special: 0 };
@@ -171,8 +206,22 @@ test("generated filler slots follow the requested 2:1:3:2 distribution", () => {
     counts.empty += remainingSlots - fillerCards.length;
     for (const card of fillerCards) counts[card.rarity]++;
   }
-  for (const [kind, share] of Object.entries({ empty: .25, starter: .125, basic: .375, special: .25 })) {
+  for (const [kind, share] of Object.entries({ empty: .25, starter: .25, basic: .25, special: .25 })) {
     assert.ok(Math.abs(counts[kind] / slots - share) < .015, `${kind}: ${counts[kind] / slots}`);
+  }
+});
+
+test("starter and basic slots can independently draw every type and repeat it", () => {
+  for (const [kindRoll, pool] of [[.375, STARTER_CARD_POOL], [.625, BASIC_CARD_POOL]]) {
+    const draws = Array.from({ length: 20 }, (_, index) => index % pool.length);
+    const rolls = [0, 0, 0, 0, ...draws.flatMap(index => [kindRoll, (index + .5) / pool.length])];
+    const deck = createRegionDeck(1, 200, 0, () => {
+      assert.ok(rolls.length > 0, "each slot uses one independent kind and card draw");
+      return rolls.shift();
+    });
+    assert.deepEqual(deck.cards.map(card => card.name), draws.map(index => pool[index].name));
+    assert.equal(rolls.length, 0);
+    assert.equal(new Set(deck.cards.map(card => card.name)).size, pool.length);
   }
 });
 

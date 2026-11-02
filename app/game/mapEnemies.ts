@@ -9,6 +9,7 @@ export type MapEnemy = {
   awareness: MapEnemyAwareness;
   damageTaken?: number;
   isBoss?: boolean;
+  permanentSleep?: boolean;
 };
 
 export type MapEnemyWorld = {
@@ -33,7 +34,7 @@ export const MAP_PLAYER_VISION_HORIZONTAL_RADIUS = 3;
 export const MAP_PLAYER_VISION_VERTICAL_RADIUS = 3;
 export const MAP_ENEMY_SAFE_RADIUS = 2;
 export const MAP_ENEMY_SPAWN_CHANCE = 0.04;
-const MAP_ENEMY_DETECTION_CHANCES: readonly number[] = [0, 0.5, 0.125];
+const MAP_ENEMY_DETECTION_CHANCES: readonly number[] = [0, 0.5, 0.1];
 
 export const EIGHT_DIRECTIONS: GridPosition[] = [
   { x: -1, y: -1 },
@@ -330,7 +331,10 @@ export function advanceMapEnemies(
   movementBounds: GridBounds = defaultMovementBounds(enemies, playerPosition),
   detectionDistanceReduction = 0,
 ) {
-  if (!enemies.some((enemy) => !enemy.isBoss && !frozenEnemyIds.has(enemy.id)
+  if (enemies.some(enemy => enemy.permanentSleep && enemy.awareness !== "sleeping")) {
+    enemies = enemies.map(enemy => enemy.permanentSleep ? { ...enemy, awareness: "sleeping" } : enemy);
+  }
+  if (!enemies.some((enemy) => !enemy.isBoss && !enemy.permanentSleep && !frozenEnemyIds.has(enemy.id)
     && chebyshevDistance(enemy.position, activeCenter) <= MAP_ENEMY_ACTIVE_RADIUS)) {
     return {
       enemies,
@@ -354,6 +358,7 @@ export function advanceMapEnemies(
   for (const enemy of nextEnemies) {
     if (
       enemy.isBoss
+      || enemy.permanentSleep
       || frozenEnemyIds.has(enemy.id)
       || chebyshevDistance(enemy.position, activeCenter) > MAP_ENEMY_ACTIVE_RADIUS
     ) continue;

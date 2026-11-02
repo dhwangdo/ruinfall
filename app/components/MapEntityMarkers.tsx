@@ -1,6 +1,6 @@
 import type { CSSProperties } from "react";
 import { getSewerEncounterLabel } from "../game/enemies";
-import { DUNGEON_MIN_X, isHigherRegionMapEnemy, type MapPosition } from "../game/mapRules";
+import { isHigherRegionMapEnemy, type MapPosition } from "../game/mapRules";
 import {
   awarenessSymbol,
   type MapEnemy,
@@ -24,13 +24,13 @@ type MapEntityMarkersProps = {
   battleFlash: boolean;
   playerPosition: MapPosition;
   waitNoticeNonce: number;
+  showPlayer?: boolean;
   layout: {
-    padding: number;
+    originX: number;
+    originY: number;
     roomWidth: number;
     roomHeight: number;
     cellGap: number;
-    worldMarginX: number;
-    worldMarginY: number;
   };
 };
 
@@ -43,14 +43,13 @@ export function MapEntityMarkers({
   battleFlash,
   playerPosition,
   waitNoticeNonce,
+  showPlayer = true,
   layout,
 }: MapEntityMarkersProps) {
   const markerStyle = (position: MapPosition): CSSProperties => ({
-    left: layout.padding
-      + (position.x - DUNGEON_MIN_X + layout.worldMarginX) * (layout.roomWidth + layout.cellGap)
+    left: (position.x - layout.originX) * (layout.roomWidth + layout.cellGap)
       + layout.roomWidth / 2,
-    top: layout.padding
-      + (position.y + layout.worldMarginY) * (layout.roomHeight + layout.cellGap)
+    top: (position.y - layout.originY) * (layout.roomHeight + layout.cellGap)
       + layout.roomHeight / 2,
   });
   const playerMarkerStyle = markerStyle(playerPosition);
@@ -110,15 +109,15 @@ export function MapEntityMarkers({
           </span>
         );
       })}
-      {battleFlash && (
+      {showPlayer && battleFlash && (
         <span className="map-battle-flash" style={playerMarkerStyle} aria-live="assertive">전투!</span>
       )}
-      <span
+      {showPlayer && <span
         className="map-player map-player-marker"
         style={playerMarkerStyle}
         aria-hidden="true"
-      >@</span>
-      {waitNoticeNonce > 0 && (
+      >@</span>}
+      {showPlayer && waitNoticeNonce > 0 && (
         <span
           key={waitNoticeNonce}
           className="map-wait-notice"

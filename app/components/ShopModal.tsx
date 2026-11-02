@@ -97,7 +97,7 @@ export function ShopModal({
                   onBlur={() => setHoveredConsumable(null)}
                 />
               ) : null}
-              <span className="shop-price">{offer.sold ? "판매 완료" : `${offer.currency === "hp" ? "♥" : "🪙"} ${offer.price}`}</span>
+              <span className={`shop-price ${offer.currency === "hp" ? "is-hp" : ""}`}>{offer.sold ? "판매 완료" : `${offer.currency === "hp" ? "♥" : "🪙"} ${offer.price}`}</span>
             </button>
           ))}
         </div>

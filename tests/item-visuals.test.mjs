@@ -15,10 +15,10 @@ test("screens render cards and consumables through their shared visual component
     const source = ts.createSourceFile(file, fs.readFileSync(new URL(file, root), "utf8"), ts.ScriptTarget.Latest, true, ts.ScriptKind.TSX);
     for (const statement of source.statements) {
       if (!ts.isImportDeclaration(statement)) continue;
-      const module = statement.moduleSpecifier.text.split("/").at(-1);
-      if (owners.has(module)) assert.ok(owners.get(module).split("|").includes(file),
-        `${file} must use CardVisual or ConsumableVisual instead of importing ${module}`);
-      assert.notEqual(module, "DeckEditorCardIcon", "The old screen-specific renderer must not return");
+      const importName = statement.moduleSpecifier.text.split("/").at(-1);
+      if (owners.has(importName)) assert.ok(owners.get(importName).split("|").includes(file),
+        `${file} must use CardVisual or ConsumableVisual instead of importing ${importName}`);
+      assert.notEqual(importName, "DeckEditorCardIcon", "The old screen-specific renderer must not return");
     }
   }
 });

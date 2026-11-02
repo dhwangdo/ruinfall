@@ -1,6 +1,6 @@
 import assert from "node:assert/strict";
 import test from "node:test";
-import { mapViewportBounds } from "../app/game/mapViewport.ts";
+import { mapRenderSurface, mapViewportBounds } from "../app/game/mapViewport.ts";
 
 const layout = { minX: 0, maxX: 100, maxY: 100, marginX: 0, marginY: 0, padding: 0, strideX: 100, strideY: 100 };
 
@@ -27,4 +27,21 @@ test("upper rock border remains visible at negative world coordinates", () => {
   const bounds = mapViewportBounds({ x: 0, y: -300 }, 1, { width: 300, height: 300 },
     { ...layout, minY: -5, marginY: 5 });
   assert.ok(bounds.minY <= -1 && bounds.maxY >= 0);
+});
+
+test("render surfaces stay local after distant travel and include every visible cell", () => {
+  for (const offset of [-160, 0, 160, 10000]) {
+    const bounds = { minX: offset, maxX: offset + 18, minY: offset - 3, maxY: offset + 9 };
+    const surface = mapRenderSurface(bounds);
+    assert.ok(surface.minX <= bounds.minX && surface.maxX >= bounds.maxX);
+    assert.ok(surface.minY <= bounds.minY && surface.maxY >= bounds.maxY);
+    assert.ok(surface.maxX - surface.minX < 50);
+    assert.ok(surface.maxY - surface.minY < 50);
+  }
+});
+
+test("an off-map camera still has a finite non-negative render surface", () => {
+  const surface = mapRenderSurface({ minX: 100, maxX: -200, minY: 100, maxY: -200 });
+  assert.ok(surface.maxX >= surface.minX && surface.maxY >= surface.minY);
+  assert.ok(surface.maxX - surface.minX < 50 && surface.maxY - surface.minY < 50);
 });

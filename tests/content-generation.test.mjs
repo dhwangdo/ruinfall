@@ -5,30 +5,32 @@ import { getEncounterIndicesForRegion, getEnemyCodexEntries, pickEncounterIndex,
   createSewerEncounterByIndex, getSewerEncounterLabel, normalizeEncounterIndex } from "../app/game/enemies.ts";
 import { prepareRunRestore } from "../app/game/runSaveState.ts";
 
-test("uniform 50–90 percent targets keep a 70 percent mean with no empty rare deck", () => {
-  for (let slots = 2; slots <= 12; slots++) {
+test("independent rare slots have binomial mean, variance, and zero-card probability", () => {
+  for (let slots = 0; slots <= 24; slots++) {
     const distribution = rareSlotFillDistribution(slots);
     const sum = distribution.reduce((a, b) => a + b, 0);
     const mean = distribution.reduce((a, p, count) => a + p * count, 0);
     const variance = distribution.reduce((a, p, count) => a + p * (count - mean) ** 2, 0);
     assert.ok(Math.abs(sum - 1) < 1e-12);
-    assert.ok(Math.abs(mean - slots * .7) < 1e-12);
-    assert.equal(distribution[0], 0);
-    assert.ok(variance < slots * .7 * .3);
+    assert.ok(Math.abs(mean - slots * .8) < 1e-12);
+    assert.ok(Math.abs(distribution[0] - .2 ** slots) < 1e-12);
+    assert.ok(Math.abs(variance - slots * .8 * .2) < 1e-12);
   }
   assert.deepEqual(rareSlotFillDistribution(0), [1]);
-  assert.deepEqual(rareSlotFillDistribution(1), [0, 1]);
 });
 
-test("actual two-roll sampling matches the analytic four-slot probabilities", () => {
+test("four independent slot rolls match the exact binomial probabilities", () => {
   const counts = Array(5).fill(0);
-  for (let ratio = 0; ratio < 200; ratio++) for (let round = 0; round < 200; round++) {
-    const rolls = [(ratio + .5) / 200, (round + .5) / 200];
-    counts[rollFilledRareSlots(4, () => rolls.shift())]++;
+  for (let a = 0; a < 10; a++) for (let b = 0; b < 10; b++) {
+    for (let c = 0; c < 10; c++) for (let d = 0; d < 10; d++) {
+      const rolls = [a, b, c, d].map(value => (value + .5) / 10);
+      counts[rollFilledRareSlots(4, () => rolls.shift())]++;
+    }
   }
-  assert.deepEqual(counts, [0, 0, 12500, 23000, 4500]);
-  assert.equal(rollFilledRareSlots(3, () => .999), 2);
-  assert.equal(rollFilledRareSlots(0), 0);
+  assert.deepEqual(counts, [16, 256, 1536, 4096, 4096]);
+  rareSlotFillDistribution(4).forEach((p, count) => assert.ok(Math.abs(p - counts[count] / 10000) < 1e-12));
+  assert.equal(rollFilledRareSlots(3, () => .999), 0);
+  assert.equal(rollFilledRareSlots(0, () => { throw new Error("no slot should be rolled"); }), 0);
 });
 
 test("region-two sampling is half mixed pairs and gives all fifteen combinations equal weight", () => {

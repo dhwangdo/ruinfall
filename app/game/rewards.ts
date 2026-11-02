@@ -1,4 +1,7 @@
 import { rollFilledRareSlots } from "./rareSlotRules.ts";
+import { rollRegionDeckShape, rollRegionFillerKind, type RegionDeckShape } from "./regionDeckRules.ts";
+export { rollRegionDeckShape } from "./regionDeckRules.ts";
+export type { RegionDeckShape } from "./regionDeckRules.ts";
 import {
   BASIC_CARD_POOL,
   DEBUG_ALL_CARD_BLUEPRINTS,
@@ -49,6 +52,8 @@ export type DeckCase = {
   cards: Card[];
   editions: DeckEdition[];
   editionColors: Partial<Record<DeckEdition, string>>;
+  /** Original generation rolls; kept when cards, capacity, or editions are edited. */
+  generation?: Pick<RegionDeckShape, "x" | "y" | "z"> & { k: number; s: RegionDeckShape["sum"] };
 };
 
 export type ConsumableType =
@@ -292,76 +297,9 @@ export function calculateDeckScore(deck: Pick<DeckCase, "capacity" | "cards" | "
   };
 }
 
-const REGION_DECK_STARTING_CAPACITY = 20;
-
 function randomItem<T>(pool: T[], random: () => number) {
   const index = Math.min(pool.length - 1, Math.floor(Math.max(0, Math.min(0.999999999, random())) * pool.length));
   return pool[index];
-}
-
-export type RegionDeckShape = {
-  x: number;
-  y: number;
-  z: number;
-  sum: 0 | 1 | 2;
-  capacity: number;
-  rareSlotCapacity: number;
-  editionBudget: number;
-};
-
-const regionShapeCandidates = new Map<string, {
-  candidates: { shape: RegionDeckShape; weight: number }[];
-  totalWeight: number;
-}>();
-
-function getRegionShapeCandidates(region: number, sum: 0 | 1 | 2) {
-  const key = `${region}:${sum}`;
-  const cached = regionShapeCandidates.get(key);
-  if (cached) return cached;
-  const candidates: { shape: RegionDeckShape; weight: number }[] = [];
-  let totalWeight = 0;
-  for (let x = -region; x <= sum + region * 2; x += 1) {
-    for (let y = 1 - region; y <= sum + region * 2; y += 1) {
-      const z = sum - x - y;
-      if (z < -region) continue;
-      const capacity = REGION_DECK_STARTING_CAPACITY + (region + x) * 5;
-      const rareSlotCapacity = region + 1 + y;
-      if (rareSlotCapacity > capacity) continue;
-      const weight = 2 ** -(x * x + y * y + z * z);
-      totalWeight += weight;
-      candidates.push({ shape: {
-        x, y, z, sum, capacity, rareSlotCapacity, editionBudget: (region + z) * 10,
-      }, weight });
-    }
-  }
-  const result = { candidates, totalWeight };
-  if (regionShapeCandidates.size >= 24) regionShapeCandidates.delete(regionShapeCandidates.keys().next().value!);
-  regionShapeCandidates.set(key, result);
-  return result;
-}
-
-export function rollRegionDeckShape(regionNumber: number, random: () => number = Math.random): RegionDeckShape {
-  const region = Math.max(0, Math.floor(regionNumber));
-  const sumRoll = Math.max(0, Math.min(0.999999999, random()));
-  const sum: 0 | 1 | 2 = sumRoll < 0.8 ? 0 : sumRoll < 0.9 ? 1 : 2;
-  const { candidates, totalWeight } = getRegionShapeCandidates(region, sum);
-  let cursor = Math.max(0, Math.min(0.999999999, random())) * totalWeight;
-  for (const candidate of candidates) {
-    cursor -= candidate.weight;
-    if (cursor < 0) return { ...candidate.shape };
-  }
-  return { ...candidates.at(-1)!.shape };
-}
-
-type RegionFillerKind = "empty" | "starter" | "basic" | "special";
-
-function createRegionFillerBag(size: number): RegionFillerKind[] {
-  return [
-    ...Array.from({ length: size / 4 }, () => "empty" as const),
-    ...Array.from({ length: size / 8 }, () => "starter" as const),
-    ...Array.from({ length: size * 3 / 8 }, () => "basic" as const),
-    ...Array.from({ length: size / 4 }, () => "special" as const),
-  ];
 }
 
 function takeRandomBagItem<T>(bag: T[], random: () => number) {
@@ -379,37 +317,6 @@ function chooseWeightedEdition(editions: DeckEdition[], random: () => number) {
   return editions.at(-1)!;
 }
 
-function sampleReducedCardBlueprints(pool: CardBlueprint[], count: number, random: () => number) {
-  if (count <= 0 || pool.length === 0) return [] as CardBlueprint[];
-  if (pool.length === 1) return Array.from({ length: count }, () => pool[0]);
-
-  const candidateCount = pool.length;
-  const uniformExpectedUnique = candidateCount * (1 - (1 - 1 / candidateCount) ** count);
-  const targetUnique = uniformExpectedUnique * (2 / 3);
-  let reducedCandidateCount = 1;
-  let closestDistance = Number.POSITIVE_INFINITY;
-  for (let candidateSize = 1; candidateSize <= candidateCount; candidateSize += 1) {
-    const expectedUnique = candidateSize * (1 - (1 - 1 / candidateSize) ** count);
-    const distance = Math.abs(expectedUnique - targetUnique);
-    if (distance < closestDistance) {
-      closestDistance = distance;
-      reducedCandidateCount = candidateSize;
-    }
-  }
-
-  const shuffledPool = [...pool];
-  for (let index = 0; index < reducedCandidateCount; index += 1) {
-    const swapIndex = index + Math.floor(
-      Math.max(0, Math.min(0.999999999, random())) * (candidateCount - index),
-    );
-    [shuffledPool[index], shuffledPool[swapIndex]] = [shuffledPool[swapIndex], shuffledPool[index]];
-  }
-  const reducedPool = shuffledPool.slice(0, reducedCandidateCount);
-  return Array.from({ length: count }, () => reducedPool[
-    Math.floor(Math.max(0, Math.min(0.999999999, random())) * reducedPool.length)
-  ]);
-}
-
 function addRegionDeckCard(cards: Card[], blueprint: CardBlueprint, nextCardId: number) {
   cards.push({ ...blueprint, id: nextCardId, revealed: false });
   return nextCardId + 1;
@@ -420,7 +327,8 @@ function generateRegionDeck(
   startCardId: number,
   random: () => number,
 ): { deck: DeckCase; nextCardId: number } {
-  const { capacity, rareSlotCapacity, editionBudget } = rollRegionDeckShape(regionNumber, random);
+  const shape = rollRegionDeckShape(regionNumber, random);
+  const { capacity, rareSlotCapacity, editionBudget } = shape;
   const rareCount = rollFilledRareSlots(rareSlotCapacity, random);
   const cards: Card[] = [];
   let nextCardId = startCardId;
@@ -442,35 +350,11 @@ function generateRegionDeck(
   }
 
   const remainingSlots = capacity - rareSlotCapacity;
-  const bagSize = Math.max(Math.floor((remainingSlots * 2) / 8) * 8, 8);
-  let fillerBag = createRegionFillerBag(bagSize);
-  const fillerKinds: RegionFillerKind[] = [];
-  for (let slot = 0; slot < remainingSlots; slot += 1) {
-    if (fillerBag.length === 0) fillerBag = createRegionFillerBag(bagSize);
-    fillerKinds.push(takeRandomBagItem(fillerBag, random));
-  }
-  const starterCards = sampleReducedCardBlueprints(
-    STARTER_CARD_POOL,
-    fillerKinds.filter((kind) => kind === "starter").length,
-    random,
-  );
-  const basicCards = sampleReducedCardBlueprints(
-    BASIC_CARD_POOL,
-    fillerKinds.filter((kind) => kind === "basic").length,
-    random,
-  );
-  let starterIndex = 0;
-  let basicIndex = 0;
-  for (const fillerKind of fillerKinds) {
-    if (fillerKind === "starter") {
-      nextCardId = addRegionDeckCard(cards, starterCards[starterIndex], nextCardId);
-      starterIndex += 1;
-    } else if (fillerKind === "basic") {
-      nextCardId = addRegionDeckCard(cards, basicCards[basicIndex], nextCardId);
-      basicIndex += 1;
-    } else if (fillerKind === "special") {
-      nextCardId = addRegionDeckCard(cards, randomItem(SPECIAL_CARD_POOL, random), nextCardId);
-    }
+  for (let slot = 0; slot < remainingSlots; slot++) {
+    const kind = rollRegionFillerKind(random);
+    if (kind === "empty") continue;
+    const pool = kind === "starter" ? STARTER_CARD_POOL : kind === "basic" ? BASIC_CARD_POOL : SPECIAL_CARD_POOL;
+    nextCardId = addRegionDeckCard(cards, randomItem(pool, random), nextCardId);
   }
 
   return {
@@ -483,6 +367,7 @@ function generateRegionDeck(
       cards,
       editions,
       editionColors: createEditionColors(editions),
+      generation: { k: Math.max(1, Math.floor(regionNumber)), s: shape.sum, x: shape.x, y: shape.y, z: shape.z },
     },
   };
 }

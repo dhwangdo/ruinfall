@@ -1,4 +1,18 @@
 .map-shell { position: relative; width: min(1440px, 100%); }
+.save-loading-dialog {
+  display: grid;
+  gap: 14px;
+  width: min(360px, calc(100vw - 40px));
+  padding: 26px;
+  border: 1px solid #777b70;
+  border-radius: 5px;
+  color: #e1dfd8;
+  background: #171a18;
+  font-family: Pretendard, "Malgun Gothic", sans-serif;
+}
+.save-loading-dialog strong { font-size: 20px; }
+.save-loading-dialog span { font-size: 13px; line-height: 1.5; }
+.save-loading-dialog progress { width: 100%; height: 10px; accent-color: #d5ba65; }
 .map-topbar { position: relative; min-height: 54px; padding-bottom: 14px; }
 .map-top-actions { display: flex; align-items: center; width: 80%; margin-inline: auto; gap: 10px; }
 
@@ -26,9 +40,10 @@
 .map-run-stats .map-health { display: block; width: var(--map-health-width, 165px); min-width: 0; height: 28px; padding: 0; border: 2px solid #512522; border-radius: 3px; background: #2c2825; text-align: initial; }
 .map-run-stats .map-health i { display: block; height: 100%; background: #b34a42; transition: width .2s ease; }
 .map-run-stats .map-health span { position: absolute; inset: 0; display: grid; place-items: center; color: white; font: 800 16px Arial, sans-serif; letter-spacing: 0; text-shadow: 0 1px 2px #000, 0 0 3px #000; }
-.map-run-stats .map-gold { display: block; min-width: 0; padding: 0; border: 0; border-radius: 0; color: #f7f7f7; background: transparent; text-align: left; }
-.map-run-stats .map-gold strong { margin: 0; color: #f7f7f7; font-size: 18px; }
-.map-run-stats .map-gold-debug-trigger { font: inherit; cursor: pointer; }
+.map-run-stats .map-gold { display: block; min-width: 0; padding: 0; border: 0; border-radius: 0; color: #f2cf69; background: transparent; text-align: left; }
+.map-run-stats .map-gold-debug-trigger { cursor: pointer; }
+.map-run-stats .map-currency-count { font: 700 18px/1.3 Pretendard, "Malgun Gothic", sans-serif; letter-spacing: 0; font-variant-numeric: tabular-nums; white-space: nowrap; }
+.map-run-stats .map-key-count { color: #8fd4f3; }
 
 /* Keep the map controls compact without making their labels hard to read. */
 .map-top-actions { gap: 8px; }
@@ -766,7 +781,6 @@
   background: transparent;
   box-shadow: none;
 }
-.rock-label { color: #e6efff; font-weight: 800; text-shadow: 0 1px 2px #111; }
 .map-room.is-cleared { border-color: #5b5f5e; color: white; background: #909493; }
 .map-room.is-adjacent,
 .map-room.is-reachable { cursor: pointer; }

@@ -176,7 +176,7 @@ export function createLocationActions({
     setMapEnemyWorld((current) => ({
       ...current,
       enemies: current.enemies.map((enemy) => {
-        if (enemy.isBoss || chebyshevDistance(enemy.position, center) > 5) return enemy;
+        if (enemy.isBoss || enemy.permanentSleep || chebyshevDistance(enemy.position, center) > 5) return enemy;
         return {
           ...enemy,
           awareness: enemy.awareness === "sleeping" ? "awake" : "alerted",

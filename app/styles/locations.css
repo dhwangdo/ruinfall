@@ -13,6 +13,8 @@
 .shop-panel header div > span { color: #716b60; font: 11px Arial, sans-serif; }
 .shop-header-status { display: flex; align-items: center; gap: 11px; font-family: Arial, sans-serif; }
 .shop-header-status > strong { color: #876217; font-size: 20px; }
+.shop-panel.is-blood-shop .shop-header-status > strong,
+.shop-price.is-hp { color: #c72e36; }
 .shop-header-status > span.is-full { color: #a43530; font-weight: 800; }
 .shop-header-status button {
   padding: 8px 14px;

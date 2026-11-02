@@ -10,6 +10,17 @@ type ViewportLayout = {
   strideY: number;
 };
 
+/** A nearby, chunk-aligned grid instead of a full-world GPU/layout surface. */
+export function mapRenderSurface(bounds: { minX: number; maxX: number; minY: number; maxY: number }) {
+  const chunk = 8;
+  return {
+    minX: Math.floor(bounds.minX / chunk) * chunk - chunk,
+    maxX: Math.ceil((Math.max(bounds.minX, bounds.maxX) + 1) / chunk) * chunk + chunk - 1,
+    minY: Math.floor(bounds.minY / chunk) * chunk - chunk,
+    maxY: Math.ceil((Math.max(bounds.minY, bounds.maxY) + 1) / chunk) * chunk + chunk - 1,
+  };
+}
+
 /** Keep a small border of cells mounted while the camera crosses a cell edge. */
 export function mapViewportBounds(
   pan: { x: number; y: number },

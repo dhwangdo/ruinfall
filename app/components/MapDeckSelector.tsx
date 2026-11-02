@@ -63,7 +63,7 @@ export function MapDeckSelector({
                   style={itemStyle}
                   onClick={() => onSelectDeck(deck)}
                 >
-                  <strong><DeckName deck={deck} showEditions={false} /></strong>
+                  <strong><DeckName deck={deck} showEditions={false} showGenerationDebug={false} /></strong>
                   <small>{deck.cards.length} / {deck.capacity}</small>
                 </button>
               );
@@ -85,7 +85,9 @@ export function MapDeckSelector({
           aria-label={`전투 덱 선택. 현재 ${activeDeck?.name ?? "없음"}`}
         >
           <span className="deck-stack-icon" aria-hidden="true" />
-          <strong>{activeDeck?.name ? `덱 「${activeDeck.name}」` : "덱 준비 중"}</strong>
+          <strong>{activeDeck?.name
+            ? <DeckName deck={activeDeck} showEditions={false} showGenerationDebug={false} />
+            : "덱 준비 중"}</strong>
           <small>({activeDeck?.cards.length ?? 0}/{activeDeck?.capacity ?? 0})</small>
         </button>
       </div>

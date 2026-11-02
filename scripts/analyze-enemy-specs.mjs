@@ -6,6 +6,7 @@ import { waitingState } from "../app/game/battleState.ts";
 import { resolveEnemyTurn } from "../app/game/enemyTurnResolution.ts";
 import { STARTER_CARD_POOL } from "../app/game/cards.ts";
 import { rareSlotFillDistribution } from "../app/game/rareSlotRules.ts";
+import { regionDeckShapeDistribution } from "../app/game/regionDeckRules.ts";
 
 const turns = 6;
 const number = n => n.toFixed(2);
@@ -103,22 +104,11 @@ const rows = entries.map(entry => {
 
 function deckShapeExpectation(region) {
   const result = { capacity: 0, rareSlots: 0, rares: 0, editionBudget: 0, cards: 0, rareProbabilities: {} };
-  for (const [sum, probability] of [[0, .8], [1, .1], [2, .1]]) {
-    const candidates = [];
-    for (let x = -region; x <= sum + region * 2; x++) for (let y = 1 - region; y <= sum + region * 2; y++) {
-      const z = sum - x - y;
-      if (z < -region) continue;
-      const capacity = 20 + (region + x) * 5, rareSlots = region + 1 + y, rares = rareSlots * .7;
-      if (rareSlots > capacity) continue;
-      candidates.push({ capacity, rareSlots, rares, editionBudget: (region + z) * 10, weight: 2 ** -(x*x + y*y + z*z) });
-    }
-    const total = candidates.reduce((sum, item) => sum + item.weight, 0);
-    for (const item of candidates) {
-      const p = probability * item.weight / total;
-      for (const key of ["capacity", "rareSlots", "rares", "editionBudget"]) result[key] += p * item[key];
-      result.cards += p * (item.rares + (item.capacity - item.rareSlots) * 5 / 8);
-      rareSlotFillDistribution(item.rareSlots).forEach((chance, count) => { result.rareProbabilities[count] = (result.rareProbabilities[count] ?? 0) + p * chance; });
-    }
+  for (const { shape, probability: p } of regionDeckShapeDistribution(region)) {
+    const item = { ...shape, rareSlots: shape.rareSlotCapacity, rares: shape.rareSlotCapacity * .8 };
+    for (const key of ["capacity", "rareSlots", "rares", "editionBudget"]) result[key] += p * item[key];
+    result.cards += p * (item.rares + (item.capacity - item.rareSlots) * .75);
+    rareSlotFillDistribution(item.rareSlots).forEach((chance, count) => { result.rareProbabilities[count] = (result.rareProbabilities[count] ?? 0) + p * chance; });
   }
   return result;
 }
@@ -154,7 +144,7 @@ lines.push("## 지역 평균", "", "| 지역 | 일반 조우 수 | HP 상한 합
 for (const row of regionMeans) lines.push(`| ${row.region} | ${row.encounters} | ${number(row.hp)} | ${number(row.pressureMean)} | ${rateText(row.rates)} |`);
 lines.push("", "두 지역 모두 혼합전 합계 50%·나머지 조우 합계 50%로 가중했다. 1지역은 혼합 20레시피·나머지 6조우, 2지역은 혼합 30레시피·단독 7종이다. 혼합은 두 적의 의도와 플레이어 취약을 함께 열거한다.", "",
   "## 현재 희귀 슬롯 생성", "",
-  "슬롯 C=n+1+y를 정하고 비율을 50~90%에서 균등 추첨한다. 목표 k+p를 k장 1-p, k+1장 p 확률로 반올림한다. 생성 슬롯 최소 2개에서 희귀 0장은 없고 평균은 70%다. 일반 카드 주머니는 전체 용량에서 희귀 슬롯 C를 뺀 칸에만 적용한다.", "",
+  "지역 k에 대해 s=3d3−6과 거리 가중치 1.75^(−√(x²+y²+z²)/√(1+0.2(k−1)))로 덱 구조를 추첨한다. 희귀 슬롯 C=k+y는 각각 독립적으로 80% 확률로 채우며 0장도 허용한다. 나머지 칸은 각각 빈칸·시작·일반·특별을 25%씩 뽑는다.", "",
   "| 지역 | 평균 용량 | 평균 희귀 슬롯 | 평균 희귀 카드 | 평균 에디션 예산 | 평균 총 장수 |",
   "|---|---:|---:|---:|---:|---:|");
 for (const row of deckShapes) lines.push(`| ${row.region} | ${number(row.capacity)} | ${number(row.rareSlots)} | ${number(row.rares)} | ${number(row.editionBudget)} | ${number(row.cards)} |`);

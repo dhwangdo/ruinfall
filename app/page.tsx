@@ -1,6 +1,7 @@
 "use client";
 
 import { CardVisual } from "./components/CardVisual";
+import { DebugModeContext } from "./components/debugModeContext";
 import { RarityText } from "./components/RarityText";
 
 import { blockedPileIndexes } from "./game/enemyPassives.ts";
@@ -71,6 +72,7 @@ import { ShopModal } from "./components/ShopModal";
 import { BlessingModal } from "./components/BlessingModal";
 import { CardPoolStatsPanel } from "./components/CardPoolStatsPanel";
 import { MapBoard } from "./components/MapBoard";
+import { MapPerformanceProbe } from "./components/MapPerformanceProbe";
 import { MapDeckSelector } from "./components/MapDeckSelector";
 import { MapRoomActions } from "./components/MapRoomActions";
 import { useMapCamera } from "./hooks/useMapCamera";
@@ -78,6 +80,7 @@ import { useMapKeyboardMovement } from "./hooks/useMapKeyboardMovement";
 import { useMapKeyboardShortcuts } from "./hooks/useMapKeyboardShortcuts";
 import { RESET_HOLD_DURATION_MS, useRunKeyboardControls } from "./hooks/useRunKeyboardControls";
 import { useRunMapContent } from "./hooks/useRunMapContent";
+import { useDebugMapContent } from "./hooks/useDebugMapContent";
 import { createTicketActions } from "./controllers/ticketActions";
 import { createDeckEditorMoves } from "./controllers/deckEditorMoves";
 import { useRunDeckEditor } from "./hooks/useRunDeckEditor";
@@ -291,20 +294,10 @@ export default function Home() {
     afterAnimations, trackAnimation,
   } = battle;
   const [mapTraveling, setMapTraveling] = useState(false);
-  const mapCamera = useMapCamera({ enabled: screen === "map", position: mapPosition, travelLocked: mapTraveling });
-  const {
-    isFocusing: mapCameraFocusing,
-    centerOn: centerMapOn,
-    focusOn: focusMapOn,
-    startTicketCameraTour: startMapTicketCameraTour,
-    changeZoom: changeMapZoom,
-    resetZoom: resetMapZoom,
-    stopFocus: stopMapCameraFocus,
-  } = mapCamera;
+  const [debugMode, setDebugMode] = useState(false);
   const [mapTravelStepMs, setMapTravelStepMs] = useState(MAP_TRAVEL_STEP_MS);
   const [mapCollisionEnemyIds, setMapCollisionEnemyIds] = useState<string[]>([]);
   const [mapBattleFlash, setMapBattleFlash] = useState(false);
-  const [debugMode, setDebugMode] = useState(false);
   const [cardPoolStatsOpen, setCardPoolStatsOpen] = useState(false);
   const [debugSpawnSelection, setDebugSpawnSelection] = useState("card:basic:0");
   const [debugDeckRegion, setDebugDeckRegion] = useState("1");
@@ -456,7 +449,8 @@ export default function Home() {
     world, inventory, player, visionHorizontalRadius, visionVerticalRadius,
   });
 
-  const { saveReady, saveRunNow, queueRunSave, cancelQueuedSave } = useRunPersistence({
+  const { saveReady, preparingMap, mapProgress, preparationError, prepareMap,
+    saveRunNow, queueRunSave, cancelQueuedSave } = useRunPersistence({
     world, inventory, player,
     allowed: !playerNameSetupOpen && screen === "map" && !mapTraveling && !deckEditorOpen,
     status: game.status,
@@ -477,6 +471,24 @@ export default function Home() {
       setScreen("map");
     },
   });
+
+  const debugPreparation = useDebugMapContent({
+    enabled: debugMode && saveReady && !preparingMap && screen === "map",
+    world,
+    materializeMapContent,
+  });
+  const mapLoading = !saveReady || preparingMap || debugPreparation.loading;
+  const mapCamera = useMapCamera({ enabled: screen === "map" && !mapLoading,
+    position: mapPosition, travelLocked: mapTraveling, debugMode });
+  const {
+    isFocusing: mapCameraFocusing,
+    centerOn: centerMapOn,
+    focusOn: focusMapOn,
+    startTicketCameraTour: startMapTicketCameraTour,
+    changeZoom: changeMapZoom,
+    resetZoom: resetMapZoom,
+    stopFocus: stopMapCameraFocus,
+  } = mapCamera;
 
   const ensureTelemetryRun = () => {
     if (hasActiveTelemetryRun(telemetry)) return;
@@ -596,6 +608,7 @@ export default function Home() {
     debugPreviousActiveDeckIdRef.current = null;
     debugGoldClicksRef.current = [];
     setDebugMode(false);
+    resetMapZoom();
     setMapMessage("디버그 모드를 종료했습니다.");
   };
   const handleGoldDebugClick = () => {
@@ -984,7 +997,7 @@ export default function Home() {
   };
 
   const moveOnMap = (deltaX: number, deltaY: number) => {
-    if (screen !== "map" || playerNameSetupOpen || mapTraveling) return;
+    if (screen !== "map" || playerNameSetupOpen || mapTraveling || mapLoading) return;
     if (Math.max(Math.abs(deltaX), Math.abs(deltaY)) !== 1) return;
     const nextPosition = {
       x: mapPosition.x + deltaX,
@@ -999,6 +1012,7 @@ export default function Home() {
     const collisionIds = new Set(result.collisionEnemies.map((enemy) => enemy.id));
     const collisionEnemies = bombWorld.enemies.filter((enemy) => collisionIds.has(enemy.id));
     setMapPosition(nextPosition);
+    centerMapOn(nextPosition);
     rememberPlayerVision(nextPosition, mapSeed, bombWorld.enemies, revealedWorld.enemies);
     consumeMindEyeMove();
     setMapEnemyWorld(bombWorld);
@@ -1018,7 +1032,7 @@ export default function Home() {
   } = useMapKeyboardMovement(moveOnMap);
 
   const spendMapTurn = () => {
-    if (screen !== "map" || playerNameSetupOpen || mapTraveling) return;
+    if (screen !== "map" || playerNameSetupOpen || mapTraveling || mapLoading) return;
     centerMapOn(mapPosition);
     setMapWaitNoticeNonce((current) => current + 1);
     const roomKey = mapRoomKey(mapPosition);
@@ -1041,15 +1055,15 @@ export default function Home() {
   };
 
   const travelSafePath = (path: MapPosition[]) => {
-    if (screen !== "map" || playerNameSetupOpen || mapTraveling || path.length < 2) return;
+    if (screen !== "map" || playerNameSetupOpen || mapTraveling || mapLoading || path.length < 2) return;
     if (debugMode) {
       const destination = path.at(-1)!;
       clearMapTravel();
       const revealedWorld = materializeVisibleMapContent(destination, mapSeed, mapEnemyWorld);
       setMapPosition(destination);
+      centerMapOn(destination);
       setMapEnemyWorld(revealedWorld);
       rememberPlayerVision(destination, mapSeed, revealedWorld.enemies, mapEnemyWorld.enemies);
-      focusMapOn(destination);
       activateRoomFeature(destination);
       return;
     }
@@ -1084,6 +1098,7 @@ export default function Home() {
       currentPosition = nextPosition;
       currentWorld = bombWorld;
       setMapPosition(nextPosition);
+      centerMapOn(nextPosition);
       rememberPlayerVision(nextPosition, mapSeed, bombWorld.enemies, previousWorld.enemies);
       consumeMindEyeMove();
       setMapEnemyWorld(bombWorld);
@@ -1125,7 +1140,7 @@ export default function Home() {
     advance();
   };
 
-  const startNewRun = () => {
+  const startNewRun = async () => {
     cancelQueuedSave();
     clearBattleTimers();
     clearMapTravel();
@@ -1133,6 +1148,9 @@ export default function Home() {
     mapBattleQueueRef.current = [];
     setDebugMode(false);
     const nextSeed = createRandomMapSeed();
+    setPlayerNameSetupOpen(true);
+    setScreen("map");
+    if (!await prepareMap(nextSeed)) return;
     const starterDeck = createStarterDeck();
     resetDeckVaults();
     nextCardIdRef.current = starterDeck.cards.length;
@@ -1229,7 +1247,7 @@ export default function Home() {
   };
 
   const restartHold = useRunKeyboardControls({
-    playerNameSetupOpen,
+    playerNameSetupOpen: playerNameSetupOpen || mapLoading,
     saveRunNow,
     showMapMessage,
     clearRunSave,
@@ -1493,10 +1511,10 @@ export default function Home() {
 
   const centerCurrentMap = useEffectEvent(() => centerMapOn(mapPosition));
   useLayoutEffect(() => {
-    if (screen !== "map") return;
+    if (screen !== "map" || mapLoading) return;
     const frame = window.requestAnimationFrame(() => centerCurrentMap());
     return () => window.cancelAnimationFrame(frame);
-  }, [screen, mapPosition]);
+  }, [screen, mapPosition, mapLoading]);
 
   useBattleCardFlights(battle);
 
@@ -1948,6 +1966,7 @@ export default function Home() {
     const quickPickUpFirstName = floorItemNames[0] ?? "물건";
     const activeShopOffers = activeShopRoom ? roomShops[activeShopRoom] ?? [] : [];
     return (
+      <DebugModeContext value={debugMode}>
       <main
         className={`game-shell map-shell card-style-simple watermark-${cardWatermarkStyle} ${constellationPreviewIndex === null ? "" : "is-previewing-constellation"}`}
         style={cardWatermarkVariables}
@@ -1981,12 +2000,18 @@ export default function Home() {
             <span><RarityText>{hoveredBlessingTooltip.description}</RarityText></span>
           </aside>
         )}
-        {!saveReady && (
+        {mapLoading && (
           <div className="player-name-overlay save-loading-overlay" role="status" aria-live="polite">
-            <div className="save-loading-dialog">탐험을 불러오는 중...</div>
+            <div className="save-loading-dialog">
+              <strong>맵 생성 중…</strong>
+              <progress max={1} value={debugPreparation.loading ? debugPreparation.progress
+                : mapProgress.completed / mapProgress.total} aria-label="맵 생성 진행률" />
+              <span>{preparationError ?? debugPreparation.error
+                ?? (debugPreparation.loading ? "주변 콘텐츠를 준비하고 있습니다." : "지형과 장소를 준비하고 있습니다.")}</span>
+            </div>
           </div>
         )}
-        {saveReady && playerNameSetupOpen && (
+        {!mapLoading && playerNameSetupOpen && (
           <div className="player-name-overlay" role="dialog" aria-modal="true" aria-labelledby="player-name-title">
             <form
               className="player-name-dialog"
@@ -2114,7 +2139,7 @@ export default function Home() {
           </aside>
         )}
 
-        <MapBoard
+        {!mapLoading && <MapPerformanceProbe><MapBoard
           world={{
             position: mapPosition,
             seed: mapSeed,
@@ -2215,7 +2240,7 @@ export default function Home() {
             />
             <span>잠깐!</span>
           </label>
-        </MapBoard>
+        </MapBoard></MapPerformanceProbe>}
 
         {portalKeyWarningRoom !== null && <PortalKeyWarning
           onCancel={() => setPortalKeyWarningRoom(null)} onConfirm={confirmPortalTravel} />}
@@ -2370,6 +2395,7 @@ export default function Home() {
         )}
 
       </main>
+      </DebugModeContext>
     );
   }
 
@@ -2419,6 +2445,7 @@ export default function Home() {
   );
 
   return (
+    <DebugModeContext value={debugMode}>
     <main
       className={`game-shell card-style-simple watermark-${cardWatermarkStyle} ${constellationPreviewIndex === null ? "" : "is-previewing-constellation"}`}
       style={cardWatermarkVariables}
@@ -2784,5 +2811,6 @@ export default function Home() {
       </section>
 
     </main>
+    </DebugModeContext>
   );
 }

@@ -1,6 +1,6 @@
 # Python 사용자를 위한 코드 가이드
 
-마지막 갱신: 2026-11-02
+마지막 갱신: 2026-11-03
 
 이 문서는 Python 문법에는 익숙하지만 TypeScript·React는 처음인 사람이 현재 DTTS 코드를 읽고 안전하게 수정할 수 있도록 쓴 안내서다.
 
@@ -132,7 +132,10 @@ setGame((current) => ({ ...current, energy: 2 }));
 | `app/controllers/deckVaultActions.ts` | 덱 보관소 미리보기·열쇠 3개 지불·중복 개방 방지·바닥 지급 |
 | `app/controllers/portalActions.ts` | 포탈 경고·이번 런 경고 생략·열쇠 소멸·기존 지역 이동 |
 | `app/components/DeckVaultModal.tsx`, `PortalKeyWarning.tsx` | 공통 카드 외형을 쓰는 덱 미리보기와 포탈 열쇠 경고 |
+| `app/components/MapDeckVaultPreview.tsx`, `DeckVaultCards.tsx` | 거리 제한 없는 지도 금고 호버 미리보기. 개방 창과 카드 목록을 공유하고 호버 상태를 지도 렌더링에서 분리 |
+| `app/styles/base.css`의 `--tooltip-copy-font`, `--tooltip-title-font` | 키워드·에디션·전투 상태 설명의 공통 Pretendard 12px 글꼴·행간. 패널 자손 선택자로 미리보기 내부를 덮지 않음 |
 | `app/components/DeckSlotPlaceholder.tsx` | 인벤토리·덱 미리보기의 빈 일반 슬롯·빈 희귀 슬롯·구분선. 외형은 `item-visuals.css` |
+| `app/components/debugModeContext.ts`, `DeckName.tsx` | 디버그 여부를 공유하여 상세 덱 이름 아래 생성 당시 s/x/y/z를 표시. 작은 이름은 호버 설명으로 제공하고 구버전 기록은 추정하지 않음 |
 | `app/game/deckVaultRules.ts` | 덱 보관소 열쇠 비용과 개방 가능 판정 |
 | `app/controllers/shopActions.ts` | 일반·피의 상점 재고·구매·카드팩 개봉. 피의 상점은 생성 후 골드/15 올림을 체력 가격으로 저장 |
 | `app/controllers/blessingActions.ts` | 축복 선택·리롤·획득 효과와 티켓 지급 |
@@ -141,7 +144,9 @@ setGame((current) => ({ ...current, energy: 2 }));
 | `app/hooks/useRunPlayer.ts` | 이름·체력·축복·이동 지속 효과 상태와 복원 |
 | `app/hooks/useRunInventory.ts` | 소지 덱·인벤토리·바닥·상점·골드·ID와 복원 |
 | `app/hooks/useRunMapContent.ts` | 새로 본 방의 적·바닥 물건 생성과 시야 기억 갱신 |
-| `app/hooks/useRunPersistence.ts` | 초기 지도 준비 → 저장 복원, 저장 허용 조건과 상태 묶음 연결 |
+| `app/hooks/useDebugMapContent.ts` | 디버그 지역 콘텐츠를 512칸씩 준비하고 로딩 상태 반환. 일반 발견 기억은 유지 |
+| `app/game/mapPreparation.ts`, `app/hooks/mapPreparationFrame.ts` | 시작 전 지형 캐시 준비, 진행률·취소·프레임 양보 |
+| `app/hooks/useRunPersistence.ts` | 저장 시드 선택 → 7개 지역 사전 준비와 진행률 → 복원 또는 초기화. 준비 중 저장 보류 |
 | `app/hooks/useRunDeckEditor.ts` | 편집 세션·카드 원래 위치·선택 티켓·제거 예정 상태 |
 | `app/controllers/deckEditorMoves.ts` | 이동 검증 후 덱·인벤토리·바닥 상태를 함께 반영 |
 | `app/controllers/ticketActions.ts` | 티켓 선택·소모·추출·복제·변환·지도·폭탄 처리 |
@@ -203,7 +208,8 @@ setGame((current) => ({ ...current, energy: 2 }));
 | `app/game/ticketRules.ts` | 인벤토리·바닥 티켓의 존재·종류 확인과 소모 판정 |
 | `app/game/shopRules.ts` | 티켓 종류·등급과 기준 가격 |
 | `app/game/rewards.ts` | 덱 케이스, 에디션, 티켓, 전투 보상 생성 |
-| `app/game/rareSlotRules.ts` | 희귀 슬롯 채움의 50~90% 비율 추첨·확률적 반올림과 정확한 분포 |
+| `app/game/rareSlotRules.ts` | 희귀 슬롯별 독립 80% 추첨과 정확한 이항분포. 0장 허용 |
+| `app/game/regionDeckRules.ts` | 지역 k·합 3d3−6·거리 가중치 1.75^(−r/√(1+0.2(k−1)))의 덱 구조 추첨, 일반 슬롯의 독립 4분류. 분석 도구와 조합 분포 공유 |
 | `app/game/cardTargetRules.ts` | 대상 없는 중앙 낙하를 막고 명시적 적 지정·전체 효과 입력과 대상 강조 판정을 공유 |
 | `tests/content-generation.test.mjs` | 희귀 채움 평균·0장 금지·분포, 혼합 50%·조합 균등·저장 변환 |
 | `tests/card-targeting.test.mjs` | 비늘 갑옷 대상 지정·취소 시 자원 보존·전체 효과 사용 |
@@ -227,7 +233,14 @@ setGame((current) => ({ ...current, energy: 2 }));
 | `app/game/pileActions.ts` | 파일 이동, 파일 선택 드로우와 연구 드로우 처리 |
 | `tests/starter-rework.test.mjs` | 시작 카드 개편의 파일 버리기→드로우 순서, 마지막 카드 처리, 버리기 비용과 구 저장 갱신 |
 | `app/game/mapRules.ts` | 지도 지역·노드·안전 지대·보스 위치·바닥 드롭 생성 |
-| `app/game/mapViewport.ts` | 확대 배율·뷰포트 크기로 화면에 그릴 지도 칸 범위 계산 |
+| `app/game/mapLocationPlacement.ts` | 지역별 장소 개수 범위·가로 구간 분산·근접 회피·아래쪽 포탈 배치 |
+| `app/game/mapRegionGenerator.ts` | 321×41 혼합 지형 생성. 지역별 캐시와 세계 좌표 변환은 mapRules가 담당 |
+| `app/game/mapCorridors.ts`, `app/game/mapGenerationMath.ts` | 통로 연결망·A* 굴착·거리장·시드 난수·공간 노이즈·연결 영역 탐색 |
+| `app/game/mapPrefabDefinitions.ts`, `app/game/mapPrefabs.ts` | 수제 지형 데이터와 검증·회전·반전·출입구·보호 영역·가중 배치 |
+| `tests/map-generation.test.mjs`, `tests/save-game.test.mjs` | 실제 지형 접근성·추가 장소·수제 지형 확장·개발 저장 버전 전환 |
+| `app/game/mapViewport.ts` | 표시 칸과 화면 주변 로컬 렌더 격자 계산. 먼 좌표로 이동해도 격자가 세계 크기로 커지지 않음 |
+| `app/components/MapRoomButton.tsx` | 좌표·표시값이 같은 타일 재사용. 상위 화면의 최신 동작은 안정된 콜백으로 연결 |
+| `app/components/MapPerformanceProbe.tsx` | 개발 URL의 profileMap 플래그로 렌더 시간·긴 작업 계측. 게임 규칙·UI에는 영향 없음 |
 | `app/game/mapEffects.ts` | 지도 폭탄의 이동 카운트와 피해 계산 |
 | `app/game/enemies.ts` | 1~3지역 일반 조우와 보스, 적 행동 선택, 피해·상태 보조 규칙 |
 | `app/game/regionOneEnemies.ts` | 1지역 고유 적·새끼 바퀴·혼합 후보 5종, 순서 있는 혼합 20레시피(66~85)와 구 ID 변환. 혼합 후보의 옛 조우와 죄수는 null로 보존 |
@@ -287,7 +300,7 @@ setGame((current) => ({ ...current, energy: 2 }));
 3. `app/game/mapRules.ts`, `app/game/rewards.ts`, `app/game/battleState.ts`, `app/game/saveGame.ts`에서 지도·보상·전투 시작·저장 규칙을 본다.
 4. `enemies.ts`의 `getEnemyCodexEntries`, `getEncounterIndicesForRegion`, `getBossEncounterIndex`로 조우·지역·보스 구성을 본다.
 5. `mapEnemies.ts`에서 적 인식과 이동 함수들을 본다.
-6. `rewards.ts`의 `createDeck`, `rollRegionDeckShape`, `createRegionDeck`, `createBattleReward`를 찾아 덱과 보상 생성을 본다.
+6. `regionDeckRules.ts`의 덱 구조·슬롯 추첨과 `rewards.ts`의 `createDeck`, `createRegionDeck`, `createBattleReward`를 찾아 덱과 보상 생성을 본다. `rollRegionDeckShape`는 기존 호출 호환을 위해 `rewards.ts`에서도 다시 내보낸다.
 7. `useRunWorld`, `useRunPlayer`, `useRunInventory`, `useRunDeckEditor`, `useBattleSession`, `useLocationDialogs`에서 상태의 소유자를 본다.
 8. `moveOnMap`에서 플레이어 이동→적 행동→충돌 순서를 본다.
 9. `playCard`, 카드 효과 처리, `moveCardToPile`, `endTurn`에서 전투 한 턴을 본다.
@@ -354,7 +367,7 @@ flowchart LR
 
 React의 `useState`는 현재 열린 페이지가 살아 있는 동안의 메모리다. 탐험 진행 일부는 별도의 저장 코드가 `localStorage`에서 복원한다. 저장 대상은 맵 화면 상태이며, 전투 중이거나 덱 편집 중인 상태는 저장하지 않는다. 패배하거나 새 탐험을 시작하면 진행 저장을 지운다.
 
-`saveGame.ts`는 버전 1 저장 봉투를 읽고 쓴다. 현재 진행 저장과 `telemetry.ts`의 전투 기록은 별도 항목이다. 진행 저장을 확장할 때는 다음을 검토한다.
+`saveGame.ts`는 버전 5 저장 봉투를 읽고 쓴다. 지역별 장소 개수 개편 전의 버전 1~4 탐험은 복원하지 않는다. 사용자는 개발 저장을 중요하게 보지 않으며 필요 시 초기화를 허용했다. 이후 저장 범위는 기존처럼 지도 화면이고, 새로고침 복원은 유지한다. 현재 진행 저장과 `telemetry.ts`의 전투 기록은 별도 항목이다. 진행 저장을 확장할 때는 다음을 검토한다.
 
 - 저장할 상태와 다시 계산할 상태의 구분
 - 카드·덱·적 ID의 안정성

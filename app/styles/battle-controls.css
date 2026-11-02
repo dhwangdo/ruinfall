@@ -93,9 +93,9 @@
   text-align: left;
   white-space: normal;
   overflow-wrap: anywhere;
-  font: 12px/1.5 "Malgun Gothic", sans-serif;
+  font: var(--tooltip-copy-font);
 }
-.battle-status-tooltip > strong { display: block; margin-bottom: 4px; color: #f4d19b; font-weight: 700; }
+.battle-status-tooltip > strong { display: block; margin-bottom: 4px; color: #f4d19b; font: var(--tooltip-title-font); }
 .battle-status-tooltip > div { white-space: pre-line; }
 .combat-buffs .deck-edition-tooltip {
   flex: none;

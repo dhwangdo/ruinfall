@@ -110,8 +110,7 @@ export function useRunMapContent({ world, inventory, player, visionHorizontalRad
   };
 
 
-  const initializeMap = () => {
-  const nextSeed = createRandomMapSeed();
+  const initializeMap = (nextSeed = createRandomMapSeed()) => {
   const initialVisibleKeys = visibleMapRoomKeys(MAP_START, nextSeed);
   const initialVisiblePositions = [...initialVisibleKeys].map(parseMapRoomKey);
   generatedMapRoomKeysRef.current = new Set();

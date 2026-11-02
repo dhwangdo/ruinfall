@@ -1,14 +1,13 @@
 "use client";
 
-import { useMemo, type CSSProperties, type ReactNode } from "react";
+import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, type CSSProperties, type ReactNode } from "react";
 import { MapDebugToolbar } from "./MapDebugToolbar";
 import { MapEntityMarkers } from "./MapEntityMarkers";
 import { MapRoomButton } from "./MapRoomButton";
+import { MapDeckVaultPreview, type MapDeckVaultPreviewControls } from "./MapDeckVaultPreview";
 import {
   MAP_CELL_GAP,
   MAP_PADDING,
-  MAP_RENDER_COLUMNS,
-  MAP_RENDER_ROWS,
   MAP_ROOM_HEIGHT,
   MAP_ROOM_WIDTH,
   MAP_WORLD_MARGIN_X,
@@ -17,7 +16,7 @@ import {
 } from "../hooks/useMapCamera";
 import { chebyshevDistance, type MapEnemyCellMemory, type MapEnemyWorld } from "../game/mapEnemies";
 import type { MapBomb } from "../game/mapEffects";
-import { mapViewportBounds } from "../game/mapViewport";
+import { mapRenderSurface, mapViewportBounds } from "../game/mapViewport";
 import {
   DUNGEON_MAX_X,
   DUNGEON_MIN_X,
@@ -127,13 +126,41 @@ export function MapBoard({
     moveDrag: moveMapDrag,
     finishDrag: finishMapDrag,
   } = camera;
+  const vaultPreviewRef = useRef<MapDeckVaultPreviewControls | null>(null);
+  const interactionRef = useRef({ mapPosition, mapTraveling, debugMode, seenRooms, roomDeckVaults,
+    effectiveRoomType, onClearMessage, onMove, onDebugTeleport, onTravel });
+  useLayoutEffect(() => {
+    interactionRef.current = { mapPosition, mapTraveling, debugMode, seenRooms, roomDeckVaults,
+      effectiveRoomType, onClearMessage, onMove, onDebugTeleport, onTravel };
+  }, [mapPosition, mapTraveling, debugMode, seenRooms, roomDeckVaults,
+    effectiveRoomType, onClearMessage, onMove, onDebugTeleport, onTravel]);
+  const showVaultPreview = useCallback((element: HTMLElement, position: MapPosition) => {
+    const deck = interactionRef.current.roomDeckVaults[mapRoomKey(position)];
+    if (deck) vaultPreviewRef.current?.show(deck, element);
+  }, []);
+  const hideVaultPreview = useCallback((nextTarget: EventTarget | null, pointerLeave: boolean) => {
+    vaultPreviewRef.current?.hide(nextTarget, pointerLeave);
+  }, []);
+  const clickRoom = useCallback((position: MapPosition) => {
+    const latest = interactionRef.current;
+    vaultPreviewRef.current?.clear();
+    if (mapWasDraggedRef.current) { mapWasDraggedRef.current = false; return; }
+    if (latest.mapTraveling) return;
+    latest.onClearMessage();
+    const distance = chebyshevDistance(position, latest.mapPosition);
+    const walkable = isWalkableRoom(latest.effectiveRoomType(position));
+    if (latest.debugMode && walkable && distance > 1) { latest.onDebugTeleport(position); return; }
+    if (distance === 1 && walkable) {
+      latest.onMove(position.x - latest.mapPosition.x, position.y - latest.mapPosition.y);
+      return;
+    }
+    const path = findKnownRoomRoute(latest.mapPosition, position, latest.seenRooms, latest.effectiveRoomType);
+    if (path && path.length > 1) latest.onTravel(path);
+  }, [mapWasDraggedRef]);
+  useEffect(() => {
+    vaultPreviewRef.current?.clear();
+  }, [mapPan.x, mapPan.y, mapZoom, mapPosition.x, mapPosition.y, mapTraveling]);
 
-  const mapWidth = MAP_PADDING * 2
-    + MAP_RENDER_COLUMNS * MAP_ROOM_WIDTH
-    + (MAP_RENDER_COLUMNS - 1) * MAP_CELL_GAP;
-  const mapHeight = MAP_PADDING * 2
-    + MAP_RENDER_ROWS * MAP_ROOM_HEIGHT
-    + (MAP_RENDER_ROWS - 1) * MAP_CELL_GAP;
   const mapStrideX = MAP_ROOM_WIDTH + MAP_CELL_GAP;
   const mapStrideY = MAP_ROOM_HEIGHT + MAP_CELL_GAP;
   const bounds = mapViewportBounds(mapPan, mapZoom, mapViewportSize, {
@@ -141,14 +168,28 @@ export function MapBoard({
     marginX: MAP_WORLD_MARGIN_X, marginY: MAP_WORLD_MARGIN_Y, padding: MAP_PADDING,
     strideX: mapStrideX, strideY: mapStrideY,
   });
+  const surface = mapRenderSurface(bounds);
+  const surfaceColumns = surface.maxX - surface.minX + 1;
+  const surfaceRows = surface.maxY - surface.minY + 1;
+  const canvasRef = useRef<HTMLDivElement>(null);
+  useLayoutEffect(() => {
+    const canvas = canvasRef.current;
+    if (!canvas) return;
+    // Rebasing changes local grid coordinates, not the camera's world position.
+    // Do not interpolate between the old and new coordinate origins.
+    canvas.style.transition = "none";
+    const frame = window.requestAnimationFrame(() => canvas.style.removeProperty("transition"));
+    return () => window.cancelAnimationFrame(frame);
+  }, [surface.minX, surface.minY]);
   const currentVisibleRoomKeys = useMemo(() => visibleMapRoomKeys(
     mapPosition,
     mapSeed,
     visionHorizontalRadius,
     visionVerticalRadius,
   ), [mapPosition, mapSeed, visionHorizontalRadius, visionVerticalRadius]);
-  const knownRoomRoutes = useMemo(() => buildKnownRoomRoutes(mapPosition, seenRooms, mapSeed, effectiveRoomType),
-    [mapPosition, seenRooms, mapSeed, effectiveRoomType]);
+  const knownRoomRoutes = useMemo(() => debugMode ? new Map<string, MapPosition>()
+    : buildKnownRoomRoutes(mapPosition, seenRooms, mapSeed, effectiveRoomType),
+    [debugMode, mapPosition, seenRooms, mapSeed, effectiveRoomType]);
   const mapCellMap = useMemo(() => {
     const cells = new Map<string, MapPosition>();
     seenRooms.forEach((seenRoomKey) => {
@@ -169,7 +210,11 @@ export function MapBoard({
   const mapCells = useMemo(() => {
     // A focus animation crosses the space between the old and new viewport.
     // Keep explored cells mounted until that transition has finished.
-    const cells = retainKnownCells ? new Map(mapCellMap) : new Map<string, MapPosition>();
+    const cells = new Map<string, MapPosition>();
+    if (retainKnownCells) mapCellMap.forEach((position, key) => {
+      if (position.x >= surface.minX && position.x <= surface.maxX
+        && position.y >= surface.minY && position.y <= surface.maxY) cells.set(key, position);
+    });
     for (let y = minY; y <= maxY; y += 1) {
       for (let x = minX; x <= maxX; x += 1) {
         const position = { x, y };
@@ -179,7 +224,8 @@ export function MapBoard({
       }
     }
     return Array.from(cells.values());
-  }, [minX, maxX, minY, maxY, mapCellMap, debugMode, mapSeed, retainKnownCells]);
+  }, [minX, maxX, minY, maxY, surface.minX, surface.maxX, surface.minY, surface.maxY,
+    mapCellMap, debugMode, mapSeed, retainKnownCells]);
   const renderedMapCellKeys = useMemo(() => new Set(mapCells.map(mapRoomKey)), [mapCells]);
   const visibleMapEnemies = mapEnemyWorld.enemies.filter((enemy) =>
     renderedMapCellKeys.has(mapRoomKey(enemy.position))
@@ -239,15 +285,16 @@ export function MapBoard({
         onWheel={zoomMap}
       >
         <div
+          ref={canvasRef}
           className={`map-canvas ${mapTraveling ? "is-traveling" : ""} ${mapCameraFocusing ? "is-camera-focusing" : ""}`}
           style={{
-            width: mapWidth,
-            height: mapHeight,
-            padding: MAP_PADDING,
+            width: surfaceColumns * mapStrideX,
+            height: surfaceRows * mapStrideY,
+            padding: 0,
             gap: MAP_CELL_GAP,
-            gridTemplateColumns: `repeat(${MAP_RENDER_COLUMNS}, ${MAP_ROOM_WIDTH}px)`,
+            gridTemplateColumns: `repeat(${surfaceColumns}, ${MAP_ROOM_WIDTH}px)`,
             gridAutoRows: `${MAP_ROOM_HEIGHT}px`,
-            transform: `translate3d(${mapPan.x}px, ${mapPan.y}px, 0) scale(${mapZoom})`,
+            transform: `translate3d(${mapPan.x + (MAP_PADDING + (surface.minX - DUNGEON_MIN_X + MAP_WORLD_MARGIN_X) * mapStrideX) * mapZoom}px, ${mapPan.y + (MAP_PADDING + (surface.minY + MAP_WORLD_MARGIN_Y) * mapStrideY) * mapZoom}px, 0) scale(${mapZoom})`,
             transformOrigin: "0 0",
             "--map-travel-step": `${mapTravelStepMs}ms`,
           } as CSSProperties}
@@ -288,35 +335,11 @@ export function MapBoard({
                 hasItems={hasItems}
                 roomItemsTitle={roomItemsTitle}
                 deckName={roomType === "deckVault" ? roomDeckVaults[roomKey]?.name : undefined}
-                gridColumn={position.x - DUNGEON_MIN_X + MAP_WORLD_MARGIN_X + 1}
-                gridRow={position.y + MAP_WORLD_MARGIN_Y + 1}
-                onClick={() => {
-                  if (mapWasDraggedRef.current) {
-                    mapWasDraggedRef.current = false;
-                    return;
-                  }
-                  if (mapTraveling) return;
-                  onClearMessage();
-                  if (debugMode && walkable && !current) {
-                    if (adjacent) {
-                      onMove(position.x - mapPosition.x, position.y - mapPosition.y);
-                      return;
-                    }
-                    onDebugTeleport(position);
-                    return;
-                  }
-                  if (adjacent) {
-                    onMove(position.x - mapPosition.x, position.y - mapPosition.y);
-                    return;
-                  }
-                  const safePath = findKnownRoomRoute(
-                    mapPosition,
-                    position,
-                    seenRooms,
-                    effectiveRoomType,
-                  );
-                  if (safePath && safePath.length > 1) onTravel(safePath);
-                }}
+                onPreview={roomType === "deckVault" && roomDeckVaults[roomKey] ? showVaultPreview : undefined}
+                onClearPreview={hideVaultPreview}
+                gridColumn={position.x - surface.minX + 1}
+                gridRow={position.y - surface.minY + 1}
+                onClick={clickRoom}
               />
             );
           })}
@@ -329,13 +352,14 @@ export function MapBoard({
             battleFlash={mapBattleFlash}
             playerPosition={mapPosition}
             waitNoticeNonce={mapWaitNoticeNonce}
+            showPlayer={mapPosition.x >= surface.minX && mapPosition.x <= surface.maxX
+              && mapPosition.y >= surface.minY && mapPosition.y <= surface.maxY}
             layout={{
-              padding: MAP_PADDING,
+              originX: surface.minX,
+              originY: surface.minY,
               roomWidth: MAP_ROOM_WIDTH,
               roomHeight: MAP_ROOM_HEIGHT,
               cellGap: MAP_CELL_GAP,
-              worldMarginX: MAP_WORLD_MARGIN_X,
-              worldMarginY: MAP_WORLD_MARGIN_Y,
             }}
           />
         </div>
@@ -360,6 +384,7 @@ export function MapBoard({
         )}
       </div>
       {children}
+      <MapDeckVaultPreview controlsRef={vaultPreviewRef} />
     </section>
   );
 }

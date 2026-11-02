@@ -1,4 +1,5 @@
-import type { MouseEvent as ReactMouseEvent } from "react";
+import { useContext, type MouseEvent as ReactMouseEvent } from "react";
+import { DebugModeContext } from "./debugModeContext";
 import {
   DECK_EDITION_INFO,
   DECK_EDITION_SCORES,
@@ -11,6 +12,7 @@ type DeckNameProps = {
   deck: DeckCase;
   showEditions?: boolean;
   showEditionTooltips?: boolean;
+  showGenerationDebug?: boolean;
   onEditionTooltipHover?: (event: ReactMouseEvent<HTMLElement>, edition: DeckEdition) => void;
   onEditionTooltipLeave?: () => void;
 };
@@ -19,9 +21,14 @@ export function DeckName({
   deck,
   showEditions = true,
   showEditionTooltips = true,
+  showGenerationDebug = true,
   onEditionTooltipHover,
   onEditionTooltipLeave,
 }: DeckNameProps) {
+  const debugMode = useContext(DebugModeContext);
+  const generationText = deck.generation
+    ? `s=${deck.generation.s} · x=${deck.generation.x} · y=${deck.generation.y} · z=${deck.generation.z}`
+    : "생성값 기록 없음";
   const editions = showEditions
     ? deck.editions
       .filter((edition) => DECK_EDITION_INFO[edition] !== undefined)
@@ -29,7 +36,7 @@ export function DeckName({
     : [];
 
   return (
-    <span className="deck-name-with-editions">
+    <span className="deck-name-with-editions" title={debugMode ? generationText : undefined}>
       <span className="deck-name-label">{`덱 「${deck.name}」`}</span>
       {editions.length > 0 && " "}
       {editions.length > 0 && (
@@ -58,6 +65,7 @@ export function DeckName({
           ))}
         </span>
       )}
+      {debugMode && showGenerationDebug && <span className="deck-generation-debug">{generationText}</span>}
     </span>
   );
 }

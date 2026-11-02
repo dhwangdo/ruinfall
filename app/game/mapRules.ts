@@ -16,6 +16,9 @@ import {
   type MapEnemyWorld,
 } from "./mapEnemies.ts";
 import { consumableTypeFromRoll, createConsumable, type Consumable } from "./rewards.ts";
+import { generateMapRegion, type GeneratedMapRegion } from "./mapRegionGenerator.ts";
+import { mapRandom } from "./mapGenerationMath.ts";
+import { placeRegionLocations, placeRegionPortals, rollRegionLocationCounts, type RegionLocationCounts } from "./mapLocationPlacement.ts";
 
 export type MapPosition = { x: number; y: number };
 export type RoomType =
@@ -39,9 +42,13 @@ export type RoomType =
 
 export const REGION_COUNT = 7;
 export const ROCK_BARRIER_HEIGHT = 5;
-export const SPECIAL_NODE_CHANCE = 0.01;
-export const DECK_VAULT_NODE_CHANCE = 0.005;
-const OTHER_SPECIAL_NODE_WEIGHTS: ReadonlyArray<{ type: RoomType; weight: number }> = [
+// Keep the definitions available while these locations are temporarily paused.
+export const TEMPORARILY_DISABLED_ROOM_TYPES: ReadonlySet<RoomType> = new Set([
+  "extractionShrine", "recoveryShrine", "vitalityShrine", "mindEyeShrine",
+  "transformShrine", "treasureChest", "blessing", "heal",
+]);
+// Historical definition data is retained; active locations now use per-region quotas.
+export const SPECIAL_NODE_DEFINITION_WEIGHTS: ReadonlyArray<{ type: RoomType; weight: number }> = [
   { type: "shop", weight: 0.5 },
   { type: "bloodShop", weight: 0.5 },
   { type: "extractionShrine", weight: 2 },
@@ -51,27 +58,6 @@ const OTHER_SPECIAL_NODE_WEIGHTS: ReadonlyArray<{ type: RoomType; weight: number
   { type: "treasureChest", weight: 0.5 },
   { type: "blessing", weight: 0.01 },
 ];
-const otherSpecialWeight = OTHER_SPECIAL_NODE_WEIGHTS.reduce((total, entry) => total + entry.weight, 0);
-// Reserve an absolute 0.5% for vaults even when the other relative weights change.
-export const SPECIAL_NODE_WEIGHTS: ReadonlyArray<{ type: RoomType; weight: number }> = [
-  ...OTHER_SPECIAL_NODE_WEIGHTS,
-  { type: "deckVault", weight: otherSpecialWeight * DECK_VAULT_NODE_CHANCE / (SPECIAL_NODE_CHANCE - DECK_VAULT_NODE_CHANCE) },
-];
-const SPECIAL_NODE_WEIGHT_TOTAL = SPECIAL_NODE_WEIGHTS.reduce(
-  (total, entry) => total + entry.weight,
-  0,
-);
-export const SHOP_NODE_CHANCE = SPECIAL_NODE_CHANCE * 0.5 / SPECIAL_NODE_WEIGHT_TOTAL;
-export const BLOOD_SHOP_NODE_CHANCE = SPECIAL_NODE_CHANCE * 0.5 / SPECIAL_NODE_WEIGHT_TOTAL;
-export const EXTRACTION_SHRINE_NODE_CHANCE = SPECIAL_NODE_CHANCE * 2 / SPECIAL_NODE_WEIGHT_TOTAL;
-export const VITALITY_SHRINE_NODE_CHANCE = SPECIAL_NODE_CHANCE * 0.5 / SPECIAL_NODE_WEIGHT_TOTAL;
-export const MIND_EYE_SHRINE_NODE_CHANCE = SPECIAL_NODE_CHANCE * 1 / SPECIAL_NODE_WEIGHT_TOTAL;
-export const TRANSFORM_SHRINE_NODE_CHANCE = SPECIAL_NODE_CHANCE * 1 / SPECIAL_NODE_WEIGHT_TOTAL;
-export const TREASURE_CHEST_NODE_CHANCE = SPECIAL_NODE_CHANCE * 0.5 / SPECIAL_NODE_WEIGHT_TOTAL;
-export const BLESSING_NODE_CHANCE = SPECIAL_NODE_CHANCE * 0.01 / SPECIAL_NODE_WEIGHT_TOTAL;
-export const PORTAL_NODE_CHANCE = 0.05;
-export const ROCK_CLUSTER_CHANCE = 0.03;
-export const ROCK_CLUSTER_EDGE_CHANCE = 0.05;
 export const FLOOR_CARD_DROP_CHANCE = 0.005;
 export const FLOOR_CARD_ITEM_CHANCE = 0.8;
 export const FLOOR_CARD_RARITY_CHANCES = {
@@ -90,7 +76,7 @@ export const SAFE_AREA_LAYOUT_MIN_OFFSET_X = -6;
 export const SAFE_AREA_LAYOUT_MAX_OFFSET_X = 2;
 const SAFE_AREA_SPAWN_OFFSET_X = SAFE_AREA_LAYOUT_MIN_OFFSET_X + 1;
 export const MAP_COLUMNS = DUNGEON_MAX_X - DUNGEON_MIN_X + 1;
-export const REGION_HEIGHT = 15;
+export const REGION_HEIGHT = 41;
 export const MAP_ROWS = REGION_COUNT * REGION_HEIGHT + (REGION_COUNT - 1) * ROCK_BARRIER_HEIGHT;
 export const MAP_START: MapPosition = { x: 0, y: 0 };
 
@@ -197,14 +183,6 @@ export function isSafeAreaBoundaryGeometryPosition(position: MapPosition, region
   return !isOuterCorner && !isUnusedCentralWall;
 }
 
-function isAdjacentToSafeAreaBoundary(position: MapPosition, seed: number) {
-  return EIGHT_DIRECTIONS.some((direction) => {
-    const neighbor = { x: position.x + direction.x, y: position.y + direction.y };
-    return Array.from({ length: REGION_COUNT }, (_, regionIndex) =>
-      isSafeAreaBoundaryGeometryPosition(neighbor, regionIndex, seed)).some(Boolean);
-  });
-}
-
 export function getSafeAreaLayoutRegionIndex(position: MapPosition, seed: number) {
   for (let regionIndex = 0; regionIndex < REGION_COUNT; regionIndex += 1) {
     const centerX = safeAreaCenterX(regionIndex, seed);
@@ -231,38 +209,54 @@ export function nextRegionEntry(regionIndex: number): MapPosition {
 // defeated bosses) are applied by the caller and must not enter this cache.
 const geometryBySeed = new Map<number, {
   rooms: Map<string, RoomType>;
-  portals: Map<number, Set<number>>;
+  regions: Map<number, GeneratedDungeonRegion>;
 }>();
+
+export type GeneratedDungeonRegion = GeneratedMapRegion & {
+  ordinarySites: ReadonlyMap<number, RoomType>;
+  locationCounts: RegionLocationCounts;
+};
 
 function mapGeometry(seed: number) {
   let geometry = geometryBySeed.get(seed);
   if (!geometry) {
     if (geometryBySeed.size >= 2) geometryBySeed.delete(geometryBySeed.keys().next().value!);
-    geometry = { rooms: new Map(), portals: new Map() };
+    geometry = { rooms: new Map(), regions: new Map() };
     geometryBySeed.set(seed, geometry);
   }
   return geometry;
 }
 
-function isPortalColumn(x: number, regionIndex: number, seed: number) {
-  const portals = mapGeometry(seed).portals;
-  const cached = portals.get(regionIndex);
-  if (cached) return cached.has(x);
-  const bottomY = regionStartY(regionIndex) + regionHeight(regionIndex) - 1;
-  const candidates = Array.from(
-    { length: DUNGEON_MAX_X - DUNGEON_MIN_X + 1 },
-    (_, index) => DUNGEON_MIN_X + index,
-  ).filter((column) =>
-    seededRoll({ x: column, y: bottomY }, seed, regionIndex + 101) < PORTAL_NODE_CHANCE);
-  if (candidates.length === 0) {
-    candidates.push(DUNGEON_MIN_X + Math.floor(
-      seededRoll({ x: regionIndex, y: bottomY }, seed, 911)
-        * (DUNGEON_MAX_X - DUNGEON_MIN_X + 1),
-    ));
+/** Region geometry is built once. Exploration, destruction and opened vaults stay outside it. */
+export function getGeneratedDungeonRegion(seed: number, regionIndex: number): GeneratedDungeonRegion {
+  if (!Number.isInteger(regionIndex) || regionIndex < 0 || regionIndex >= REGION_COUNT) throw new Error("Invalid dungeon region");
+  const regions = mapGeometry(seed).regions;
+  const existing = regions.get(regionIndex);
+  if (existing) return existing;
+  const startY = regionStartY(regionIndex), height = regionHeight(regionIndex);
+  const blocked = new Uint8Array(MAP_COLUMNS * height);
+  const centerX = safeAreaCenterX(regionIndex, seed), centerY = safeAreaCenterY(regionIndex, seed);
+  for (let y = centerY - 2; y <= centerY + 2; y++) {
+    for (let x = centerX + SAFE_AREA_LAYOUT_MIN_OFFSET_X; x <= centerX + SAFE_AREA_LAYOUT_MAX_OFFSET_X; x++) {
+      blocked[(y - startY) * MAP_COLUMNS + x - DUNGEON_MIN_X] = 1;
+    }
   }
-  const columns = new Set(candidates);
-  portals.set(regionIndex, columns);
-  return columns.has(x);
+  const locationCounts = rollRegionLocationCounts(seed, regionIndex);
+  const portals = placeRegionPortals({ width: MAP_COLUMNS, height, blocked, count: locationCounts.portal,
+    random: mapRandom(seed ^ Math.imul(regionIndex + 1, 0x217ad5)) });
+  const layout = generateMapRegion({ seed: seed ^ Math.imul(regionIndex + 1, 0x9e3779b9), region: regionIndex + 1,
+    width: MAP_COLUMNS, height, start: { x: -DUNGEON_MIN_X, y: 0 }, portals, blocked });
+  const ordinarySites = placeRegionLocations(layout, locationCounts, seed ^ Math.imul(regionIndex + 1, 7302));
+  const result = { ...layout, ordinarySites, locationCounts };
+  regions.set(regionIndex, result);
+  return result;
+}
+
+export function isMainDungeonFloor(position: MapPosition, seed: number) {
+  const region = getDungeonRegionIndex(position);
+  if (region === null) return false;
+  const index = (position.y - regionStartY(region)) * MAP_COLUMNS + position.x - DUNGEON_MIN_X;
+  return getGeneratedDungeonRegion(seed, region).main[index] === 1;
 }
 
 function getFixedRoomType(position: MapPosition, seed: number): RoomType | null {
@@ -278,10 +272,6 @@ function getFixedRoomType(position: MapPosition, seed: number): RoomType | null 
     if (safeRegion < BOSS_REGION_COUNT
       && position.x === centerX + SAFE_AREA_CONNECTOR_OFFSET_X
       && position.y === centerY) return "boss";
-    if (safeRegion < 3 && position.x === centerX + SAFE_AREA_LEFT_CROSS_CENTER_OFFSET_X) {
-      if (position.y === centerY) return "recoveryShrine";
-      if (Math.abs(position.y - centerY) === 1) return "extractionShrine";
-    }
     return "empty";
   }
   const safeLayoutRegion = getSafeAreaLayoutRegionIndex(position, seed);
@@ -295,7 +285,6 @@ function getFixedRoomType(position: MapPosition, seed: number): RoomType | null 
     if (regionIndex !== null) {
       const localY = position.y - regionStartY(regionIndex);
       if (localY === 0 && position.x === 0) return "empty";
-      if (localY === regionHeight(regionIndex) - 1 && isPortalColumn(position.x, regionIndex, seed)) return "portal";
       return null;
     }
     for (let regionIndex = 0; regionIndex < REGION_COUNT - 1; regionIndex += 1) {
@@ -304,73 +293,6 @@ function getFixedRoomType(position: MapPosition, seed: number): RoomType | null 
     }
   }
   return "void";
-}
-
-function getSpecialRoomType(position: MapPosition, seed: number): RoomType | null {
-  if (getFixedRoomType(position, seed) !== null) return null;
-  const regionIndex = getDungeonRegionIndex(position);
-  if (regionIndex === null) return null;
-  const localY = position.y - regionStartY(regionIndex);
-  const availableChance = localY === regionHeight(regionIndex) - 1
-    ? 1 - PORTAL_NODE_CHANCE
-    : 1;
-  if (seededRoll(position, seed, 7300) >= SPECIAL_NODE_CHANCE / availableChance) return null;
-
-  const roll = seededRoll(position, seed, 7301);
-  let cumulative = 0;
-  let selectedType = SPECIAL_NODE_WEIGHTS.at(-1)!.type;
-  for (const entry of SPECIAL_NODE_WEIGHTS) {
-    cumulative += entry.weight / SPECIAL_NODE_WEIGHT_TOTAL;
-    if (roll < cumulative) {
-      selectedType = entry.type;
-      break;
-    }
-  }
-  return selectedType;
-}
-
-function isNormalDungeonFloor(position: MapPosition, seed: number) {
-  const regionIndex = getDungeonRegionIndex(position);
-  if (
-    regionIndex === null
-    || getFixedRoomType(position, seed) !== null
-    || chebyshevDistance(position, MAP_START) <= 1
-  ) return false;
-  const localY = position.y - regionStartY(regionIndex);
-  if (localY === 0 && position.x === 0) return false;
-  if (localY === regionHeight(regionIndex) - 1 && isPortalColumn(position.x, regionIndex, seed)) return false;
-  return getSpecialRoomType(position, seed) === null;
-}
-
-function isRockClusterCell(position: MapPosition, seed: number) {
-  for (let anchorY = position.y - 1; anchorY <= position.y + 1; anchorY += 1) {
-    for (let anchorX = position.x - 1; anchorX <= position.x + 1; anchorX += 1) {
-      const anchor = { x: anchorX, y: anchorY };
-      const regionIndex = getDungeonRegionIndex(anchor);
-      if (regionIndex === null) continue;
-      const localY = anchor.y - regionStartY(regionIndex);
-      const nearRegionEdge = localY < regionHeight(regionIndex) / 3
-        || localY >= regionHeight(regionIndex) * 2 / 3;
-      const chance = nearRegionEdge ? ROCK_CLUSTER_EDGE_CHANCE : ROCK_CLUSTER_CHANCE;
-      if (seededRoll(anchor, seed, 7101) >= chance) continue;
-
-      const neighborOffsets = EIGHT_DIRECTIONS
-        .map((offset) => ({ ...offset }))
-        .sort((left, right) =>
-          seededRoll({ x: anchor.x + left.x, y: anchor.y + left.y }, seed, 7103)
-          - seededRoll({ x: anchor.x + right.x, y: anchor.y + right.y }, seed, 7103));
-      const clusterSize = 1 + Math.floor(seededRoll(anchor, seed, 7102) * 7);
-      const clusterCells = [anchor, ...neighborOffsets.slice(0, clusterSize - 1).map((offset) => ({
-        x: anchor.x + offset.x,
-        y: anchor.y + offset.y,
-      }))];
-      const containsPosition = clusterCells.some((cell) =>
-        cell.x === position.x && cell.y === position.y);
-      if (!containsPosition) continue;
-      if (clusterCells.every((cell) => isNormalDungeonFloor(cell, seed))) return true;
-    }
-  }
-  return false;
 }
 
 export function getRoomType(position: MapPosition, seed: number): RoomType {
@@ -385,11 +307,14 @@ export function getRoomType(position: MapPosition, seed: number): RoomType {
 
 function generateRoomType(position: MapPosition, seed: number): RoomType {
   const fixedType = getFixedRoomType(position, seed);
-  if (fixedType !== null) return fixedType;
-  const specialType = getSpecialRoomType(position, seed);
-  if (specialType) return specialType;
-  if (!isAdjacentToSafeAreaBoundary(position, seed) && isRockClusterCell(position, seed)) return "rock";
-  return "empty";
+  // Only fixed safe-area facilities return these types; random nodes stay paused.
+  if (fixedType === "heal" || fixedType === "blessing") return fixedType;
+  if (fixedType !== null) return TEMPORARILY_DISABLED_ROOM_TYPES.has(fixedType) ? "empty" : fixedType;
+  const region = getDungeonRegionIndex(position)!;
+  const layout = getGeneratedDungeonRegion(seed, region);
+  const index = (position.y - regionStartY(region)) * MAP_COLUMNS + position.x - DUNGEON_MIN_X;
+  if (!layout.floor[index]) return "rock";
+  return layout.landmarks.get(index) ?? layout.ordinarySites.get(index) ?? "empty";
 }
 
 export function isWalkableRoom(type: RoomType) {
@@ -451,6 +376,7 @@ export function isMapEnemySpawnCell(position: MapPosition, seed: number) {
     && regionIndex !== null
     && getEncounterSpawnPool(regionIndex, 1).length > 0
     && !isSafeAreaPosition(position, seed)
+    && isMainDungeonFloor(position, seed)
     && getRoomType(position, seed) === "empty";
 }
 
@@ -477,9 +403,11 @@ export function createMapEnemyWorldForPositions(
         const regionIndex = getDungeonRegionIndex(enemy.position) ?? -1;
         const candidates = getEncounterSpawnPool(regionIndex, seededRoll(enemy.position, seed, 4000));
         const roll = seededRoll(enemy.position, seed, 4001);
+        const encounterIndex = pickEncounterIndex(candidates, roll);
         return {
           ...enemy,
-          encounterIndex: pickEncounterIndex(candidates, roll),
+          encounterIndex,
+          permanentSleep: getEncounterRegionNumber(encounterIndex) > regionIndex + 1,
         };
       }),
       ...bosses,
@@ -504,7 +432,15 @@ export function createMapFloorDropsForPositions(
   const cards: Record<string, Card[]> = {};
   const consumables: Record<string, Consumable[]> = {};
   for (const position of positions) {
-    if (getRoomType(position, seed) !== "empty"
+    const safeRegion = getSafeAreaRegionIndex(position, seed);
+    if (safeRegion !== null
+      && position.x === safeAreaCenterX(safeRegion, seed) + SAFE_AREA_LEFT_CROSS_CENTER_OFFSET_X
+      && Math.abs(position.y - safeAreaCenterY(safeRegion, seed)) === 1) {
+      const roomKey = mapRoomKey(position);
+      consumables[roomKey] = [createConsumable("extractTicket", `safe-extract-${seed}-${roomKey}`)];
+      continue;
+    }
+    if (!isMainDungeonFloor(position, seed) || getRoomType(position, seed) !== "empty"
       || seededRoll(position, seed, 7201) >= FLOOR_CARD_DROP_CHANCE) continue;
     const roomKey = mapRoomKey(position);
     if (seededRoll(position, seed, 7202) < FLOOR_CARD_ITEM_CHANCE) {

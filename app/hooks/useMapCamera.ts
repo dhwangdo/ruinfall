@@ -20,6 +20,7 @@ export const MAP_PADDING = 42;
 
 const MAP_DEFAULT_ZOOM = 0.625;
 const MAP_MIN_ZOOM = 0.1875;
+const MAP_DEBUG_MIN_ZOOM = 0.0625;
 const MAP_MAX_ZOOM = 0.875;
 const MAP_ZOOM_STEP = 0.04;
 
@@ -27,6 +28,7 @@ type MapCameraOptions = {
   enabled: boolean;
   position: MapPosition;
   travelLocked: boolean;
+  debugMode?: boolean;
 };
 
 type MapDrag = {
@@ -45,7 +47,8 @@ type MapPinch = {
   mapY: number;
 };
 
-export function useMapCamera({ enabled, position, travelLocked }: MapCameraOptions) {
+export function useMapCamera({ enabled, position, travelLocked, debugMode = false }: MapCameraOptions) {
+  const minZoom = debugMode ? MAP_DEBUG_MIN_ZOOM : MAP_MIN_ZOOM;
   const [pan, setPan] = useState({ x: 0, y: 0 });
   const [zoom, setZoom] = useState(MAP_DEFAULT_ZOOM);
   const [viewportSize, setViewportSize] = useState({ width: 0, height: 0 });
@@ -119,10 +122,11 @@ export function useMapCamera({ enabled, position, travelLocked }: MapCameraOptio
       + target.y * (MAP_ROOM_HEIGHT + MAP_CELL_GAP)
       + MAP_WORLD_MARGIN_Y * MAP_ROOM_HEIGHT
       + MAP_ROOM_HEIGHT / 2;
-    setPan({
+    const nextPan = {
       x: viewport.clientWidth / 2 - roomCenterX * targetZoom,
       y: viewport.clientHeight / 2 - roomCenterY * targetZoom,
-    });
+    };
+    setPan(current => current.x === nextPan.x && current.y === nextPan.y ? current : nextPan);
   }, [cancelDragFrame, zoom]);
 
   const focusOn = useCallback((target: MapPosition) => {
@@ -173,7 +177,7 @@ export function useMapCamera({ enabled, position, travelLocked }: MapCameraOptio
     if (!viewport) return;
     const nextZoom = Math.min(
       MAP_MAX_ZOOM,
-      Math.max(MAP_MIN_ZOOM, Number((zoom + direction * MAP_ZOOM_STEP).toFixed(4))),
+      Math.max(minZoom, Number((zoom + direction * MAP_ZOOM_STEP).toFixed(4))),
     );
     if (nextZoom === zoom) return;
 
@@ -186,7 +190,7 @@ export function useMapCamera({ enabled, position, travelLocked }: MapCameraOptio
       y: pointerY - mapY * nextZoom,
     });
     setZoom(nextZoom);
-  }, [cancelDragFrame, pan.x, pan.y, travelLocked, zoom]);
+  }, [cancelDragFrame, minZoom, pan.x, pan.y, travelLocked, zoom]);
 
   const changeZoom = useCallback((direction: number) => zoomAt(direction), [zoomAt]);
 
@@ -269,7 +273,7 @@ export function useMapCamera({ enabled, position, travelLocked }: MapCameraOptio
         const distance = Math.max(1, Math.hypot(second.x - first.x, second.y - first.y));
         const nextZoom = Math.min(
           MAP_MAX_ZOOM,
-          Math.max(MAP_MIN_ZOOM, pinch.initialZoom * distance / pinch.initialDistance),
+          Math.max(minZoom, pinch.initialZoom * distance / pinch.initialDistance),
         );
         queueDragFrame({ zoom: nextZoom, pan: { x: centerX - pinch.mapX * nextZoom, y: centerY - pinch.mapY * nextZoom } });
         wasDraggedRef.current = true;
@@ -291,7 +295,7 @@ export function useMapCamera({ enabled, position, travelLocked }: MapCameraOptio
       x: drag.originX + offsetX,
       y: drag.originY + offsetY,
     } });
-  }, [queueDragFrame, startPinch]);
+  }, [minZoom, queueDragFrame, startPinch]);
 
   const finishDrag = useCallback((event: PointerEvent<HTMLDivElement>) => {
     flushDragFrame();

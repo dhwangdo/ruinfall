@@ -316,7 +316,7 @@ export function DeckEditorModal(props: DeckEditorModalProps) {
         aria-label={`${deck.name}, 카드 ${deck.cards.length}장, 용량 ${deck.capacity}. 누르면 줍기`}
       >
         <span className="floor-deck-icon" aria-hidden="true" />
-        <strong><DeckName deck={deck} showEditionTooltips={false} /></strong>
+        <strong><DeckName deck={deck} showEditionTooltips={false} showGenerationDebug={false} /></strong>
         <span>{deck.cards.length} / {deck.capacity}</span>
         <small>눌러서 줍기</small>
       </button>

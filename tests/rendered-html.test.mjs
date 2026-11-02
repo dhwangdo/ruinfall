@@ -13,7 +13,7 @@ async function render() {
   );
 }
 
-test("server-renders the exploration map", async () => {
+test("server-renders the loading shell without generating a disposable map", async () => {
   const response = await render();
   assert.equal(response.status, 200);
   assert.match(response.headers.get("content-type") ?? "", /^text\/html\b/i);
@@ -23,8 +23,9 @@ test("server-renders the exploration map", async () => {
   assert.match(html, /class="topbar map-topbar"/);
   assert.doesNotMatch(html, />\uD558\uC218\uAD6C<|>\uC774\uB984 \uBBF8\uC815 \uC9C0\uC5ED</);
   assert.doesNotMatch(html, /THE DESCENT/);
-  assert.match(html, /class="map-viewport"/);
-  assert.match(html, /class="map-room /);
+  assert.match(html, /class="save-loading-dialog"/);
+  assert.match(html, /<progress/);
+  assert.doesNotMatch(html, /class="map-room /);
   assert.doesNotMatch(html, /telemetry-export-trigger|적별 피해 기록 TXT 저장/);
   assert.match(html, /aria-label=/);
   assert.doesNotMatch(html, /codex-preview|react-loading-skeleton/);

@@ -203,6 +203,7 @@ test("old saves discard removed cards and restore changed cards everywhere", () 
 
 test("keys, warning preference, opened vaults and their exact contents survive JSON restore", () => {
   const deck = { id: "vault", name: "saved", capacity: 25, rareSlotCapacity: 2,
+    generation: { k: 2, s: -1, x: -1, y: 0, z: 0 },
     editions: [], editionColors: {}, cards: [{ ...SPECIAL_CARD_POOL[0], id: 981 }] };
   const saved = JSON.parse(JSON.stringify({
     mapPosition: { x: 1, y: 2 }, mapSeed: 5, blessings: [], keys: 7, skipPortalKeyWarning: true,

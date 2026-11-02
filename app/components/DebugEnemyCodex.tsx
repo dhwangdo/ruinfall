@@ -1,4 +1,5 @@
 import { getEnemyCodexEntries, type EnemyAction } from "../game/enemies";
+import { memo, useMemo, useState } from "react";
 import { RarityText } from "./RarityText";
 import { statusLabel } from "../game/statuses";
 
@@ -38,12 +39,14 @@ function debugEnemyPatternText(actions: EnemyAction[]) {
   return "직전 행동을 제외하고 무작위";
 }
 
-export function DebugEnemyCodex({ battle = false }: { battle?: boolean }) {
-  const entries = getEnemyCodexEntries();
+export const DebugEnemyCodex = memo(function DebugEnemyCodex({ battle = false }: { battle?: boolean }) {
+  const entries = useMemo(() => getEnemyCodexEntries(), []);
+  const [open, setOpen] = useState(false);
   return (
-    <details className={`debug-enemy-codex ${battle ? "is-battle" : ""}`}>
+    <details className={`debug-enemy-codex ${battle ? "is-battle" : ""}`}
+      onToggle={event => setOpen(event.currentTarget.open)}>
       <summary>적 도감 ({entries.length})</summary>
-      <div className="debug-enemy-codex-panel">
+      {open && <div className="debug-enemy-codex-panel">
         {entries.map((entry) => (
           <article key={entry.encounterIndex} className="debug-enemy-codex-entry">
             <header>
@@ -82,7 +85,7 @@ export function DebugEnemyCodex({ battle = false }: { battle?: boolean }) {
             ))}
           </article>
         ))}
-      </div>
+      </div>}
     </details>
   );
-}
+});

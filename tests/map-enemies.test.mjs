@@ -111,9 +111,9 @@ test("waking up consumes a sleeping enemy's move", () => {
   assert.deepEqual(result.enemies[0].position, { x: 0, y: 0 });
 });
 
-test("sleeping and awake detection use 50, 12.5 and 0 percent at distances one, two and three", () => {
+test("sleeping and awake detection use 50, 10 and 0 percent at distances one, two and three", () => {
   for (const [awareness, detected] of [["sleeping", "awake"], ["awake", "alerted"]]) {
-    for (const [distance, chance] of [[1, 0.5], [2, 0.125], [3, 0]]) {
+    for (const [distance, chance] of [[1, 0.5], [2, 0.1], [3, 0]]) {
       for (const roll of chance === 0 ? [0] : [chance - 0.001, chance]) {
         const result = advanceMapEnemies(
           [{ id: "boundary", position: { x: 0, y: 0 }, encounterIndex: 0, awareness }],
@@ -194,7 +194,7 @@ test("dark ticket preserves recognition chances inside its shortened range", () 
 });
 
 test("recognition modifiers scale distance-two detection and keep distance three at zero", () => {
-  for (const [distance, chance] of [[2, .125], [3, 0]]) {
+  for (const [distance, chance] of [[2, .1], [3, 0]]) {
     for (const multiplier of [0.5, 1.5]) {
       const threshold = chance * multiplier;
       for (const roll of threshold === 0 ? [0, .999] : [threshold - .001, threshold + .001]) {
@@ -466,6 +466,28 @@ test("enemies can overlap on the player cell in the same turn", () => {
   );
   assert.deepEqual(result.collisionEnemyIds, ["first", "second"]);
   assert.deepEqual(result.enemies.map((enemy) => enemy.position), [{ x: 1, y: 1 }, { x: 1, y: 1 }]);
+});
+
+test("permanently sleeping enemies never wake or move, including a previously alerted state", () => {
+  for (const awareness of ["sleeping", "awake", "alerted"]) {
+    const enemy = { id: "future", encounterIndex: 4, awareness, permanentSleep: true, position: { x: 1, y: 0 } };
+    const result = advanceMapEnemies([enemy], { x: 0, y: 0 }, { x: 0, y: 0 },
+      () => { throw new Error("no pathfinding for permanent sleep"); },
+      () => { throw new Error("no detection roll for permanent sleep"); });
+    assert.equal(result.enemies[0].awareness, "sleeping");
+    assert.deepEqual(result.enemies[0].position, enemy.position);
+    const collision = advanceMapEnemies(result.enemies, enemy.position, enemy.position, alwaysWalkable);
+    assert.deepEqual(collision.collisionEnemyIds, ["future"]);
+  }
+});
+
+test("permanent sleep is respected while nearby ordinary enemies still wake", () => {
+  const result = advanceMapEnemies([
+    { id: "future", encounterIndex: 4, awareness: "sleeping", permanentSleep: true, position: { x: 1, y: 0 } },
+    { id: "normal", encounterIndex: 0, awareness: "sleeping", position: { x: 0, y: 1 } },
+  ], { x: 0, y: 0 }, { x: 0, y: 0 }, alwaysWalkable, () => 0);
+  assert.equal(result.enemies.find(enemy => enemy.id === "future").awareness, "sleeping");
+  assert.equal(result.enemies.find(enemy => enemy.id === "normal").awareness, "awake");
 });
 
 test("portal landing clears the player's five by five area", () => {

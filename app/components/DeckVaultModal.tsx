@@ -1,8 +1,6 @@
 import type { DeckCase } from "../game/rewards";
-import { createDeckCardView } from "../game/deckEditorViews";
-import { DeckSlotPlaceholder } from "./DeckSlotPlaceholder";
 import { canUnlockDeckVault, DECK_VAULT_KEY_COST } from "../game/deckVaultRules";
-import { CardVisual } from "./CardVisual";
+import { DeckVaultCards } from "./DeckVaultCards";
 import { DeckName } from "./DeckName";
 import { DeckEditorPreviews } from "./DeckEditorPreviews";
 import { useDeckEditorPreviews } from "../hooks/useDeckEditorPreviews";
@@ -11,7 +9,6 @@ export function DeckVaultModal({ deck, keys, onClose, onUnlock }: {
   deck: DeckCase; keys: number; onClose: () => void; onUnlock: () => void;
 }) {
   const previews = useDeckEditorPreviews();
-  const view = createDeckCardView(deck);
   return (
     <div className="shop-overlay shrine-overlay deck-vault-overlay" role="dialog" aria-modal="true"
       aria-labelledby="deck-vault-title" onClick={onClose}>
@@ -23,14 +20,8 @@ export function DeckVaultModal({ deck, keys, onClose, onUnlock }: {
           </div>
           <button type="button" onClick={onClose}>나가기</button>
         </header>
-        <div className="deck-vault-cards">
-          {view.items.map((item) => item.kind === "card"
-            ? <CardVisual key={item.key} card={item.group.card} variant="compact" count={item.group.cardIds.length}
-              onMouseEnter={(event) => previews.actions.moveDeckCardPreview(event, item.group.card)}
-              onMouseMove={(event) => previews.actions.moveDeckCardPreview(event, item.group.card)}
-              onMouseLeave={previews.actions.clearCardPreview} />
-            : <DeckSlotPlaceholder key={item.key} kind={item.kind} />)}
-        </div>
+        <DeckVaultCards deck={deck} onCardHover={previews.actions.moveDeckCardPreview}
+          onCardLeave={previews.actions.clearCardPreview} />
         <footer>
           <span>보유 열쇠 {keys}개</span>
           <button type="button" disabled={!canUnlockDeckVault(keys, false)} onClick={onUnlock}>

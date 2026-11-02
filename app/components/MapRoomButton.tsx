@@ -1,4 +1,4 @@
-import type { CSSProperties } from "react";
+import { memo, type CSSProperties } from "react";
 import type { MapPosition, RoomType } from "../game/mapRules";
 
 type MapRoomButtonProps = {
@@ -14,9 +14,11 @@ type MapRoomButtonProps = {
   hasItems: boolean;
   roomItemsTitle?: string;
   deckName?: string;
+  onPreview?: (element: HTMLElement, position: MapPosition) => void;
+  onClearPreview?: (nextTarget: EventTarget | null, pointerLeave: boolean) => void;
   gridColumn: number;
   gridRow: number;
-  onClick: () => void;
+  onClick: (position: MapPosition) => void;
 };
 
 const ROOM_LABELS: Record<RoomType, string> = {
@@ -56,7 +58,7 @@ const ROOM_BADGES: Partial<Record<RoomType, string>> = {
   safePortal: "포탈",
 };
 
-export function MapRoomButton({
+function MapRoomButtonView({
   position,
   roomType,
   dungeonRegionIndex,
@@ -69,6 +71,8 @@ export function MapRoomButton({
   hasItems,
   roomItemsTitle,
   deckName,
+  onPreview,
+  onClearPreview,
   gridColumn,
   gridRow,
   onClick,
@@ -82,13 +86,28 @@ export function MapRoomButton({
       style={{ gridColumn, gridRow } as CSSProperties}
       tabIndex={adjacent || reachable ? 0 : -1}
       aria-disabled={!walkable || mapTraveling || (!adjacent && !reachable)}
-      title={roomItemsTitle}
+      title={roomItemsTitle ?? (roomType === "rock" ? ROOM_LABELS.rock : undefined)}
+      aria-describedby={onPreview ? "map-deck-vault-preview" : undefined}
       aria-label={`${roomLabel}, 좌표 ${position.x + 1}, 깊이 ${position.y}${roomItemsTitle ? `, ${roomItemsTitle}` : ""}`}
-      onClick={onClick}
+      onClick={() => onClick(position)}
+      onMouseEnter={onPreview ? (event) => {
+        if (event.buttons === 0) onPreview(event.currentTarget, position);
+      } : undefined}
+      onMouseLeave={(event) => onClearPreview?.(event.relatedTarget, true)}
+      onFocus={onPreview ? (event) => onPreview(event.currentTarget, position) : undefined}
+      onBlur={(event) => onClearPreview?.(event.relatedTarget, false)}
     >
       {ROOM_BADGES[roomType] && <span>{roomType === "deckVault" ? deckName ?? ROOM_BADGES[roomType] : ROOM_BADGES[roomType]}</span>}
-      {roomType === "rock" && <span className="rock-label">단단한 돌</span>}
       {hasItems && <span className="room-item-indicator" aria-label="아이템 있음" />}
     </button>
   );
+}
+
+const MemoMapRoomButton = memo(MapRoomButtonView, (previous, next) =>
+  previous.position.x === next.position.x && previous.position.y === next.position.y
+  && (Object.keys(next) as (keyof MapRoomButtonProps)[])
+    .every(key => key === "position" || previous[key] === next[key]));
+
+export function MapRoomButton(props: MapRoomButtonProps) {
+  return <MemoMapRoomButton {...props} />;
 }
