@@ -27,7 +27,7 @@ export function createShopActions({
     rareCardDropChanceRef,
   } = inventory;
   const { mapPosition } = world;
-  const { blessings } = player;
+  const { blessings, runPlayerHpRef, setRunPlayerHp } = player;
   const { setDeckEditorMessage } = editor;
   const { setShopOpen, activeShopRoom, setActiveShopRoom, setOpenedCardPack, setShopMessage } = dialogs;
   function randomItem<T>(items: readonly T[]): T { return items[Math.floor(Math.random() * items.length)]; }
@@ -93,9 +93,12 @@ export function createShopActions({
     ];
   };
 
-  const openShop = (roomKey: string, depth: number) => {
-    if (!roomShops[roomKey]) {
-      const stock = createShopStock(depth);
+  const openShop = (roomKey: string, depth: number, currency: "gold" | "hp" = "gold") => {
+    const existing = roomShops[roomKey];
+    const originalStock = existing ?? createShopStock(depth);
+    const stock = currency === "hp" ? originalStock.map(offer => offer.currency === "hp"
+      ? offer : { ...offer, price: Math.ceil(offer.price / 15), currency }) : originalStock;
+    if (!existing || stock.some((offer, index) => offer !== existing[index])) {
       setRoomShops((current) => ({ ...current, [roomKey]: stock }));
     }
     setActiveShopRoom(roomKey);
@@ -108,11 +111,20 @@ export function createShopActions({
     if (!activeShopRoom) return;
     const offer = (roomShops[activeShopRoom] ?? []).find((item) => item.id === offerId);
     if (!offer || offer.sold) return;
-    if (gold < offer.price) {
-      setShopMessage(`🪙 ${offer.price - gold}이 부족합니다.`);
-      return;
+    if (offer.currency === "hp") {
+      if (runPlayerHpRef.current <= offer.price) {
+        setShopMessage("구매 후 체력이 최소 1 남아야 합니다.");
+        return;
+      }
+      runPlayerHpRef.current -= offer.price;
+      setRunPlayerHp(runPlayerHpRef.current);
+    } else {
+      if (gold < offer.price) {
+        setShopMessage(`🪙 ${offer.price - gold}이 부족합니다.`);
+        return;
+      }
+      setGold((current) => current - offer.price);
     }
-    setGold((current) => current - offer.price);
     const inventoryFull = inventoryItemCount >= inventoryCapacity;
     if (offer.card) {
       ensureTelemetryRun();

@@ -1,3 +1,4 @@
+import { rollFilledRareSlots } from "./rareSlotRules.ts";
 import {
   BASIC_CARD_POOL,
   DEBUG_ALL_CARD_BLUEPRINTS,
@@ -74,13 +75,16 @@ export type Consumable = {
 export type ShopOffer = {
   id: string;
   price: number;
+  currency?: "gold" | "hp";
   card?: Card;
   consumable?: Consumable;
   sold: boolean;
 };
 
-export const STARTING_DECK_SIZE = 16;
-export const STARTER_DECK_CAPACITY = 20;
+const STARTER_CARD_COPIES = 6;
+export const STARTING_DECK_SIZE = STARTER_CARD_POOL.length * STARTER_CARD_COPIES + BASIC_CARD_POOL.length;
+export const STARTER_DECK_CAPACITY = 25;
+export const STARTER_DECK_RARE_SLOT_CAPACITY = 1;
 export const DEBUG_ALL_CARDS_DECK_ID = "debug-all-cards";
 
 export const CONSUMABLE_TYPES: TicketType[] = [...TICKET_TYPES];
@@ -116,18 +120,10 @@ export function createDeck(): Card[] {
     count: number,
     blueprint: CardBlueprint,
   ) => Array.from({ length: count }, () => ({ ...blueprint }));
-  const starterSpecialNames = ["전투 교본", "자와 컴퍼스", "기회 창출", "별의 장막", "타격"];
-  const starterSpecialCards = starterSpecialNames.map((name) => {
-    const blueprint = SPECIAL_CARD_POOL.find((card) => card.name === name)
-      ?? STARTER_CARD_POOL.find((card) => card.name === name)
-      ?? BASIC_CARD_POOL.find((card) => card.name === name);
-    if (!blueprint) throw new Error(`Missing starting card: ${name}`);
-    return blueprint;
-  });
   const blueprints: CardBlueprint[] = [
-    ...make(5, STARTER_CARD_POOL[0]),
-    ...make(6, STARTER_CARD_POOL[1]),
-    ...starterSpecialCards,
+    ...STARTER_CARD_POOL,
+    ...BASIC_CARD_POOL,
+    ...STARTER_CARD_POOL.flatMap(blueprint => make(STARTER_CARD_COPIES - 1, blueprint)),
   ];
   if (blueprints.length !== STARTING_DECK_SIZE) {
     throw new Error(`Starting deck must contain ${STARTING_DECK_SIZE} cards.`);
@@ -260,7 +256,7 @@ export function createStarterDeck(): DeckCase {
     id: "starter",
     name: "",
     capacity: STARTER_DECK_CAPACITY,
-    rareSlotCapacity: 0,
+    rareSlotCapacity: STARTER_DECK_RARE_SLOT_CAPACITY,
     cards: createDeck(),
     editions: [],
     editionColors: {},
@@ -309,7 +305,7 @@ export type RegionDeckShape = {
   z: number;
   sum: 0 | 1 | 2;
   capacity: number;
-  rareCount: number;
+  rareSlotCapacity: number;
   editionBudget: number;
 };
 
@@ -329,12 +325,12 @@ function getRegionShapeCandidates(region: number, sum: 0 | 1 | 2) {
       const z = sum - x - y;
       if (z < -region) continue;
       const capacity = REGION_DECK_STARTING_CAPACITY + (region + x) * 5;
-      const rareCount = region + y;
-      if (rareCount > capacity) continue;
+      const rareSlotCapacity = region + 1 + y;
+      if (rareSlotCapacity > capacity) continue;
       const weight = 2 ** -(x * x + y * y + z * z);
       totalWeight += weight;
       candidates.push({ shape: {
-        x, y, z, sum, capacity, rareCount, editionBudget: (region + z) * 10,
+        x, y, z, sum, capacity, rareSlotCapacity, editionBudget: (region + z) * 10,
       }, weight });
     }
   }
@@ -361,9 +357,9 @@ type RegionFillerKind = "empty" | "starter" | "basic" | "special";
 
 function createRegionFillerBag(size: number): RegionFillerKind[] {
   return [
-    ...Array.from({ length: size * 3 / 8 }, () => "empty" as const),
+    ...Array.from({ length: size / 4 }, () => "empty" as const),
     ...Array.from({ length: size / 8 }, () => "starter" as const),
-    ...Array.from({ length: size / 4 }, () => "basic" as const),
+    ...Array.from({ length: size * 3 / 8 }, () => "basic" as const),
     ...Array.from({ length: size / 4 }, () => "special" as const),
   ];
 }
@@ -424,7 +420,8 @@ function generateRegionDeck(
   startCardId: number,
   random: () => number,
 ): { deck: DeckCase; nextCardId: number } {
-  const { capacity, rareCount, editionBudget } = rollRegionDeckShape(regionNumber, random);
+  const { capacity, rareSlotCapacity, editionBudget } = rollRegionDeckShape(regionNumber, random);
+  const rareCount = rollFilledRareSlots(rareSlotCapacity, random);
   const cards: Card[] = [];
   let nextCardId = startCardId;
   let rareBag = [...RARE_CARD_POOL];
@@ -444,7 +441,7 @@ function generateRegionDeck(
     remainingScore -= DECK_EDITION_SCORES[edition];
   }
 
-  const remainingSlots = capacity - cards.length;
+  const remainingSlots = capacity - rareSlotCapacity;
   const bagSize = Math.max(Math.floor((remainingSlots * 2) / 8) * 8, 8);
   let fillerBag = createRegionFillerBag(bagSize);
   const fillerKinds: RegionFillerKind[] = [];
@@ -482,7 +479,7 @@ function generateRegionDeck(
       id: `region-${regionNumber}-${startCardId}`,
       name: createDeckName(),
       capacity,
-      rareSlotCapacity: cards.filter((card) => card.rarity === "rare" || card.rarity === "legendary").length,
+      rareSlotCapacity,
       cards,
       editions,
       editionColors: createEditionColors(editions),
@@ -506,7 +503,7 @@ export function createRegionDeck(
 
 export function createConsumable(type: ConsumableType, id: string): Consumable {
   if (type === "mindEyeTicket") {
-    return { id, type, name: "심안 티켓", description: "20번 이동하는 동안 9×9 시야를 얻습니다." };
+    return { id, type, name: "심안 티켓", description: "20번 이동하는 동안 시야 거리 +2를 얻습니다." };
   }
   if (type === "darkTicket") {
     return { id, type, name: "어둠 티켓", description: "20턴 동안 적의 인식 거리가 1 감소합니다." };
@@ -546,7 +543,6 @@ export function createConsumable(type: ConsumableType, id: string): Consumable {
 export function createBattleReward(
   regionNumber: number,
   nextCardId: number,
-  deckDropChance: number,
   capacityBonus = 0,
   rareCardChance = 0.05,
   forceDeck = false,
@@ -555,7 +551,7 @@ export function createBattleReward(
   const minimumGold = Math.floor(10 * regionMultiplier);
   const maximumGold = Math.floor(15 * regionMultiplier);
   const gold = minimumGold + Math.floor(Math.random() * (maximumGold - minimumGold + 1));
-  const decks = forceDeck || Math.random() < deckDropChance
+  const decks = forceDeck
     ? [createRegionDeck(regionNumber, nextCardId, capacityBonus)]
     : [];
   const consumableType = decks.length === 0 && Math.random() < 0.5
@@ -563,6 +559,7 @@ export function createBattleReward(
     : null;
   return {
     gold,
+    keys: 1,
     cards: decks.length > 0 ? [] : [createBattleRewardCard(nextCardId, rareCardChance)],
     decks,
     consumableType,
@@ -580,6 +577,7 @@ export function createBossBattleReward(
     : [createRegionDeck(bonusDeckRegion, nextCardId + 1, capacityBonus)];
   return {
     gold: 80 + Math.floor(Math.random() * 21),
+    keys: 0,
     cards: [createBattleRewardCard(nextCardId, 1)],
     decks,
     consumableType: null,

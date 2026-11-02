@@ -1,0 +1,145 @@
+/* Shrine workspaces share the inventory's compact cards and separated dark panels. */
+.shrine-panel { font-family: Pretendard, "Malgun Gothic", sans-serif; }
+.shrine-overlay { padding: 22px; }
+.shrine-workspace-panel {
+  width: min(1360px, 100%);
+  height: min(760px, calc(100dvh - 44px));
+  grid-template-rows: auto minmax(0, 1fr);
+  overflow: visible;
+  border: 0;
+  background: transparent;
+  box-shadow: none;
+}
+.shrine-workspace-panel > header {
+  align-items: flex-start;
+  padding: 0 0 18px;
+  border: 0;
+  background: transparent;
+}
+.shrine-workspace-panel > header h2 { font: 700 21px/1.3 Pretendard, "Malgun Gothic", sans-serif; }
+.shrine-workspace-panel > header div > span {
+  display: block;
+  margin-top: 6px;
+  font: 13px/1.5 Pretendard, "Malgun Gothic", sans-serif;
+}
+.shrine-workspace-panel .shop-header-status,
+.shrine-workspace-panel button { font-family: inherit; }
+.shrine-workspace-panel .shrine-transfer {
+  grid-template-columns: minmax(0, 1fr);
+  grid-template-rows: minmax(0, 1fr) auto;
+  align-items: stretch;
+  gap: 24px;
+  padding: 0;
+  background: transparent;
+}
+.shrine-workspace-panel .shrine-deck-column {
+  grid-template-columns: 210px minmax(0, 1fr);
+  grid-template-rows: minmax(0, 1fr);
+  border: 1px solid #db8a3d;
+  border-radius: 5px;
+  background: rgba(12,13,12,.8);
+  background-clip: padding-box;
+}
+.shrine-workspace-panel .shrine-deck-tabs {
+  flex-direction: column;
+  align-items: stretch;
+  gap: 10px;
+  min-height: 0;
+  padding: 12px;
+  overflow-y: auto;
+  border: 0;
+  border-right: 1px solid rgba(219,138,61,.45);
+  background: rgba(12,13,12,.85);
+}
+.shrine-workspace-panel .shrine-deck-tabs button {
+  display: grid;
+  gap: 6px;
+  padding: 12px;
+  border: 1px solid rgba(255,255,255,.24);
+  border-radius: 4px;
+  color: #fff;
+  background: rgba(255,255,255,.035);
+  text-align: left;
+  white-space: normal;
+}
+.shrine-workspace-panel .shrine-deck-tabs button.is-active { border-color: #db8a3d; background: rgba(219,138,61,.12); }
+.shrine-workspace-panel .shrine-deck-tabs strong { font-size: 15px; line-height: 1.35; overflow-wrap: anywhere; }
+.shrine-workspace-panel .shrine-deck-tabs small { color: #fff; font-size: 12px; font-weight: 700; }
+.shrine-workspace-panel .shrine-conversion-source { border-color: #716247; background: rgba(58,46,28,.45); }
+.shrine-workspace-panel .shrine-conversion-source > header,
+.shrine-workspace-panel .shrine-target-heading {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  justify-content: center;
+  gap: 6px;
+  padding: 18px;
+  border: 0;
+  border-right: 1px solid rgba(255,255,255,.22);
+  background: rgba(3,7,5,.24);
+  color: #fff;
+}
+.shrine-workspace-panel .shrine-conversion-source > header strong,
+.shrine-workspace-panel .shrine-target-heading strong { font-size: 15px; }
+.shrine-workspace-panel .shrine-conversion-source > header small,
+.shrine-workspace-panel .shrine-target-heading small { font-size: 12px; color: #fff; font-weight: 700; }
+.shrine-workspace-panel .shrine-deck-cards,
+.shrine-workspace-panel .shrine-conversion-cards {
+  grid-template-columns: repeat(auto-fill, 82px);
+  justify-content: start;
+  gap: 10px;
+  padding: 14px;
+  background: transparent;
+  scrollbar-width: none;
+}
+.shrine-workspace-panel .shrine-deck-cards::-webkit-scrollbar,
+.shrine-workspace-panel .shrine-conversion-cards::-webkit-scrollbar,
+.shrine-workspace-panel .shrine-deck-tabs::-webkit-scrollbar { display: none; }
+.shrine-workspace-panel .shrine-extract-column,
+.shrine-workspace-panel .shrine-conversion-target {
+  display: grid;
+  grid-template-columns: 210px minmax(0, 1fr) 142px;
+  align-items: stretch;
+  justify-items: stretch;
+  gap: 0;
+  overflow: hidden;
+  border: 1px solid #506571;
+  border-radius: 5px;
+  background: rgba(38,51,62,.42);
+}
+.shrine-workspace-panel .shrine-extract-slot,
+.shrine-workspace-panel .shrine-conversion-dropzone {
+  width: auto;
+  height: auto;
+  min-height: 114px;
+  padding: 14px;
+  border: 0;
+  border-radius: 0;
+  background: transparent;
+}
+.shrine-workspace-panel .shrine-extract-slot.is-drop-active,
+.shrine-workspace-panel .shrine-conversion-dropzone.is-drop-active { background: rgba(219,138,61,.18); transform: none; }
+.shrine-workspace-panel .shrine-extract-slot { flex-wrap: wrap; }
+.shrine-workspace-panel .shrine-confirm-extract {
+  align-self: center;
+  width: auto;
+  margin: 14px;
+  padding: 10px 14px;
+  border: 1px solid #928b7a;
+  border-radius: 3px;
+  color: #fff;
+  background: #484941;
+  font-size: 14px;
+}
+.shrine-workspace-panel .shrine-confirm-extract:hover:not(:disabled) { border-color: #db8a3d; background: #5b503f; }
+.shrine-workspace-panel .shrine-drop-hint { color: rgba(255,255,255,.65); font-size: 13px; }
+.shrine-workspace-panel .shrine-deck-card.is-selected { animation: none; opacity: .42; }
+.shrine-workspace-panel .shrine-result { min-height: 0; border: 1px solid rgba(255,255,255,.24); border-radius: 5px; }
+@media (max-width: 760px) {
+  .shrine-overlay { padding: 12px; }
+  .shrine-workspace-panel { height: calc(100dvh - 24px); }
+  .shrine-workspace-panel .shrine-deck-column { grid-template-columns: 140px minmax(0, 1fr); }
+  .shrine-workspace-panel .shrine-extract-column,
+  .shrine-workspace-panel .shrine-conversion-target { grid-template-columns: 140px minmax(0, 1fr); }
+  .shrine-workspace-panel .shrine-confirm-extract { grid-column: 1 / -1; justify-self: end; margin-top: 0; }
+}

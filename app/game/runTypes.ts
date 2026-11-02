@@ -17,13 +17,15 @@ export type SavedRunState = {
   mapEnemyCellMemory: MapEnemyCellMemory;
   mapBombs: MapBomb[];
   destroyedShopRooms: string[];
-  collapsedShrineRooms: string[];
+  collapsedExtractionShrineRooms?: string[];
+  /** Legacy extraction-shrine save key; new saves use the explicit name above. */
+  collapsedShrineRooms?: string[];
   collapsedRecoveryShrineRooms?: string[];
   collapsedVitalityShrineRooms?: string[];
   collapsedMindEyeShrineRooms?: string[];
   collapsedTransformShrineRooms?: string[];
-  collapsedCombinationShrineRooms?: string[];
   collapsedTreasureChestRooms?: string[];
+  openedDeckVaultRooms?: string[];
   vitalityShrineMaxHpBonus?: number;
   collapsedHealthShrineRooms?: string[];
   healthShrineMaxHpBonus?: number;
@@ -40,6 +42,7 @@ export type SavedRunState = {
   roomDrops: Record<string, Card[]>;
   roomConsumableDrops: Record<string, Consumable[]>;
   roomDeckDrops: Record<string, DeckCase[]>;
+  roomDeckVaults?: Record<string, DeckCase>;
   roomShops: Record<string, ShopOffer[]>;
   blessingOffers?: BlessingOfferId[];
   blessingSeenOfferIds?: BlessingId[];
@@ -47,14 +50,14 @@ export type SavedRunState = {
   blessingRerollCost: number;
   oneUpUsed: boolean;
   gold: number;
+  keys?: number;
+  skipPortalKeyWarning?: boolean;
   nextCardId: number;
   nextConsumableId: number;
-  deckDropChance: number;
   rareCardDropChance: number;
-  deckPityBattlesRemaining?: number;
 };
 
-export type ShrineResult = { cards: Card[] };
+export type ExtractionShrineResult = { cards: Card[] };
 
 export type TreasureChestReward = {
   cards: Card[];

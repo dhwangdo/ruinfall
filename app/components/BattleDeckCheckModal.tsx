@@ -1,7 +1,6 @@
+import { CardVisual } from "./CardVisual";
 import type { MouseEvent as ReactMouseEvent } from "react";
-import { DeckEditorCardIcon } from "./DeckEditorCardIcon";
 import { DeckName } from "./DeckName";
-import { deckEditorCardStackStyle } from "./deckEditorCardStackStyle";
 import { groupAndSortDeckEditorCards } from "../game/deckEditorViews";
 import type { DeckCase, DeckEdition } from "../game/rewards";
 
@@ -62,13 +61,13 @@ export function BattleDeckCheckModal({
             <h3><DeckName deck={selectedDeck} showEditions={false} /> 구성</h3>
             <div className="battle-deck-check-cards">
               {cardGroups.map(({ card, cardIds }) => (
-                <div
-                  className={`deck-editor-card rarity-${card.rarity} ${card.rarity === "legendary" ? "is-painted" : ""}`}
+                <CardVisual
+                  card={card}
+                  variant="compact"
+                  count={cardIds.length}
+                  className={`${card.rarity === "legendary" ? "is-painted" : ""}`}
                   key={`${card.id}-${card.name}`}
-                  style={deckEditorCardStackStyle(cardIds.length)}
-                >
-                  <DeckEditorCardIcon card={card} count={cardIds.length} />
-                </div>
+                />
               ))}
             </div>
           </div>

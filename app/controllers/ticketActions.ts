@@ -387,11 +387,11 @@ export function createTicketActions({
       const candidates: MapPosition[] = [];
       const specialRoomTypes = new Set([
         "shop",
-        "shrine",
+        "bloodShop",
+        "extractionShrine",
         "vitalityShrine",
         "mindEyeShrine",
         "transformShrine",
-        "combinationShrine",
         "treasureChest",
         "blessing",
       ]);
@@ -418,11 +418,11 @@ export function createTicketActions({
       const revealedNames = revealed.map((position) => {
         const type = effectiveRoomType(position);
         if (type === "shop") return "상점";
-        if (type === "shrine") return "추출의 성소";
+        if (type === "bloodShop") return "피의 상점";
+        if (type === "extractionShrine") return "추출의 성소";
         if (type === "vitalityShrine") return "건강의 성소";
         if (type === "mindEyeShrine") return "심안의 성소";
         if (type === "transformShrine") return "변환의 성소";
-        if (type === "combinationShrine") return "조합의 성소";
         if (type === "treasureChest") return "보물 상자";
         return "축복";
       });

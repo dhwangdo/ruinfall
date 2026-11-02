@@ -1,4 +1,4 @@
-import { useCallback, useMemo, useRef, useState } from "react";
+import { useCallback, useMemo, useRef, useState, type Dispatch, type SetStateAction } from "react";
 import type { MapEnemyWorld, MapEnemyCellMemory } from "../game/mapEnemies";
 import type { MapBomb } from "../game/mapEffects";
 import { MAP_START, getRoomType, getSafeAreaRegionIndex, mapRoomKey, type MapPosition } from "../game/mapRules";
@@ -30,7 +30,7 @@ export function useRunWorld() {
 
   const [destroyedShopRooms, setDestroyedShopRooms] = useState<Set<string>>(() => new Set());
 
-  const [collapsedShrineRooms, setCollapsedShrineRooms] = useState<Set<string>>(() => new Set());
+  const [collapsedExtractionShrineRooms, setCollapsedExtractionShrineRooms] = useState<Set<string>>(() => new Set());
 
   const [collapsedRecoveryShrineRooms, setCollapsedRecoveryShrineRooms] = useState<Set<string>>(() => new Set());
 
@@ -40,9 +40,16 @@ export function useRunWorld() {
 
   const [collapsedTransformShrineRooms, setCollapsedTransformShrineRooms] = useState<Set<string>>(() => new Set());
 
-  const [collapsedCombinationShrineRooms, setCollapsedCombinationShrineRooms] = useState<Set<string>>(() => new Set());
 
   const [collapsedTreasureChestRooms, setCollapsedTreasureChestRooms] = useState<Set<string>>(() => new Set());
+
+  const [openedDeckVaultRooms, setRenderedOpenedDeckVaultRooms] = useState<Set<string>>(() => new Set());
+  const openedDeckVaultRoomsRef = useRef<Set<string>>(new Set());
+  const setOpenedDeckVaultRooms = useCallback<Dispatch<SetStateAction<Set<string>>>>((update) => {
+    const next = typeof update === "function" ? update(openedDeckVaultRoomsRef.current) : update;
+    openedDeckVaultRoomsRef.current = next;
+    setRenderedOpenedDeckVaultRooms(next);
+  }, []);
 
   const [usedHealRooms, setUsedHealRooms] = useState<Set<string>>(() => new Set());
 
@@ -61,34 +68,34 @@ export function useRunWorld() {
     const roomKey = mapRoomKey(position);
     const safeRegion = getSafeAreaRegionIndex(position, mapSeed);
     if (baseType === "boss" && safeRegion !== null && defeatedBossRegions.has(safeRegion)) return "empty";
-    if (baseType === "shop" && destroyedShopRooms.has(roomKey)) return "empty";
-    if (baseType === "shrine" && collapsedShrineRooms.has(roomKey)) return "empty";
+    if ((baseType === "shop" || baseType === "bloodShop") && destroyedShopRooms.has(roomKey)) return "empty";
+    if (baseType === "extractionShrine" && collapsedExtractionShrineRooms.has(roomKey)) return "empty";
     if (baseType === "recoveryShrine" && collapsedRecoveryShrineRooms.has(roomKey)) return "empty";
     if (baseType === "vitalityShrine" && collapsedVitalityShrineRooms.has(roomKey)) return "empty";
     if (baseType === "mindEyeShrine" && collapsedMindEyeShrineRooms.has(roomKey)) return "empty";
     if (baseType === "transformShrine" && collapsedTransformShrineRooms.has(roomKey)) return "empty";
-    if (baseType === "combinationShrine" && collapsedCombinationShrineRooms.has(roomKey)) return "empty";
     if (baseType === "treasureChest" && collapsedTreasureChestRooms.has(roomKey)) return "empty";
+    if (baseType === "deckVault" && openedDeckVaultRooms.has(roomKey)) return "empty";
     if (baseType === "heal" && usedHealRooms.has(roomKey)) return "empty";
     if (baseType === "blessing" && usedBlessingRooms.has(roomKey)) return "empty";
     if (baseType === "rock" && (rockBombHits[roomKey] ?? 0) >= 3) return "empty";
     return baseType;
-  }, [mapSeed, defeatedBossRegions, destroyedShopRooms, collapsedShrineRooms,
+  }, [mapSeed, defeatedBossRegions, destroyedShopRooms, collapsedExtractionShrineRooms,
     collapsedRecoveryShrineRooms, collapsedVitalityShrineRooms, collapsedMindEyeShrineRooms,
-    collapsedTransformShrineRooms, collapsedCombinationShrineRooms, collapsedTreasureChestRooms,
+    collapsedTransformShrineRooms, collapsedTreasureChestRooms, openedDeckVaultRooms,
     usedHealRooms, usedBlessingRooms, rockBombHits]);
 
   const saveState = useMemo(() => ({
     mapSeed, mapPosition, seenRooms, safeAreaEntrySeenRooms, mapEnemyWorld, defeatedBossRegions,
-    mapEnemyCellMemory, mapBombs, destroyedShopRooms, collapsedShrineRooms,
+    mapEnemyCellMemory, mapBombs, destroyedShopRooms, collapsedExtractionShrineRooms,
     collapsedRecoveryShrineRooms, collapsedVitalityShrineRooms, collapsedMindEyeShrineRooms,
-    collapsedTransformShrineRooms, collapsedCombinationShrineRooms, collapsedTreasureChestRooms,
+    collapsedTransformShrineRooms, collapsedTreasureChestRooms, openedDeckVaultRooms,
     usedHealRooms, usedBlessingRooms, rockBombHits,
   }), [
     mapSeed, mapPosition, seenRooms, safeAreaEntrySeenRooms, mapEnemyWorld, defeatedBossRegions,
-    mapEnemyCellMemory, mapBombs, destroyedShopRooms, collapsedShrineRooms,
+    mapEnemyCellMemory, mapBombs, destroyedShopRooms, collapsedExtractionShrineRooms,
     collapsedRecoveryShrineRooms, collapsedVitalityShrineRooms, collapsedMindEyeShrineRooms,
-    collapsedTransformShrineRooms, collapsedCombinationShrineRooms, collapsedTreasureChestRooms,
+    collapsedTransformShrineRooms, collapsedTreasureChestRooms, openedDeckVaultRooms,
     usedHealRooms, usedBlessingRooms, rockBombHits,
   ]);
   const restoreWorld = useCallback((state: PreparedRunRestore) => {
@@ -100,31 +107,32 @@ export function useRunWorld() {
     setMapEnemyCellMemory(state.mapEnemyCellMemory);
     setMapBombs(state.mapBombs);
     setDestroyedShopRooms(new Set(state.destroyedShopRooms));
-    setCollapsedShrineRooms(new Set(state.collapsedShrineRooms));
+    setCollapsedExtractionShrineRooms(new Set(state.collapsedExtractionShrineRooms));
     setCollapsedRecoveryShrineRooms(new Set(state.collapsedRecoveryShrineRooms));
     setCollapsedVitalityShrineRooms(new Set(state.collapsedVitalityShrineRooms));
     setCollapsedMindEyeShrineRooms(new Set(state.collapsedMindEyeShrineRooms));
     setCollapsedTransformShrineRooms(new Set(state.collapsedTransformShrineRooms));
-    setCollapsedCombinationShrineRooms(new Set(state.collapsedCombinationShrineRooms));
     setCollapsedTreasureChestRooms(new Set(state.collapsedTreasureChestRooms));
+    setOpenedDeckVaultRooms(new Set(state.openedDeckVaultRooms));
     setUsedHealRooms(new Set(state.usedHealRooms));
     setUsedBlessingRooms(new Set(state.usedBlessingRooms));
     setRockBombHits(state.rockBombHits);
     mapBombsRef.current = state.mapBombs;
     generatedMapRoomKeysRef.current = new Set([
-      ...state.seenRooms, ...Object.keys(state.roomDrops), ...Object.keys(state.roomConsumableDrops),
+      ...state.seenRooms, ...Object.keys(state.roomDrops), ...Object.keys(state.roomConsumableDrops), ...Object.keys(state.roomDeckVaults),
     ]);
-  }, []);
+  }, [setOpenedDeckVaultRooms]);
   return {
     mapSeed, setMapSeed, mapPosition, setMapPosition, seenRooms, setSeenRooms,
     safeAreaEntrySeenRooms, setSafeAreaEntrySeenRooms, mapEnemyWorld, setMapEnemyWorld,
     defeatedBossRegions, setDefeatedBossRegions, mapEnemyCellMemory, setMapEnemyCellMemory,
     mapBombs, setMapBombs, mapBombsRef, destroyedShopRooms, setDestroyedShopRooms,
-    collapsedShrineRooms, setCollapsedShrineRooms, collapsedRecoveryShrineRooms,
+    collapsedExtractionShrineRooms, setCollapsedExtractionShrineRooms, collapsedRecoveryShrineRooms,
     setCollapsedRecoveryShrineRooms, collapsedVitalityShrineRooms, setCollapsedVitalityShrineRooms,
     collapsedMindEyeShrineRooms, setCollapsedMindEyeShrineRooms, collapsedTransformShrineRooms,
-    setCollapsedTransformShrineRooms, collapsedCombinationShrineRooms,
-    setCollapsedCombinationShrineRooms, collapsedTreasureChestRooms,
+    setCollapsedTransformShrineRooms,
+    collapsedTreasureChestRooms,
+    openedDeckVaultRooms, openedDeckVaultRoomsRef, setOpenedDeckVaultRooms,
     setCollapsedTreasureChestRooms, usedHealRooms, setUsedHealRooms, usedBlessingRooms,
     setUsedBlessingRooms, rockBombHits, setRockBombHits, generatedMapRoomKeysRef,
     setMapBombsSynced, effectiveRoomType, saveState, restoreWorld,

@@ -1,7 +1,8 @@
 "use client";
 
+import { CardVisual } from "./CardVisual";
+
 import { useCallback, useEffect, useLayoutEffect, useRef, useState, useSyncExternalStore, type CSSProperties, type Dispatch, type RefObject, type SetStateAction } from "react";
-import { CardFace } from "./CardFace";
 import { HAND_PASSIVE_EFFECTS, UNPLAYABLE_CARD_EFFECTS, type Card } from "../game/cards";
 import { cardEnergyCost } from "../game/cardEffects";
 import type { GameState } from "../game/battleState";
@@ -83,7 +84,7 @@ export function BattleHandArea({
   onShowCardKeywordOnly,
   onClearCardHover,
 }: BattleHandAreaProps) {
-  const displayedHand = useDisplayedHand(game, phase);
+  const displayedHand = useDisplayedHand(game, phase).filter(card => card?.id !== pendingDiscardCardId);
   const handRef = useRef<HTMLDivElement>(null);
   const wheelRemainderRef = useRef(0);
   const wheelSpringFrameRef = useRef<number | null>(null);
@@ -254,6 +255,7 @@ export function BattleHandArea({
   }, [dragging, displayedHand.length, maxWindowStart, overscrollLimit, setHoveredHandCardId, setSelectedHandCardId, visibleCardCount]);
 
   const updateHandHoverAtPoint = useCallback((clientX: number, clientY: number, refreshDetails = false) => {
+    if (controlsLocked || phase !== "playing") return;
     const cardId = handCardAtPointer(clientX, clientY);
     if (cardId === hoveredHandCardId && !refreshDetails) return;
     if (cardId !== hoveredHandCardId) setHoveredHandCardId(cardId);
@@ -267,32 +269,47 @@ export function BattleHandArea({
     if (!card || !element) return;
     const bounds = element.getBoundingClientRect();
     onShowCardKeywordOnly(card, bounds.right, bounds.top);
-  }, [game.hand, handCardRefs, hoveredHandCardId, onClearCardHover, onShowCardKeywordOnly, selectedHandCardId, setHoveredHandCardId, setSelectedHandCardId]);
+  }, [controlsLocked, phase, game.hand, handCardRefs, hoveredHandCardId, onClearCardHover, onShowCardKeywordOnly, selectedHandCardId, setHoveredHandCardId, setSelectedHandCardId]);
   const updateHandHoverRef = useRef(updateHandHoverAtPoint);
   useLayoutEffect(() => {
     updateHandHoverRef.current = updateHandHoverAtPoint;
   }, [updateHandHoverAtPoint]);
 
   useEffect(() => {
+    let frame: number | null = null;
+    const cancelPendingHover = () => {
+      if (frame !== null) window.cancelAnimationFrame(frame);
+      frame = null;
+    };
     const updateHandHover = (event: globalThis.PointerEvent) => {
       if (event.pointerType === "touch") {
         lastPointerRef.current = null;
+        cancelPendingHover();
         return;
       }
       lastPointerRef.current = { x: event.clientX, y: event.clientY };
-      if (dragging || event.buttons !== 0) return;
-      updateHandHoverAtPoint(event.clientX, event.clientY);
+      if (dragging || event.buttons !== 0) {
+        cancelPendingHover();
+        return;
+      }
+      if (frame !== null) return;
+      frame = window.requestAnimationFrame(() => {
+        frame = null;
+        const pointer = lastPointerRef.current;
+        if (pointer) updateHandHoverRef.current(pointer.x, pointer.y);
+      });
     };
     window.addEventListener("pointermove", updateHandHover, true);
     window.addEventListener("pointerup", updateHandHover, true);
     return () => {
+      cancelPendingHover();
       window.removeEventListener("pointermove", updateHandHover, true);
       window.removeEventListener("pointerup", updateHandHover, true);
     };
-  }, [dragging, updateHandHoverAtPoint]);
+  }, [dragging]);
 
   useLayoutEffect(() => {
-    if (dragging) return;
+    if (dragging || controlsLocked || phase !== "playing") return;
     const pointer = lastPointerRef.current;
     if (!pointer) return;
     updateHandHoverRef.current(pointer.x, pointer.y, true);
@@ -399,8 +416,11 @@ export function BattleHandArea({
           style={{ "--hand-card-step": `${HAND_CARD_STEP}px`, transform: `translateX(-${trackCenterOffset}px)` } as CSSProperties}
         >
           {displayedHand.map((card, index) => card ? (
-            <button
-              className={`game-card card-face ${card.kind} ${card.damageType} ${HAND_PASSIVE_EFFECTS.has(card.effect) ? "has-hand-aura" : card.effect === "slime" ? "has-danger-aura is-toxic-slime" : ""} ${dragging?.card.id === card.id ? "is-dragging" : ""} ${hoveredHandCardId === card.id ? "is-pointer-hovered" : ""} ${selectedHandCardId === card.id ? "is-keyboard-selected" : ""} ${index < clampedWindowStart || index >= clampedWindowStart + visibleCardCount ? "is-outside-window" : ""}`}
+            <CardVisual
+              as="button"
+              card={card}
+              faceProps={{ ...attackPreview(game.playerAmplification, dragging?.card.id === card.id ? attackTarget : undefined, bossSlayer), starsSpent: game.starsSpent, strength: game.strength + combatManualBonus + backToBasicsBonus(card), agility: game.agility + combatManualBonus + backToBasicsBonus(card), defenseMultiplier: game.defenseMultiplier, ruleCostReduction: lawResearchCount, forgeCount: game.forgeCount, radiancePlayedThisTurn: game.radiancePlayedThisTurn }}
+              className={`game-card   ${HAND_PASSIVE_EFFECTS.has(card.effect) ? "has-hand-aura" : card.effect === "slime" ? "has-danger-aura is-toxic-slime" : ""} ${dragging?.card.id === card.id ? "is-dragging" : ""} ${hoveredHandCardId === card.id ? "is-pointer-hovered" : ""} ${selectedHandCardId === card.id ? "is-keyboard-selected" : ""} ${index < clampedWindowStart || index >= clampedWindowStart + visibleCardCount ? "is-outside-window" : ""}`}
               key={card.id}
               data-card-id={card.id}
               ref={(element) => {
@@ -433,19 +453,7 @@ export function BattleHandArea({
               }}
               disabled={(controlsLocked && game.pendingDiscards === 0) || card.id === pendingDiscardCardId}
               aria-label={UNPLAYABLE_CARD_EFFECTS.has(card.effect) ? `${card.name}, 비용 -, 사용 불가` : `${card.name}, 에너지 ${cardEnergyCost(card, lawResearchCount, game.forgeCount)}`}
-            >
-              <CardFace
-                card={card}
-                {...attackPreview(game.playerAmplification, dragging?.card.id === card.id ? attackTarget : undefined, bossSlayer)}
-                starsSpent={game.starsSpent}
-                strength={game.strength + combatManualBonus + backToBasicsBonus(card)}
-                agility={game.agility + combatManualBonus + backToBasicsBonus(card)}
-                defenseMultiplier={game.defenseMultiplier}
-                ruleCostReduction={lawResearchCount}
-                forgeCount={game.forgeCount}
-                radiancePlayedThisTurn={game.radiancePlayedThisTurn}
-              />
-            </button>
+            />
           ) : <div className={`hand-card-placeholder ${index < clampedWindowStart || index >= clampedWindowStart + visibleCardCount ? "is-outside-window" : ""}`} aria-hidden="true" key={`clear-slot-${index}`} style={handFanStyle(index)} />)}
         </div>
         {leftHiddenCount > 0 && (

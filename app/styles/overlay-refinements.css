@@ -59,10 +59,6 @@
   font-family: Pretendard, "Malgun Gothic", sans-serif;
 }
 .empty-deck-row strong { color: #fff; }
-.deck-editor-empty-card-slot {
-  border-color: rgba(255,255,255,.25);
-  background: rgba(255,255,255,.045);
-}
 .deck-editor-floor-heading { color: #fff; }
 .deck-editor-floor-heading strong { font-size: 15px; }
 .deck-editor-card-list,
@@ -119,8 +115,6 @@
   min-height: 194px;
 }
 .treasure-chest-reward-deck { color: #f5f7f4; border-color: rgba(173,225,188,.62); background: rgba(72,123,88,.42); }
-.treasure-chest-reward-consumable { flex: 0 0 150px; width: 150px; height: 112px; color: #20241f; }
-.treasure-chest-reward-consumable > small { display: block; color: #3e493f; }
 .treasure-chest-bonus-reward,
 .treasure-chest-empty-reward {
   display: grid;
@@ -234,24 +228,6 @@
   border-color: #d9b7f0;
   background: rgba(123,85,151,.42);
 }
-.shrine-conversion-dropzone.is-combination-dropzone.has-cards {
-  display: grid;
-  grid-template-columns: repeat(3, 56px);
-  grid-auto-rows: 56px;
-  align-content: center;
-  justify-content: center;
-  gap: 8px;
-  overflow: hidden;
-}
-.shrine-conversion-dropzone.is-combination-dropzone .shrine-conversion-pending-card {
-  width: 56px;
-  height: 56px;
-  min-height: 56px;
-  flex: 0 0 56px;
-  border-width: 3px;
-}
-.shrine-conversion-dropzone.is-combination-dropzone .editor-card-name { font-size: 9px; }
-.shrine-conversion-dropzone.is-combination-dropzone .editor-card-cost { font-size: 12px; }
 
 .battle-deck-check-panel { border-radius: 5px; }
 .battle-deck-check-panel > p { color: rgba(255,255,255,.62); }
@@ -310,22 +286,6 @@
 .battle-card-ledger-panel header button { padding: 3px 7px; border: 1px solid rgba(255,255,255,.35); color: #fff; background: transparent; cursor: pointer; }
 .battle-card-ledger-cards { display: flex; flex-wrap: wrap; align-items: flex-start; gap: 6px; }
 .battle-card-ledger-cards > em { padding: 4px 7px; color: rgba(255,255,255,.7); font-size: 11px; font-style: normal; }
-.battle-ledger-card-stack { position: relative; flex: 0 0 auto; height: 74px; }
-.battle-ledger-stack-layer {
-  position: absolute;
-  top: 0;
-  width: 74px;
-  height: 74px;
-  border: 4px solid #756A60;
-  border-radius: 4px;
-  background: #d7ddd9;
-  box-shadow: 0 2px 3px rgba(0,0,0,.24);
-}
-.battle-ledger-card-stack.rarity-special .battle-ledger-stack-layer { border-color: #3472a2; }
-.battle-ledger-card-stack.rarity-starter .battle-ledger-stack-layer { border-color: #555B60; }
-.battle-ledger-card-stack.rarity-status .battle-ledger-stack-layer { border-color: #e34b58; }
-.battle-ledger-card-stack.rarity-rare .battle-ledger-stack-layer { border-color: var(--rare-border-color); }
-.battle-ledger-card-stack.rarity-legendary .battle-ledger-stack-layer { border-color: #d5a928; }
 .battle-card-ledger-panel .battle-ledger-card { cursor: help; }
 .battle-card-ledger-panel .battle-ledger-card:hover { transform: none; box-shadow: 0 2px 3px rgba(0,0,0,.18); }
 .research-drag-preview {
@@ -343,8 +303,6 @@
   opacity: 1;
 }
 .battle-card-preview-floating { position: fixed; }
-.deck-card-preview-floating,
-.card-keyword-popover { --card-paper: var(--card-preview-paper); }
 .card-keyword-popover {
   position: fixed;
   z-index: 180;
@@ -386,7 +344,6 @@
   width: fit-content;
   padding: 10px;
 }
-.deck-card-preview-floating .card-face,
 .card-keyword-card-preview { box-shadow: none; }
 .card-keyword-popover .card-keyword-card-preview {
   --card-w: 136px;
@@ -454,87 +411,15 @@
   opacity: .3;
   filter: saturate(.25);
 }
-.deck-editor-slot-divider {
-  flex: 0 0 1px;
-  width: 1px;
-  height: 82px;
-  margin-inline: 5px;
-  background-color: rgba(232, 228, 218, .42);
-  pointer-events: none;
-}
-.deck-editor-panel .deck-editor-card,
-.deck-editor-panel .deck-list-entry {
-  --editor-card-band-height: 19.6px;
-  --editor-stack-border: #9a9da2;
-  overflow: visible;
-  border-color: #9a9da2 !important;
-}
-.editor-card-stack-bands { display: none; }
-.deck-editor-panel .editor-card-stack-bands {
-  position: absolute;
-  top: 0;
-  right: calc(100% + 4px);
-  display: block;
-  width: var(--editor-stack-width, 0px);
-  height: var(--editor-card-band-height);
-  background: repeating-linear-gradient(to right,
-    var(--editor-stack-border) 0 4px,
-    var(--editor-rarity) 4px 7px);
-  pointer-events: none;
-}
-.deck-editor-panel .deck-editor-card.rarity-rare,
-.deck-editor-panel .deck-list-entry.rarity-rare,
-.deck-editor-panel .deck-editor-card.rarity-legendary,
-.deck-editor-panel .deck-list-entry.rarity-legendary {
-  --editor-stack-border: var(--rare-border-color);
-  border-color: var(--rare-border-color) !important;
-}
 .deck-editor-panel .deck-editor-card.is-ticket-drop-target {
   border-color: #8fc7ed !important;
 }
 .deck-editor-panel .consumable-ticket.is-ticket-drop-target {
   border-color: #8fc7ed !important;
 }
-.deck-editor-panel .deck-editor-card::before,
-.deck-editor-panel .deck-list-entry::before {
-  position: absolute;
-  z-index: 0;
-  inset: 0 0 auto;
-  height: var(--editor-card-band-height);
-  background: var(--editor-rarity);
-  content: "";
-  pointer-events: none;
-}
-.deck-editor-panel .deck-editor-card .editor-card-cost,
-.deck-editor-panel .deck-list-entry .editor-card-cost {
-  z-index: 1;
-  color: #fff !important;
-}
-.deck-editor-panel .deck-editor-card .editor-card-name,
-.deck-editor-panel .deck-list-entry .editor-card-name {
-  z-index: 1;
-}
 .deck-editor-panel .deck-card-new,
 .deck-editor-panel .deck-card-painted {
   z-index: 1;
-}
-.deck-editor-rare-slot {
-  display: grid;
-  flex: 0 0 82px;
-  place-items: center;
-  width: 82px;
-  height: 82px;
-  min-height: 82px;
-  padding: 7px;
-  border: 1px dashed rgba(213, 169, 40, .88);
-  border-radius: 4px;
-  color: rgba(255, 244, 197, .9);
-  background: rgba(213, 169, 40, .18);
-  box-shadow: inset 0 0 12px rgba(213, 169, 40, .14), 0 0 9px rgba(213, 169, 40, .24);
-  font-size: 8px;
-  line-height: 1.25;
-  text-align: center;
-  pointer-events: none;
 }
 .pending-removal-icon {
   position: absolute;

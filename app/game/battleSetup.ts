@@ -5,7 +5,8 @@ import { dealtState } from "./battleState.ts";
 import { createAdrenalineCard } from "./cards.ts";
 import { applyPlayerTurnStart, createSewerEncounterByIndex } from "./enemies.ts";
 import { hasUniqueCardEffects } from "./blessingRules.ts";
-import { confiscateBattleCards, enemyEnergyRecoveryPenalty, sharedTurnStrength } from "./enemyPassives.ts";
+import { enemyEnergyRecoveryPenalty } from "./enemyPassives.ts";
+import { resolveEnemyDeathStuns } from "./enemyDefeatRules.ts";
 
 /** Prepares the game data for an encounter, independently of UI and telemetry. */
 export function prepareBattleStart({
@@ -20,7 +21,7 @@ export function prepareBattleStart({
     0,
     godsLamentCharges - (godsLamentApplies ? 1 : 0),
   );
-  const battleEnemies = encounters.flatMap((encounter) =>
+  const battleEnemies = resolveEnemyDeathStuns(encounters.flatMap((encounter) =>
     createSewerEncounterByIndex(encounter.encounterIndex).map((enemy) => {
       const currentHp = Math.max(0, enemy.hp - (encounter.damageTaken ?? 0));
       return {
@@ -29,7 +30,7 @@ export function prepareBattleStart({
         hp: godsLamentApplies ? Math.floor(currentHp * 0.7) : currentHp,
         strength: blessings.includes("absorption") ? enemy.strength - 1 : enemy.strength,
       };
-    }));
+    })));
   const absorptionStrength = blessings.includes("absorption")
     ? battleEnemies.filter((enemy) => enemy.hp > 0).length
     : 0;
@@ -49,11 +50,10 @@ export function prepareBattleStart({
   const turtleTalismanAgility = battleDeck.cards.reduce(
     (total, card) => total + (card.effect === "turtleTalisman" ? card.value : 0), 0,
   );
-  const confiscation = confiscateBattleCards(battleEnemies, battleDeck.cards);
   const dealtGame = dealtState(
     playerHp,
-    confiscation.cards,
-    confiscation.enemies.map(applyPlayerTurnStart),
+    battleDeck.cards,
+    battleEnemies.map(applyPlayerTurnStart),
     battleDeck.editions,
     blessings.includes("clairvoyance") ? .25 : 0,
   );
@@ -64,7 +64,6 @@ export function prepareBattleStart({
   const startingResistance = !blessings.includes("glassCannon") && battleDeck.editions.includes("resistance") ? 1 : 0;
   const nextGame = {
     ...dealtGame,
-    initialDeck: [...dealtGame.initialDeck, ...confiscation.enemies.flatMap(enemy => enemy.confiscatedCards ?? [])],
     hand: blessings.includes("ninja") && encounters.some((encounter) => encounter.awareness === "sleeping")
       ? [...dealtGame.hand, { ...createAdrenalineCard(), id: nextCardId++ }]
       : dealtGame.hand,
@@ -72,8 +71,7 @@ export function prepareBattleStart({
       + (blessings.includes("swordShield") ? 1 : 0)
       + (battleDeck.editions.includes("giant") ? 3 : 0)
       + wolfTalismanStrength
-      + absorptionStrength + sharedTurnStrength(battleEnemies),
-    // The rider grants the same permanent bonus to both sides at each player turn start.
+      + absorptionStrength,
     agility: dealtGame.agility
       + (blessings.includes("swordShield") ? 1 : 0)
       + (battleDeck.editions.includes("giant") ? 3 : 0)

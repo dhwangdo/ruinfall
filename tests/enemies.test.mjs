@@ -61,16 +61,16 @@ test("sturdy stance retains half of block remaining after the enemy turn", () =>
 });
 
 test("regions select only their assigned encounters", () => {
-  assert.deepEqual(getEncounterIndicesForRegion(0), [1, 3, 5, 17, 18, 19, 20, 21, 22, 23, 24, 25]);
-  assert.deepEqual(getEncounterIndicesForRegion(1), [2, 4, 6, 26, 27, 28, 29, 30, 31, 32, 33, 34, 35]);
+  assert.deepEqual(getEncounterIndicesForRegion(0), [1, 5, 19, 20, 22, 25, ...Array.from({ length: 20 }, (_, i) => 66 + i)]);
+  assert.deepEqual(getEncounterIndicesForRegion(1), [2, 4, 6, 27, 30, 33, 34, ...Array.from({ length: 30 }, (_, i) => 36 + i)]);
   assert.deepEqual(getEncounterIndicesForRegion(2), [10, 11, 12, 13]);
 });
 
 test("debug enemy codex is derived from every encounter and its spawn regions", () => {
   const entries = getEnemyCodexEntries();
-  assert.equal(entries.length, 32);
+  assert.equal(entries.length, 70);
   assert.deepEqual(entries[0].regions, [1]);
-  assert.deepEqual(entries.map((entry) => entry.regions[0]), [...Array(13).fill(1), ...Array(14).fill(2), ...Array(5).fill(3)]);
+  assert.deepEqual(entries.map((entry) => entry.regions[0]), [...Array(27).fill(1), ...Array(38).fill(2), ...Array(5).fill(3)]);
   const golem = entries.find((entry) => entry.label === "골렘");
   assert.deepEqual(golem.regions, [2]);
   const rats = entries.find((entry) => entry.label === "쥐 3마리");
@@ -79,10 +79,10 @@ test("debug enemy codex is derived from every encounter and its spawn regions", 
 });
 
 test("each region has a three-percent chance to use the next region enemy pool", () => {
-  assert.deepEqual(getEncounterSpawnPool(0, 0.029), [2, 4, 6, 26, 27, 28, 29, 30, 31, 32, 33, 34, 35]);
-  assert.deepEqual(getEncounterSpawnPool(0, 0.03), [1, 3, 5, 17, 18, 19, 20, 21, 22, 23, 24, 25]);
+  assert.deepEqual(getEncounterSpawnPool(0, 0.029), getEncounterIndicesForRegion(1));
+  assert.deepEqual(getEncounterSpawnPool(0, 0.03), [1, 5, 19, 20, 22, 25, ...Array.from({ length: 20 }, (_, i) => 66 + i)]);
   assert.deepEqual(getEncounterSpawnPool(1, 0), [10, 11, 12, 13]);
-  assert.deepEqual(getEncounterSpawnPool(1, 0.03), [2, 4, 6, 26, 27, 28, 29, 30, 31, 32, 33, 34, 35]);
+  assert.deepEqual(getEncounterSpawnPool(1, 0.03), getEncounterIndicesForRegion(1));
   assert.equal(getEncounterRegionNumber(2), 2);
   assert.equal(getEncounterRegionNumber(1), 1);
   assert.equal(getEncounterRegionNumber(10), 3);
@@ -99,67 +99,69 @@ test("orange slime randomly attacks, weakens, or attacks and grows", () => {
   for (let i = 0; i < 3; i++) assert.notEqual(chooseNextIntent(slime.actions, i), i);
 });
 
-test("golem deals 8 damage during its waits and 30 damage on attack turns", () => {
+test("golem cycles weakness, resistance and a growing physical attack", () => {
   const golem = createSewerEncounterByIndex(2, () => 1)[0];
   assert.equal(golem.name, "골렘");
   assert.equal(golem.hp, 112);
   assert.equal(golem.intentIndex, 0);
-  assert.deepEqual(golem.actions.map((action) => action.name), ["...", "...!", "공격", "...", "공격"]);
-  assert.deepEqual(golem.actions.slice(0, 2).map((action) => action.attacks[0].value), [8, 8]);
-  assert.equal(golem.actions[2].attacks[0].value, 30);
-  assert.equal(golem.actions[3].attacks[0].value, 8);
-  assert.equal(golem.actions[4].attacks[0].value, 30);
+  assert.equal(golem.actions.length, 3);
+  assert.deepEqual(golem.actions[0].attacks, []);
+  assert.equal(golem.actions[0].nextTurnPlayerAmplificationChange, -2);
+  assert.deepEqual(golem.actions[1].attacks, []);
+  assert.equal(golem.actions[1].resistanceGain, 2);
+  assert.deepEqual(golem.actions[2].attacks, [{ type: "physical", value: 25 }]);
+  assert.equal(golem.actions[2].strengthGain, 5);
   assert.equal(chooseNextIntent(golem.actions, 0), 1);
   assert.equal(chooseNextIntent(golem.actions, 1), 2);
-  assert.equal(chooseNextIntent(golem.actions, 2), 3);
-  assert.equal(chooseNextIntent(golem.actions, 3), 4);
-  assert.equal(chooseNextIntent(golem.actions, 4), 3);
+  assert.equal(chooseNextIntent(golem.actions, 2), 0);
 });
 
 test("sewer rat uses the requested discard patterns", () => {
   const rat = createSewerEncounterByIndex(3, () => 1)[0];
   assert.equal(rat.name, "하수구 쥐");
-  assert.equal(rat.hp, 50);
-  assert.deepEqual(rat.actions[0].attacks, [{ type: "physical", value: 5, hits: 2 }]);
+  assert.equal(rat.hp, 28);
+  assert.deepEqual(rat.actions[0].attacks, [{ type: "physical", value: 3, hits: 2 }]);
   assert.equal(rat.actions[0].discardCount, 1);
   assert.equal(rat.actions[0].discardPriority, "rarity");
-  assert.deepEqual(rat.actions[1].attacks, [{ type: "physical", value: 10 }]);
+  assert.deepEqual(rat.actions[1].attacks, [{ type: "physical", value: 6 }]);
   assert.equal(rat.actions[1].discardCount, 1);
   assert.equal(rat.actions[1].discardPriority, "rarity");
-  assert.deepEqual(rat.actions[2].attacks, [{ type: "physical", value: 5 }]);
+  assert.deepEqual(rat.actions[2].attacks, [{ type: "physical", value: 3 }]);
   assert.equal(rat.actions[2].healGain, undefined);
   assert.equal(rat.actions[2].strengthGain, 3);
   assert.equal(rat.actions[2].blockGain, undefined);
   assert.equal(rat.actions[2].discardCount, 1);
   assert.equal(rat.actions[2].discardPriority, "rarity");
   assert.equal(rat.discardPileIndex, undefined);
+  for (let previous = 0; previous < 3; previous++) {
+    assert.notEqual(chooseNextIntent(rat.actions, previous, () => .5), previous);
+  }
 });
 
 test("goblin has the selected three random attacks and a turn-end growth passive", () => {
   const goblin = createSewerEncounterByIndex(4, () => 0)[0];
-  assert.deepEqual(goblin.actions.map(action => [action.attacks[0].value, action.attacks[0].hits ?? 1]), [[8, 2], [7, 3], [10, 1]]);
-  assert.equal(goblin.actions[2].nextTurnPlayerAmplificationChange, -1);
+  assert.deepEqual(goblin.actions.map(action => action.attacks), [[{ type: "physical", value: 8, hits: 2 }], [{ type: "physical", value: 7, hits: 3 }], []]);
+  assert.equal(goblin.actions[2].amplificationGain, 2);
   assert.equal(goblin.turnEndStrengthGain, 1);
 });
 
 test("removed wizards, mana beast and green slime never appear in encounters or the codex", () => {
-  for (const encounterIndex of [0, 7, 8, 9]) {
+  for (const encounterIndex of [0, 7, 8, 9, 24]) {
     assert.deepEqual(createSewerEncounterByIndex(encounterIndex), []);
   }
   assert.ok(getEnemyCodexEntries().every((entry) =>
-    entry.enemies.every(({ enemy }) => !["작은 마법사", "마나 야수", "도깨비불", "초록 슬라임"].includes(enemy.name))));
+    entry.enemies.every(({ enemy }) => !["작은 마법사", "마나 야수", "도깨비불", "초록 슬라임", "쇠사슬 죄수"].includes(enemy.name))));
 });
 
-test("three rats roll 12 to 13 health and alternate four and eight damage", () => {
+test("three rats roll 12 to 13 health and repeat four damage every turn", () => {
   const minimumRats = createSewerEncounterByIndex(5, () => 0);
   const maximumRats = createSewerEncounterByIndex(5, () => 1);
   assert.equal(minimumRats.length, 3);
   assert.ok(minimumRats.every((rat) => rat.hp === 12 && rat.intentIndex === 0));
   assert.ok(maximumRats.every((rat) => rat.hp === 13));
   for (const rat of maximumRats) {
-    assert.deepEqual(rat.actions.map(action => action.attacks[0].value), [4, 8]);
-    assert.equal(chooseNextIntent(rat.actions, 0), 1);
-    assert.equal(chooseNextIntent(rat.actions, 1), 0);
+    assert.deepEqual(rat.actions.map(action => action.attacks[0].value), [4]);
+    assert.equal(chooseNextIntent(rat.actions, 0), 0);
   }
 });
 

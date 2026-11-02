@@ -4,9 +4,10 @@ import type { DamagePopup, Phase } from "../game/battleUiTypes";
 import type { Card } from "../game/cards";
 import type { Consumable, DeckCase } from "../game/rewards";
 import type { MapBattleEnemy, PendingBattleStart } from "../game/runTypes";
+import { createBattleAnimationLifecycle } from "../components/battleAnimationLifecycle";
 type Screen = "map" | "battle";
 
-/** Owns a battle's state, encounter queue, rewards, and cancellable presentation timers. */
+/** Owns a battle's state, encounter queue, rewards, and cancellable timers/animations. */
 export function useBattleSession() {
   const [screen, setScreen] = useState<Screen>("map");
 
@@ -31,6 +32,7 @@ export function useBattleSession() {
   const [battleRewardConsumables, setBattleRewardConsumables] = useState<Consumable[]>([]);
 
   const [battleRewardGold, setBattleRewardGold] = useState(0);
+  const [battleRewardKeys, setBattleRewardKeys] = useState(0);
 
   const [game, setRenderedGame] = useState<GameState>(waitingState);
   const gameRef = useRef(game);
@@ -56,6 +58,7 @@ export function useBattleSession() {
   const enemyPopupKeyRef = useRef(0);
 
   const rewardGrantedRef = useRef(false);
+  const rewardCollectedRef = useRef(false);
   const battleRewardRegionRef = useRef(1);
 
   const battleRewardIsBossRef = useRef(false);
@@ -77,6 +80,7 @@ export function useBattleSession() {
   const [pendingDiscardPlay, setPendingDiscardPlay] = useState<{ card: Card; targetEnemyId?: string } | null>(null);
 
   const timersRef = useRef<number[]>([]);
+  const [{ trackAnimation, afterAnimations, clearAnimations }] = useState(createBattleAnimationLifecycle);
 
   const later = useCallback((callback: () => void, delay: number) => {
     const timer = window.setTimeout(callback, delay);
@@ -87,9 +91,10 @@ export function useBattleSession() {
   const clearBattleTimers = useCallback(() => {
     timersRef.current.forEach((timer) => window.clearTimeout(timer));
     timersRef.current = [];
-  }, []);
+    clearAnimations();
+  }, [clearAnimations]);
 
-  const showEnemyPopup = useCallback((enemyId: string, text: string, kind: "damage" | "buff" = "damage") => {
+  const showEnemyPopup = useCallback((enemyId: string, text: string, kind: "damage" | "buff" | "debuff" = "damage") => {
     enemyPopupKeyRef.current += 1;
     const popup = { key: `${enemyId}-${enemyPopupKeyRef.current}`, text, kind };
     setEnemyPopups((current) => ({ ...current, [enemyId]: popup }));
@@ -108,13 +113,13 @@ export function useBattleSession() {
     setPendingBattleStart, battleDeckCheckEnabled, setBattleDeckCheckEnabled, battleDeckPreviewId,
     setBattleDeckPreviewId, battleRewards, setBattleRewards, battleRewardDecks,
     setBattleRewardDecks, battleRewardConsumables, setBattleRewardConsumables, battleRewardGold,
-    setBattleRewardGold, game, setGame, telemetryPreviousGameRef, phase, setPhase,
+    setBattleRewardGold, battleRewardKeys, setBattleRewardKeys, game, setGame, telemetryPreviousGameRef, phase, setPhase,
     attackingEnemyId, setAttackingEnemyId, damagePopup, setDamagePopup, enemyPopups,
     setEnemyPopups, animatedEnemyHp, setAnimatedEnemyHp, enemyPopupKeyRef, battleRewardRegionRef,
     battleRewardIsBossRef, battleRewardIsOutOfDepthRef, dyingEnemyIds, setDyingEnemyIds,
     battleCardView, setBattleCardView, pendingOriginsRef, pendingEnemyTokenIdsRef,
     pendingPileTokenSourcesRef, handCardRefs, pendingDiscardPlay, setPendingDiscardPlay, timersRef,
-    rewardGrantedRef, getGame, later, clearBattleTimers, showEnemyPopup,
+    rewardGrantedRef, rewardCollectedRef, getGame, later, clearBattleTimers, showEnemyPopup, trackAnimation, afterAnimations,
   };
 }
 export type BattleSession = ReturnType<typeof useBattleSession>;

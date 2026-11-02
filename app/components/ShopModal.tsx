@@ -1,16 +1,17 @@
-import type { ComponentType, Dispatch, SetStateAction } from "react";
+import { CardVisual } from "./CardVisual";
+import { ConsumableVisual } from "./ConsumableVisual";
+import type { Dispatch, SetStateAction } from "react";
 import type { Card } from "../game/cards";
 import type { Consumable, ShopOffer } from "../game/rewards";
-import { ConsumableTicketTierMark, consumableTicketTierClassName } from "./ConsumableTicketTierMark";
-import type { CardFaceProps } from "./CardFace";
+import { ConsumableCardPreview } from "./ConsumableCardPreview";
 
 type Props = {
   open: boolean;
   gold: number;
+  playerHp: number;
   offers: ShopOffer[];
   onClose: () => void;
   onBuy: (offerId: string) => void;
-  CardFace: ComponentType<CardFaceProps>;
   showCardKeywordOnly: (card: Card, right: number, top: number) => void;
   setHoveredDeckCard: Dispatch<SetStateAction<Card | null>>;
   clearCardKeywordHover: () => void;
@@ -25,10 +26,10 @@ type Props = {
 export function ShopModal({
   open,
   gold,
+  playerHp,
   offers,
   onClose,
   onBuy,
-  CardFace: RenderCardFace,
   showCardKeywordOnly,
   setHoveredDeckCard,
   clearCardKeywordHover,
@@ -40,13 +41,14 @@ export function ShopModal({
   deckPreviewPosition,
 }: Props) {
   if (!open) return null;
+  const bloodShop = offers.some(offer => offer.currency === "hp");
   return (
     <div className="shop-overlay" role="dialog" aria-modal="true" aria-labelledby="shop-title">
-      <section className="shop-panel">
+      <section className={`shop-panel ${bloodShop ? "is-blood-shop" : ""}`}>
         <header>
-          <div><h2 id="shop-title">여행 상점</h2></div>
+          <div><h2 id="shop-title">{bloodShop ? "피의 상점" : "여행 상점"}</h2></div>
           <div className="shop-header-status">
-            <strong>🪙 {gold}</strong>
+            <strong>{bloodShop ? `♥ ${playerHp}` : `🪙 ${gold}`}</strong>
             <button type="button" onClick={onClose}>나가기</button>
           </div>
         </header>
@@ -57,11 +59,12 @@ export function ShopModal({
               className={`shop-offer ${offer.sold ? "is-sold" : ""}`}
               key={offer.id}
               onClick={() => onBuy(offer.id)}
-              disabled={offer.sold}
+              disabled={offer.sold || (offer.currency === "hp" && playerHp <= offer.price)}
             >
               {offer.card ? (
-                <div
-                  className={`shop-card card-face ${offer.card.kind} ${offer.card.damageType}`}
+                <CardVisual
+                  card={offer.card}
+                  className="shop-card"
                   onMouseEnter={(event) => {
                     const bounds = event.currentTarget.getBoundingClientRect();
                     showCardKeywordOnly(offer.card!, bounds.right, bounds.top);
@@ -71,12 +74,12 @@ export function ShopModal({
                     showCardKeywordOnly(offer.card!, bounds.right, bounds.top);
                   }}
                   onMouseLeave={() => { setHoveredDeckCard(null); clearCardKeywordHover(); }}
-                >
-                  <RenderCardFace card={offer.card} />
-                </div>
+                />
               ) : offer.consumable ? (
-                <div
-                  className={`consumable-ticket ${offer.consumable.type} ${consumableTicketTierClassName(offer.consumable.type)}`}
+                <ConsumableVisual
+                  item={offer.consumable}
+                  variant="full"
+                  description={consumableDescription(offer.consumable)}
                   aria-label={`${offer.consumable.name}: ${consumableDescription(offer.consumable)}`}
                   onMouseEnter={(event) => {
                     const bounds = event.currentTarget.getBoundingClientRect();
@@ -92,26 +95,16 @@ export function ShopModal({
                     showConsumablePreview(offer.consumable!, bounds.right, bounds.top);
                   }}
                   onBlur={() => setHoveredConsumable(null)}
-                >
-                  <ConsumableTicketTierMark type={offer.consumable.type} />
-                  <strong>{offer.consumable.name}</strong>
-                  <small>{consumableDescription(offer.consumable)}</small>
-                </div>
+                />
               ) : null}
-              <span className="shop-price">{offer.sold ? "판매 완료" : `🪙 ${offer.price}`}</span>
+              <span className="shop-price">{offer.sold ? "판매 완료" : `${offer.currency === "hp" ? "♥" : "🪙"} ${offer.price}`}</span>
             </button>
           ))}
         </div>
       </section>
       {hoveredConsumable && !consumableDragActive && (
-        <aside
-          className={`deck-consumable-preview-floating ${hoveredConsumable.type}`}
-          style={{ left: deckPreviewPosition.x, top: deckPreviewPosition.y }}
-          aria-live="polite"
-        >
-          <strong>{hoveredConsumable.name}</strong>
-          <p>{consumableDescription(hoveredConsumable)}</p>
-        </aside>
+        <ConsumableCardPreview item={hoveredConsumable} position={deckPreviewPosition}
+          description={consumableDescription(hoveredConsumable)} />
       )}
     </div>
   );

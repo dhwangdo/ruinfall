@@ -1,5 +1,6 @@
 import assert from "node:assert/strict";
 import test from "node:test";
+import { rollFilledRareSlots } from "../app/game/rareSlotRules.ts";
 
 import {
   nextRareCardDropChance,
@@ -13,6 +14,7 @@ import {
   createStarterDeck,
   rollRegionDeckShape,
   createBattleReward,
+  createBossBattleReward,
 } from "../app/game/rewards.ts";
 import {
   TICKET_TYPES,
@@ -37,8 +39,9 @@ test("card rewards update the rare-card pity chance", () => {
 });
 
 test("out-of-depth battle rewards always include a deck", () => {
-  const reward = createBattleReward(2, 0, 0, 0, 0, true);
+  const reward = createBattleReward(2, 0, 0, 0, true);
   assert.equal(reward.decks.length, 1);
+  assert.equal(reward.keys, 1);
   assert.equal(reward.cards.length, 0);
   assert.equal(reward.consumableType, null);
   assert.deepEqual(reward.consumableTypes, []);
@@ -112,9 +115,9 @@ test("region deck shape keeps the chosen sum and rejects rare overflow", () => {
     assert.ok(shape.y >= -(7 - 1));
     assert.ok(shape.z >= -7);
     assert.equal(shape.capacity, 20 + (7 + shape.x) * 5);
-    assert.equal(shape.rareCount, 7 + shape.y);
-    assert.ok(shape.rareCount >= 1);
-    assert.ok(shape.rareCount <= shape.capacity);
+    assert.equal(shape.rareSlotCapacity, 8 + shape.y);
+    assert.ok(shape.rareSlotCapacity >= 2);
+    assert.ok(shape.rareSlotCapacity <= shape.capacity);
     assert.equal(shape.editionBudget, (7 + shape.z) * 10);
   }
 });
@@ -125,30 +128,52 @@ test("region deck uses its shape and adds deck-size blessing capacity last", () 
   const blessed = createRegionDeck(2, 100, 5, () => 0.5);
   assert.equal(base.capacity, shape.capacity);
   assert.equal(blessed.capacity, shape.capacity + 5);
-  assert.equal(base.cards.filter((card) => card.rarity === "rare").length, shape.rareCount);
-  assert.equal(base.rareSlotCapacity, base.cards.filter((card) => card.rarity === "rare" || card.rarity === "legendary").length);
-  assert.equal(base.rareSlotCapacity, shape.rareCount);
+  assert.equal(base.cards.filter((card) => card.rarity === "rare").length, rollFilledRareSlots(shape.rareSlotCapacity, () => .5));
+  assert.ok(base.rareSlotCapacity >= base.cards.filter((card) => card.rarity === "rare").length);
+  assert.equal(base.rareSlotCapacity, shape.rareSlotCapacity);
   assert.deepEqual(blessed.cards, base.cards);
   assert.deepEqual(blessed.editions, base.editions);
 });
 
-test("the starter deck has six physical defense cards and no magic defense card", () => {
+test("the starter deck has 20 cards, capacity 25, and every starter/basic type", () => {
   const deck = createStarterDeck();
-  assert.equal(deck.rareSlotCapacity, 0);
-  assert.equal(deck.cards.length, 16);
-  assert.equal(new Set(deck.cards.map((card) => card.id)).size, 16);
+  assert.equal(deck.rareSlotCapacity, 1);
+  assert.equal(deck.capacity, 25);
+  assert.equal(deck.cards.length, 20);
+  assert.equal(new Set(deck.cards.map((card) => card.id)).size, 20);
   assert.equal(deck.cards.filter((card) => card.name === "타격").length, 6);
   assert.equal(deck.cards.filter((card) => card.name === "방어" && card.damageType === "physical").length, 6);
+  for (const name of ["몸 사리기", "돌진", "잽", "자와 컴퍼스", "기회 포착", "기회 창출", "별의 장막", "전투 교본"]) {
+    assert.equal(deck.cards.filter(card => card.name === name).length, 1, name);
+  }
   assert.equal(deck.cards.some((card) => card.name === "마법 방어"), false);
 });
 
-test("region filler bags still leave three eighths of slots empty", () => {
+test("region filler bags leave one quarter of bag entries empty", () => {
   const shape = rollRegionDeckShape(1, () => 0);
   const deck = createRegionDeck(1, 200, 0, () => 0);
-  const remainingSlots = shape.capacity - shape.rareCount;
+  const remainingSlots = shape.capacity - shape.rareSlotCapacity;
   const bagSize = Math.max(Math.floor((remainingSlots * 2) / 8) * 8, 8);
   assert.equal(deck.capacity, shape.capacity);
-  assert.equal(deck.cards.length, deck.capacity - (bagSize * 3) / 8);
+  assert.equal(deck.cards.length, 1 + remainingSlots - bagSize / 4);
+});
+
+test("generated filler slots follow the requested 2:1:3:2 distribution", () => {
+  let seed = 39471;
+  const random = () => ((seed = (Math.imul(seed, 1664525) + 1013904223) >>> 0) / 4294967296);
+  const counts = { empty: 0, starter: 0, basic: 0, special: 0 };
+  let slots = 0;
+  for (let index = 0; index < 2000; index++) {
+    const deck = createRegionDeck(1, index * 100, 0, random);
+    const fillerCards = deck.cards.filter(card => card.rarity !== "rare");
+    const remainingSlots = deck.capacity - deck.rareSlotCapacity;
+    slots += remainingSlots;
+    counts.empty += remainingSlots - fillerCards.length;
+    for (const card of fillerCards) counts[card.rarity]++;
+  }
+  for (const [kind, share] of Object.entries({ empty: .25, starter: .125, basic: .375, special: .25 })) {
+    assert.ok(Math.abs(counts[kind] / slots - share) < .015, `${kind}: ${counts[kind] / slots}`);
+  }
 });
 
 test("region deck draws rare cards without repeating before exhausting the pool", () => {
@@ -156,4 +181,22 @@ test("region deck draws rare cards without repeating before exhausting the pool"
   const rareNames = deck.cards.filter((card) => card.rarity === "rare").map((card) => card.name);
   assert.ok(rareNames.length > 1);
   assert.equal(new Set(rareNames).size, rareNames.length);
+});
+
+test("ordinary victories always add one key and never roll a deck", (t) => {
+  t.mock.method(Math, "random", () => 0);
+  for (let index = 0; index < 12; index++) {
+    const reward = createBattleReward(1, index * 100);
+    assert.equal(reward.keys, 1);
+    assert.equal(reward.decks.length, 0);
+    assert.equal(reward.cards.length, 1);
+  }
+});
+
+test("bosses grant no key but retain the boss-slayer bonus deck", () => {
+  assert.equal(createBossBattleReward(100).keys, 0);
+  const reward = createBossBattleReward(100, 2);
+  assert.equal(reward.keys, 0);
+  assert.equal(reward.decks.length, 1);
+  assert.equal(reward.cards.length, 1);
 });

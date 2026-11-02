@@ -39,8 +39,9 @@ export type TelemetryAcquisitionSource =
   | "card-pack"
   | "floor"
   | "treasure-chest"
+  | "deck-vault"
   | "blessing"
-  | "shrine"
+  | "extractionShrine"
   | "other";
 
 export type TelemetryConsumableSnapshot = {

@@ -1,7 +1,7 @@
 "use client";
 
 import { useRef, useState, type CSSProperties, type PointerEvent as ReactPointerEvent, type RefObject, type WheelEvent as ReactWheelEvent } from "react";
-import { CardFace } from "./CardFace";
+import { CardVisual } from "./CardVisual";
 import type { Card } from "../game/cards";
 import { canForgeCardOnto, canPlaceBySolitaireRule } from "../game/cardEffects";
 import type { GameState } from "../game/battleState";
@@ -35,8 +35,7 @@ type BattlePileZoneProps = {
   onClearCardHover: () => void;
 };
 
-const CARD_HEIGHT = 170;
-const DEFAULT_STACK_OFFSET = 27;
+import { PILE_CARD_HEIGHT, PILE_STACK_OFFSET } from "./battlePileLayout";
 
 export function BattlePileZone({
   game,
@@ -60,6 +59,7 @@ export function BattlePileZone({
   const [pilePanning, setPilePanning] = useState(false);
   const lawResearchCount = game.activeRuleCards.filter((card) => card.effect === "lawResearch").length;
   const blocked = blockedPileIndexes(game.enemies);
+  const choosingDiscard = game.pendingSweep && game.pendingPileOperation === "discardTop";
   const discardPileCounts = game.enemies.reduce((counts, enemy) => {
     const intent = enemy.actions[enemy.intentIndex];
     if (enemy.hp > 0 && intent.discardCount && enemy.discardPileIndex !== undefined) {
@@ -121,7 +121,7 @@ export function BattlePileZone({
       >
         <div className="piles" aria-label="카드 파일들">
           {game.piles.map((pile, index) => {
-            const stackOffset = DEFAULT_STACK_OFFSET;
+            const stackOffset = PILE_STACK_OFFSET;
             const discardCount = discardPileCounts.get(index) ?? 0;
             const sealed = blocked.includes(index);
             const targetCard = pile.at(-1);
@@ -137,9 +137,9 @@ export function BattlePileZone({
             const isHoveredSolitaireDrop = isValidSolitaireDrop && dragOverDropTarget === `pile:${index}`;
             return (
               <div
-                className={`solitaire-pile ${sealed ? "is-sealed" : ""} ${discardCount > 0 ? "is-discard-target" : ""} ${game.pendingDraws > 0 || game.pendingPileDrawCount > 0 || game.pendingSweep || game.pendingResearchDraw === "astronomy" ? pile.length > 0 && !sealed ? "is-draw-choice" : "is-draw-empty" : ""}`}
+                className={`solitaire-pile ${sealed ? "is-sealed" : ""} ${discardCount > 0 ? "is-discard-target" : ""} ${game.pendingDraws > 0 || game.pendingPileDrawCount > 0 || game.pendingSweep || game.pendingResearchDraw === "astronomy" ? pile.length > 0 && (!sealed || choosingDiscard) ? "is-draw-choice" : "is-draw-empty" : ""}`}
                 key={index}
-                style={{ "--pile-stack-height": `${CARD_HEIGHT + Math.max(0, pile.length - 1) * stackOffset}px` } as CSSProperties}
+                style={{ "--pile-stack-height": `${PILE_CARD_HEIGHT + Math.max(0, pile.length - 1) * stackOffset}px` } as CSSProperties}
                 data-pile-index={index}
                 data-drop-target={`pile:${index}`}
                 aria-label={`${index + 1}번 파일, ${pile.length}장`}
@@ -160,8 +160,11 @@ export function BattlePileZone({
                     && dragging.source.pileIndex === index
                     && cardIndex >= dragging.source.cardIndex;
                   return (
-                    <div
-                      className={`stacked-card ${faceUp ? `card-face face-up pile-draggable-card ${card.kind} ${card.damageType}` : "face-down"} ${isMoving ? "is-dragging" : ""} ${isTop && isValidSolitaireDrop ? isForgeDrop ? "is-forge-drop-target" : "is-solitaire-drop-target" : ""} ${isHoveredSolitaireDrop && isTop ? "is-hovered-solitaire-drop-target" : ""}`}
+                    <CardVisual
+                      card={card}
+                      faceDown={!faceUp}
+                      faceProps={{ ...attackPreview(game.playerAmplification, dragging?.card.id === card.id ? attackTarget : undefined, bossSlayer), strength: game.strength + combatManualBonus + backToBasicsBonus(card), agility: game.agility + combatManualBonus + backToBasicsBonus(card), defenseMultiplier: game.defenseMultiplier, ruleCostReduction: lawResearchCount, forgeCount: game.forgeCount, radiancePlayedThisTurn: game.radiancePlayedThisTurn }}
+                      className={`stacked-card ${faceUp ? `face-up pile-draggable-card  ` : "face-down"} ${isMoving ? "is-dragging" : ""} ${isTop && isValidSolitaireDrop ? isForgeDrop ? "is-forge-drop-target" : "is-solitaire-drop-target" : ""} ${isHoveredSolitaireDrop && isTop ? "is-hovered-solitaire-drop-target" : ""}`}
                       style={{
                         top: `${cardIndex * stackOffset}px`,
                         "--stack-index": cardIndex,
@@ -186,17 +189,9 @@ export function BattlePileZone({
                         const bounds = event.currentTarget.getBoundingClientRect();
                         onShowCardKeywordOnly(card, bounds.right, bounds.top);
                       } : undefined}
-                      onMouseMove={faceUp ? (event) => {
-                        const bounds = event.currentTarget.getBoundingClientRect();
-                        onShowCardKeywordOnly(card, bounds.right, bounds.top);
-                      } : undefined}
                       onMouseLeave={faceUp ? onClearCardHover : undefined}
                       onBlur={faceUp ? onClearCardHover : undefined}
-                    >
-                      {faceUp
-                        ? <CardFace card={card} {...attackPreview(game.playerAmplification, dragging?.card.id === card.id ? attackTarget : undefined, bossSlayer)} strength={game.strength + combatManualBonus + backToBasicsBonus(card)} agility={game.agility + combatManualBonus + backToBasicsBonus(card)} defenseMultiplier={game.defenseMultiplier} ruleCostReduction={lawResearchCount} forgeCount={game.forgeCount} radiancePlayedThisTurn={game.radiancePlayedThisTurn} />
-                        : <span className={`card-back-pattern ${card.colored ? "is-painted" : ""}`} />}
-                    </div>
+                    />
                   );
                 })}
               </div>

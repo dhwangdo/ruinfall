@@ -7,7 +7,7 @@ import { resolveCardPlay } from "../app/game/cardPlayResolution.ts";
 import { resolveEnemyTurn } from "../app/game/enemyTurnResolution.ts";
 import { createEndTurn } from "../app/game/endTurnAction.ts";
 import { createDrawCards } from "../app/game/drawCards.ts";
-import { createMoveCardToPile, createDrawSelectedPile, createDrawAstronomyResearchCard } from "../app/game/pileActions.ts";
+import { createMoveCardToPile, createDrawSelectedPile, createDrawAstronomyResearchCard, resolvePendingPileOperation } from "../app/game/pileActions.ts";
 import { createTelemetryRecorder } from "../app/game/telemetry.ts";
 import { getEnemyCodexEntries } from "../app/game/enemies.ts";
 import { blockedPileIndexes } from "../app/game/enemyPassives.ts";
@@ -135,7 +135,7 @@ function simulate(deck, encounter, trialSeed, lament, policy) {
       let guard = 0;
       while (state.status === "playing" && ++guard < 100) {
         const blocked = blockedPileIndexes(state.enemies);
-        if (state.pendingDraws > 0 || state.pendingPileDrawCount > 0) {
+        if ((state.pendingDraws > 0 || state.pendingPileDrawCount > 0) && !state.pendingSweep) {
           const candidates = state.piles.flatMap((pile, index) => pile.length && !blocked.includes(index) ? [index] : []);
           candidates.sort((a, b) => quality(state.piles[b].at(-1)) - quality(state.piles[a].at(-1)));
           createDrawSelectedPile({ game: state, phase: "playing", setGame,
@@ -146,11 +146,7 @@ function simulate(deck, encounter, trialSeed, lament, policy) {
         } else if (state.pendingSweep) {
           const candidates = state.piles.flatMap((pile, i) => pile.length ? [i] : []);
           candidates.sort((a, b) => quality(state.piles[a].at(-1)) - quality(state.piles[b].at(-1)));
-          const piles = state.piles.map(pile => [...pile]), index = candidates[0], top = piles[index]?.pop();
-          if (top && state.pendingPileOperation !== "discardTop") piles[index].unshift(top);
-          if (piles[index]?.length) piles[index][piles[index].length - 1] = { ...piles[index].at(-1), revealed: true };
-          state = { ...state, piles, pendingSweep: false, pendingPileOperation: null,
-            discard: top && state.pendingPileOperation === "discardTop" ? [...state.discard, top] : state.discard };
+          state = resolvePendingPileOperation(state, candidates[0] ?? 0);
         } else break;
       }
       if (guard >= 100) throw new Error("pending action loop");
@@ -229,7 +225,7 @@ function simulate(deck, encounter, trialSeed, lament, policy) {
       trace.push({ turn: state.turn, hp: state.playerHp, action: "end", enemyHp: state.enemies.reduce((n, e) => n + e.hp, 0) });
       createEndTurn({ game: state, phase: "playing", handCardRefs: { current: new Map() }, setPhase() {}, setDragging() {}, later,
         blessings: [], oneUpUsedRef: oneUpUsed, maxPlayerHp: 50, setOneUpUsed() {}, setGame, drawCards: draw,
-        telemetry: createTelemetryRecorder(), setDamagePopup() {}, setAttackingEnemyId() {}, grantBattleReward() {},
+        telemetry: createTelemetryRecorder(), setDamagePopup() {}, showEnemyPopup() {}, setAttackingEnemyId() {}, grantBattleReward() {},
         battleRewardRegionRef: { current: encounter.regions[0] },
         maximumEnergyForGame: game => maximumBattleEnergy(game.deckEditions.includes("rampaging"), game.deckHighlanderActive ? 1 : 0),
         animateCardToPlayer: () => null })();

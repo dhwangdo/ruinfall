@@ -1,10 +1,13 @@
-import { useState, type ComponentProps } from "react";
-import { CardFace } from "./CardFace";
+import { CardVisual } from "./CardVisual";
+import { useState, type ComponentProps, type MouseEvent } from "react";
 import { DeckName } from "./DeckName";
+import { DeckEditorPreviews } from "./DeckEditorPreviews";
+import { useDeckEditorPreviews } from "../hooks/useDeckEditorPreviews";
+import { RarityText } from "./RarityText";
 import type { Card } from "../game/cards";
 import { CARD_RARITY_SORT_RANK, UNPLAYABLE_CARD_EFFECTS } from "../game/cards";
 import type { DeckCase } from "../game/rewards";
-import type { ShrineResult } from "../game/runTypes";
+import type { ExtractionShrineResult } from "../game/runTypes";
 
 type EditionTooltipHoverHandler = ComponentProps<typeof DeckName>["onEditionTooltipHover"];
 
@@ -29,8 +32,13 @@ export function ExtractionShrineModal({
   const [draggedCardId, setDraggedCardId] = useState<number | null>(null);
   const [pendingCardIds, setPendingCardIds] = useState<number[]>([]);
   const [dropActive, setDropActive] = useState(false);
-  const [result, setResult] = useState<ShrineResult | null>(null);
-  const [sort, setSort] = useState<"cost" | "rarity">("rarity");
+  const [result, setResult] = useState<ExtractionShrineResult | null>(null);
+  const previews = useDeckEditorPreviews();
+  const cardPreviewProps = (card: Card) => ({
+    onMouseEnter: (event: MouseEvent<HTMLDivElement>) => previews.actions.moveDeckCardPreview(event, card),
+    onMouseMove: (event: MouseEvent<HTMLDivElement>) => previews.actions.moveDeckCardPreview(event, card),
+    onMouseLeave: previews.actions.clearCardPreview,
+  });
 
   const deck = decks.find((item) => item.id === deckId) ?? decks[0];
   const pendingCards = deck?.cards.filter((card) => pendingCardIds.includes(card.id)) ?? [];
@@ -39,12 +47,8 @@ export function ExtractionShrineModal({
     ? -1
     : card.cost ?? -1;
   const deckCards = [...(deck?.cards ?? [])].sort((left, right) => {
-    const primary = sort === "cost"
-      ? cardSortCost(left) - cardSortCost(right)
-      : cardRarityRank(left) - cardRarityRank(right);
-    const secondary = sort === "cost"
-      ? cardRarityRank(left) - cardRarityRank(right)
-      : cardSortCost(left) - cardSortCost(right);
+    const primary = cardRarityRank(left) - cardRarityRank(right);
+    const secondary = cardSortCost(left) - cardSortCost(right);
     return primary || secondary || left.name.localeCompare(right.name, "ko");
   });
 
@@ -54,12 +58,12 @@ export function ExtractionShrineModal({
   };
 
   return (
-    <div className="shop-overlay shrine-overlay" role="dialog" aria-modal="true" aria-labelledby="shrine-title">
-      <section className="shop-panel shrine-panel">
+    <div className="shop-overlay shrine-overlay" role="dialog" aria-modal="true" aria-labelledby="extraction-shrine-title">
+      <section className="shop-panel shrine-panel shrine-workspace-panel">
         <header>
           <div>
-            <h2 id="shrine-title">추출의 성소</h2>
-            <span>희귀 카드를 제외하고 최대 2장 추출합니다. 사용하면 추출의 성소는 붕괴합니다.</span>
+            <h2 id="extraction-shrine-title">추출의 성소</h2>
+            <span><RarityText>희귀 카드를 제외하고 최대 2장 추출합니다. 사용하면 추출의 성소는 붕괴합니다.</RarityText></span>
           </div>
           <div className="shop-header-status">
             <button type="button" onClick={onClose}>나가기</button>
@@ -71,9 +75,13 @@ export function ExtractionShrineModal({
             <h3>추출의 성소가 붕괴했습니다</h3>
             <div className="shrine-result-cards">
               {result.cards.map((card) => (
-                <div className={`shrine-result-card card-face ${card.kind} ${card.damageType}`} key={`shrine-result-${card.id}`}>
-                  <CardFace card={card} />
-                </div>
+                <CardVisual
+                  card={card}
+                  variant="compact"
+                  className="shrine-result-compact-card"
+                  key={`shrine-result-${card.id}`}
+                  {...cardPreviewProps(card)}
+                />
               ))}
             </div>
             <button type="button" onClick={onClose}>확인</button>
@@ -87,8 +95,8 @@ export function ExtractionShrineModal({
               onDrop={(event) => {
                 event.preventDefault();
                 const payload = event.dataTransfer.getData("text/plain");
-                if (payload.startsWith("shrine-pending:")) {
-                  const cardId = Number(payload.slice("shrine-pending:".length));
+                if (payload.startsWith("extraction-shrine-pending:")) {
+                  const cardId = Number(payload.slice("extraction-shrine-pending:".length));
                   setPendingCardIds((current) => current.filter((id) => id !== cardId));
                 }
               }}
@@ -106,34 +114,24 @@ export function ExtractionShrineModal({
                       setDropActive(false);
                     }}
                   >
-                    {`덱 '${item.name}'`}
+                    <strong><DeckName deck={item} onEditionTooltipHover={onEditionTooltipHover}
+                      onEditionTooltipLeave={onEditionTooltipLeave} /></strong>
+                    <small>{item.cards.length} / {item.capacity}</small>
                   </button>
                 ))}
               </nav>
-              <header className="shrine-deck-header">
-                <strong>{deck ? (
-                  <DeckName
-                    deck={deck}
-                    onEditionTooltipHover={onEditionTooltipHover}
-                    onEditionTooltipLeave={onEditionTooltipLeave}
-                  />
-                ) : "선택한 덱"}</strong>
-                <div className="shrine-deck-header-tools">
-                  <div className="shrine-card-sort deck-editor-sort" aria-label="추출성소 카드 정렬 방식">
-                    <button type="button" className={sort === "rarity" ? "is-active" : ""} onClick={() => setSort("rarity")}>희귀도 순</button>
-                    <button type="button" className={sort === "cost" ? "is-active" : ""} onClick={() => setSort("cost")}>코스트 순</button>
-                  </div>
-                  <small>{deck?.cards.length ?? 0}장</small>
-                </div>
-              </header>
               <div className="shrine-deck-cards">
                 {deckCards.map((card) => (
-                  <div
-                    className={`shrine-deck-card card-face ${card.kind} ${card.damageType} ${card.rarity === "rare" ? "is-extraction-locked" : ""} ${draggedCardId === card.id ? "is-dragging" : ""} ${pendingCardIds.includes(card.id) ? "is-selected" : ""}`}
+                  <CardVisual
+                    card={card}
+                    variant="compact"
+                    className={`shrine-deck-card ${card.rarity === "rare" ? "is-extraction-locked" : ""} ${draggedCardId === card.id ? "is-dragging" : ""} ${pendingCardIds.includes(card.id) ? "is-selected" : ""}`}
                     key={`shrine-${card.id}`}
+                    {...cardPreviewProps(card)}
                     draggable={card.rarity !== "rare" && Boolean(deck?.cards.length)}
                     onDragStart={(event) => {
                       if (card.rarity === "rare") return;
+                      previews.actions.clearCardPreview();
                       event.dataTransfer.effectAllowed = "move";
                       event.dataTransfer.setData("text/plain", String(card.id));
                       setDraggedCardId(card.id);
@@ -145,20 +143,12 @@ export function ExtractionShrineModal({
                     onClick={() => card.rarity !== "rare" && setPendingCardIds((current) => current.includes(card.id)
                       ? current.filter((id) => id !== card.id)
                       : current.length < 2 ? [...current, card.id] : current)}
-                  >
-                    <CardFace card={card} />
-                  </div>
+                  />
                 ))}
               </div>
             </section>
-            <div className="shrine-transfer-arrow">
-              <span className="shrine-arrow-icon" aria-hidden="true" />
-              <div className="shrine-collapse-live" role="status" aria-live="polite">
-                <span>선택</span>
-                <strong>{pendingCards.length} / 2</strong>
-              </div>
-            </div>
             <div className="shrine-extract-column">
+              <header className="shrine-target-heading"><strong>추출할 카드</strong><small>{pendingCards.length} / 2</small></header>
               <div
                 className={`shrine-extract-slot ${dropActive ? "is-drop-active" : ""} ${pendingCards.length > 0 ? "has-card" : ""}`}
                 onDragEnter={(event) => {
@@ -184,19 +174,24 @@ export function ExtractionShrineModal({
                 }}
               >
                 {pendingCards.map((card) => (
-                  <div
-                    className={`shrine-pending-card card-face ${card.kind} ${card.damageType}`}
+                  <CardVisual
+                    card={card}
+                    variant="compact"
+                    className="shrine-pending-card"
                     key={`shrine-pending-${card.id}`}
+                    {...cardPreviewProps(card)}
                     draggable
                     onDragStart={(event) => {
+                      previews.actions.clearCardPreview();
+                      setDraggedCardId(card.id);
                       event.dataTransfer.effectAllowed = "move";
-                      event.dataTransfer.setData("text/plain", `shrine-pending:${card.id}`);
+                      event.dataTransfer.setData("text/plain", `extraction-shrine-pending:${card.id}`);
                     }}
+                    onDragEnd={() => setDraggedCardId(null)}
                     onClick={() => setPendingCardIds((current) => current.filter((id) => id !== card.id))}
-                  >
-                    <CardFace card={card} />
-                  </div>
+                  />
                 ))}
+                {pendingCards.length === 0 && <span className="shrine-drop-hint">카드를 선택하거나 끌어놓으세요</span>}
               </div>
               <button
                 type="button"
@@ -210,6 +205,7 @@ export function ExtractionShrineModal({
           </div>
         )}
       </section>
+      <DeckEditorPreviews controlsRef={previews.controlsRef} suppressed={draggedCardId !== null} />
     </div>
   );
 }

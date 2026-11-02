@@ -1,19 +1,58 @@
-import type { RefObject } from "react";
+"use client";
+
+import { useEffect, useState, type RefObject } from "react";
 import { CardKeywordSections } from "./CardKeywordSections";
 import type { CardKeywordPopoverState } from "./overlayTypes";
 import { getCardKeywordInfos } from "../game/cardEffects";
-import { cardKeywordPopoverWidth } from "./cardPreviewLayout";
+import { CARD_KEYWORD_HOVER_DELAY_MS, CARD_MECHANIC_HOVER_DELAY_MS, cardKeywordPopoverWidth } from "./cardPreviewLayout";
+import { getCardMechanicExamples } from "./cardMechanicExamples";
+import { CardMechanicExamplePopover } from "./CardMechanicExamplePopover";
 
 export function CardKeywordPopover({
   popover,
   popoverRef,
+  onDismiss,
 }: {
   popover: CardKeywordPopoverState | null;
   popoverRef: RefObject<HTMLElement | null>;
+  onDismiss: () => void;
 }) {
   if (!popover) return null;
+  return <CardKeywordContent key={`${popover.card.id}-${popover.card.effect}-${popover.card.forged}`} popover={popover} popoverRef={popoverRef} onDismiss={onDismiss} />;
+}
+
+function CardKeywordContent({ popover, popoverRef, onDismiss }: {
+  popover: CardKeywordPopoverState;
+  popoverRef: RefObject<HTMLElement | null>;
+  onDismiss: () => void;
+}) {
   const keywords = getCardKeywordInfos(popover.card);
+  const examples = getCardMechanicExamples(popover.card);
+  const [expanded, setExpanded] = useState(false);
+  useEffect(() => {
+    if (examples.length === 0) return;
+    const timer = window.setTimeout(() => setExpanded(true), CARD_MECHANIC_HOVER_DELAY_MS - CARD_KEYWORD_HOVER_DELAY_MS);
+    return () => window.clearTimeout(timer);
+  }, [examples.length]);
+  useEffect(() => {
+    const dismissWithEscape = (event: KeyboardEvent) => { if (event.key === "Escape") onDismiss(); };
+    window.addEventListener("scroll", onDismiss, true);
+    window.addEventListener("resize", onDismiss);
+    window.addEventListener("blur", onDismiss);
+    window.addEventListener("pointerdown", onDismiss, true);
+    window.addEventListener("keydown", dismissWithEscape);
+    document.addEventListener("visibilitychange", onDismiss);
+    return () => {
+      window.removeEventListener("scroll", onDismiss, true);
+      window.removeEventListener("resize", onDismiss);
+      window.removeEventListener("blur", onDismiss);
+      window.removeEventListener("pointerdown", onDismiss, true);
+      window.removeEventListener("keydown", dismissWithEscape);
+      document.removeEventListener("visibilitychange", onDismiss);
+    };
+  }, [onDismiss]);
   return (
+    <>
     <aside
       className="card-keyword-popover"
       ref={popoverRef}
@@ -23,5 +62,7 @@ export function CardKeywordPopover({
     >
       <CardKeywordSections keywords={keywords} />
     </aside>
+    {expanded && examples.length > 0 && <CardMechanicExamplePopover examples={examples} anchorRef={popoverRef} anchorX={popover.x} anchorY={popover.y} />}
+    </>
   );
 }

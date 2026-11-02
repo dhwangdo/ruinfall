@@ -2,7 +2,7 @@ import { dealCardsEvenlyToPiles, dealCardsToFixedPiles } from "./cardRules.ts";
 import { createAdrenalineCard, createRelicCard, type Card } from "./cards.ts";
 import { createSewerEncounter, type EnemyState } from "./enemies.ts";
 import { createDeck, type DeckEdition } from "./rewards.ts";
-import { blockedPileIndexes, preparePileSeals } from "./enemyPassives.ts";
+import { blockedPileIndexes, preparePileSeals, confiscatePileCards } from "./enemyPassives.ts";
 
 export const MAX_PLAYER_HP = 50;
 
@@ -254,10 +254,11 @@ export function dealtState(
     ? [createRelicCard(-10000)]
     : [];
   if (encounterTokens.length > 0) initialPiles[0].unshift(encounterTokens[0]);
-  enemies = preparePileSeals(enemies, initialPiles, 1);
+  const confiscation = confiscatePileCards(enemies, initialPiles);
+  enemies = preparePileSeals(confiscation.enemies, confiscation.piles, 1);
   const startingDraw = deckEditions.includes("drawPlus")
-    ? drawRandomFromPiles(initialPiles, 1, Math.random, blockedPileIndexes(enemies))
-    : { piles: initialPiles, hand: [] as Card[] };
+    ? drawRandomFromPiles(confiscation.piles, 1, Math.random, blockedPileIndexes(enemies))
+    : { piles: confiscation.piles, hand: [] as Card[] };
   return {
     ...waitingState(playerHp, enemies),
     piles: startingDraw.piles,

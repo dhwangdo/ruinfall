@@ -4,5 +4,4 @@ export type ShrineCardConversionResult = {
   before: Card[];
   after: Card[];
   collapsed: boolean;
-  destination?: "inventory" | "floor";
 };

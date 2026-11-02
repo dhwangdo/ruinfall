@@ -37,10 +37,10 @@ export function createBattleSessionActions({
   clearMapTravel, closeMapOverlays, clearCardPreview,
   drawCards, rememberPlayerVision, queueRunSave,
 }: Options) {
-  const { activeMapEnemyIds, setActiveMapEnemyIds, activeBattleRoom, setActiveBattleRoom, mapBattleQueueRef, previousBattleDeckIdRef, pendingBattleStart, setPendingBattleStart, battleDeckCheckEnabled, setBattleDeckPreviewId, battleRewards, setBattleRewards, battleRewardDecks, setBattleRewardDecks, battleRewardConsumables, setBattleRewardConsumables, battleRewardGold, setBattleRewardGold, game, setGame, telemetryPreviousGameRef, setPhase, setAttackingEnemyId, setDamagePopup, setAnimatedEnemyHp, battleRewardRegionRef, battleRewardIsBossRef, battleRewardIsOutOfDepthRef, setDyingEnemyIds, setBattleCardView, setScreen, clearBattleTimers, later,
+  const { activeMapEnemyIds, setActiveMapEnemyIds, activeBattleRoom, setActiveBattleRoom, mapBattleQueueRef, previousBattleDeckIdRef, pendingBattleStart, setPendingBattleStart, battleDeckCheckEnabled, setBattleDeckPreviewId, battleRewards, setBattleRewards, battleRewardDecks, setBattleRewardDecks, battleRewardConsumables, setBattleRewardConsumables, battleRewardGold, setBattleRewardGold, battleRewardKeys, setBattleRewardKeys, game, setGame, telemetryPreviousGameRef, setPhase, setAttackingEnemyId, setDamagePopup, setAnimatedEnemyHp, battleRewardRegionRef, battleRewardIsBossRef, battleRewardIsOutOfDepthRef, setDyingEnemyIds, setBattleCardView, setScreen, clearBattleTimers, later,
     pendingEnemyTokenIdsRef, pendingPileTokenSourcesRef } = battle;
   const { ownedDecks, activeDeckId, setActiveDeckId, nextCardIdRef, nextConsumable,
-    deckDropChanceRef, rareCardDropChanceRef, deckPityBattlesRemainingRef,
+    rareCardDropChanceRef, setKeys,
     roomDrops, setRoomDrops, setRoomDeckDrops, setRoomConsumableDrops, setGold } = inventory;
   const { mapPosition, mapSeed, mapEnemyWorld, setMapEnemyWorld, setDefeatedBossRegions } = world;
   const { blessings, godsLamentChargesRef, setGodsLamentCharges, runPlayerHp, runPlayerHpRef, setRunPlayerHp } = player;
@@ -51,8 +51,6 @@ export function createBattleSessionActions({
     battle.rewardGrantedRef.current = true;
     ensureTelemetryRun();
     const rewardDeck = ownedDecks.find((deck) => deck.id === previousBattleDeckIdRef.current) ?? activeDeck;
-    const isEligibleForDeckPity = !battleRewardIsBossRef.current;
-    const pityForcesDeck = isEligibleForDeckPity && deckPityBattlesRemainingRef.current === 1;
     const reward = battleRewardIsBossRef.current
       ? createBossBattleReward(
         nextCardIdRef.current,
@@ -62,10 +60,9 @@ export function createBattleSessionActions({
       : createBattleReward(
         regionNumber,
         nextCardIdRef.current,
-        deckDropChanceRef.current,
         blessings.includes("deckSize") ? 5 : 0,
         rareCardDropChanceRef.current,
-        battleRewardIsOutOfDepthRef.current || pityForcesDeck,
+        battleRewardIsOutOfDepthRef.current,
       );
     [...reward.cards, ...reward.decks.flatMap((deck) => deck.cards)].forEach((card) => {
       recordTelemetryCardAcquired(telemetry, telemetryCardSnapshot(card), "battle-reward");
@@ -74,12 +71,6 @@ export function createBattleSessionActions({
     const generatedCardCount = reward.cards.length + reward.decks.reduce((total, deck) => total + deck.cards.length, 0);
     nextCardIdRef.current += generatedCardCount;
     if (!battleRewardIsBossRef.current) {
-      deckPityBattlesRemainingRef.current = reward.decks.length > 0
-        ? 0
-        : Math.max(0, deckPityBattlesRemainingRef.current - 1);
-      deckDropChanceRef.current = reward.decks.length > 0
-        ? 0.25
-        : Math.min(1, deckDropChanceRef.current + 0.1);
       rareCardDropChanceRef.current = nextRareCardDropChance(
         rareCardDropChanceRef.current,
         reward.cards,
@@ -87,6 +78,7 @@ export function createBattleSessionActions({
     }
     const rewardGold = reward.gold * (rewardDeck?.editions.includes("greedy") ? 2 : 1) * (blessings.includes("greed") ? 2 : 1);
     setBattleRewardGold(rewardGold);
+    setBattleRewardKeys(reward.keys);
     setBattleRewards(reward.cards);
     setBattleRewardDecks(reward.decks);
     setBattleRewardConsumables(rewardConsumables);
@@ -99,6 +91,7 @@ export function createBattleSessionActions({
     battleDeckId: string,
   ) => {
     battle.rewardGrantedRef.current = false;
+    battle.rewardCollectedRef.current = false;
     const battleDeck = ownedDecks.find((deck) => deck.id === battleDeckId) ?? activeDeck;
     ensureTelemetryRun();
     previousBattleDeckIdRef.current = battleDeck?.id ?? null;
@@ -124,6 +117,7 @@ export function createBattleSessionActions({
     setBattleRewardDecks([]);
     setBattleRewardConsumables([]);
     setBattleRewardGold(0);
+    setBattleRewardKeys(0);
     pendingEnemyTokenIdsRef.current.clear();
     pendingPileTokenSourcesRef.current.clear();
     const prepared = prepareBattleStart({
@@ -184,6 +178,8 @@ export function createBattleSessionActions({
 
 
   const returnToMap = () => {
+    if (battle.rewardCollectedRef.current) return;
+    battle.rewardCollectedRef.current = true;
     const battleRoom = activeBattleRoom;
     if (battleRoom) {
       const landingDrops = [...(roomDrops[battleRoom] ?? []), ...battleRewards];
@@ -204,6 +200,7 @@ export function createBattleSessionActions({
         "battle-reward",
       ));
       setGold((current) => current + battleRewardGold);
+      setKeys((current) => current + battleRewardKeys);
       if (battleRewardDecks.length > 0) setRoomDeckDrops((current) => ({
         ...current,
         [battleRoom]: [...(current[battleRoom] ?? []), ...battleRewardDecks],
@@ -223,6 +220,7 @@ export function createBattleSessionActions({
       setBattleRewardDecks([]);
       setBattleRewardConsumables([]);
       setBattleRewardGold(0);
+      setBattleRewardKeys(0);
       battleRewardIsBossRef.current = nextEnemy.isBoss === true;
       battleRewardIsOutOfDepthRef.current = nextEnemy.isBoss !== true
         && isHigherRegionMapEnemy(nextEnemy.encounterIndex, mapPosition, mapSeed);
@@ -251,6 +249,7 @@ export function createBattleSessionActions({
     setBattleRewardDecks([]);
     setBattleRewardConsumables([]);
     setBattleRewardGold(0);
+    setBattleRewardKeys(0);
     setActiveMapEnemyIds([]);
     setActiveBattleRoom(null);
     mapBattleQueueRef.current = [];

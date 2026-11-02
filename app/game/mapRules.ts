@@ -4,6 +4,7 @@ import {
   getBossEncounterIndex,
   getEncounterRegionNumber,
   getEncounterSpawnPool,
+  pickEncounterIndex,
 } from "./enemies.ts";
 import {
   EIGHT_DIRECTIONS,
@@ -23,13 +24,14 @@ export type RoomType =
   | "empty"
   | "blessing"
   | "shop"
-  | "shrine"
+  | "extractionShrine"
   | "recoveryShrine"
   | "vitalityShrine"
   | "mindEyeShrine"
   | "transformShrine"
-  | "combinationShrine"
+  | "bloodShop"
   | "treasureChest"
+  | "deckVault"
   | "boss"
   | "portal"
   | "heal"
@@ -37,27 +39,34 @@ export type RoomType =
 
 export const REGION_COUNT = 7;
 export const ROCK_BARRIER_HEIGHT = 5;
-export const SPECIAL_NODE_CHANCE = 0.006;
-const SPECIAL_NODE_WEIGHTS: ReadonlyArray<{ type: RoomType; weight: number }> = [
+export const SPECIAL_NODE_CHANCE = 0.01;
+export const DECK_VAULT_NODE_CHANCE = 0.005;
+const OTHER_SPECIAL_NODE_WEIGHTS: ReadonlyArray<{ type: RoomType; weight: number }> = [
   { type: "shop", weight: 0.5 },
-  { type: "shrine", weight: 2 },
+  { type: "bloodShop", weight: 0.5 },
+  { type: "extractionShrine", weight: 2 },
   { type: "vitalityShrine", weight: 0.5 },
   { type: "mindEyeShrine", weight: 1 },
   { type: "transformShrine", weight: 1 },
-  { type: "combinationShrine", weight: 1 },
   { type: "treasureChest", weight: 0.5 },
   { type: "blessing", weight: 0.01 },
+];
+const otherSpecialWeight = OTHER_SPECIAL_NODE_WEIGHTS.reduce((total, entry) => total + entry.weight, 0);
+// Reserve an absolute 0.5% for vaults even when the other relative weights change.
+export const SPECIAL_NODE_WEIGHTS: ReadonlyArray<{ type: RoomType; weight: number }> = [
+  ...OTHER_SPECIAL_NODE_WEIGHTS,
+  { type: "deckVault", weight: otherSpecialWeight * DECK_VAULT_NODE_CHANCE / (SPECIAL_NODE_CHANCE - DECK_VAULT_NODE_CHANCE) },
 ];
 const SPECIAL_NODE_WEIGHT_TOTAL = SPECIAL_NODE_WEIGHTS.reduce(
   (total, entry) => total + entry.weight,
   0,
 );
 export const SHOP_NODE_CHANCE = SPECIAL_NODE_CHANCE * 0.5 / SPECIAL_NODE_WEIGHT_TOTAL;
-export const SHRINE_NODE_CHANCE = SPECIAL_NODE_CHANCE * 2 / SPECIAL_NODE_WEIGHT_TOTAL;
+export const BLOOD_SHOP_NODE_CHANCE = SPECIAL_NODE_CHANCE * 0.5 / SPECIAL_NODE_WEIGHT_TOTAL;
+export const EXTRACTION_SHRINE_NODE_CHANCE = SPECIAL_NODE_CHANCE * 2 / SPECIAL_NODE_WEIGHT_TOTAL;
 export const VITALITY_SHRINE_NODE_CHANCE = SPECIAL_NODE_CHANCE * 0.5 / SPECIAL_NODE_WEIGHT_TOTAL;
 export const MIND_EYE_SHRINE_NODE_CHANCE = SPECIAL_NODE_CHANCE * 1 / SPECIAL_NODE_WEIGHT_TOTAL;
 export const TRANSFORM_SHRINE_NODE_CHANCE = SPECIAL_NODE_CHANCE * 1 / SPECIAL_NODE_WEIGHT_TOTAL;
-export const COMBINATION_SHRINE_NODE_CHANCE = SPECIAL_NODE_CHANCE * 1 / SPECIAL_NODE_WEIGHT_TOTAL;
 export const TREASURE_CHEST_NODE_CHANCE = SPECIAL_NODE_CHANCE * 0.5 / SPECIAL_NODE_WEIGHT_TOTAL;
 export const BLESSING_NODE_CHANCE = SPECIAL_NODE_CHANCE * 0.01 / SPECIAL_NODE_WEIGHT_TOTAL;
 export const PORTAL_NODE_CHANCE = 0.05;
@@ -271,7 +280,7 @@ function getFixedRoomType(position: MapPosition, seed: number): RoomType | null 
       && position.y === centerY) return "boss";
     if (safeRegion < 3 && position.x === centerX + SAFE_AREA_LEFT_CROSS_CENTER_OFFSET_X) {
       if (position.y === centerY) return "recoveryShrine";
-      if (Math.abs(position.y - centerY) === 1) return "shrine";
+      if (Math.abs(position.y - centerY) === 1) return "extractionShrine";
     }
     return "empty";
   }
@@ -470,7 +479,7 @@ export function createMapEnemyWorldForPositions(
         const roll = seededRoll(enemy.position, seed, 4001);
         return {
           ...enemy,
-          encounterIndex: candidates[Math.min(candidates.length - 1, Math.floor(roll * candidates.length))],
+          encounterIndex: pickEncounterIndex(candidates, roll),
         };
       }),
       ...bosses,

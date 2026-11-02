@@ -4,7 +4,7 @@ import type { Card } from "./cards";
 import type { Phase } from "./battleUiTypes";
 import {
   RARE_CARD_POOL, UNPLAYABLE_CARD_EFFECTS, cardGivesMagicDefense, cardGivesPhysicalDefense,
-  createRadianceCard, isAttackCard
+  createRadianceCard, isAttackCard, canTargetEnemy
 } from "./cards.ts";
 import { resolveEnemyHitAgainstPlayer } from "./enemies.ts";
 import { canPayEnergyCost } from "./combatEconomy.ts";
@@ -64,8 +64,8 @@ export function resolveCardPlay(
     return unchanged({ ...current, message: `${card.name}은(는) 에너지 비용이 없는 카드입니다.` });
   }
   const discardCost = card.discardCost ?? 0;
-  if (card.effect === "scaleArmor" && !current.enemies.some(enemy => enemy.hp > 0 && enemy.id === targetEnemyId)) {
-    return unchanged({ ...current, message: "비늘 갑옷: 약화를 부여할 적을 선택하세요." });
+  if (canTargetEnemy(card) && !current.enemies.some(enemy => enemy.hp > 0 && enemy.id === targetEnemyId)) {
+    return unchanged({ ...current, message: `${card.name}: 적용할 적을 선택하세요.` });
   }
   const economicsResearchCount = current.activeRuleCards.filter((ruleCard) => ruleCard.effect === "economicsResearch").length;
   if (!canPayEnergyCost(current.energy, energyCost, economicsResearchCount)) {
@@ -248,9 +248,10 @@ export function resolveCardPlay(
   const pendingDiscards = discardCostPaid ? 0 : card.discardCost ?? (card.effect === "prepare"
     ? (canDraw || remainingHand.length > 0 ? 1 : 0)
     : card.effect === "focus" && remainingHand.length > 0 ? 1 : 0);
-  const pendingSweep = card.effect === "boomerang" && canDraw;
-  const pendingPileOperation = card.effect === "boomerang"
-    ? card.name === "정리 타격" ? "discardTop" as const : "moveTopToBottom" as const
+  const discardPileTop = card.discardPileTop || (card.effect === "boomerang" && card.name === "정리 타격");
+  const pendingSweep = !won && (discardPileTop || card.effect === "boomerang") && current.piles.some(pile => pile.length > 0);
+  const pendingPileOperation = pendingSweep
+    ? discardPileTop ? "discardTop" as const : "moveTopToBottom" as const
     : null;
   const action = (() => {
     if (isShockwave || isSweepAttack) return `${card.name}: 적 전체 공격`;
@@ -275,7 +276,7 @@ export function resolveCardPlay(
     if (card.effect === "lightTravelTime") return `광행시간: 다다음 턴 시작 시 광채 ${card.value}장 획득`;
     if (card.effect === "radiance") return `${targetEnemy?.name}에게 광채 피해 ${damage}`;
     if (card.effect === "lawResearch") return "법학 연구: 룰 카드 비용 감소";
-    if (card.effect === "mirrorImage") return "거울상: 방어와 마법 방어 교환";
+    if (card.effect === "mirrorImage") return `${card.name}: 방어와 마법 방어 교환`;
     if (isPlateArmorDefense) return `방어 ${blockGained} 획득 · 저항 ${card.forged ? 2 : 1} 획득`;
     if (card.effect === "silverSword") return `${targetEnemy?.name}에게 피해 ${damage} · 마법 방어 ${blockGained} 획득`;
     if (card.effect === "fourHit") return `${targetEnemy?.name}에게 총 피해 ${damage} (${repetitions}회 공격)`;
@@ -305,7 +306,9 @@ export function resolveCardPlay(
     if (card.effect === "supernova") return "★★★를 잃습니다 · 에너지를 3 얻습니다";
     return card.name;
   })();
-  const drawMessage = card.draw > 0
+  const drawMessage = pendingSweep
+    ? " · 효과를 적용할 파일을 선택하세요."
+    : card.draw > 0
     ? canDraw
       ? " · 드로우할 파일을 선택하세요."
       : " · 드로우할 카드가 없습니다."

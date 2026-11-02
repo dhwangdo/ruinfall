@@ -6,6 +6,7 @@ type MapTopbarProps = {
   runPlayerHp: number;
   maxPlayerHp: number;
   gold: number;
+  keys: number;
   deckCardCount: number;
   mapTraveling: boolean;
   canEditDeck: boolean;
@@ -19,6 +20,7 @@ export function MapTopbar({
   runPlayerHp,
   maxPlayerHp,
   gold,
+  keys,
   deckCardCount,
   mapTraveling,
   canEditDeck,
@@ -66,6 +68,7 @@ export function MapTopbar({
           >
             <strong>$ {gold}</strong>
           </button>
+          <span className="map-key-count" aria-label={`열쇠 ${keys}개`}>열쇠 {keys}</span>
         </div>
         <button
           type="button"

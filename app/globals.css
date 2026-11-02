@@ -8,9 +8,14 @@
 @import "./styles/battle-board.css";
 @import "./styles/cards.css";
 @import "./styles/battle-controls.css";
+@import "./styles/forge-animation.css";
 @import "./styles/desktop-layout.css";
 @import "./styles/deck-editor.css";
 @import "./styles/overlay-refinements.css";
+@import "./styles/shrines.css";
+@import "./styles/deck-vault.css";
+@import "./styles/item-visuals.css";
+@import "./styles/card-mechanic-examples.css";
 @import "./styles/mobile.css";
 
 /* Import order preserves the original cascade. Keep screen refinements after base rules. */

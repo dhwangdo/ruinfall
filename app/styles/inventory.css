@@ -363,11 +363,6 @@
 .map-player-edge-indicator:hover { background: rgba(49,94,68,.98); }
 .map-player-edge-indicator:active { transform: translate(-50%, -50%) scale(.92); }
 
-.deck-card-preview-floating .card-face {
-  box-shadow: 0 10px 25px rgba(0,0,0,.42);
-  transform: none;
-}
-
 .area-flow-arrow {
   position: absolute;
   z-index: 5;
@@ -442,23 +437,6 @@
   transform: translateY(-50%);
 }
 
-.deck-list-entry {
-  display: grid;
-  grid-template-columns: 38px minmax(0, 1fr) 32px;
-  align-items: center;
-  width: 100%;
-  min-height: 40px;
-  padding: 0 8px 0 0;
-  overflow: hidden;
-  border: 1px solid #77736b;
-  border-radius: 3px;
-  color: #272725;
-  background: #f5f1e7;
-  box-shadow: 0 2px 3px rgba(0,0,0,.17);
-  cursor: context-menu;
-  text-align: left;
-}
-
 .deck-list-entry:hover { border-color: #343331; filter: brightness(1.035); transform: translateX(2px); }
 .deck-list-entry:active { cursor: context-menu; }
 .deck-list-entry:focus-visible { outline: 3px solid #315f88; outline-offset: 2px; }
@@ -476,18 +454,6 @@
   background: var(--battle-cost-color, #283b93);
   box-shadow: none;
   font: 800 17px Arial, sans-serif;
-}
-
-.deck-list-entry strong {
-  display: flex;
-  align-items: center;
-  gap: 6px;
-  overflow: hidden;
-  padding: 0 10px;
-  font-size: 13px;
-  font-weight: 600;
-  text-overflow: ellipsis;
-  white-space: nowrap;
 }
 
 .deck-card-new {
@@ -515,12 +481,6 @@
   overflow: auto;
 }
 
-.deck-editor-card {
-  flex: none;
-  cursor: pointer;
-  transition: transform .12s ease, box-shadow .12s ease;
-}
-
 .deck-editor-card:hover { z-index: 2; transform: translateY(-6px); box-shadow: var(--editor-stack-shadow, 0 2px 3px rgba(0,0,0,.18)), 0 8px 16px rgba(0,0,0,.3); }
 .deck-editor-card:focus-visible { outline: 3px solid #2e5f85; outline-offset: 3px; }
 .deck-editor-card.is-dragging { opacity: 1; }
@@ -532,66 +492,6 @@
 .card-pack-cards .card-face { width: var(--card-w); height: var(--card-h); }
 .pile-clear-notice { position: absolute; z-index: 30; top: 50%; left: 50%; pointer-events: none; color: #fff5c8; font: 900 clamp(38px, 7vw, 82px) Georgia, serif; letter-spacing: .08em; text-shadow: 0 3px 0 #513719, 0 0 20px #ffb72a; animation: pile-clear-notice .9s ease-in-out both; }
 @keyframes pile-clear-notice { 0%, 100% { opacity: 0; transform: translate(-50%, -50%) scale(.78); } 22%, 66% { opacity: 1; transform: translate(-50%, -50%) scale(1); } 44% { opacity: .3; } }
-
-.consumable-ticket {
-  --ticket-fill: #fefdfa;
-  --ticket-border: #56534d;
-  position: relative;
-  display: grid;
-  flex: none;
-  grid-template-columns: 1fr;
-  grid-template-rows: 26px 1fr;
-  place-items: center;
-  width: var(--card-w);
-  height: var(--card-h);
-  padding: 6px;
-  overflow: hidden;
-  border: 2px solid var(--ticket-border);
-  border-radius: 7px;
-  color: #252525;
-  background: var(--ticket-fill);
-  box-shadow: 0 2px 4px rgba(0,0,0,.28);
-  cursor: pointer;
-  text-align: center;
-  font-family: Pretendard, Arial, sans-serif;
-}
-
-.consumable-ticket::before,
-.consumable-ticket::after {
-  display: none;
-}
-.consumable-ticket.swiftTicket { --ticket-fill: #cfdfea; --ticket-border: #526f82; }
-.consumable-ticket.paintTicket { --ticket-fill: #f3b6ca; --ticket-border: #914b64; }
-.consumable-ticket.mindEyeTicket { --ticket-fill: #bcd9ee; --ticket-border: #436f8c; }
-.consumable-ticket.darkTicket { --ticket-fill: #a9a7c8; --ticket-border: #4b4770; }
-.consumable-ticket.bombTicket { --ticket-fill: #e8b09d; --ticket-border: #8b503d; }
-.consumable-ticket.cloneTicket {
-  --ticket-fill: hsl(175, 88%, 31%);
-  --ticket-border: hsl(175, 88%, 19%);
-  background: linear-gradient(120deg, hsl(130, 88%, 31%) 0%, hsl(175, 88%, 31%) 50%, hsl(205, 88%, 31%) 100%);
-}
-.consumable-ticket.extractTicket,
-.consumable-ticket.extractPlusTicket { --ticket-fill: #ead8aa; --ticket-border: #87703d; }
-.consumable-ticket.transformTicket { --ticket-fill: #d8c1eb; --ticket-border: #704f87; }
-.consumable-ticket.mapTicket { --ticket-fill: #c9ab88; --ticket-border: #735239; }
-.consumable-ticket.cardPack { --ticket-fill: #e7c884; --ticket-border: #85691f; }
-.consumable-ticket.expandTicket {
-  --ticket-fill: hsl(30, 88%, 32%);
-  --ticket-border: hsl(30, 88%, 19%);
-  background: linear-gradient(120deg, hsl(0, 88%, 32%) 0%, hsl(30, 88%, 32%) 50%, hsl(60, 88%, 32%) 100%);
-}
-.consumable-ticket.ticket-tier-3 > strong { color: #fff; }
-.consumable-ticket .ticket-tier-mark {
-  position: absolute;
-  z-index: 5;
-  top: 4px;
-  left: 5px;
-  color: color-mix(in srgb, var(--ticket-fill) 45%, #000 55%);
-  font: 900 11px/1 Arial, sans-serif;
-  letter-spacing: -.06em;
-  pointer-events: none;
-}
-.consumable-ticket.ticket-tier-3 .ticket-tier-mark { color: #fff; }
 .consumable-ticket:hover { border-color: var(--ticket-border); transform: translateY(-4px); }
 .consumable-ticket.is-selected {
   border-color: #a64036;
@@ -613,23 +513,6 @@
   to {
     filter: brightness(1.18);
   }
-}
-.consumable-ticket > strong {
-  display: flex;
-  align-self: stretch;
-  align-items: center;
-  justify-content: center;
-  width: 100%;
-  padding: 2px 3px;
-  border-top: 1px solid var(--battle-card-border-color, #17234f);
-  border-bottom: 1px solid var(--battle-card-border-color, #17234f);
-  color: #252525;
-  font-size: var(--card-name-size);
-  font-weight: 600;
-}
-.consumable-ticket > small {
-  align-self: center;
-  font: var(--card-effect-size)/1.55 Pretendard, Arial, sans-serif;
 }
 .inventory-ticket,
 .floor-ticket { cursor: grab; }
@@ -845,13 +728,6 @@
   background: #f7f5ef;
   font: 11px Arial, sans-serif;
 }
-
-
-.deck-list-entry {
-  border-color: #535a60;
-  color: #f8f6ef;
-  background: #17234f;
-}
 .deck-list-entry:hover { border-color: #788087; }
 .deck-list-count { color: #f8f6ef; }
 .deck-list-cost {
@@ -859,12 +735,3 @@
   background: var(--battle-cost-color, #39aee6);
   border-right: 1px solid color-mix(in srgb, var(--battle-cost-color, #39aee6) 62%, black);
 }
-.deck-list-entry.rarity-basic strong { color: var(--battle-basic-band-color, #756A60); }
-.deck-list-entry.rarity-starter strong { color: #555B60; }
-.deck-list-entry.rarity-special strong { color: #67cfff; }
-.deck-list-entry.rarity-rare strong { color: #272725; }
-.deck-list-entry.rarity-status {
-  border-color: #db5a66;
-  background: #f6d0d4;
-}
-.deck-list-entry.rarity-status strong { color: #b93241; }

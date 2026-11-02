@@ -1,17 +1,20 @@
-import { DeckEditorCardIcon } from "./DeckEditorCardIcon";
-import { CardFace } from "./CardFace";
+import { CardVisual } from "./CardVisual";
+import { DeckSlotPlaceholder } from "./DeckSlotPlaceholder";
+import { ConsumableVisual } from "./ConsumableVisual";
+import { DeckEditorPreviews } from "./DeckEditorPreviews";
 import { DeckName } from "./DeckName";
-import { deckEditorCardStackStyle } from "./deckEditorCardStackStyle";
-import { ConsumableTicketTierMark, consumableTicketTierClassName } from "./ConsumableTicketTierMark";
 import { VirtualizedHorizontalList } from "./VirtualizedHorizontalList";
 import { usesRareCardSlot } from "../game/deckEditorRules";
 import type { DeckCase } from "../game/rewards";
 import type { DeckEditorModalProps, StackVirtualItem, InventoryVirtualItem, OwnedDeckVirtualItem, FloorVirtualItem } from "./deck-editor/types";
 import { useDeckEditorInput } from "../hooks/useDeckEditorInput";
 import { useDeckEditorItems } from "../hooks/useDeckEditorItems";
+import { useDeckEditorPreviews } from "../hooks/useDeckEditorPreviews";
 export type { DeckEditorModalProps } from "./deck-editor/types";
 
 export function DeckEditorModal(props: DeckEditorModalProps) {
+  const { controlsRef, actions: cardPreview } = useDeckEditorPreviews();
+  const { consumablePreview, moveDeckCardPreview, clearCardPreview, editionTooltip, showDeckCardPreview } = cardPreview;
   const { deckEditorDrag, deckEditorDragRef, deckEditorDropTarget, setDeckEditorDropTarget,
     consumableDrag, consumableDragRef, deckCaseDrag, deckCaseDragRef, deckCaseDropSlot, setDeckCaseDropSlot,
     ticketDropTarget, touchDrag, suppressTouchClickRef,
@@ -19,7 +22,7 @@ export function DeckEditorModal(props: DeckEditorModalProps) {
     beginDeckCaseDrag, finishDeckCaseDrag, ticketDropKey, consumableTicketDropKey,
     handleTicketDragOverCard, handleTicketDropOnCard, handleTicketDragLeave,
     handleTicketDragOverConsumable, handleTicketDropOnConsumable,
-    handleTicketDragOverDeck, handleTicketDropOnDeck, dropDeckEditorCard, dropConsumable, beginTouchPointerDrag } = useDeckEditorInput(props);
+    handleTicketDragOverDeck, handleTicketDropOnDeck, dropDeckEditorCard, dropConsumable, beginTouchPointerDrag } = useDeckEditorInput(props, cardPreview);
   const { activeDeck, editingDeck, ownedDeckCardViews, inventoryVirtualItems, floorVirtualItems } = useDeckEditorItems(props);
   const {
     header: { deckEditorErrorMessage, mapFeedback },
@@ -52,15 +55,6 @@ export function DeckEditorModal(props: DeckEditorModalProps) {
       canApplyTicketToDeck,
       applyTicketToDeck,
     },
-    cardPreview: {
-      hoveredDeckCard,
-      deckPreviewPosition,
-      consumablePreview,
-      moveDeckCardPreview,
-      clearCardPreview,
-      editionTooltip,
-      showDeckCardPreview,
-    },
     behavior: {
       pendingRemovalBlinkDim,
       transformedCardNewIds,
@@ -87,11 +81,15 @@ export function DeckEditorModal(props: DeckEditorModalProps) {
     const cardId = cardIds.at(-1)!;
     const isTemporary = cardIds.some((id) => effectiveOriginDeckIdForCard(id) === null);
     return (
-      <button
+      <CardVisual
+        as="button"
+        card={card}
+        variant="compact"
+        count={cardIds.length}
+        showNewBadge={cardIds.some((id) => transformedCardNewIds.has(id))}
         type="button"
-        className={`deck-editor-card deck-list-entry rarity-${card.rarity} ${card.rarity === "legendary" ? "is-painted" : ""} ${isTemporary ? `is-temporary ${pendingRemovalBlinkDim ? "is-blink-dim" : ""}` : ""} ${deckEditorDrag?.cardId === cardId ? "is-dragging" : ""} ${touchDrag?.active && touchDrag.kind === "card" && touchDrag.id === cardId && touchDrag.source === "deck" && touchDrag.deckId === deck.id ? "is-touch-drag-origin" : ""} ${ticketDropTarget === ticketDropKey("deck", cardId, deck.id) ? "is-ticket-drop-target" : ""}`}
+        className={`deck-list-entry ${card.rarity === "legendary" ? "is-painted" : ""} ${isTemporary ? `is-temporary ${pendingRemovalBlinkDim ? "is-blink-dim" : ""}` : ""} ${deckEditorDrag?.cardId === cardId ? "is-dragging" : ""} ${touchDrag?.active && touchDrag.kind === "card" && touchDrag.id === cardId && touchDrag.source === "deck" && touchDrag.deckId === deck.id ? "is-touch-drag-origin" : ""} ${ticketDropTarget === ticketDropKey("deck", cardId, deck.id) ? "is-ticket-drop-target" : ""}`}
         key={item.key}
-        style={deckEditorCardStackStyle(cardIds.length)}
         data-ticket-card-id={cardId}
         data-ticket-card-area="deck"
         data-ticket-deck-id={deck.id}
@@ -127,9 +125,7 @@ export function DeckEditorModal(props: DeckEditorModalProps) {
             onMoveCard({ cardId, source: { area: "deck", deckId: deck.id }, target: { area: "floor" } });
           }
         }}
-      >
-        <DeckEditorCardIcon card={card} count={cardIds.length} showNewBadge={cardIds.some((id) => transformedCardNewIds.has(id))} />
-      </button>
+      />
     );
   };
 
@@ -139,11 +135,15 @@ export function DeckEditorModal(props: DeckEditorModalProps) {
     const consumableId = consumableIds.at(-1)!;
     const area = item.area;
     return (
-      <button
+      <ConsumableVisual
+        as="button"
+        item={consumable}
+        variant="compact"
+        description={consumableDescription(consumable)}
+        count={consumableIds.length}
         type="button"
-        className={`consumable-ticket ${area === "inventory" ? "inventory-ticket" : "floor-ticket"} ${consumable.type} ${consumableTicketTierClassName(consumable.type)} ${isConsumableSelected(consumable) ? "is-selected" : ""} ${consumableDrag?.id === consumableId ? "is-dragging" : ""} ${touchDrag?.active && touchDrag.kind === "consumable" && touchDrag.id === consumableId && touchDrag.source === area ? "is-touch-drag-origin" : ""} ${ticketDropTarget === consumableTicketDropKey(consumableId) ? "is-ticket-drop-target" : ""}`}
+        className={`${area === "inventory" ? "inventory-ticket" : "floor-ticket"}   ${isConsumableSelected(consumable) ? "is-selected" : ""} ${consumableDrag?.id === consumableId ? "is-dragging" : ""} ${touchDrag?.active && touchDrag.kind === "consumable" && touchDrag.id === consumableId && touchDrag.source === area ? "is-touch-drag-origin" : ""} ${ticketDropTarget === consumableTicketDropKey(consumableId) ? "is-ticket-drop-target" : ""}`}
         key={item.key}
-        style={deckEditorCardStackStyle(consumableIds.length)}
         data-deck-editor-ticket-id={consumableId}
         draggable
         onPointerDown={(event) => beginTouchPointerDrag(event, "consumable", consumableId, area, undefined, item.key)}
@@ -153,10 +153,6 @@ export function DeckEditorModal(props: DeckEditorModalProps) {
         onDrop={(event) => handleTicketDropOnConsumable(event, consumable)}
         onDragLeave={(event) => handleTicketDragLeave(event, consumableTicketDropKey(consumableId))}
         onMouseEnter={(event) => {
-          const bounds = event.currentTarget.getBoundingClientRect();
-          consumablePreview.show(consumable, bounds.right, bounds.top);
-        }}
-        onMouseMove={(event) => {
           const bounds = event.currentTarget.getBoundingClientRect();
           consumablePreview.show(consumable, bounds.right, bounds.top);
         }}
@@ -183,12 +179,7 @@ export function DeckEditorModal(props: DeckEditorModalProps) {
         } : undefined}
         aria-pressed={isConsumableSelected(consumable)}
         aria-label={`${consumable.name} ${consumableIds.length}장`}
-      >
-        <ConsumableTicketTierMark type={consumable.type} />
-        <strong>{consumable.name}</strong>
-        <small>{consumableDescription(consumable)}</small>
-        {consumableIds.length > 1 && <span className="inventory-card-count">x{consumableIds.length}</span>}
-      </button>
+      />
     );
   };
 
@@ -198,10 +189,13 @@ export function DeckEditorModal(props: DeckEditorModalProps) {
     const cardId = cardIds.at(-1)!;
     if (pendingRemoval) {
       return (
-        <div
-          className={`deck-editor-card is-pending-removal ${pendingRemovalBlinkDim ? "is-blink-dim" : ""} rarity-${card.rarity} ${card.rarity === "legendary" ? "is-painted" : ""} ${deckEditorDrag?.cardId === cardId ? "is-dragging" : ""} ${touchDrag?.active && touchDrag.kind === "card" && touchDrag.id === cardId && touchDrag.source === "pendingRemoval" ? "is-touch-drag-origin" : ""}`}
+        <CardVisual
+          card={card}
+          variant="compact"
+          count={cardIds.length}
+          showNewBadge={cardIds.some((id) => transformedCardNewIds.has(id))}
+          className={`is-pending-removal ${pendingRemovalBlinkDim ? "is-blink-dim" : ""} ${card.rarity === "legendary" ? "is-painted" : ""} ${deckEditorDrag?.cardId === cardId ? "is-dragging" : ""} ${touchDrag?.active && touchDrag.kind === "card" && touchDrag.id === cardId && touchDrag.source === "pendingRemoval" ? "is-touch-drag-origin" : ""}`}
           key={item.key}
-          style={deckEditorCardStackStyle(cardIds.length)}
           draggable
           onPointerDown={(event) => beginTouchPointerDrag(event, "card", cardId, "pendingRemoval", undefined, item.key)}
           onDragStart={(event) => beginDeckEditorDrag(event, cardId, "pendingRemoval", undefined, item.key)}
@@ -209,32 +203,31 @@ export function DeckEditorModal(props: DeckEditorModalProps) {
           onMouseEnter={(event) => moveDeckCardPreview(event, card)}
           onMouseMove={(event) => moveDeckCardPreview(event, card)}
           onMouseLeave={clearCardPreview}
-            onContextMenu={item.area === "floor" ? (event) => {
-              event.preventDefault();
-              onMoveCard({
-                cardId,
-                source: { area: "pendingRemoval" },
-                target: { area: "deck", deckId: effectiveOriginDeckIdForCard(cardId) ?? editingDeck?.id },
-              });
-            } : undefined}
-            onClick={item.area === "floor" ? () => {
-              if (suppressTouchClickRef.current) {
-                suppressTouchClickRef.current = false;
-                return;
-              }
-              onMoveCard({
-                cardId,
-                source: { area: "pendingRemoval" },
-                target: { area: "deck", deckId: effectiveOriginDeckIdForCard(cardId) ?? editingDeck?.id },
-              });
-            } : undefined}
-            aria-label={`${card.name} ${cardIds.length}장, 제거 예정${item.area === "floor" ? ", 우클릭하면 원래 덱으로 복귀" : ""}`}
+          onContextMenu={item.area === "floor" ? (event) => {
+            event.preventDefault();
+            onMoveCard({
+              cardId,
+              source: { area: "pendingRemoval" },
+              target: { area: "deck", deckId: effectiveOriginDeckIdForCard(cardId) ?? editingDeck?.id },
+            });
+          } : undefined}
+          onClick={item.area === "floor" ? () => {
+            if (suppressTouchClickRef.current) {
+              suppressTouchClickRef.current = false;
+              return;
+            }
+            onMoveCard({
+              cardId,
+              source: { area: "pendingRemoval" },
+              target: { area: "deck", deckId: effectiveOriginDeckIdForCard(cardId) ?? editingDeck?.id },
+            });
+          } : undefined}
+          aria-label={`${card.name} ${cardIds.length}장, 제거 예정${item.area === "floor" ? ", 우클릭하면 원래 덱으로 복귀" : ""}`}
         >
-          <DeckEditorCardIcon card={card} count={cardIds.length} showNewBadge={cardIds.some((id) => transformedCardNewIds.has(id))} />
           <span className="pending-removal-icon" aria-label="제거 예정" title="제거 예정">
             <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M9 3h6l1 2h4v2H4V5h4l1-2Zm-2 6h10l-1 12H8L7 9Zm3 2v8h2v-8h-2Zm4 0v8h-2v-8h2Z" /></svg>
           </span>
-        </div>
+        </CardVisual>
       );
     }
 
@@ -242,11 +235,15 @@ export function DeckEditorModal(props: DeckEditorModalProps) {
     const areaKey = area === "inventory" ? "inventory" : "floor";
     const location = ticketDropKey(areaKey, cardId);
     return (
-      <button
+      <CardVisual
+        as="button"
+        card={card}
+        variant="compact"
+        count={cardIds.length}
+        showNewBadge={cardIds.some((id) => transformedCardNewIds.has(id))}
         type="button"
-        className={`deck-editor-card rarity-${card.rarity} ${card.rarity === "legendary" ? "is-painted" : ""} ${deckEditorDrag?.cardId === cardId ? "is-dragging" : ""} ${touchDrag?.active && touchDrag.kind === "card" && touchDrag.id === cardId && touchDrag.source === area ? "is-touch-drag-origin" : ""} ${ticketDropTarget === location ? "is-ticket-drop-target" : ""}`}
+        className={`${card.rarity === "legendary" ? "is-painted" : ""} ${deckEditorDrag?.cardId === cardId ? "is-dragging" : ""} ${touchDrag?.active && touchDrag.kind === "card" && touchDrag.id === cardId && touchDrag.source === area ? "is-touch-drag-origin" : ""} ${ticketDropTarget === location ? "is-ticket-drop-target" : ""}`}
         key={item.key}
-        style={deckEditorCardStackStyle(cardIds.length)}
         data-ticket-card-id={cardId}
         data-ticket-card-area={area}
         draggable
@@ -288,9 +285,7 @@ export function DeckEditorModal(props: DeckEditorModalProps) {
         aria-label={area === "inventory"
           ? `${card.name}, 끌어서 덱 또는 바닥으로 이동`
           : `${card.name}, 끌어서 이동`}
-      >
-        <DeckEditorCardIcon card={card} count={cardIds.length} showNewBadge={cardIds.some((id) => transformedCardNewIds.has(id))} />
-      </button>
+      />
     );
   };
 
@@ -298,17 +293,11 @@ export function DeckEditorModal(props: DeckEditorModalProps) {
     ? renderTicketItem(item)
     : item.kind === "card"
       ? renderCardItem(item)
-      : <span className="deck-editor-empty-card-slot" key={item.key} />;
+      : <DeckSlotPlaceholder kind="normal-slot" key={item.key} />;
 
   const renderOwnedDeckItem = (deck: DeckCase, item: OwnedDeckVirtualItem) => {
     if (item.kind === "card") return renderDeckCardGroup(deck, item);
-    if (item.kind === "rare-slot") {
-      return <div className="deck-editor-rare-slot is-empty" key={item.key} role="img" aria-label="빈 희귀 슬롯" />;
-    }
-    if (item.kind === "divider") {
-      return <div className="deck-editor-slot-divider" key={item.key} role="separator" aria-label="희귀 슬롯과 일반 슬롯 구분" />;
-    }
-    return <span className="deck-editor-empty-card-slot" key={item.key} />;
+    return <DeckSlotPlaceholder kind={item.kind} key={item.key} />;
   };
 
   const renderFloorItem = (item: FloorVirtualItem) => {
@@ -591,27 +580,7 @@ export function DeckEditorModal(props: DeckEditorModalProps) {
               </div>
 
               </section>
-              {hoveredDeckCard && !deckEditorDrag && (
-                <aside
-                  className="deck-card-preview-floating"
-                  style={{ left: deckPreviewPosition.x, top: deckPreviewPosition.y }}
-                  aria-live="polite"
-                >
-                  <div className={`card-face ${hoveredDeckCard.kind} ${hoveredDeckCard.damageType}`}>
-                    <CardFace card={hoveredDeckCard} />
-                  </div>
-                </aside>
-              )}
-            {consumablePreview.hovered && !consumableDrag && (
-                <aside
-                  className={`deck-consumable-preview-floating ${consumablePreview.hovered.type}`}
-                  style={{ left: deckPreviewPosition.x, top: deckPreviewPosition.y }}
-                  aria-live="polite"
-                >
-                  <strong>{consumablePreview.hovered.name}</strong>
-                  <p>{consumablePreview.hovered.description}</p>
-                </aside>
-              )}
+              <DeckEditorPreviews controlsRef={controlsRef} suppressed={!!(deckEditorDrag || consumableDrag || deckCaseDrag || touchDrag?.active)} />
             </div>
             {(deckEditorErrorMessage || mapMessage) && <p key={mapMessageNonce} className="map-message deck-editor-map-message" role="status" aria-live="polite">{deckEditorErrorMessage || mapMessage}</p>}
           

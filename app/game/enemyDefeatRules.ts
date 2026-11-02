@@ -2,6 +2,17 @@ import type { GameState } from "./battleState.ts";
 import type { BlessingId } from "./blessingRules.ts";
 import { resolveLethalDamage } from "./blessingRules.ts";
 import { applyPlayerAttack, resolveEnemyHitAgainstPlayer } from "./enemies.ts";
+import type { EnemyState } from "./enemies.ts";
+
+/** Consume each controller's death effect, including deaths before battle starts. */
+export function resolveEnemyDeathStuns(enemies: EnemyState[]) {
+  const controllers = enemies.filter(enemy => enemy.hp <= 0 && enemy.deathStunTargetId);
+  if (controllers.length === 0) return enemies;
+  const targetIds = new Set(controllers.map(enemy => enemy.deathStunTargetId));
+  return enemies.map(enemy => enemy.hp <= 0 && enemy.deathStunTargetId
+    ? { ...enemy, deathStunTargetId: undefined }
+    : enemy.hp > 0 && targetIds.has(enemy.id) ? { ...enemy, stunned: true } : enemy);
+}
 
 /** Resolve each death once, including explosion chains and the return of confiscated cards. */
 export function resolveEnemyDefeats(state: GameState, {
@@ -11,7 +22,7 @@ export function resolveEnemyDefeats(state: GameState, {
   while (true) {
     const dead = next.enemies.find(enemy => enemy.hp <= 0 && !enemy.deathResolved);
     if (!dead) break;
-    next = { ...next, enemies: next.enemies.map(enemy => enemy.id === dead.id
+    next = { ...next, enemies: resolveEnemyDeathStuns(next.enemies).map(enemy => enemy.id === dead.id
       ? { ...enemy, deathResolved: true, confiscatedCards: [] } : enemy),
       hand: [...next.hand, ...(dead.confiscatedCards ?? []).map(card => ({ ...card, revealed: true }))] };
     if (!dead.powder) continue;

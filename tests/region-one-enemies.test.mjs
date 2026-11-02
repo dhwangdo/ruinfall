@@ -7,6 +7,7 @@ import { resolveCardAttack } from "../app/game/cardAttackResolution.ts";
 import { createMoveCardToPile } from "../app/game/pileActions.ts";
 import { waitingState } from "../app/game/battleState.ts";
 import { STARTER_CARD_POOL } from "../app/game/cards.ts";
+import { resolveEnemyDefeats } from "../app/game/enemyDefeatRules.ts";
 
 const options = { blessings: [], maxPlayerHp: 500, oneUpUsed: false, randomRolls: [.5] };
 const enemy = index => ({ ...createSewerEncounterByIndex(index, () => 1)[0], intentIndex: 0 });
@@ -16,30 +17,31 @@ const advance = game => {
   return { ...game, enemies: result.nextEnemies.map(applyPlayerTurnStart), playerHp: result.remainingHp };
 };
 
-test("nine new physical encounters join region one without renumbering existing bosses", () => {
+test("four fixed physical encounters keep retired prisoner and boss IDs stable", () => {
   const entries = getEnemyCodexEntries().filter(entry => entry.encounterIndex >= 17 && entry.encounterIndex <= 25);
-  assert.equal(entries.length, 9);
+  assert.equal(entries.length, 4);
   assert.ok(entries.every(entry => entry.regions[0] === 1 && getEncounterIndicesForRegion(0).includes(entry.encounterIndex)));
   assert.ok(entries.every(entry => entry.enemies.every(({ enemy }) => enemy.actions.every(action => action.attacks.every(hit => hit.type === "physical")))));
   assert.ok(!entries.some(entry => entry.label.includes("사냥꾼")));
   assert.equal(enemy(14).name, "검은 슬라임");
 });
 
-test("two dogs telegraph their second action and then repeat only three damage", () => {
-  const dogs = createSewerEncounterByIndex(17, () => 1);
-  assert.equal(dogs.length, 2);
-  assert.ok(dogs.every(dog => dog.maxHp === 22));
-  let game = { ...waitingState(500, dogs), energy: 3 };
-  assert.match(game.enemies[0].actions[0].preview, /다음 턴.*9/);
+test("one dog joins a different family and telegraphs its second action", () => {
+  const pair = createSewerEncounterByIndex(17, () => 1);
+  assert.equal(pair.length, 2);
+  assert.notEqual(pair[0].variant, pair[1].variant);
+  assert.equal(pair[0].maxHp, 24);
+  let game = { ...waitingState(500, [pair[0]]), energy: 3 };
+  assert.match(game.enemies[0].actions[0].preview, /다음 턴.*10/);
   const damage = [];
   for (let turn = 0; turn < 5; turn += 1) {
     const next = advance(game);
     damage.push(game.playerHp - next.playerHp);
     game = next;
   }
-  assert.deepEqual(damage, [6, 18, 6, 6, 6]);
-  game = { ...game, enemies: game.enemies.map((dog, index) => index === 0 ? { ...dog, hp: 0 } : dog) };
-  assert.equal(game.playerHp - advance(game).playerHp, 3);
+  assert.deepEqual(damage, [5, 10, 5, 5, 5]);
+  game = { ...game, enemies: [{ ...game.enemies[0], hp: 0 }] };
+  assert.equal(game.playerHp - advance(game).playerHp, 0);
 });
 
 test("brood always opens by summoning and then uses non-repeating random actions", () => {
@@ -56,19 +58,41 @@ test("brood always opens by summoning and then uses non-repeating random actions
 test("clay doll heals while attacking and gains amplification on its separate action", () => {
   const doll = { ...enemy(19), hp: 32, intentIndex: 1 };
   const healed = resolveEnemyTurn({ ...gameFor(19), enemies: [doll] }, options);
-  assert.equal(healed.remainingHp, 494);
+  assert.equal(healed.remainingHp, 491);
   assert.equal(healed.nextEnemies[0].hp, 38);
   assert.equal(healed.nextEnemies[0].strength, 0);
   const amplified = resolveEnemyTurn({ ...gameFor(19), enemies: [{ ...doll, intentIndex: 2 }] }, options);
   assert.equal(amplified.nextEnemies[0].amplification, 2);
 });
 
-test("guardian armor persists and breaking it cancels the pending attack and status gain once", () => {
-  const damaged = applyPlayerAttack({ ...enemy(20), intentIndex: 1 }, 15, 1);
-  assert.equal(damaged.hp, 41);
-  assert.equal(damaged.armor, 0);
-  assert.equal(damaged.stunned, true);
-  const game = { ...gameFor(20), enemies: [damaged] };
+test("puppeteer has fixed HP and never attacks, even after gaining strength", () => {
+  for (const roll of [0, .5, .999]) {
+    const pair = createSewerEncounterByIndex(20, () => roll);
+    assert.deepEqual(pair.map(enemy => enemy.name), ["꼭두각시 거병", "인형술사"]);
+    assert.equal(pair[1].hp, 12);
+    assert.equal(pair[1].maxHp, 12);
+    assert.equal(pair[1].deathStunTargetId, pair[0].id);
+    assert.equal(pair[0].armor, undefined);
+    const result = resolveEnemyTurn(waitingState(500, [{ ...pair[1], strength: 20 }]), options);
+    assert.equal(result.remainingHp, 500);
+    assert.equal(result.steps.length, 0);
+  }
+});
+
+test("killing the puppeteer cancels its colossus attack and status gain exactly once", () => {
+  const pair = createSewerEncounterByIndex(20, () => 1);
+  const initial = waitingState(500, [{ ...pair[0], intentIndex: 1 }, pair[1]]);
+  const attackCard = { ...STARTER_CARD_POOL[0], id: 999, value: 11 };
+  const wounded = resolveCardAttack(initial, attackCard, pair[1].id, [], []);
+  assert.equal(wounded.nextEnemies[1].hp, 1);
+  assert.equal(wounded.nextEnemies[0].stunned, undefined);
+  const killed = resolveCardAttack({ ...initial, enemies: wounded.nextEnemies },
+    { ...attackCard, value: 1 }, pair[1].id, [], []);
+  assert.equal(killed.nextEnemies[1].hp, 0);
+  assert.equal(killed.nextEnemies[0].stunned, true);
+  assert.equal(killed.nextEnemies[0].hp, 54);
+  assert.equal(pair[1].hp, 12);
+  const game = { ...initial, enemies: killed.nextEnemies };
   assert.equal(resolveEnemyTurn({ ...game, extraTurns: 1 }, options).nextEnemies[0].stunned, true);
   const skipped = advance(game);
   assert.equal(skipped.playerHp, game.playerHp);
@@ -77,6 +101,26 @@ test("guardian armor persists and breaking it cancels the pending attack and sta
   const resumed = advance(skipped);
   assert.equal(skipped.playerHp - resumed.playerHp, 9);
   assert.equal(resumed.enemies[0].amplification, 1);
+  assert.equal(resolveEnemyDefeats(resumed).state.enemies[0].stunned, false);
+});
+
+test("each puppeteer only stuns the colossus from its own encounter", () => {
+  const first = createSewerEncounterByIndex(20, () => 1);
+  const second = createSewerEncounterByIndex(20, () => 1);
+  const result = resolveEnemyDefeats(waitingState(500, [first[0], { ...first[1], hp: 0 }, ...second]));
+  assert.equal(result.state.enemies[0].stunned, true);
+  assert.equal(result.state.enemies[2].stunned, undefined);
+  const deadBody = resolveEnemyDefeats(waitingState(500, first.map(enemy => ({ ...enemy, hp: 0 }))));
+  assert.ok(deadBody.state.enemies.every(enemy => enemy.hp === 0 && !enemy.stunned));
+});
+
+test("explosions can kill the puppeteer and trigger the same one-time cancellation", () => {
+  const pair = createSewerEncounterByIndex(20, () => 1);
+  const carrier = { ...enemy(26), hp: 0, powder: 12 };
+  const result = resolveEnemyDefeats(waitingState(500, [carrier, ...pair]));
+  assert.equal(result.state.enemies[1].hp, 42);
+  assert.equal(result.state.enemies[1].stunned, true);
+  assert.equal(result.state.enemies[2].hp, 0);
 });
 
 test("opportunist preview and actual damage use conditional temporary strength without accumulation", () => {
@@ -84,11 +128,11 @@ test("opportunist preview and actual damage use conditional temporary strength w
     const game = { ...gameFor(21), energy };
     const temporary = enemyTemporaryStrength(game.enemies[0], energy);
     const next = advance(game);
-    assert.equal(game.playerHp - next.playerHp, 7 + temporary);
+    assert.equal(game.playerHp - next.playerHp, 4 + temporary);
     assert.equal(temporary, energy <= 0 ? 5 : 0);
     assert.equal(next.enemies[0].strength, 0);
     const guarded = advance({ ...next, enemies: next.enemies.map(enemy => ({ ...enemy, intentIndex: 1 })) });
-    assert.equal(next.playerHp - guarded.playerHp, (5 + temporary) * 2);
+    assert.equal(next.playerHp - guarded.playerHp, (3 + temporary) * 2);
     assert.equal(guarded.enemies[0].physicalBlock, 0);
     assert.equal(guarded.enemies[0].strength, 0);
   }
@@ -132,10 +176,10 @@ test("spider passive is triggered by a valid move only and cannot rearm in the s
 });
 
 test("toad explodes on action three, consumes physical defense and dies after the hit", () => {
-  assert.match(enemy(23).actions[0].preview, /폭발 24/);
-  assert.match(enemy(23).actions[1].preview, /폭발 24/);
+  assert.match(enemy(23).actions[0].preview, /폭발 12/);
+  assert.match(enemy(23).actions[1].preview, /폭발 12/);
   let game = advance(advance(gameFor(23)));
-  const result = resolveEnemyTurn({ ...game, playerPhysicalBlock: 15, playerMagicBlock: 30 }, options);
+  const result = resolveEnemyTurn({ ...game, playerPhysicalBlock: 3, playerMagicBlock: 30 }, options);
   assert.equal(game.playerHp - result.remainingHp, 9);
   assert.equal(result.remainingMagicBlock, 30);
   assert.equal(result.nextEnemies[0].hp, 0);
@@ -144,18 +188,23 @@ test("toad explodes on action three, consumes physical defense and dies after th
   assert.equal(killed.steps.length, 0);
 });
 
-test("prisoner strength applies to every hit starting on the following action", () => {
-  let game = gameFor(24);
+test("golem applies status actions and gains strength only after each third-turn attack", () => {
+  let game = gameFor(2);
   const damage = [];
   for (let turn = 0; turn < 6; turn += 1) {
-    const next = advance(game);
+    const result = resolveEnemyTurn(game, options);
+    if (turn % 3 === 0) assert.equal(result.nextPlayerAmplification, -2);
+    if (turn % 3 === 1) assert.equal(result.nextEnemies[0].resistance, 2);
+    const next = { ...game, enemies: result.nextEnemies.map(applyPlayerTurnStart), playerHp: result.remainingHp };
     damage.push(game.playerHp - next.playerHp);
     game = next;
   }
-  assert.deepEqual(damage, [6, 9, 12, 15, 18, 21]);
+  assert.deepEqual(damage, [0, 0, 25, 0, 0, 30]);
+  assert.equal(game.enemies[0].strength, 10);
 });
 
 test("brood summons at most two living children and newborns wait until the next enemy turn", () => {
+  assert.equal(enemy(25).maxHp, 48);
   let game = gameFor(25);
   const damage = [];
   for (let turn = 0; turn < 6; turn += 1) {

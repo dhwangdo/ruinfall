@@ -1,9 +1,9 @@
-import type { ComponentType, Dispatch, SetStateAction } from "react";
+import { CardVisual } from "./CardVisual";
+import { ConsumableVisual } from "./ConsumableVisual";
+import type { Dispatch, SetStateAction } from "react";
 import type { Card } from "../game/cards";
 import type { Consumable, DeckCase } from "../game/rewards";
-import type { CardFaceProps } from "./CardFace";
 import { DeckName } from "./DeckName";
-import { ConsumableTicketTierMark, consumableTicketTierClassName } from "./ConsumableTicketTierMark";
 
 type TreasureChestReward = {
   cards: Card[];
@@ -16,7 +16,6 @@ type TreasureChestReward = {
 type Props = {
   reward: TreasureChestReward | null;
   onClose: () => void;
-  CardFace: ComponentType<CardFaceProps>;
   showCardKeywordOnly: (card: Card, right: number, top: number) => void;
   setHoveredDeckCard: Dispatch<SetStateAction<Card | null>>;
   clearCardKeywordHover: () => void;
@@ -28,7 +27,6 @@ type Props = {
 export function TreasureChestRewardModal({
   reward,
   onClose,
-  CardFace: RenderCardFace,
   showCardKeywordOnly,
   setHoveredDeckCard,
   clearCardKeywordHover,
@@ -60,8 +58,9 @@ export function TreasureChestRewardModal({
               </div>
             ))}
             {reward.cards.map((card) => (
-              <div
-                className={`battle-reward-card card-face ${card.kind} ${card.damageType}`}
+              <CardVisual
+                card={card}
+                className="battle-reward-card"
                 key={`treasure-card-${card.id}`}
                 onMouseEnter={(event) => {
                   const bounds = event.currentTarget.getBoundingClientRect();
@@ -72,13 +71,14 @@ export function TreasureChestRewardModal({
                   showCardKeywordOnly(card, bounds.right, bounds.top);
                 }}
                 onMouseLeave={() => { setHoveredDeckCard(null); clearCardKeywordHover(); }}
-              >
-                <RenderCardFace card={card} />
-              </div>
+              />
             ))}
             {reward.consumables.map((item) => (
-              <div
-                className={`battle-reward-consumable treasure-chest-reward-consumable consumable-ticket ${item.type} ${consumableTicketTierClassName(item.type)}`}
+              <ConsumableVisual
+                item={item}
+                variant="full"
+                description={consumableDescription(item)}
+                className="battle-reward-consumable treasure-chest-reward-consumable"
                 key={`treasure-consumable-${item.id}`}
                 aria-label={`${item.name}: ${consumableDescription(item)}`}
                 onMouseEnter={(event) => {
@@ -90,17 +90,10 @@ export function TreasureChestRewardModal({
                   showConsumablePreview(item, bounds.right, bounds.top);
                 }}
                 onMouseLeave={() => setHoveredConsumable(null)}
-              >
-                <ConsumableTicketTierMark type={item.type} />
-                <strong>{item.name}</strong>
-                <small>{consumableDescription(item)}</small>
-              </div>
+              />
             ))}
-            {reward.bonusRolls > 0 && (
-              <div className="treasure-chest-bonus-reward">추가 굴림 +{reward.bonusRolls}회</div>
-            )}
             {reward.cards.length === 0 && reward.decks.length === 0
-              && reward.consumables.length === 0 && reward.bonusRolls === 0 && (
+              && reward.consumables.length === 0 && (
                 <div className="treasure-chest-empty-reward">보상이 없습니다.</div>
               )}
           </div>

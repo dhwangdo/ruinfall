@@ -1,7 +1,7 @@
 import type { Dispatch, MouseEvent, SetStateAction, WheelEvent } from "react";
 import type { Card } from "../../game/cards";
 import type { DeckEditorCardArea, DeckEditorCardLocation } from "../../game/deckEditorRules";
-import type { DeckEditorCardGroup } from "../../game/deckEditorViews";
+import type { DeckEditorCardGroup, DeckCardView, DeckCardViewItem } from "../../game/deckEditorViews";
 import type { Consumable, DeckCase, DeckEdition } from "../../game/rewards";
 import type { VirtualizedHorizontalItem } from "../VirtualizedHorizontalList";
 
@@ -40,19 +40,8 @@ export type StackVirtualItem = VirtualizedHorizontalItem & { area: "inventory" |
 );
 export type InventoryVirtualItem = StackVirtualItem | (VirtualizedHorizontalItem & { kind: "empty-slot"; slot: number });
 export type FloorVirtualItem = StackVirtualItem | (VirtualizedHorizontalItem & { kind: "floor-deck"; deck: DeckCase });
-export type OwnedDeckVirtualItem = VirtualizedHorizontalItem & (
-  | { kind: "card"; group: CardGroup }
-  | { kind: "rare-slot"; slot: number }
-  | { kind: "divider" }
-  | { kind: "normal-slot"; slot: number }
-);
-export type OwnedDeckCardView = {
-  items: OwnedDeckVirtualItem[];
-  rareSlotCount: number;
-  rareSlotCapacity: number;
-  normalSlotCapacity: number;
-  normalCardCount: number;
-};
+export type OwnedDeckVirtualItem = DeckCardViewItem;
+export type OwnedDeckCardView = DeckCardView;
 
 export type DeckEditorHeader = {
   deckEditorErrorMessage: string | null;
@@ -108,11 +97,8 @@ export type DeckEditorTicketActions = {
   applyTicketToDeck: (ticketId: string, deck: DeckCase) => void;
 };
 
-export type DeckEditorCardPreview = {
-  hoveredDeckCard: Card | null;
-  deckPreviewPosition: { x: number; y: number };
+export type DeckEditorPreviewActions = {
   consumablePreview: {
-    hovered: Consumable | null;
     show: (consumable: Consumable, right: number, top: number) => void;
     clear: () => void;
   };
@@ -141,6 +127,5 @@ export type DeckEditorModalProps = {
   deckArea: DeckEditorDeckArea;
   floorArea: DeckEditorFloorArea;
   ticketActions: DeckEditorTicketActions;
-  cardPreview: DeckEditorCardPreview;
   behavior: DeckEditorBehavior;
 };

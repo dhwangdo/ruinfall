@@ -1,154 +1,109 @@
-export function animateEnemyCardDelivery(target: HTMLElement, source: DOMRect, delay = 0) {
-  if (window.matchMedia("(prefers-reduced-motion: reduce)").matches) return null;
-  const targetRect = target.getBoundingClientRect();
-  const targetStyle = window.getComputedStyle(target);
-  const cardWidth = Number.parseFloat(targetStyle.width) || targetRect.width;
-  const cardHeight = Number.parseFloat(targetStyle.height) || targetRect.height;
-  const targetLeft = targetRect.left + (targetRect.width - cardWidth) / 2;
-  const targetTop = targetRect.top + (targetRect.height - cardHeight) / 2;
-  const host = target.closest<HTMLElement>(".battlefield") ?? document.body;
-  const ghost = target.cloneNode(true) as HTMLElement;
-  const previousOpacity = target.style.opacity;
-  ghost.classList.add("enemy-card-flight");
-  Object.assign(ghost.style, {
-    position: "fixed",
-    zIndex: "100",
-    top: `${targetTop}px`,
-    left: `${targetLeft}px`,
-    width: `${cardWidth}px`,
-    height: `${cardHeight}px`,
-    margin: "0",
-    pointerEvents: "none",
-  });
+import { cardBoxPosition } from "./cardFlightGeometry.ts";
+
+const reducedMotion = () => window.matchMedia("(prefers-reduced-motion: reduce)").matches;
+
+function cardPose(card: HTMLElement) {
+  const rect = card.getBoundingClientRect();
+  const style = window.getComputedStyle(card);
+  const width = Number.parseFloat(style.width) || rect.width;
+  const height = Number.parseFloat(style.height) || rect.height;
+  const [originX, originY] = style.transformOrigin.split(" ").map(Number.parseFloat);
+  const origin = { x: originX || 0, y: originY || 0 };
+  const matrix = new DOMMatrixReadOnly(style.transform === "none" ? undefined : style.transform);
+  return { rect, style, width, height, origin, transform: matrix.toString(),
+    ...cardBoxPosition(rect, width, height, origin, matrix) };
+}
+
+/** Place a transform's visual centre at a viewport point, retaining its own origin. */
+function atCenter(pose: ReturnType<typeof cardPose>, x: number, y: number, transform: string) {
+  const matrix = new DOMMatrixReadOnly(transform);
+  const cx = pose.width / 2 - pose.origin.x, cy = pose.height / 2 - pose.origin.y;
+  const actualX = pose.left + pose.origin.x + matrix.a * cx + matrix.c * cy + matrix.e;
+  const actualY = pose.top + pose.origin.y + matrix.b * cx + matrix.d * cy + matrix.f;
+  return `translate(${x - actualX}px, ${y - actualY}px) ${transform}`;
+}
+
+function flyCard(card: HTMLElement, pose: ReturnType<typeof cardPose>, frames: Keyframe[],
+  options: KeyframeAnimationOptions, className: string, hideOriginal = false, outgoing = false) {
+  const ghost = card.cloneNode(true) as HTMLElement;
+  const visibility = card.style.visibility;
+  ghost.classList.add(className);
   ghost.removeAttribute("data-card-id");
+  ghost.removeAttribute("data-top-card-id");
+  ghost.removeAttribute("id");
   ghost.setAttribute("aria-hidden", "true");
-  host.appendChild(ghost);
-  target.style.opacity = "0";
-  const deltaX = source.left + source.width / 2 - (targetLeft + cardWidth / 2);
-  const deltaY = source.top + source.height / 2 - (targetTop + cardHeight / 2);
-  const arcHeight = Math.min(130, Math.max(65, Math.abs(deltaY) * .18));
-  const animation = ghost.animate(
-    [
-      {
-        transform: `translate(${deltaX}px, ${deltaY}px) rotate(-10deg)`,
-        opacity: .92,
-        filter: "drop-shadow(0 2px 3px rgba(0,0,0,.2))",
-      },
-      {
-        offset: .18,
-        transform: `translate(${deltaX}px, ${deltaY}px) rotate(-10deg)`,
-        opacity: .92,
-        filter: "drop-shadow(0 2px 3px rgba(0,0,0,.2))",
-      },
-      {
-        offset: .64,
-        transform: `translate(${deltaX * .42}px, ${deltaY * .42 - arcHeight}px) rotate(7deg)`,
-        opacity: 1,
-        filter: "drop-shadow(0 16px 12px rgba(0,0,0,.38))",
-      },
-      {
-        transform: "translate(0, 0) rotate(0deg)",
-        opacity: 1,
-        filter: "drop-shadow(0 3px 3px rgba(0,0,0,.18))",
-      },
-    ],
-    {
-      duration: 820,
-      delay,
-      easing: "cubic-bezier(.18,.72,.2,1)",
-      fill: "backwards",
-    },
-  );
-  const cleanup = () => {
+  ghost.inert = true;
+  Object.assign(ghost.style, {
+    position: "fixed", zIndex: "110", left: `${pose.left}px`, top: `${pose.top}px`,
+    width: `${pose.width}px`, height: `${pose.height}px`, margin: "0", pointerEvents: "none",
+    visibility: "visible", opacity: "1", transition: "none", animation: "none",
+    transform: pose.transform, transformOrigin: `${pose.origin.x}px ${pose.origin.y}px`,
+    borderWidth: pose.style.borderWidth, outline: pose.style.outline,
+  });
+  (card.closest<HTMLElement>(".battlefield") ?? document.body).appendChild(ghost);
+  if (hideOriginal) card.style.visibility = "hidden";
+  const animation = ghost.animate(frames, { fill: "both", ...options });
+  const cleanup = (restore: boolean) => {
     ghost.remove();
-    target.style.opacity = previousOpacity;
+    if (hideOriginal && restore) card.style.visibility = visibility;
   };
-  animation.addEventListener("finish", cleanup, { once: true });
-  animation.addEventListener("cancel", cleanup, { once: true });
+  // Outgoing originals stay hidden until the whole group has committed its state change.
+  animation.addEventListener("finish", () => cleanup(!outgoing), { once: true });
+  animation.addEventListener("cancel", () => cleanup(true), { once: true });
   return animation;
 }
 
-export function animateCardToPlayer(sourceCard: HTMLElement, source: DOMRect, target: HTMLElement, delay = 0, duration = 820) {
-  if (window.matchMedia("(prefers-reduced-motion: reduce)").matches) return null;
-  const sourceStyle = window.getComputedStyle(sourceCard);
-  const cardWidth = Number.parseFloat(sourceStyle.width) || source.width;
-  const cardHeight = Number.parseFloat(sourceStyle.height) || source.height;
-  const sourceLeft = source.left + (source.width - cardWidth) / 2;
-  const sourceTop = source.top + (source.height - cardHeight) / 2;
-  const targetRect = target.getBoundingClientRect();
-  const targetLeft = targetRect.left + (targetRect.width - cardWidth) / 2;
-  const targetTop = targetRect.top + (targetRect.height - cardHeight) / 2;
-  const host = target.closest<HTMLElement>(".battlefield") ?? document.body;
-  const ghost = sourceCard.cloneNode(true) as HTMLElement;
-  ghost.classList.add("enemy-card-flight");
-  Object.assign(ghost.style, {
-    position: "fixed",
-    zIndex: "100",
-    top: `${sourceTop}px`,
-    left: `${sourceLeft}px`,
-    width: `${cardWidth}px`,
-    height: `${cardHeight}px`,
-    margin: "0",
-    pointerEvents: "none",
-  });
-  ghost.removeAttribute("data-card-id");
-  ghost.setAttribute("aria-hidden", "true");
-  host.appendChild(ghost);
-  const deltaX = targetLeft - sourceLeft;
-  const deltaY = targetTop - sourceTop;
-  const animation = ghost.animate(
-    [
-      { transform: "translate(0, 0) rotate(-10deg)", opacity: .92 },
-      { transform: `translate(${deltaX}px, ${deltaY}px) rotate(0deg)`, opacity: 1 },
-    ],
-    { duration, delay, easing: "cubic-bezier(.18,.72,.2,1)", fill: "backwards" },
-  );
-  const cleanup = () => ghost.remove();
-  animation.addEventListener("finish", cleanup, { once: true });
-  animation.addEventListener("cancel", cleanup, { once: true });
-  return animation;
+export function animateDrawnCardToHand(target: HTMLElement, source: DOMRect, delay = 0, enemyToken = false) {
+  if (reducedMotion() || getComputedStyle(target).visibility === "hidden") return null;
+  const pose = cardPose(target);
+  const x = source.left + source.width / 2, y = source.top + source.height / 2;
+  const start = atCenter(pose, x, y, "rotate(-3deg) scale(.94)");
+  const frames: Keyframe[] = [{ transform: start, opacity: .8 }];
+  if (enemyToken) {
+    frames.push({ offset: .18, transform: start, opacity: .92 }, {
+      offset: .64,
+      transform: atCenter(pose, x * .42 + (pose.rect.left + pose.rect.width / 2) * .58,
+        y * .42 + (pose.rect.top + pose.rect.height / 2) * .58 - 90, "rotate(7deg)"), opacity: 1,
+    });
+  }
+  frames.push({ transform: pose.transform, opacity: 1 });
+  return flyCard(target, pose, frames, {
+    duration: enemyToken ? 820 : 300, delay, easing: "cubic-bezier(.2,.72,.25,1)",
+  }, "enemy-card-flight", true);
+}
+
+export function animateEnemyCardDelivery(target: HTMLElement, source: DOMRect, delay = 0) {
+  return animateDrawnCardToHand(target, source, delay, true);
+}
+
+export function animateCardToPlayer(sourceCard: HTMLElement, target: HTMLElement, delay = 0, duration = 820) {
+  if (reducedMotion()) return null;
+  const pose = cardPose(sourceCard), destination = target.getBoundingClientRect();
+  return flyCard(sourceCard, pose, [
+    { transform: pose.transform, opacity: .92 },
+    { transform: atCenter(pose, destination.left + destination.width / 2,
+      destination.top + destination.height / 2, "rotate(0deg)"), opacity: 1 },
+  ], { duration, delay, easing: "cubic-bezier(.18,.72,.2,1)" }, "enemy-card-flight");
 }
 
 export function animatePlayedCardToCenter(sourceCard: HTMLElement) {
-  if (window.matchMedia("(prefers-reduced-motion: reduce)").matches) return 0;
-  const source = sourceCard.getBoundingClientRect();
-  const sourceStyle = window.getComputedStyle(sourceCard);
-  const cardWidth = Number.parseFloat(sourceStyle.width) || source.width;
-  const cardHeight = Number.parseFloat(sourceStyle.height) || source.height;
-  const sourceLeft = source.left + (source.width - cardWidth) / 2;
-  const sourceTop = source.top + (source.height - cardHeight) / 2;
-  const host = sourceCard.closest<HTMLElement>(".battlefield") ?? document.body;
-  const hostRect = host.getBoundingClientRect();
-  const targetLeft = hostRect.left + (hostRect.width - cardWidth) / 2;
-  const targetTop = hostRect.top + (hostRect.height - cardHeight) / 2;
-  const ghost = sourceCard.cloneNode(true) as HTMLElement;
-  const previousOpacity = sourceCard.style.opacity;
-  ghost.classList.add("played-card-flight");
-  Object.assign(ghost.style, {
-    position: "fixed",
-    zIndex: "110",
-    top: `${sourceTop}px`,
-    left: `${sourceLeft}px`,
-    width: `${cardWidth}px`,
-    height: `${cardHeight}px`,
-    margin: "0",
-    pointerEvents: "none",
-  });
-  ghost.setAttribute("aria-hidden", "true");
-  host.appendChild(ghost);
-  sourceCard.style.opacity = "0";
-  const animation = ghost.animate(
-    [
-      { transform: "translate(0, 0) rotate(0deg) scale(1)", opacity: 1 },
-      { transform: `translate(${targetLeft - sourceLeft}px, ${targetTop - sourceTop}px) rotate(-4deg) scale(.78)`, opacity: 0 },
-    ],
-    { duration: 170, easing: "cubic-bezier(.24,.78,.3,1)", fill: "forwards" },
-  );
-  const cleanup = () => {
-    ghost.remove();
-    sourceCard.style.opacity = previousOpacity;
-  };
-  animation.addEventListener("finish", cleanup, { once: true });
-  animation.addEventListener("cancel", cleanup, { once: true });
-  return 170;
+  if (reducedMotion()) return null;
+  const pose = cardPose(sourceCard);
+  const host = (sourceCard.closest<HTMLElement>(".battlefield") ?? document.body).getBoundingClientRect();
+  return flyCard(sourceCard, pose, [
+    { transform: pose.transform, opacity: 1 },
+    { transform: atCenter(pose, host.left + host.width / 2, host.top + host.height / 2,
+      "rotate(-4deg) scale(.78)"), opacity: 0 },
+  ], { duration: 170, easing: "cubic-bezier(.24,.78,.3,1)" }, "played-card-flight", true, true);
+}
+
+export function animateDiscardedCards(cards: HTMLElement[]) {
+  if (reducedMotion()) return [];
+  // Capture every pose before hiding anything or changing the hand's phase.
+  const visible = cards.filter(card => getComputedStyle(card).visibility !== "hidden")
+    .map(card => ({ card, pose: cardPose(card) }));
+  return visible.map(({ card, pose }, index) => flyCard(card, pose, [
+    { transform: pose.transform, opacity: 1 },
+    { transform: `translate(${window.innerWidth * .78}px, -24px) ${pose.transform} rotate(14deg)`, opacity: 0 },
+  ], { duration: 320, delay: index * 42, easing: "cubic-bezier(.55,.05,.82,.38)" }, "discard-card-flight", true, true));
 }

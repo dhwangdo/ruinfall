@@ -1,7 +1,6 @@
 /* Compact Noita-like loadout board. All three storage areas stay visible together. */
 .deck-editor-overlay,
 .deck-editor-touch-drag-portal {
-  --card-paper: var(--card-preview-paper);
   --editor-stack-fill: var(--card-paper);
 }
 .deck-editor-overlay,
@@ -85,41 +84,6 @@
 .trash-slot > small { display: none; }
 .trash-icon { width: 25px; height: 26px; margin-top: 8px; }
 .trash-icon::before { width: 31px; }
-.deck-editor-card,
-.deck-list-entry {
-  --editor-rarity: #756A60;
-  position: relative;
-  display: grid;
-  grid-template-columns: 1fr;
-  grid-template-rows: 1fr;
-  place-items: center;
-  width: 76px;
-  height: 76px;
-  min-height: 76px;
-  padding: 8px 5px 5px;
-  overflow: hidden;
-  border: 3px solid var(--editor-rarity);
-  border-radius: 4px;
-  color: #272725;
-  background: var(--card-paper);
-  background-clip: padding-box;
-  box-shadow: var(--editor-stack-shadow, 0 2px 3px rgba(0,0,0,.18));
-  cursor: grab;
-  text-align: center;
-  transition: transform .1s ease, filter .1s ease;
-}
-.deck-editor-card.rarity-special,
-.deck-list-entry.rarity-special { --editor-rarity: #3472a2; }
-.deck-editor-card.rarity-status,
-.deck-list-entry.rarity-status { --editor-rarity: #e34b58; }
-.deck-editor-card.rarity-starter,
-.deck-list-entry.rarity-starter { --editor-rarity: #555B60; }
-.deck-editor-card.rarity-basic,
-.deck-list-entry.rarity-basic { --editor-rarity: #756A60; }
-.deck-editor-card.rarity-rare,
-.deck-list-entry.rarity-rare { --editor-rarity: var(--rare-border-color); }
-.deck-editor-card.rarity-legendary,
-.deck-list-entry.rarity-legendary { --editor-rarity: #d5a928; }
 
 .card-name.rarity-legendary {
   color: #fff3bd;
@@ -142,27 +106,6 @@
 }
 .deck-editor-card:active,
 .deck-list-entry:active { cursor: grabbing; }
-.editor-card-cost {
-  position: absolute;
-  top: 3px;
-  left: 5px;
-  color: #292824;
-  font: 900 13px/1 Arial, sans-serif;
-}
-.deck-editor-card .editor-card-name,
-.deck-list-entry .editor-card-name {
-  display: -webkit-box;
-  align-self: center;
-  justify-self: center;
-  overflow: hidden;
-  padding: 8px 2px 0;
-  font: 800 11px/1.18 Pretendard, "Malgun Gothic", sans-serif;
-  text-align: center;
-  white-space: normal;
-  overflow-wrap: anywhere;
-  -webkit-box-orient: vertical;
-  -webkit-line-clamp: 3;
-}
 .inventory-card-count,
 .deck-list-count {
   position: absolute;
@@ -178,18 +121,13 @@
 .deck-card-new,
 .deck-card-painted { pointer-events: none; }
 .deck-card-painted { position: absolute; left: 4px; bottom: 4px; font-size: 8px; }
-.consumable-ticket,
 .floor-deck-item {
   height: 76px;
   min-height: 76px;
   padding: 6px;
   border-radius: 4px;
 }
-.consumable-ticket { width: 76px; }
 .floor-deck-item { width: 148px; }
-.consumable-ticket { grid-template-rows: 1fr; }
-.consumable-ticket > strong { border: 0; font-size: 12px; }
-.consumable-ticket > small { display: none; }
 .floor-deck-item { gap: 2px; }
 .floor-deck-item .floor-deck-icon { width: 28px; height: 21px; }
 .floor-deck-item strong { max-width: 100%; overflow: hidden; font-size: 11px; line-height: 1.15; overflow-wrap: anywhere; }
@@ -361,143 +299,14 @@ html:not([data-device-mode="mobile"]) .deck-editor-column.inventory-column {
   font: 700 11px Arial, sans-serif;
 }
 .empty-deck-row strong { margin-right: 14px; color: #555249; }
-.deck-editor-empty-card-slot {
-  flex: 0 0 74px;
-  width: 74px;
-  height: 74px;
-  border: 1px dashed rgba(85,82,74,.34);
-  border-radius: 3px;
-  background: rgba(255,255,255,.13);
-}
-.deck-editor-card,
-.deck-list-entry,
-.consumable-ticket {
-  flex: 0 0 74px;
-  width: 74px;
-  height: 74px;
-  min-height: 74px;
-}
 .floor-deck-item {
   flex: 0 0 148px;
   width: 148px;
   grid-column: span 2;
 }
-.deck-editor-card,
-.deck-list-entry {
-  border-width: 4px;
-  border-color: var(--editor-rarity) !important;
-  color: #272725;
-  background: var(--card-paper);
-}
-.card-style-simple .deck-editor-card.rarity-rare,
-.card-style-simple .deck-list-entry.rarity-rare { --editor-rarity: var(--rare-color); }
-.deck-editor-card-list .consumable-ticket,
-.deck-editor-floor-cards .consumable-ticket {
-  --editor-rarity: var(--ticket-border);
-  --editor-stack-fill: var(--ticket-fill);
-  border-width: 4px;
-  border-color: var(--editor-rarity);
-  background-clip: padding-box;
-  box-shadow: var(--editor-stack-shadow, 0 2px 3px rgba(0,0,0,.18));
-}
-.deck-editor-card-list .consumable-ticket.ticket-tier-3,
-.deck-editor-floor-cards .consumable-ticket.ticket-tier-3 {
-  --editor-stack-border: var(--rare-border-color);
-  border-color: var(--rare-border-color) !important;
-}
-.deck-editor-panel .consumable-ticket.extractPlusTicket > strong { font-size: 12px; }
-.shop-offer .consumable-ticket.ticket-tier-1,
-.shop-offer .consumable-ticket.ticket-tier-2,
-.shop-offer .consumable-ticket.ticket-tier-3 {
-  flex: 0 0 82px;
-  width: 82px;
-  height: 82px;
-  min-height: 82px;
-  grid-template-rows: 1fr;
-  border-width: 4px;
-}
-.shop-offer .consumable-ticket.ticket-tier-1 > strong,
-.shop-offer .consumable-ticket.ticket-tier-2 > strong,
-.shop-offer .consumable-ticket.ticket-tier-3 > strong { border: 0; font-size: 13.2px; }
-.shop-offer .consumable-ticket.extractPlusTicket > strong { font-size: 12px; }
-.shop-offer .consumable-ticket.ticket-tier-1 > small,
-.shop-offer .consumable-ticket.ticket-tier-2 > small,
-.shop-offer .consumable-ticket.ticket-tier-3 > small { display: none; }
-.deck-list-entry.rarity-basic strong,
-.deck-list-entry.rarity-special strong,
-.deck-list-entry.rarity-rare strong { color: #272725; }
-.deck-editor-card .editor-card-name,
-.deck-list-entry .editor-card-name {
-  position: absolute;
-  top: 50%;
-  right: 0;
-  left: 0;
-  display: block;
-  width: auto;
-  max-width: none;
-  padding-inline: 6px;
-  padding-top: 0;
-  box-sizing: border-box;
-  overflow: hidden;
-  font-size: 11.5px;
-  font-weight: 600;
-  line-height: 1.2;
-  letter-spacing: -.65px;
-  text-align: center;
-  text-overflow: ellipsis;
-  white-space: nowrap;
-  word-break: keep-all;
-  transform: translateY(-50%);
-  -webkit-line-clamp: unset;
-}
-.card-style-simple .deck-editor-card .editor-card-name,
-.card-style-simple .deck-list-entry .editor-card-name { color: #272725 !important; }
-.deck-editor-card .editor-card-name { font-size: 12px; }
-.card-pool-stat-cards .deck-editor-card .editor-card-name { font-size: 9px; }
-.deck-editor-card .editor-card-cost,
-.deck-list-entry .editor-card-cost { top: 3px; left: 5px; font-size: 15px; font-weight: 800; }
-.deck-editor-card .inventory-card-count,
-.deck-list-entry .inventory-card-count,
-.consumable-ticket .inventory-card-count {
-  right: 3px;
-  bottom: 3px;
-  padding: 1px 3px;
-  border-radius: 2px;
-  color: var(--battle-cost-text-color, #ffd166) !important;
-  background: var(--battle-cost-color, #17234f) !important;
-  font-size: 13px;
-  font-weight: 800;
-  line-height: 1;
-}
-.deck-editor-card .inventory-card-count,
-.deck-list-entry .inventory-card-count,
-.consumable-ticket .inventory-card-count { font-weight: 800; }
-.deck-editor-panel .deck-editor-card,
-.deck-editor-panel .consumable-ticket,
-.deck-editor-panel .deck-editor-empty-card-slot {
-  flex: 0 0 82px;
-  width: 82px;
-  height: 82px;
-  min-height: 82px;
-}
-.deck-editor-panel .deck-editor-card .editor-card-name,
-.deck-editor-panel .consumable-ticket > strong { font-size: 13.2px; }
-.deck-editor-panel .deck-editor-card .editor-card-cost { top: 2px; font-size: 15.5px; }
-.deck-editor-panel .deck-editor-card .inventory-card-count,
-.deck-editor-panel .consumable-ticket .inventory-card-count { font-size: 14.3px; }
 .deck-editor-panel .deck-card-new,
 .deck-editor-panel .deck-card-painted { font-size: 8.8px; }
 .deck-editor-panel .deck-card-new { top: auto; right: 3px; bottom: 3px; }
-.deck-editor-trash-row .trash-card-preview > .editor-card-cost {
-  display: block;
-  width: auto;
-  height: auto;
-  color: #292824;
-  background: transparent;
-  font-size: 15px;
-  font-weight: 800;
-  line-height: 1;
-}
 .deck-editor-trash-row {
   display: flex;
   align-items: center;
@@ -600,19 +409,9 @@ html:not([data-device-mode="mobile"]) .deck-editor-column.inventory-column {
 .deck-consumable-preview-floating {
   position: fixed;
   z-index: 160;
-  width: 190px;
-  min-height: 112px;
-  padding: 14px;
-  border: 3px solid #17234f;
-  border-radius: 6px;
-  color: #252525;
-  background: #f7f4eb;
-  box-shadow: 0 9px 24px rgba(0,0,0,.34);
   pointer-events: none;
-  font-family: Pretendard, sans-serif;
+  font-family: Pretendard, "Malgun Gothic", sans-serif;
 }
-.deck-consumable-preview-floating strong { display: block; margin-bottom: 10px; font-size: 16px; }
-.deck-consumable-preview-floating p { margin: 0; font-size: 13px; line-height: 1.45; }
 
 @media (max-width: 900px) {
   .deck-editor-panel { grid-template-rows: 0 var(--deck-editor-row-height) minmax(0, 1fr) var(--deck-editor-row-height); overflow: hidden; }

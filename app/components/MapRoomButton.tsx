@@ -13,6 +13,7 @@ type MapRoomButtonProps = {
   mapTraveling: boolean;
   hasItems: boolean;
   roomItemsTitle?: string;
+  deckName?: string;
   gridColumn: number;
   gridRow: number;
   onClick: () => void;
@@ -24,13 +25,14 @@ const ROOM_LABELS: Record<RoomType, string> = {
   empty: "방",
   blessing: "축복",
   shop: "상점",
-  shrine: "추출의 성소",
+  bloodShop: "피의 상점",
+  extractionShrine: "추출의 성소",
   recoveryShrine: "회복의 성소",
   vitalityShrine: "건강의 성소",
   mindEyeShrine: "심안의 성소",
   transformShrine: "변환의 성소",
-  combinationShrine: "조합의 성소",
   treasureChest: "보물 상자",
+  deckVault: "덱 보관소",
   boss: "보스",
   portal: "안전 지역 포탈",
   heal: "회복 노드",
@@ -39,13 +41,14 @@ const ROOM_LABELS: Record<RoomType, string> = {
 
 const ROOM_BADGES: Partial<Record<RoomType, string>> = {
   shop: "상점",
-  shrine: "추출의 성소",
+  bloodShop: "피의 상점",
+  extractionShrine: "추출의 성소",
   recoveryShrine: "회복의 성소",
   vitalityShrine: "건강의 성소",
   mindEyeShrine: "심안의 성소",
   transformShrine: "변환의 성소",
-  combinationShrine: "조합의 성소",
   treasureChest: "보물 상자",
+  deckVault: "덱 보관소",
   boss: "보스",
   blessing: "축복",
   portal: "포탈",
@@ -65,11 +68,12 @@ export function MapRoomButton({
   mapTraveling,
   hasItems,
   roomItemsTitle,
+  deckName,
   gridColumn,
   gridRow,
   onClick,
 }: MapRoomButtonProps) {
-  const roomLabel = current ? "현재 위치" : ROOM_LABELS[roomType];
+  const roomLabel = current ? "현재 위치" : deckName ?? ROOM_LABELS[roomType];
 
   return (
     <button
@@ -82,7 +86,7 @@ export function MapRoomButton({
       aria-label={`${roomLabel}, 좌표 ${position.x + 1}, 깊이 ${position.y}${roomItemsTitle ? `, ${roomItemsTitle}` : ""}`}
       onClick={onClick}
     >
-      {ROOM_BADGES[roomType] && <span>{ROOM_BADGES[roomType]}</span>}
+      {ROOM_BADGES[roomType] && <span>{roomType === "deckVault" ? deckName ?? ROOM_BADGES[roomType] : ROOM_BADGES[roomType]}</span>}
       {roomType === "rock" && <span className="rock-label">단단한 돌</span>}
       {hasItems && <span className="room-item-indicator" aria-label="아이템 있음" />}
     </button>

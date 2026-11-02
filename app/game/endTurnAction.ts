@@ -11,9 +11,10 @@ import { cardsForNextShuffle } from "./cardRules.ts";
 import { buildPiles, drawFromPileIndexes, drawRandomFromPiles, prepareDeckForPiles } from "./battleState.ts";
 import { applyPlayerTurnStart, retainBlockAfterEnemyTurn } from "./enemies.ts";
 
-import { blockedPileIndexes, preparePileSeals, enemyEnergyRecoveryPenalty, sharedTurnStrength } from "./enemyPassives.ts";
+import { blockedPileIndexes, preparePileSeals, enemyEnergyRecoveryPenalty } from "./enemyPassives.ts";
 
 import { resolveEnemyTurn } from "./enemyTurnResolution.ts";
+import { enemyStepTiming } from "./battlePresentationTiming.ts";
 
 type EndTurnContext = {
   game: GameState;
@@ -30,11 +31,15 @@ type EndTurnContext = {
   drawCards: () => void;
   telemetry: TelemetryRecorder;
   setDamagePopup: Dispatch<SetStateAction<DamagePopup | null>>;
+  showEnemyPopup: (enemyId: string, text: string, kind?: "damage" | "buff" | "debuff") => void;
   setAttackingEnemyId: Dispatch<SetStateAction<string | null>>;
   grantBattleReward: (regionNumber: number) => void;
   battleRewardRegionRef: RefObject<number>;
   maximumEnergyForGame: (game: Pick<GameState, "deckEditions" | "deckHighlanderActive">, glassCannon?: boolean) => number;
-  animateCardToPlayer: (sourceCard: HTMLElement, source: DOMRect, target: HTMLElement, delay?: number, duration?: number) => Animation | null;
+  animateCardToPlayer: (sourceCard: HTMLElement, target: HTMLElement, delay?: number, duration?: number) => Animation | null;
+  animateDiscardedCards?: (cards: HTMLElement[]) => Animation[];
+  afterAnimations?: (animations: Array<Animation | null>, callback: () => void) => void;
+  trackAnimation?: (animation: Animation | null) => void;
 };
 
 export function createEndTurn(context: EndTurnContext) {
@@ -53,11 +58,15 @@ export function createEndTurn(context: EndTurnContext) {
     drawCards,
     telemetry,
     setDamagePopup,
+    showEnemyPopup,
     setAttackingEnemyId,
     grantBattleReward,
     battleRewardRegionRef,
     maximumEnergyForGame,
     animateCardToPlayer,
+    animateDiscardedCards,
+    afterAnimations,
+    trackAnimation,
   } = context;
   return () => {
     if (
@@ -72,13 +81,16 @@ export function createEndTurn(context: EndTurnContext) {
     const toxicSlimeFlights = game.hand.flatMap((card) => {
       if (card.effect !== "slime") return [];
       const element = handCardRefs.current.get(card.id);
-      return element ? [{ element, rect: element.getBoundingClientRect() }] : [];
+      return element ? [{ element }] : [];
     });
+    const discardAnimations = animateDiscardedCards?.(game.hand.flatMap(card => {
+      const element = handCardRefs.current.get(card.id);
+      return !card.retain && card.effect !== "slime" && element ? [element] : [];
+    })) ?? [];
     setPhase("discarding");
     setDragging(null);
 
-    const discardDelay = 180 + Math.max(0, game.hand.length - 1) * 25;
-    later(() => {
+    const finishDiscard = () => {
       const result = resolveEnemyTurn(game, {
         blessings, maxPlayerHp, oneUpUsed: oneUpUsedRef.current,
         randomRolls: game.enemies.map(() => Math.random()),
@@ -133,7 +145,7 @@ export function createEndTurn(context: EndTurnContext) {
           playerHp: remainingHp,
           playerPhysicalBlock: retainBlockAfterEnemyTurn(remainingPhysicalBlock, game.preserveDefenseOnTurnEnd),
           playerMagicBlock: retainBlockAfterEnemyTurn(remainingMagicBlock, game.preserveDefenseOnTurnEnd),
-          strength: Math.max(0, game.strength - game.temporaryStrength) + sharedTurnStrength(nextEnemies),
+          strength: Math.max(0, game.strength - game.temporaryStrength),
           temporaryStrength: 0,
           defenseMultiplier: 1,
           damageTakenMultiplier: 1,
@@ -162,9 +174,6 @@ export function createEndTurn(context: EndTurnContext) {
       setPhase("enemy-turn");
 
       const reducedMotion = window.matchMedia("(prefers-reduced-motion: reduce)").matches;
-      const stepDuration = reducedMotion ? 80 : 220;
-      const hitAt = reducedMotion ? 20 : 105;
-      const clearAt = reducedMotion ? 50 : 195;
       const slimeFlightGap = reducedMotion ? 20 : 50;
       const slimeFlightDuration = toxicSlimeFlights.length > 0
         ? (reducedMotion ? 120 : 460) + Math.max(0, toxicSlimeFlights.length - 1) * slimeFlightGap
@@ -174,7 +183,8 @@ export function createEndTurn(context: EndTurnContext) {
         const playerHealth = document.querySelector<HTMLElement>(".player-health-popup-anchor");
         if (playerHealth) {
           toxicSlimeFlights.forEach((flight, index) => {
-            animateCardToPlayer(flight.element, flight.rect, playerHealth, index * slimeFlightGap, 460);
+            const animation = animateCardToPlayer(flight.element, playerHealth, index * slimeFlightGap, 460);
+            trackAnimation?.(animation);
           });
         }
         later(() => {
@@ -192,9 +202,12 @@ export function createEndTurn(context: EndTurnContext) {
         }, toxicSlimeFlights.length > 0 ? (reducedMotion ? 60 : 380) + Math.max(0, toxicSlimeFlights.length - 1) * slimeFlightGap : 0);
       }
 
+      let timeline = slimeFlightDuration;
       steps.forEach((step, index) => {
-        const base = slimeFlightDuration + index * stepDuration;
-        later(() => setAttackingEnemyId(step.enemy.stunned ? null : step.enemy.id), base);
+        const base = timeline;
+        const timing = enemyStepTiming(Boolean(step.attack), reducedMotion);
+        timeline += timing.duration + timing.gap;
+        later(() => setAttackingEnemyId(step.attack ? step.enemy.id : null), base);
         later(() => {
           if (step.attack) {
             setDamagePopup({
@@ -203,18 +216,29 @@ export function createEndTurn(context: EndTurnContext) {
               kind: "damage",
             });
           }
+          if (step.message) {
+            const kind = step.messageKind ?? "buff";
+            if (step.messageTarget === "player") {
+              const popup = { key: `${step.enemy.id}-effect-${game.turn}-${index}`, text: step.message, kind };
+              setDamagePopup(popup);
+              later(() => setDamagePopup(current => current?.key === popup.key ? null : current), 1150);
+            } else {
+              showEnemyPopup(step.enemy.id, step.message, kind);
+            }
+          }
           setGame((current) => ({
             ...current,
             playerHp: step.hpAfter,
             playerPhysicalBlock: step.physicalBlockAfter,
             playerMagicBlock: step.magicBlockAfter,
+            message: step.message ? `${step.enemy.name}: ${step.message}` : current.message,
           }));
-        }, base + hitAt);
-        later(() => setAttackingEnemyId(null), base + clearAt);
+        }, base + timing.impact);
+        later(() => setAttackingEnemyId(null), base + timing.duration);
       });
 
       later(() => {
-        setDamagePopup(null);
+        setDamagePopup(current => current?.kind === "buff" || current?.kind === "debuff" ? current : null);
         setAttackingEnemyId(null);
         if (remainingHp === 0) {
           setGame({
@@ -320,7 +344,7 @@ export function createEndTurn(context: EndTurnContext) {
           playerMagicBlock: retainBlockAfterEnemyTurn(remainingMagicBlock, game.preserveDefenseOnTurnEnd),
           playerResistance: nextPlayerResistance,
           playerAmplification: nextPlayerAmplification,
-          strength: remainingStrength + sharedTurnStrength(nextEnemies),
+          strength: remainingStrength,
           temporaryStrength: 0,
           agility: remainingAgility,
           defenseMultiplier: 1,
@@ -332,7 +356,9 @@ export function createEndTurn(context: EndTurnContext) {
         });
         setPhase("drawing");
         later(drawCards, 120);
-      }, slimeFlightDuration + steps.length * stepDuration + 260);
-    }, discardDelay);
+      }, timeline + 260);
+    };
+    if (afterAnimations) afterAnimations(discardAnimations, finishDiscard);
+    else later(finishDiscard, 0);
   }
 }

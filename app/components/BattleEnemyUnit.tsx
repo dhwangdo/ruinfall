@@ -4,6 +4,8 @@ import { enemyTemporaryStrength } from "../game/enemyPassives";
 import { BattleStatusBadge } from "./BattleStatusBadge";
 import { BATTLE_STATUS_DESCRIPTION as STATUS } from "./battleStatusDescriptions";
 import { statusLabel } from "../game/statuses";
+import { ENEMY_STRIKE_DURATION_MS } from "../game/battlePresentationTiming";
+import type { CSSProperties } from "react";
 
 type BattleEnemyUnitProps = {
   enemy: EnemyState;
@@ -45,12 +47,13 @@ export function BattleEnemyUnit({
       type="button"
       className={`enemy-unit ${enemy.variant} ${dying ? "is-dying" : ""} ${defeated ? "is-defeated" : ""} ${attacking ? "is-attacking" : ""}`}
       data-enemy-id={enemy.id}
+      style={{ "--enemy-strike-duration": `${ENEMY_STRIKE_DURATION_MS}ms` } as CSSProperties}
       data-drop-target={enemy.hp === 0 ? undefined : `enemy:${enemy.id}`}
       disabled={enemy.hp === 0}
       onClick={() => onSelect(enemy.id)}
       aria-label={`${enemy.name}${dying ? ", 쓰러지는 중" : defeated ? ", 격파됨" : ", 공격 대상"}`}
     >
-      {enemy.hp > 0 && <div className="drop-prompt attack-prompt">이 적을 공격</div>}
+      {enemy.hp > 0 && <div className="drop-prompt attack-prompt">이 적에게 사용</div>}
       <div className="monster" aria-label={enemy.name}>
         <div className={`intent intent-card ${defeated ? "is-defeated" : intentType}`}>
           {defeated ? (
@@ -96,8 +99,8 @@ export function BattleEnemyUnit({
           {(enemy.resistance ?? 0) !== 0 && <BattleStatusBadge kind={enemy.resistance! < 0 ? "debuff" : "buff"} description={STATUS.resistance(enemy.resistance!)}>{statusLabel("resistance", enemy.resistance!)}</BattleStatusBadge>}
           {(enemy.amplification ?? 0) !== 0 && <BattleStatusBadge kind={enemy.amplification! < 0 ? "debuff" : "buff"} description={STATUS.amplification(enemy.amplification!)}>{statusLabel("amplification", enemy.amplification!)}</BattleStatusBadge>}
           {enemy.physicalBlock > 0 && <BattleStatusBadge description={STATUS.enemyBlock}>방어 {enemy.physicalBlock}</BattleStatusBadge>}
-          {(enemy.armor ?? 0) > 0 && <BattleStatusBadge description={STATUS.armor}>갑옷 {enemy.armor}</BattleStatusBadge>}
           {enemy.stunned && <BattleStatusBadge kind="debuff" description={STATUS.stunned}>행동 불가 1</BattleStatusBadge>}
+          {enemy.stunAllyOnDeath && <BattleStatusBadge description={enemy.trait ?? ""}>인형 조종</BattleStatusBadge>}
           {(enemy.emptyEnergyStrengthGain ?? 0) > 0 && <BattleStatusBadge description={enemy.trait ?? ""}>빈틈 노리기</BattleStatusBadge>}
           {(enemy.solitaireHitBonus ?? 0) > 0 && <BattleStatusBadge description={enemy.trait ?? ""}>거미줄</BattleStatusBadge>}
           {(enemy.turnEndStrengthGain ?? 0) > 0 && <BattleStatusBadge description={enemy.trait ?? ""}>성장 {enemy.turnEndStrengthGain}</BattleStatusBadge>}
@@ -108,7 +111,7 @@ export function BattleEnemyUnit({
           {enemy.energyRecoveryPenalty && <BattleStatusBadge description={enemy.trait ?? ""}>족쇄</BattleStatusBadge>}
           {enemy.sealsPile && <BattleStatusBadge description={enemy.trait ?? ""}>봉인{enemy.sealedPileIndex !== undefined ? ` · ${enemy.sealedPileIndex + 1}번 파일` : ""}</BattleStatusBadge>}
           {enemy.fermentedSlimeCount && <BattleStatusBadge description={enemy.trait ?? ""}>발효 점액</BattleStatusBadge>}
-          {enemy.sharedTurnStrengthGain && <BattleStatusBadge description={enemy.trait ?? ""}>피의 공명 {enemy.sharedTurnStrengthGain}</BattleStatusBadge>}
+          {enemy.sharedTurnEndStrengthGain && <BattleStatusBadge description={enemy.trait ?? ""}>피의 공명 {enemy.sharedTurnEndStrengthGain}</BattleStatusBadge>}
           {enemy.confiscatesRare && <BattleStatusBadge description={(enemy.confiscatedCards ?? []).map(card => card.name).join(", ") || "압수한 카드가 없습니다."}>압수 {enemy.confiscatedCards?.length ?? 0}</BattleStatusBadge>}
           {enemy.strength !== 0 && <BattleStatusBadge kind={enemy.strength > 0 ? "buff" : "debuff"} description={STATUS.strength}>힘 {enemy.strength}</BattleStatusBadge>}
           {temporaryStrength > 0 && <BattleStatusBadge description={STATUS.temporaryStrength}>임시 힘 +{temporaryStrength}</BattleStatusBadge>}

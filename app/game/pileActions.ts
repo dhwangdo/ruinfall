@@ -288,10 +288,31 @@ export function createMoveCardToPile(context: MoveCardToPileContext) {
   }
 }
 
+/** Discard/rotate the chosen top card before allowing any queued draw. */
+export function resolvePendingPileOperation(current: GameState, pileIndex: number): GameState {
+  if (current.status !== "playing" || !current.pendingSweep || current.pendingResearchDraw !== null || !current.piles[pileIndex]?.length) return current;
+  const piles = current.piles.map(pile => [...pile]);
+  const top = piles[pileIndex].pop()!;
+  const discardTop = current.pendingPileOperation === "discardTop";
+  if (!discardTop) piles[pileIndex].unshift({ ...top, revealed: true });
+  const nextTop = piles[pileIndex].at(-1);
+  if (nextTop) piles[pileIndex][piles[pileIndex].length - 1] = { ...nextTop, revealed: true };
+  const blocked = blockedPileIndexes(current.enemies);
+  const available = piles.reduce((count, pile, index) => count + (blocked.includes(index) ? 0 : pile.length), 0);
+  return {
+    ...current, piles,
+    discard: discardTop ? [...current.discard, top] : current.discard,
+    pendingSweep: false, pendingPileOperation: null,
+    pendingDraws: Math.min(current.pendingDraws, available),
+    pendingPileDrawCount: Math.min(current.pendingPileDrawCount, available),
+    message: `${pileIndex + 1}번 파일 맨 위 카드를 ${discardTop ? "버렸습니다" : "맨 밑으로 옮겼습니다"}.`,
+  };
+}
+
 export function createDrawSelectedPile(context: DrawSelectedPileContext) {
   const { game, phase, setGame, pendingOriginsRef, setPhase } = context;
   return (pileIndex: number) => {
-    if ((game.pendingDraws < 1 && game.pendingPileDrawCount < 1) || game.pendingResearchDraw !== null || phase !== "playing" || game.status !== "playing") return;
+    if ((game.pendingDraws < 1 && game.pendingPileDrawCount < 1) || game.pendingSweep || game.pendingResearchDraw !== null || phase !== "playing" || game.status !== "playing") return;
     if (game.piles.every((pile, index) => pile.length === 0 || blockedPileIndexes(game.enemies).includes(index))) {
       setGame((current) => ({
         ...current,
@@ -338,7 +359,7 @@ export function createDrawSelectedPile(context: DrawSelectedPileContext) {
     }
 
     setGame((current) => {
-      if (current.pendingDraws < 1 && current.pendingPileDrawCount < 1 || current.pendingResearchDraw !== null) return current;
+      if (current.pendingDraws < 1 && current.pendingPileDrawCount < 1 || current.pendingSweep || current.pendingResearchDraw !== null) return current;
       if (current.piles[pileIndex]?.at(-1)?.id !== card.id) {
         const hasCards = current.piles.some((currentPile) => currentPile.length > 0);
         // 렌더 사이에 파일이 바뀌었으면 애니메이션 단계에 고정되지 않게 한다.

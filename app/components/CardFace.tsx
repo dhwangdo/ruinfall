@@ -25,6 +25,7 @@ import {
 import { splitEffectSentences } from "../cardTextLayout";
 import { useCardEffectLayout } from "../hooks/useCardEffectLayout";
 import { cardEffectDescription } from "./cardEffectDescription";
+import { emphasizeRarityText } from "./RarityText";
 import { cardNameConstellationImage } from "../cardConstellations";
 
 export { DEFENSE_LABEL } from "../game/defenseRules";
@@ -117,7 +118,7 @@ export const CardFaceView = memo(function CardFaceView({
       : card.cost === undefined
         ? ""
         : card.cost < card.baseCost ? "is-positive" : card.cost > card.baseCost ? "is-negative" : "";
-  const effectText = cardEffectDescription(card, damageNumber, defenseNumber);
+  const effectText = emphasizeRarityText(cardEffectDescription(card, damageNumber, defenseNumber));
   const effectSentences = splitEffectSentences(effectText);
   const unplayableLabel = ["slime", "soil", "rock", "combatManual", "grimoire"].includes(card.effect)
     ? <span className="effect-keyword-unit"><strong className="effect-keyword">사용 불가</strong>.</span>

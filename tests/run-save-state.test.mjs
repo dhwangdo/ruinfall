@@ -2,7 +2,7 @@ import assert from "node:assert/strict";
 import test from "node:test";
 
 import { createRunSaveSnapshot, prepareRunRestore } from "../app/game/runSaveState.ts";
-import { RARE_CARD_POOL } from "../app/game/cards.ts";
+import { RARE_CARD_POOL, SPECIAL_CARD_POOL } from "../app/game/cards.ts";
 
 test("run save snapshots serialize set-backed state without changing the source", () => {
   const seenRooms = new Set(["1:2", "3:4"]);
@@ -11,12 +11,11 @@ test("run save snapshots serialize set-backed state without changing the source"
     safeAreaEntrySeenRooms: null,
     defeatedBossRegions: new Set([0, 2]),
     destroyedShopRooms: new Set(["5:6"]),
-    collapsedShrineRooms: new Set(["7:8"]),
+    collapsedExtractionShrineRooms: new Set(["7:8"]),
     collapsedRecoveryShrineRooms: new Set(),
     collapsedVitalityShrineRooms: new Set(),
     collapsedMindEyeShrineRooms: new Set(),
     collapsedTransformShrineRooms: new Set(),
-    collapsedCombinationShrineRooms: new Set(),
     collapsedTreasureChestRooms: new Set(),
     usedHealRooms: new Set(["9:10"]),
     usedBlessingRooms: new Set(["11:12"]),
@@ -48,12 +47,17 @@ test("run save snapshots serialize set-backed state without changing the source"
     gold: 0,
     nextCardId: 1,
     nextConsumableId: 1,
-    deckDropChance: 0.25,
+    keys: 4,
+    skipPortalKeyWarning: true,
+    roomDeckVaults: {},
+    openedDeckVaultRooms: new Set(["5:9"]),
     rareCardDropChance: 0.05,
-    deckPityBattlesRemaining: 3,
   });
 
   assert.deepEqual(snapshot.seenRooms, ["1:2", "3:4"]);
+  assert.equal(snapshot.keys, 4);
+  assert.equal(snapshot.skipPortalKeyWarning, true);
+  assert.deepEqual(snapshot.openedDeckVaultRooms, ["5:9"]);
   assert.equal(snapshot.safeAreaEntrySeenRooms, null);
   assert.deepEqual(snapshot.defeatedBossRegions, [0, 2]);
   assert.deepEqual(snapshot.blessingSeenOfferIds, ["ironWill"]);
@@ -66,6 +70,7 @@ test("restore preparation fills legacy fields and normalizes saved values", () =
     mapPosition: { x: 0, y: 0 },
     mapSeed: 5,
     collapsedHealthShrineRooms: ["1:2"],
+    collapsedShrineRooms: ["7:8"],
     blessingRerollCost: 6,
     blessings: ["luck", "ironWill"],
     godsLamentCharges: 9,
@@ -73,6 +78,7 @@ test("restore preparation fills legacy fields and normalizes saved values", () =
   }, () => false);
 
   assert.deepEqual(prepared.collapsedRecoveryShrineRooms, ["1:2"]);
+  assert.deepEqual(prepared.collapsedExtractionShrineRooms, ["7:8"]);
   assert.deepEqual(prepared.collapsedVitalityShrineRooms, ["1:2"]);
   assert.deepEqual(prepared.collapsedMindEyeShrineRooms, []);
   assert.equal(prepared.vitalityShrineMaxHpBonus, 0);
@@ -83,7 +89,21 @@ test("restore preparation fills legacy fields and normalizes saved values", () =
   assert.equal(prepared.blessingRerollCost, 7);
   assert.equal(prepared.godsLamentCharges, 3);
   assert.equal(prepared.oneUpUsed, false);
-  assert.equal(prepared.deckPityBattlesRemaining, 3);
+  assert.equal(prepared.keys, 0);
+  assert.equal(prepared.skipPortalKeyWarning, false);
+  assert.deepEqual(prepared.roomDeckVaults, {});
+  assert.deepEqual(prepared.openedDeckVaultRooms, []);
+});
+
+test("blood-shop HP prices and sold state survive run restore without being converted again", () => {
+  const offer = { id: "blood", price: 4, currency: "hp", sold: true, consumable: { type: "extractTicket" } };
+  const prepared = prepareRunRestore({
+    mapPosition: { x: 0, y: 0 }, mapSeed: 5, blessings: [],
+    collapsedExtractionShrineRooms: ["9:10"], collapsedShrineRooms: ["7:8"],
+    roomShops: { "0:0": [offer] },
+  }, () => false);
+  assert.deepEqual(prepared.roomShops["0:0"], [offer]);
+  assert.deepEqual(prepared.collapsedExtractionShrineRooms, ["9:10"]);
 });
 
 test("restore preparation removes God's Lament charges in a safe area", () => {
@@ -97,7 +117,7 @@ test("restore preparation removes God's Lament charges in a safe area", () => {
 });
 
 test("restoring a map removes retired encounters without renumbering surviving enemies", () => {
-  const indices = [0, 1, 6, 7, 9, 14];
+  const indices = [0, 1, 6, 7, 9, 14, 24, 25];
   const saved = {
     mapPosition: { x: 0, y: 0 }, mapSeed: 5, blessings: [],
     mapEnemyWorld: { enemies: indices.map((encounterIndex) => ({ id: `enemy-${encounterIndex}`, encounterIndex })) },
@@ -105,10 +125,20 @@ test("restoring a map removes retired encounters without renumbering surviving e
     inventoryCards: [{ id: 1, effect: "slime", name: "유독성 점액", damageType: "magic" }],
   };
   const prepared = prepareRunRestore(saved, () => false);
-  assert.deepEqual(prepared.mapEnemyWorld.enemies.map((enemy) => enemy.encounterIndex), [1, 6, 14]);
-  assert.deepEqual(Object.values(prepared.mapEnemyCellMemory).map((memory) => memory.encounterIndex), [1, 6, 14]);
+  assert.deepEqual(prepared.mapEnemyWorld.enemies.map((enemy) => enemy.encounterIndex), [1, 6, 14, 25]);
+  assert.deepEqual(Object.values(prepared.mapEnemyCellMemory).map((memory) => memory.encounterIndex), [1, 6, 14, 25]);
   assert.equal(prepared.inventoryCards[0].damageType, "physical");
-  assert.equal(saved.mapEnemyWorld.enemies.length, 6);
+  assert.equal(saved.mapEnemyWorld.enemies.length, 8);
+});
+
+test("saved talismans use the current one-point value in decks and inventory", () => {
+  const cards = SPECIAL_CARD_POOL.filter(card => ["wolfTalisman", "turtleTalisman"].includes(card.effect))
+    .map((card, id) => ({ ...card, id, value: 2 }));
+  const prepared = prepareRunRestore({ mapPosition: { x: 0, y: 0 }, mapSeed: 5, blessings: [],
+    ownedDecks: [{ id: "talisman", capacity: 20, editions: [], cards }], inventoryCards: cards }, () => false);
+  assert.deepEqual(prepared.ownedDecks[0].cards.map(card => card.value), [1, 1]);
+  assert.deepEqual(prepared.inventoryCards.map(card => card.value), [1, 1]);
+  assert.deepEqual(cards.map(card => card.value), [2, 2]);
 });
 
 test("restoring old resistance cards removes iron wall and blessing and updates plate armor in every storage", () => {
@@ -169,4 +199,18 @@ test("old saves discard removed cards and restore changed cards everywhere", () 
   assert.deepEqual(prepared.inventoryConsumables, []);
   assert.deepEqual(prepared.roomConsumableDrops["1:1"], []);
   assert.deepEqual(prepared.roomShops["3:3"].map((offer) => offer.card?.name), ["경제학 연구"]);
+});
+
+test("keys, warning preference, opened vaults and their exact contents survive JSON restore", () => {
+  const deck = { id: "vault", name: "saved", capacity: 25, rareSlotCapacity: 2,
+    editions: [], editionColors: {}, cards: [{ ...SPECIAL_CARD_POOL[0], id: 981 }] };
+  const saved = JSON.parse(JSON.stringify({
+    mapPosition: { x: 1, y: 2 }, mapSeed: 5, blessings: [], keys: 7, skipPortalKeyWarning: true,
+    roomDeckVaults: { "1:2": deck }, openedDeckVaultRooms: ["1:2"],
+  }));
+  const restored = prepareRunRestore(saved, () => false);
+  assert.equal(restored.keys, 7);
+  assert.equal(restored.skipPortalKeyWarning, true);
+  assert.deepEqual(restored.openedDeckVaultRooms, ["1:2"]);
+  assert.deepEqual(restored.roomDeckVaults["1:2"], deck);
 });

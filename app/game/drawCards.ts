@@ -15,6 +15,13 @@ const CARD_RARITY_PRIORITY: Record<Card["rarity"], number> = {
   legendary: 5,
 };
 
+function librarianDrawCount(state: GameState, piles: Card[][]) {
+  const copies = state.activeRuleCards.filter(card => card.effect === "librariansPrivilege").length;
+  const blocked = blockedPileIndexes(state.enemies);
+  const available = piles.reduce((count, pile, index) => count + (blocked.includes(index) ? 0 : pile.length), 0);
+  return Math.min(copies, available);
+}
+
 function prioritizeTopRarityPiles(piles: Card[][], pileIndexes: number[]) {
   let highestRarity = -1;
   const highestRarityPileIndexes: number[] = [];
@@ -167,15 +174,17 @@ export function createDrawCards(context: DrawCardsContext) {
               const planned = latest.clearPlan;
               const existingHandIds = new Set(latest.hand.map((card) => card.id));
               const uniquePlannedHand = planned.hand.filter((card) => !existingHandIds.has(card.id));
+              const piles = planned.pilesAfterDraw.map((pile, index) => [
+                ...pile,
+                ...(soilCardsByPile[index] ?? []),
+                ...(rockCardsByPile[index] ?? []),
+              ]);
               return {
                 ...latest,
-                piles: planned.pilesAfterDraw.map((pile, index) => [
-                  ...pile,
-                  ...(soilCardsByPile[index] ?? []),
-                  ...(rockCardsByPile[index] ?? []),
-                ]),
+                piles,
                 hand: [...latest.hand, ...uniquePlannedHand],
                 clearPlan: null,
+                pendingDraws: librarianDrawCount(latest, piles),
                 message: `새 파일에서 ${uniquePlannedHand.length}장을 가져왔습니다.`,
               };
             });
@@ -239,15 +248,14 @@ export function createDrawCards(context: DrawCardsContext) {
         { length: nextTurnRadianceCount },
         () => createRadianceCard(nextCardIdRef.current++),
       );
+      const piles = clearedAllPiles ? drawPiles : drawPiles.map((pile, index) => [
+        ...pile,
+        ...(soilCardsByPile[index] ?? []),
+        ...(rockCardsByPile[index] ?? []),
+      ]);
       return {
         ...current,
-        piles: clearedAllPiles
-          ? drawPiles
-          : drawPiles.map((pile, index) => [
-            ...pile,
-            ...(soilCardsByPile[index] ?? []),
-            ...(rockCardsByPile[index] ?? []),
-          ]),
+        piles,
         enemies: enemiesAfterDiscardTargeting,
         hand: [...current.hand, ...initialDraw, ...toxicSlimes, ...fermentedSlimes, ...opticalRadiances],
         initialDeck: [
@@ -257,7 +265,7 @@ export function createDrawCards(context: DrawCardsContext) {
           ...soilCardsForDeck,
           ...rockCardsForDeck,
         ],
-        pendingDraws: 0,
+        pendingDraws: clearedAllPiles ? 0 : librarianDrawCount(current, piles),
         pendingPileDrawCount: 0,
         pendingDashRandomDraws: 0,
         pendingRadiance: pendingRadianceAfterTurn.filter((radiance) => radiance.turns > 0),

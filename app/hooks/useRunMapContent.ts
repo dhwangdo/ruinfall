@@ -2,7 +2,7 @@ import type { RunWorld } from "./useRunWorld";
 import type { RunInventory } from "./useRunInventory";
 import type { RunPlayer } from "./useRunPlayer";
 import { MAP_START, mapRoomKey, visibleMapRoomKeys, parseMapRoomKey,
-  createMapEnemyWorldForPositions, createMapFloorDropsForPositions, type MapPosition } from "../game/mapRules";
+  createMapEnemyWorldForPositions, createMapFloorDropsForPositions, getRoomType, getRegionNumber, type MapPosition } from "../game/mapRules";
 import { positionsInSquare } from "../game/mapEffects";
 import { MAP_PLAYER_VISION_HORIZONTAL_RADIUS, MAP_PLAYER_VISION_VERTICAL_RADIUS,
   updateEnemyCellMemory, type MapEnemyWorld } from "../game/mapEnemies";
@@ -20,13 +20,14 @@ type Options = {
 export function useRunMapContent({ world, inventory, player, visionHorizontalRadius, visionVerticalRadius }: Options) {
   const { mapSeed, mapEnemyWorld, generatedMapRoomKeysRef, setSeenRooms,
     setMapEnemyCellMemory, setMapSeed, setMapEnemyWorld } = world;
-  const { setRoomDrops, setRoomConsumableDrops } = inventory;
+  const { setRoomDrops, setRoomConsumableDrops, ensureDeckVault } = inventory;
   const { blessings, mindEyeMovesRemainingRef } = player;
   const materializeMapContent = (
     positions: readonly MapPosition[],
     seed = mapSeed,
     world: MapEnemyWorld = mapEnemyWorld,
     seenPositions: readonly MapPosition[] = positions,
+    deckCapacityBonus = blessings.includes("deckSize") ? 5 : 0,
   ) => {
     const uniquePositions = [...new Map(positions.map((position) => [mapRoomKey(position), position])).values()];
     const freshPositions = uniquePositions.filter((position) => !generatedMapRoomKeysRef.current.has(mapRoomKey(position)));
@@ -34,6 +35,12 @@ export function useRunMapContent({ world, inventory, player, visionHorizontalRad
     if (seenRoomKeys.length > 0) {
       setSeenRooms((current) => new Set([...current, ...seenRoomKeys]));
     }
+    // Also fill newly introduced vaults in previously explored legacy saves.
+    uniquePositions.forEach((position) => {
+      if (getRoomType(position, seed) === "deckVault") {
+        ensureDeckVault(mapRoomKey(position), getRegionNumber(position, seed), deckCapacityBonus);
+      }
+    });
     if (freshPositions.length === 0) return world;
 
     const freshRoomKeys = freshPositions.map(mapRoomKey);

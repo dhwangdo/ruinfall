@@ -16,9 +16,7 @@ type Options = {
   allowed: boolean;
   status: GameState["status"];
   counters: {
-    deckDropChanceRef: RefObject<number>;
     rareCardDropChanceRef: RefObject<number>;
-    deckPityBattlesRemainingRef: RefObject<number>;
   };
   onInitialize: () => void;
   onRestore: (state: PreparedRunRestore) => void;
@@ -33,7 +31,7 @@ export function useRunPersistence({ world, inventory, player, allowed, status, c
   const { saveState: worldState } = world;
   const { saveState: inventoryState, nextCardIdRef, nextConsumableIdRef } = inventory;
   const { saveState: playerState } = player;
-  const { deckDropChanceRef, rareCardDropChanceRef, deckPityBattlesRemainingRef } = counters;
+  const { rareCardDropChanceRef } = counters;
 
   useEffect(() => {
     const timer = window.setTimeout(() => {
@@ -50,12 +48,10 @@ export function useRunPersistence({ world, inventory, player, allowed, status, c
       ...worldState, ...inventoryState, ...playerState,
       nextCardId: nextCardIdRef.current,
       nextConsumableId: nextConsumableIdRef.current,
-      deckDropChance: deckDropChanceRef.current,
       rareCardDropChance: rareCardDropChanceRef.current,
-      deckPityBattlesRemaining: deckPityBattlesRemainingRef.current,
     }), saveReady && allowed);
   }, [worldState, inventoryState, playerState, nextCardIdRef, nextConsumableIdRef,
-    deckDropChanceRef, rareCardDropChanceRef, deckPityBattlesRemainingRef, saveReady, allowed, updateSaveSnapshot]);
+    rareCardDropChanceRef, saveReady, allowed, updateSaveSnapshot]);
 
   useEffect(() => {
     if (status === "lost") clearRunSave();

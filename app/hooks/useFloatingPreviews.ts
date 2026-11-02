@@ -5,7 +5,7 @@ import { getCardKeywordInfos } from "../game/cardEffects";
 import type { BlessingId } from "../game/blessingRules";
 import { BLESSING_INFO } from "../game/blessingRules";
 import type { Consumable, DeckEdition } from "../game/rewards";
-import { CARD_PREVIEW_FRAME_WIDTH, CARD_PREVIEW_FRAME_HEIGHT, cardKeywordPopoverWidth } from "../components/cardPreviewLayout";
+import { CARD_PREVIEW_FRAME_WIDTH, CARD_PREVIEW_FRAME_HEIGHT, CONSUMABLE_PREVIEW_FRAME_WIDTH, CONSUMABLE_PREVIEW_FRAME_HEIGHT, CARD_KEYWORD_HOVER_DELAY_MS, cardKeywordPopoverWidth } from "../components/cardPreviewLayout";
 
 const KEYWORD_POPOVER_GAP = 16;
 type KeywordHoverRequest = { card: Card; right: number; top: number };
@@ -52,21 +52,22 @@ export function useFloatingPreviews({
         y: anchorTop,
         anchorTop,
       });
-    }, 245);
+    }, CARD_KEYWORD_HOVER_DELAY_MS);
     return () => window.clearTimeout(timer);
   }, [keywordHoverRequest]);
 
   useLayoutEffect(() => {
     if (!hoveredCardKeywords || !cardKeywordPopoverRef.current) return;
     const margin = 12;
-    const actualHeight = cardKeywordPopoverRef.current.getBoundingClientRect().height;
+    const { height: actualHeight, width: actualWidth } = cardKeywordPopoverRef.current.getBoundingClientRect();
+    const correctedLeft = Math.max(margin, Math.min(hoveredCardKeywords.x, window.innerWidth - actualWidth - margin));
     const correctedTop = Math.max(
       margin,
       Math.min(hoveredCardKeywords.anchorTop, window.innerHeight - actualHeight - margin),
     );
-    if (Math.abs(correctedTop - hoveredCardKeywords.y) < 0.5) return;
+    if (Math.abs(correctedTop - hoveredCardKeywords.y) < 0.5 && Math.abs(correctedLeft - hoveredCardKeywords.x) < 0.5) return;
     setHoveredCardKeywords((current) => current && current.card.id === hoveredCardKeywords.card.id
-      ? { ...current, y: correctedTop }
+      ? { ...current, x: correctedLeft, y: correctedTop }
       : current);
   }, [hoveredCardKeywords, cardKeywordPopoverRef]);
 
@@ -80,7 +81,10 @@ export function useFloatingPreviews({
       || keywordHoverRequest.top !== cardTop;
     if (requestChanged) {
       setKeywordHoverRequest({ card, right: cardRight, top: cardTop });
-      setHoveredCardKeywords(null);
+      // Position changes during a hand-card hover animation must not restart the long-hover timer.
+      setHoveredCardKeywords(current => current?.card.id === card.id
+        ? { card, x: cardRight + KEYWORD_POPOVER_GAP, y: current.y, anchorTop: Math.max(12, cardTop) }
+        : null);
     }
   };
 
@@ -125,7 +129,8 @@ export function useFloatingPreviews({
     scheduleCardKeywordHover(card, keywordAnchorRight, previewTop);
     setHoveredDeckCard(card);
     setHoveredConsumable(null);
-    setDeckPreviewPosition({ x: previewLeft, y: previewTop });
+    setDeckPreviewPosition(current => current.x === previewLeft && current.y === previewTop
+      ? current : { x: previewLeft, y: previewTop });
   };
 
   const showConsumablePreview = (consumable: Consumable, anchorRight: number, anchorTop: number) => {
@@ -137,15 +142,15 @@ export function useFloatingPreviews({
     }
     const margin = 12;
     const offset = 18;
-    const previewHeight = 118;
-    const previewLeft = anchorRight + offset;
+    const previewHeight = CONSUMABLE_PREVIEW_FRAME_HEIGHT;
+    const previewLeft = Math.max(margin, Math.min(anchorRight + offset,
+      window.innerWidth - CONSUMABLE_PREVIEW_FRAME_WIDTH - margin));
     setHoveredDeckCard(null);
     clearCardKeywordHover();
     setHoveredConsumable(consumable);
-    setDeckPreviewPosition({
-      x: previewLeft,
-      y: Math.max(margin, Math.min(anchorTop + offset, window.innerHeight - previewHeight - margin)),
-    });
+    const previewTop = Math.max(margin, Math.min(anchorTop + offset, window.innerHeight - previewHeight - margin));
+    setDeckPreviewPosition(current => current.x === previewLeft && current.y === previewTop
+      ? current : { x: previewLeft, y: previewTop });
   };
 
   const moveDeckCardPreview = (
@@ -153,6 +158,9 @@ export function useFloatingPreviews({
     card: Card,
     placement: "right" | "left" = "right",
   ) => {
+    // Static previews need no layout reads until their card or hover state changes.
+    if (hoveredDeckCard === card
+      && (keywordHoverRequest?.card === card || getCardKeywordInfos(card).length === 0)) return;
     const bounds = event.currentTarget.getBoundingClientRect();
     showDeckCardPreview(card, bounds.right, bounds.top, placement, bounds.left);
   };
@@ -169,7 +177,9 @@ export function useFloatingPreviews({
     const width = Math.min(preferredWidth, availableSpace);
     const x = placeLeft ? bounds.left - gap - width : bounds.right + gap;
     const y = Math.max(viewportMargin, Math.min(bounds.top + bounds.height / 2, window.innerHeight - viewportMargin));
-    setHoveredDeckEditionTooltip({ edition, x, y, width });
+    setHoveredDeckEditionTooltip(current => current?.edition === edition
+      && current.x === x && current.y === y && current.width === width
+      ? current : { edition, x, y, width });
   };
 
   const showBlessingTooltip = (
@@ -188,7 +198,9 @@ export function useFloatingPreviews({
     const x = placeLeft ? bounds.left - gap - width : bounds.right + gap;
     const y = Math.max(viewportMargin, Math.min(bounds.top + bounds.height / 2, window.innerHeight - viewportMargin));
     const info = typeof blessing === "string" ? BLESSING_INFO[blessing] : blessing;
-    setHoveredBlessingTooltip({ name: info.name, description: info.description, x, y, width });
+    setHoveredBlessingTooltip(current => current?.name === info.name && current.description === info.description
+      && current.x === x && current.y === y && current.width === width
+      ? current : { name: info.name, description: info.description, x, y, width });
   };
 
   return {

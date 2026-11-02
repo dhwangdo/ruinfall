@@ -5,7 +5,7 @@ import type { BlessingId } from "./blessingRules";
 import { resolveLethalDamage } from "./blessingRules.ts";
 import { statusLabel, addResistance, decayStatus } from "./statuses.ts";
 import { applyPlayerAttack, chooseNextIntent, resolveEnemyHitAgainstPlayer } from "./enemies.ts";
-import { enemyTemporaryStrength, spawnEnemyMinions } from "./enemyPassives.ts";
+import { enemyTemporaryStrength, spawnEnemyMinions, sharedTurnEndStrength } from "./enemyPassives.ts";
 import { resolveEnemyDefeats } from "./enemyDefeatRules.ts";
 
 /** Enemy hits, status changes, reflection, and file discards calculated without presentation effects. */
@@ -60,6 +60,8 @@ export function resolveEnemyTurn(game: GameState, {
     physicalBlockAfter: number;
     magicBlockAfter: number;
     message?: string;
+    messageTarget?: "player" | "enemy";
+    messageKind?: "buff" | "debuff";
   }> = [];
   const actedEnemyIds = new Set<string>();
   const skippedEnemyIds = new Set<string>();
@@ -77,7 +79,7 @@ export function resolveEnemyTurn(game: GameState, {
         skippedEnemyIds.add(enemy.id);
         steps.push({ enemy, action, attack: null, damage: 0, hpAfter: remainingHp,
           physicalBlockAfter: remainingPhysicalBlock, magicBlockAfter: remainingMagicBlock,
-          message: "갑옷 파괴: 행동 취소" });
+          message: "행동 취소", messageTarget: "enemy", messageKind: "debuff" });
         continue;
       }
       actedEnemyIds.add(enemy.id);
@@ -141,6 +143,8 @@ export function resolveEnemyTurn(game: GameState, {
           physicalBlockAfter: remainingPhysicalBlock,
           magicBlockAfter: remainingMagicBlock,
           message: `다음 턴 ${statusLabel("resistance", action.nextTurnPlayerResistanceChange)}`,
+          messageTarget: "player",
+          messageKind: action.nextTurnPlayerResistanceChange < 0 ? "debuff" : "buff",
         });
       }
       if (action.nextTurnPlayerAmplificationChange) {
@@ -154,6 +158,8 @@ export function resolveEnemyTurn(game: GameState, {
           physicalBlockAfter: remainingPhysicalBlock,
           magicBlockAfter: remainingMagicBlock,
           message: `다음 턴 ${statusLabel("amplification", action.nextTurnPlayerAmplificationChange)}`,
+          messageTarget: "player",
+          messageKind: action.nextTurnPlayerAmplificationChange < 0 ? "debuff" : "buff",
         });
       }
       if (action.strengthLoss || action.agilityLoss) {
@@ -171,6 +177,8 @@ export function resolveEnemyTurn(game: GameState, {
             action.strengthLoss ? `힘 ${action.strengthLoss} 감소` : "",
             action.agilityLoss ? `강인함 ${action.agilityLoss} 감소` : "",
           ].filter(Boolean).join(" · "),
+          messageTarget: "player",
+          messageKind: "debuff",
         });
       }
       if (action.discardCount && enemy.discardPileIndex !== undefined) {
@@ -195,9 +203,23 @@ export function resolveEnemyTurn(game: GameState, {
           message: discardedCards.length > 0
             ? `${pileIndex + 1}번 파일: ${discardedCards.length}장 버림`
             : `${pileIndex + 1}번 파일은 비어 있음`,
+          messageTarget: "enemy",
+          messageKind: "debuff",
         });
       }
-      if (action.strengthGain || action.blockGain || action.healGain || action.resistanceGain || action.amplificationGain) {
+      const strengthGain = (action.strengthGain ?? 0) + (enemy.turnEndStrengthGain ?? 0);
+      const effectMessage = [
+        strengthGain && `힘 +${strengthGain}`,
+        action.blockGain && `방어 +${action.blockGain}`,
+        action.healGain && `체력 +${Math.min(action.healGain, enemy.maxHp - enemy.hp)}`,
+        action.boonGain && `가호 +${action.boonGain}`,
+        action.resistanceGain && `${statusLabel("resistance", action.resistanceGain)} 획득`,
+        action.amplificationGain && `${statusLabel("amplification", action.amplificationGain)} 획득`,
+        action.powderGain && `화약 +${action.powderGain}`,
+        action.allyBlockGain && `아군 방어 +${action.allyBlockGain}`,
+        action.nextAttackMagic && "다음 공격 마법",
+      ].filter(Boolean).join(" · ");
+      if (effectMessage) {
         steps.push({
           enemy,
           action,
@@ -206,6 +228,9 @@ export function resolveEnemyTurn(game: GameState, {
           hpAfter: remainingHp,
           physicalBlockAfter: remainingPhysicalBlock,
           magicBlockAfter: remainingMagicBlock,
+          message: effectMessage,
+          messageTarget: "enemy",
+          messageKind: (action.resistanceGain ?? 0) < 0 || (action.amplificationGain ?? 0) < 0 ? "debuff" : "buff",
         });
       }
     }
@@ -257,6 +282,13 @@ export function resolveEnemyTurn(game: GameState, {
   remainingHp = deaths.state.playerHp;
   remainingPhysicalBlock = deaths.state.playerPhysicalBlock;
   oneUpUsed = deaths.oneUpUsed;
+
+  if (game.extraTurns === 0 && remainingHp > 0) {
+    remainingStrength += sharedTurnEndStrength(nextEnemies);
+    nextEnemies = nextEnemies.map(enemy => enemy.hp > 0 && enemy.sharedTurnEndStrengthGain
+      ? { ...enemy, strength: enemy.strength + enemy.sharedTurnEndStrengthGain }
+      : enemy);
+  }
 
   return {
     enemiesAfterBlockDecay,

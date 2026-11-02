@@ -18,11 +18,11 @@ import { getCardKeywordInfos } from "../app/game/cardEffects.ts";
 
 test("card pools preserve the current content counts", () => {
   assert.equal(STARTER_CARD_POOL.length, 2);
-  assert.equal(BASIC_CARD_POOL.length, 6);
-  assert.equal(SPECIAL_CARD_POOL.length, 40);
+  assert.equal(BASIC_CARD_POOL.length, 8);
+  assert.equal(SPECIAL_CARD_POOL.length, 37);
   assert.equal(RARE_CARD_POOL.length, 20);
   assert.equal(LEGENDARY_CARD_POOL.length, 6);
-  assert.equal(ALL_CARD_BLUEPRINTS.length, 75);
+  assert.equal(ALL_CARD_BLUEPRINTS.length, 74);
 });
 
 test("special card pool contains the updated cards and excludes sharpen cards", () => {
@@ -88,7 +88,7 @@ test("new rare cards and the discard keyword carry their intended rules", () => 
     }),
     [
       { cost: 1, value: 15, discardCost: 1 },
-      { cost: 1, value: 15, discardCost: 2 },
+      { cost: 1, value: 13, discardCost: 2 },
     ],
   );
 });

@@ -1,4 +1,5 @@
 import { BLESSING_INFO, type BlessingOfferId } from "../game/blessingRules";
+import { RarityText } from "./RarityText";
 
 type Props = {
   open: boolean;
@@ -38,7 +39,7 @@ export function BlessingModal({
             {offers.map((blessing, index) => (
               <button type="button" key={`${blessing}-${index}`} onClick={() => onChoose(blessing)}>
                 <strong>{BLESSING_INFO[blessing].name}</strong>
-                <span>{BLESSING_INFO[blessing].description}</span>
+                <span><RarityText>{BLESSING_INFO[blessing].description}</RarityText></span>
               </button>
             ))}
           </div>

@@ -1,6 +1,7 @@
 import assert from "node:assert/strict";
 import test from "node:test";
 import { getRoomType, regionStartY, REGION_HEIGHT, DUNGEON_MIN_X, DUNGEON_MAX_X } from "../app/game/mapRules.ts";
+import { SPECIAL_NODE_CHANCE, DECK_VAULT_NODE_CHANCE, SPECIAL_NODE_WEIGHTS, isMapEnemySpawnCell, createMapFloorDropsForPositions } from "../app/game/mapRules.ts";
 import { advanceMapEnemies } from "../app/game/mapEnemies.ts";
 
 test("terrain remains deterministic after other seeds evict its cache", () => {
@@ -34,4 +35,26 @@ test("inactive enemies skip pathfinding while boss collisions are preserved", ()
   });
   assert.deepEqual(result.enemies, enemies);
   assert.deepEqual(result.collisionEnemyIds, ["boss"]);
+});
+
+test("the special-node pool reserves half its weight for the fixed 0.5% vault chance", () => {
+  assert.equal(SPECIAL_NODE_CHANCE, .01);
+  assert.equal(DECK_VAULT_NODE_CHANCE, .005);
+  const total = SPECIAL_NODE_WEIGHTS.reduce((sum, entry) => sum + entry.weight, 0);
+  const vault = SPECIAL_NODE_WEIGHTS.find(entry => entry.type === "deckVault");
+  assert.equal(SPECIAL_NODE_CHANCE * vault.weight / total, DECK_VAULT_NODE_CHANCE);
+  assert.equal(SPECIAL_NODE_CHANCE * (total - vault.weight) / total, .005);
+});
+
+test("vault terrain is deterministic and cannot also spawn an enemy or loose loot", () => {
+  let vaultCount = 0;
+  for (let x = -160; x <= 160; x++) {
+    const position = { x, y: 5 };
+    if (getRoomType(position, 173) !== "deckVault") continue;
+    vaultCount++;
+    assert.equal(getRoomType(position, 173), "deckVault");
+    assert.equal(isMapEnemySpawnCell(position, 173), false);
+    assert.deepEqual(createMapFloorDropsForPositions(173, [position]), { cards: {}, consumables: {} });
+  }
+  assert.ok(vaultCount > 0);
 });

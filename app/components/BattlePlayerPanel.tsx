@@ -1,6 +1,7 @@
 import type { MouseEvent as ReactMouseEvent } from "react";
 import type { Card } from "../game/cards";
 import type { GameState } from "../game/battleState";
+import type { DamagePopup } from "../game/battleUiTypes";
 import { DECK_EDITION_INFO, DECK_EDITION_SCORES, type DeckEdition } from "../game/rewards";
 import { BattleStatusBadge } from "./BattleStatusBadge";
 import { BATTLE_STATUS_DESCRIPTION as STATUS } from "./battleStatusDescriptions";
@@ -12,7 +13,7 @@ type BattlePlayerPanelProps = {
   maxPlayerHp: number;
   combatManualBonus: number;
   ignoreNegativeResistance?: boolean;
-  damagePopup?: { key: string; text: string };
+  damagePopup?: DamagePopup;
   onMoveDeckCardPreview: (event: ReactMouseEvent<HTMLElement>, card: Card) => void;
   onClearCardPreview: () => void;
   onStartResearchDraw: (research: "astronomy" | "necromancy") => void;
@@ -60,7 +61,7 @@ export function BattlePlayerPanel({
             <span>{game.playerHp} / {maxPlayerHp}</span>
           </div>
           {damagePopup && (
-            <div className={`combat-popup player-combat-popup ${damagePopup.text === "막음" ? "is-blocked" : ""}`} key={damagePopup.key}>
+            <div className={`combat-popup player-combat-popup is-${damagePopup.kind ?? "damage"} ${damagePopup.text === "막음" ? "is-blocked" : ""}`} key={damagePopup.key}>
               {damagePopup.text}
             </div>
           )}

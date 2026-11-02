@@ -1,5 +1,8 @@
-import { REGION_ONE_ENCOUNTERS } from "./regionOneEnemies.ts";
-import { REGION_TWO_ENCOUNTERS, WARLOCK } from "./regionTwoEnemies.ts";
+import { REGION_ONE_ENCOUNTERS, REGION_ONE_MIXED_ENCOUNTERS, REGION_ONE_PAIR_INDICES, normalizeRegionOneEncounterIndex } from "./regionOneEnemies.ts";
+import { REGION_TWO_ENCOUNTERS, REGION_TWO_MIXED_ENCOUNTERS, REGION_TWO_PAIR_INDICES, normalizeRegionTwoEncounterIndex, WARLOCK } from "./regionTwoEnemies.ts";
+export function normalizeEncounterIndex(index: number) {
+  return normalizeRegionOneEncounterIndex(normalizeRegionTwoEncounterIndex(index));
+}
 import type { Card } from "./cards.ts";
 import { statusLabel, calculateAttackDamage, type AttackModifiers } from "./statuses.ts";
 
@@ -85,8 +88,8 @@ export type EnemyAction = {
 };
 
 export type EnemyVariant = "slime" | "golem" | "goblin" | "rat" | "beast" | "wisp" | "mummyPriest" | "mummyWarrior" | "wyrm" | "thornBeetle" | "blackSlime" | "clown" | "giantWyrm"
-  | "warlock" | "powderCarrier" | "bloodBerserker" | "searchHound" | "hammerGuard" | "shackleJailer" | "sealWarden" | "fermentedSlime" | "voidJellyfish" | "bloodRider" | "confiscator" | "escortGuard"
-  | "hungryDog" | "knifeFighter" | "clayDoll" | "crackedGuardian" | "opportunist" | "weaverSpider" | "powderToad" | "chainPrisoner" | "broodRoach" | "roachHatchling";
+  | "warlock" | "powderCarrier" | "bloodBerserker" | "searchHound" | "hammerGuard" | "shackleJailer" | "sealWarden" | "fermentedSlime" | "voidJellyfish" | "bloodRider" | "confiscator"
+  | "hungryDog" | "knifeFighter" | "clayDoll" | "puppetColossus" | "puppeteer" | "opportunist" | "weaverSpider" | "powderToad" | "broodRoach" | "roachHatchling";
 
 export type EnemyState = {
   id: string;
@@ -122,9 +125,13 @@ export type EnemyState = {
   firstActionCompleted?: boolean;
   /** The pile chosen for the next discard action. */
   discardPileIndex?: number;
-  /** Persistent damage absorption. Breaking it cancels one enemy action. */
-  armor?: number;
   stunned?: boolean;
+  /** Keep this enemy's maximum HP fixed instead of rolling the usual range. */
+  fixedMaxHp?: boolean;
+  /** Bind to this ally variant within the same encounter when spawning. */
+  stunAllyOnDeath?: EnemyVariant;
+  /** A pending one-time death effect, cleared when the linked ally is stunned. */
+  deathStunTargetId?: string;
   /** Conditional strength for one action only; never added to permanent strength. */
   emptyEnergyStrengthGain?: number;
   /** Passive: the first successful solitaire move arms one bonus hit each player turn. */
@@ -140,7 +147,8 @@ export type EnemyState = {
   powder?: number;
   deathResolved?: boolean;
   fermentedSlimeCount?: number;
-  sharedTurnStrengthGain?: number;
+  /** Both sides gain this strength after a normal enemy turn, while this enemy lives. */
+  sharedTurnEndStrengthGain?: number;
   energyRecoveryPenalty?: number;
   sealsPile?: boolean;
   sealedPileIndex?: number;
@@ -192,11 +200,9 @@ const SEWER_ENCOUNTERS: Array<EnemyBlueprint[] | null> = [
       hp: 112,
       maxHp: 112,
       actions: [
-        { name: "...", attacks: [{ type: "physical", value: 8 }], cycle: true },
-        { name: "...!", attacks: [{ type: "physical", value: 8 }], cycle: true },
-        { name: "공격", attacks: [{ type: "physical", value: 30 }], cycle: true },
-        { name: "...", attacks: [{ type: "physical", value: 8 }], cycle: true },
-        { name: "공격", attacks: [{ type: "physical", value: 30 }], cycle: true, loopTo: 3 },
+        { name: "위압", attacks: [], nextTurnPlayerAmplificationChange: -2, cycle: true },
+        { name: "석화 갑주", attacks: [], resistanceGain: 2, cycle: true },
+        { name: "분쇄", attacks: [{ type: "physical", value: 25 }], strengthGain: 5, cycle: true },
       ],
       strength: 0,
       physicalBlock: 0,
@@ -207,25 +213,7 @@ const SEWER_ENCOUNTERS: Array<EnemyBlueprint[] | null> = [
       trait: null,
     },
   ],
-  [
-    {
-      name: "하수구 쥐",
-      hp: 50,
-      maxHp: 50,
-      actions: [
-        { name: "물어뜯기", attacks: [{ type: "physical", value: 5, hits: 2 }], discardCount: 1, discardPriority: "rarity", cycle: true },
-        { name: "웅크리기", attacks: [{ type: "physical", value: 10 }], discardCount: 1, discardPriority: "rarity", cycle: true },
-        { name: "흉포화", attacks: [{ type: "physical", value: 5 }], strengthGain: 3, discardCount: 1, discardPriority: "rarity", cycle: true },
-      ],
-      strength: 0,
-      physicalBlock: 0,
-      variant: "rat",
-      sturdyThreshold: 0,
-      quicknessReady: false,
-      nextAttackMagic: false,
-      trait: "버리기: 파일 맨 위 카드 중 희귀도가 높은 카드를 우선해 턴 종료 시 버립니다.",
-    },
-  ],
+  null, // Old sewer-rat encounter 3 migrates to a mixed encounter.
   [
     {
       name: "도깨비",
@@ -234,7 +222,7 @@ const SEWER_ENCOUNTERS: Array<EnemyBlueprint[] | null> = [
       actions: [
         { name: "연타", attacks: [{ type: "physical", value: 8, hits: 2 }], randomNoRepeat: true },
         { name: "난타", attacks: [{ type: "physical", value: 7, hits: 3 }], randomNoRepeat: true },
-        { name: "견제", attacks: [{ type: "physical", value: 10 }], nextTurnPlayerAmplificationChange: -1, randomNoRepeat: true },
+        { name: "마력 응축", attacks: [], amplificationGain: 2, randomNoRepeat: true },
       ],
       turnEndStrengthGain: 1,
       strength: 0,
@@ -252,7 +240,6 @@ const SEWER_ENCOUNTERS: Array<EnemyBlueprint[] | null> = [
     maxHp: 13,
     actions: [
       { name: "물기", attacks: [{ type: "physical" as const, value: 4 }], cycle: true },
-      { name: "달려들기", attacks: [{ type: "physical" as const, value: 8 }], cycle: true },
     ],
     strength: 0,
     physicalBlock: 0,
@@ -408,15 +395,18 @@ const SEWER_ENCOUNTERS: Array<EnemyBlueprint[] | null> = [
 ];
 
 // Append new content without renumbering old encounters or retired save IDs.
-const REGION_ONE_NEW_INDICES = REGION_ONE_ENCOUNTERS.map((_, index) => SEWER_ENCOUNTERS.length + index);
+const REGION_ONE_NEW_INDICES = REGION_ONE_ENCOUNTERS.flatMap((encounter, index) => encounter ? [SEWER_ENCOUNTERS.length + index] : []);
 SEWER_ENCOUNTERS.push(...REGION_ONE_ENCOUNTERS);
 
-const REGION_TWO_NEW_INDICES = REGION_TWO_ENCOUNTERS.map((_, index) => SEWER_ENCOUNTERS.length + index);
+const REGION_TWO_NEW_INDICES = REGION_TWO_ENCOUNTERS.flatMap((encounter, index) => encounter ? [SEWER_ENCOUNTERS.length + index] : []);
 SEWER_ENCOUNTERS.push(...REGION_TWO_ENCOUNTERS);
+SEWER_ENCOUNTERS.push(...REGION_TWO_MIXED_ENCOUNTERS);
+SEWER_ENCOUNTERS.push(...REGION_ONE_MIXED_ENCOUNTERS);
+const MIXED_ENCOUNTER_INDICES = new Set([...REGION_ONE_PAIR_INDICES, ...REGION_TWO_PAIR_INDICES]);
 
 const ENCOUNTER_INDICES_BY_REGION = [
-  [1, 3, 5, ...REGION_ONE_NEW_INDICES],
-  [2, 4, 6, ...REGION_TWO_NEW_INDICES],
+  [1, 5, ...REGION_ONE_NEW_INDICES, ...REGION_ONE_PAIR_INDICES],
+  [2, 4, 6, ...REGION_TWO_NEW_INDICES, ...REGION_TWO_PAIR_INDICES],
   [10, 11, 12, 13],
 ] as const;
 
@@ -458,7 +448,7 @@ export function applyPlayerTurnStart(enemy: EnemyState) {
   if (enemy.hp <= 0) return enemy;
   return {
     ...enemy,
-    strength: enemy.strength + berserk + (enemy.sharedTurnStrengthGain ?? 0),
+    strength: enemy.strength + berserk,
     ...(enemy.solitaireHitBonus ? { solitaireHitBonusReady: false, solitaireBonusUsedThisTurn: false } : {}),
   };
 }
@@ -471,7 +461,7 @@ export function createSewerEncounter(random: () => number = Math.random): EnemyS
 export const SEWER_ENCOUNTER_COUNT = SEWER_ENCOUNTERS.filter((encounter) => encounter !== null).length;
 
 export function isEncounterAvailable(encounterIndex: number) {
-  return Boolean(SEWER_ENCOUNTERS[encounterIndex]?.length);
+  return Boolean(SEWER_ENCOUNTERS[normalizeEncounterIndex(encounterIndex)]?.length);
 }
 
 export function getEncounterIndicesForRegion(regionIndex: number) {
@@ -479,6 +469,7 @@ export function getEncounterIndicesForRegion(regionIndex: number) {
 }
 
 export function getEncounterRegionNumber(encounterIndex: number) {
+  encounterIndex = normalizeEncounterIndex(encounterIndex);
   const bossRegionIndex = BOSS_ENCOUNTER_INDICES_BY_REGION.findIndex((index) => index === encounterIndex);
   if (bossRegionIndex >= 0) return bossRegionIndex + 1;
   const regionIndex = ENCOUNTER_INDICES_BY_REGION.findIndex((indices) =>
@@ -492,6 +483,21 @@ export function getEncounterSpawnPool(regionIndex: number, rareRoll: number) {
   return rareRoll < NEXT_REGION_ENCOUNTER_CHANCE && nextRegionPool.length > 0
     ? nextRegionPool
     : currentRegionPool;
+}
+
+/** Regions one and two choose a 50% mixed branch before a uniform recipe. */
+export function pickEncounterIndex(pool: readonly number[], roll: number) {
+  const value = Math.max(0, Math.min(0.999999999, roll));
+  const pairs = pool.filter(index => MIXED_ENCOUNTER_INDICES.has(index));
+  const singles = pool.filter(index => !MIXED_ENCOUNTER_INDICES.has(index));
+  const region = pool.length > 0 ? getEncounterRegionNumber(pool[0]) : 0;
+  if (pairs.length > 0 && singles.length > 0 && (region === 1 || region === 2)
+    && pool.every(index => getEncounterRegionNumber(index) === region)) {
+    const selected = value < 0.5 ? pairs : singles;
+    const branchRoll = value < 0.5 ? value * 2 : (value - 0.5) * 2;
+    return selected[Math.min(selected.length - 1, Math.floor(branchRoll * selected.length))];
+  }
+  return pool[Math.min(pool.length - 1, Math.floor(value * pool.length))] ?? -1;
 }
 
 /**
@@ -519,7 +525,7 @@ export function getEnemyCodexEntries(): EnemyCodexEntry[] {
       encounterIndex,
       label: encounter.length > 1 && encounter.every((enemy) => enemy.name === encounter[0].name)
         ? `${encounter[0].name} ${encounter.length}마리`
-        : encounter[0].name,
+        : encounter.map(enemy => enemy.name).join(" + "),
       regions,
       enemies: Array.from(groupedEnemies.values()),
     }];
@@ -532,16 +538,16 @@ export function createSewerEncounterByIndex(
   encounterIndex: number,
   random: () => number = Math.random,
 ): EnemyState[] {
-  const safeIndex = Math.max(0, Math.min(SEWER_ENCOUNTERS.length - 1, Math.floor(encounterIndex)));
+  const safeIndex = normalizeEncounterIndex(Math.max(0, Math.min(SEWER_ENCOUNTERS.length - 1, Math.floor(encounterIndex))));
   const encounter = SEWER_ENCOUNTERS[safeIndex];
   if (!encounter) return [];
-  return encounter.map((enemy, index) => {
+  const enemies: EnemyState[] = encounter.map((enemy, index) => {
     const minimumHp = enemy.name === "쥐"
       ? enemy.maxHp - 1
       : Math.floor(enemy.maxHp * 0.9);
     const rolledMaxHp = Math.min(
       enemy.maxHp,
-      enemy.isBoss ? enemy.maxHp : minimumHp + Math.floor(random() * (enemy.maxHp - minimumHp + 1)),
+      enemy.isBoss || enemy.fixedMaxHp ? enemy.maxHp : minimumHp + Math.floor(random() * (enemy.maxHp - minimumHp + 1)),
     );
     return {
       ...enemy,
@@ -557,12 +563,17 @@ export function createSewerEncounterByIndex(
       firstActionCompleted: enemy.firstActionCompleted ?? false,
     };
   });
+  return enemies.map((enemy) => enemy.stunAllyOnDeath ? {
+    ...enemy,
+    deathStunTargetId: enemies.find((ally) => ally.id !== enemy.id && ally.variant === enemy.stunAllyOnDeath)?.id,
+  } : enemy);
 }
 
 export function getSewerEncounterLabel(encounterIndex: number) {
-  const safeIndex = Math.max(0, Math.min(SEWER_ENCOUNTERS.length - 1, Math.floor(encounterIndex)));
+  const safeIndex = normalizeEncounterIndex(Math.max(0, Math.min(SEWER_ENCOUNTERS.length - 1, Math.floor(encounterIndex))));
   const encounter = SEWER_ENCOUNTERS[safeIndex];
   if (!encounter) return "삭제된 조우";
+  if (MIXED_ENCOUNTER_INDICES.has(safeIndex)) return `${encounter[0].name} 외 1마리`;
   return encounter.length > 1 && encounter.every((enemy) => enemy.name === encounter[0].name)
     ? `${encounter[0].name} ${encounter.length}마리`
     : encounter[0].name;
@@ -629,13 +640,10 @@ export function applyPlayerAttack(
     }
     // 적 방어는 속성이 없는 단일 방어도다. 플레이어의 모든 공격이 같은 방어를 소모한다.
     const blocked = Math.min(hitDamage, next.physicalBlock);
-    const armorDamage = Math.min(hitDamage - blocked, next.armor ?? 0);
     next = {
       ...next,
-      hp: Math.max(0, next.hp - (hitDamage - blocked - armorDamage)),
+      hp: Math.max(0, next.hp - (hitDamage - blocked)),
       physicalBlock: next.physicalBlock - blocked,
-      ...(next.armor !== undefined ? { armor: next.armor - armorDamage } : {}),
-      ...(armorDamage > 0 && armorDamage === next.armor ? { stunned: true } : {}),
     };
   }
   if (next.hp > 0 && next.halfHpStrengthGain && !next.enraged && next.hp * 2 <= next.maxHp) {

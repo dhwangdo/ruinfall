@@ -1,0 +1,22 @@
+.forge-star-burst {
+  position: absolute;
+  z-index: 100;
+  overflow: visible;
+  pointer-events: none;
+  transform-origin: center;
+  font-family: Arial, sans-serif;
+  font-weight: 800;
+  line-height: 1;
+}
+.forge-burst-star {
+  position: absolute;
+  color: #ffad42;
+  text-shadow: 0 0 5px #f27a20, 0 0 10px rgba(255,160,50,.65);
+  transform: translate(-50%, -50%);
+}
+.forge-burst-ring { position: absolute; inset: 0; animation: forge-ring-fade var(--forge-burst-duration, 700ms) linear both; }
+@keyframes forge-ring-fade {
+  0% { opacity: 0; }
+  8%, 35% { opacity: 1; }
+  100% { opacity: 0; }
+}

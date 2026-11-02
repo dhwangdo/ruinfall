@@ -1,5 +1,6 @@
-import { useEffect, useRef, type Dispatch, type PointerEvent, type RefObject, type SetStateAction } from "react";
+import { useCallback, useEffect, useRef, type Dispatch, type PointerEvent, type RefObject, type SetStateAction } from "react";
 import { canTargetEnemy, type Card } from "../game/cards";
+import { cardDropTarget } from "../game/cardTargetRules.ts";
 import type { DragState, Phase } from "../game/battleUiTypes";
 import type { GameState } from "../game/battleState";
 import type { ActiveBattleDrag } from "./useBattleInteractionState";
@@ -38,7 +39,20 @@ export function useBattlePointerInput({
     setHoveredHandCardId,
   } = interaction;
   const dragRef = useRef<ActiveBattleDrag | null>(null);
+  const previewElementRef = useRef<HTMLDivElement | null>(null);
+  const pointerFrameRef = useRef<number | null>(null);
   const pileAutoScrollRef = useRef<{ pointerX: number; frame: number | null }>({ pointerX: 0, frame: null });
+
+  // Pointer coordinates are presentation only; they must not rerender the battle.
+  const dragPreviewRef = useCallback((element: HTMLDivElement | null) => {
+    previewElementRef.current = element;
+    const current = dragRef.current;
+    if (element && current) element.style.translate = `${current.x}px ${current.y}px`;
+  }, []);
+  const stopPointerFrame = () => {
+    if (pointerFrameRef.current !== null) window.cancelAnimationFrame(pointerFrameRef.current);
+    pointerFrameRef.current = null;
+  };
 
   const stopPileAutoScroll = () => {
     const autoScroll = pileAutoScrollRef.current;
@@ -86,19 +100,18 @@ export function useBattlePointerInput({
   useEffect(() => () => {
     const frame = pileAutoScrollRef.current.frame;
     if (frame !== null) window.cancelAnimationFrame(frame);
+    if (pointerFrameRef.current !== null) window.cancelAnimationFrame(pointerFrameRef.current);
   }, []);
 
   useEffect(() => {
-    const updateHandHover = (event: globalThis.PointerEvent) => {
-      const current = dragRef.current;
-      if (!current) return;
-      const moved = current.moved || Math.hypot(event.clientX - current.startX, event.clientY - current.startY) > 7;
-      const hoveredId = handCardAtPointer(event.clientX, event.clientY, moved ? current.card.id : null);
-      setHoveredHandCardId((previous) => previous === hoveredId ? previous : hoveredId);
-    };
-    window.addEventListener("pointermove", updateHandHover, true);
-    return () => window.removeEventListener("pointermove", updateHandHover, true);
-  }, [setHoveredHandCardId]);
+    if (interaction.dragging !== null && phase === "playing" && game.status === "playing") return;
+    dragRef.current = null;
+    if (pointerFrameRef.current !== null) window.cancelAnimationFrame(pointerFrameRef.current);
+    pointerFrameRef.current = null;
+    const autoScroll = pileAutoScrollRef.current;
+    if (autoScroll.frame !== null) window.cancelAnimationFrame(autoScroll.frame);
+    autoScroll.frame = null;
+  }, [interaction.dragging, phase, game.status]);
 
   const beginDrag = (
     event: PointerEvent<HTMLElement>,
@@ -116,6 +129,7 @@ export function useBattlePointerInput({
         && !(game.pendingResearchDraw === "astronomy" && source.type === "pile"))
       || phase !== "playing"
     ) return;
+    stopPointerFrame();
     stopPileAutoScroll();
     onClearPreviews();
     setDragOverDropTarget(null);
@@ -161,24 +175,31 @@ export function useBattlePointerInput({
     const moved = current.moved || Math.hypot(event.clientX - current.startX, event.clientY - current.startY) > 7;
     const nextDrag = { ...current, x: event.clientX, y: event.clientY, moved };
     dragRef.current = nextDrag;
-    setDragging(nextDrag);
-    const hoveredId = handCardAtPointer(event.clientX, event.clientY, moved ? current.card.id : null);
-    setHoveredHandCardId((previous) => previous === hoveredId ? previous : hoveredId);
-    if (!moved) setDragOverDropTarget(null);
-    else setDragOverDropTarget(getDropZoneAtPoint(event.clientX, event.clientY) ?? null);
-    if (moved) updatePileAutoScroll(event.clientX);
-    else stopPileAutoScroll();
+    if (moved !== current.moved) setDragging(nextDrag);
+    if (pointerFrameRef.current !== null) return;
+    pointerFrameRef.current = window.requestAnimationFrame(() => {
+      pointerFrameRef.current = null;
+      const latest = dragRef.current;
+      if (!latest) return;
+      const hoveredId = handCardAtPointer(latest.x, latest.y, latest.moved ? latest.card.id : null);
+      const target = latest.moved ? getDropZoneAtPoint(latest.x, latest.y) ?? null : null;
+      setHoveredHandCardId(previous => previous === hoveredId ? previous : hoveredId);
+      setDragOverDropTarget(previous => previous === target ? previous : target);
+      if (previewElementRef.current) previewElementRef.current.style.translate = `${latest.x}px ${latest.y}px`;
+      if (latest.moved) updatePileAutoScroll(latest.x);
+      else stopPileAutoScroll();
+    });
   };
 
   const finishDrag = (event: PointerEvent<HTMLElement>) => {
     const current = dragRef.current;
     if (!current) return;
+    stopPointerFrame();
     stopPileAutoScroll();
     setDragOverDropTarget(null);
     setHoveredHandCardId(handCardAtPointer(event.clientX, event.clientY));
     if (current.moved) {
       const dropZone = getDropZoneAtPoint(event.clientX, event.clientY);
-      const targetEnemyId = dropZone?.startsWith("enemy:") ? dropZone.slice(6) : undefined;
       const targetPileIndex = dropZone?.startsWith("pile:") ? Number(dropZone.slice(5)) : undefined;
 
       if (dropZone === "hand" && current.source.type === "pile") {
@@ -200,26 +221,15 @@ export function useBattlePointerInput({
       }
 
       const isTargetedAttack = canTargetEnemy(current.card);
-      const resolvedTargetEnemyId = targetEnemyId
-        ?? (isTargetedAttack && dropZone === "defend"
-          ? game.enemies.find((enemy) => enemy.hp > 0)?.id
-          : undefined);
-      const validDrop = current.source.type === "hand"
-        && !["slime", "combatManual", "grimoire"].includes(current.card.effect)
-        && (
-          (isTargetedAttack && Boolean(resolvedTargetEnemyId))
-          || (current.card.effect === "ironRampage" && dropZone === "defend")
-          || (current.card.effect === "odinSpear" && dropZone === "defend")
-          || (current.card.kind !== "strike" && dropZone === "defend")
-        );
-      if (validDrop) onPlayCard(current.card, resolvedTargetEnemyId);
+      const target = current.source.type === "hand" ? cardDropTarget(current.card, dropZone) : null;
+      if (target) onPlayCard(current.card, target.targetEnemyId);
       else {
         setGame((state) => ({
           ...state,
           message: current.source.type === "pile"
             ? "앞면 카드 묶음은 다른 파일 위에 놓아주세요."
             : isTargetedAttack
-              ? "타격 카드는 적이나 파일 위에 놓아주세요."
+              ? "대상 카드는 적용할 적이나 파일 위에 놓아주세요."
               : "이 카드는 중앙 영역이나 파일 위에 놓아주세요.",
         }));
       }
@@ -229,6 +239,7 @@ export function useBattlePointerInput({
   };
 
   const cancelDrag = () => {
+    stopPointerFrame();
     stopPileAutoScroll();
     dragRef.current = null;
     setDragging(null);
@@ -236,5 +247,5 @@ export function useBattlePointerInput({
     setHoveredHandCardId(null);
   };
 
-  return { beginDrag, moveDrag, finishDrag, cancelDrag };
+  return { beginDrag, moveDrag, finishDrag, cancelDrag, dragPreviewRef };
 }

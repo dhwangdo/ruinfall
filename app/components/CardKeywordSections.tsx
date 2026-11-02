@@ -1,6 +1,6 @@
+import { CardVisual } from "./CardVisual";
 import type { CardKeywordInfo } from "../game/cardEffects";
 import { createRadianceCard } from "../game/cards";
-import { CardFace } from "./CardFace";
 
 export function CardKeywordSections({ keywords }: { keywords: CardKeywordInfo[] }) {
   return <>
@@ -10,9 +10,10 @@ export function CardKeywordSections({ keywords }: { keywords: CardKeywordInfo[] 
         key={keyword.name}
       >
         {keyword.preview === "radiance" ? (
-          <div className="card-keyword-card-preview card-face strike physical">
-            <CardFace card={createRadianceCard(-1)} />
-          </div>
+          <CardVisual
+            card={createRadianceCard(-1)}
+            className="card-keyword-card-preview strike physical"
+          />
         ) : (
           <>
             <strong>{keyword.name}</strong>

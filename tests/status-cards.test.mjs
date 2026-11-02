@@ -26,7 +26,7 @@ test("new cards resolve exact costs, damage, defense, and durations", () => {
   assert.equal(knee.enemies[0].hp, 190);
   assert.equal(knee.enemies[0].amplification, -1);
   assert.equal(play("가호").state.playerResistance, 2);
-  const scale = play("비늘 갑옷").state;
+  const scale = play("위압").state;
   assert.equal(scale.playerPhysicalBlock, 8);
   assert.equal(scale.enemies[0].amplification, -2);
   assert.equal(scale.energy, 8);
@@ -56,7 +56,7 @@ test("resistance gain cancels vulnerability except when glass cannon blocks that
 
 test("battle preparation stacks, waits for next turn and grants energy above the normal maximum once", () => {
   const first = play("싸움 준비").state;
-  assert.equal(first.energy, 9);
+  assert.equal(first.energy, 8);
   assert.equal(first.playerAmplification, 0);
   const second = play("싸움 준비", { ...first, hand: [card("싸움 준비")] }).state;
   assert.equal(second.pendingBattlePreparation, 4);
@@ -74,13 +74,13 @@ test("repeated shatter applies vulnerability after each attack without doubling 
 });
 
 test("scale armor needs a living target and uses toughness for its defense", () => {
-  const played = card("비늘 갑옷");
+  const played = card("위압");
   const state = { ...waitingState(50, [target()]), hand: [played], energy: 3 };
   const rejected = resolveCardPlay(state, { card: played }, { phase: "playing", blessings: [], maxPlayerHp: 50,
     nextCardId: 200, oneUpUsed: false, randomRolls: [] });
   assert.equal(rejected.played, false);
   assert.equal(rejected.state.energy, 3);
-  assert.equal(play("비늘 갑옷", { agility: 2 }).state.playerPhysicalBlock, 10);
+  assert.equal(play("위압", { agility: 2 }).state.playerPhysicalBlock, 10);
 });
 
 test("new ward survives save migration while the retired blessing stays removed", () => {

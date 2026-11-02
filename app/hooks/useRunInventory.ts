@@ -1,6 +1,6 @@
-import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState, type Dispatch, type SetStateAction } from "react";
 import type { Card } from "../game/cards";
-import { createConsumable, createStarterDeck, getDeckEditionColor, STARTING_DECK_SIZE, type Consumable,
+import { createConsumable, createStarterDeck, createRegionDeck, getDeckEditionColor, STARTING_DECK_SIZE, type Consumable,
   type ConsumableType, type DeckCase, type ShopOffer } from "../game/rewards";
 
 import type { PreparedRunRestore } from "../game/runSaveState";
@@ -33,11 +33,25 @@ export function useRunInventory() {
   const [roomDeckDrops, setRoomDeckDrops] = useState<Record<string, DeckCase[]>>({});
   const [roomShops, setRoomShops] = useState<Record<string, ShopOffer[]>>({});
   const [gold, setGold] = useState(0);
-  const deckDropChanceRef = useRef(0.25);
 
+  const [keys, setRenderedKeys] = useState(0);
+  const keysRef = useRef(0);
+  const setKeys = useCallback<Dispatch<SetStateAction<number>>>((update) => {
+    const next = typeof update === "function" ? update(keysRef.current) : update;
+    keysRef.current = next;
+    setRenderedKeys(next);
+  }, []);
+  const [skipPortalKeyWarning, setSkipPortalKeyWarning] = useState(false);
+  const [roomDeckVaults, setRoomDeckVaults] = useState<Record<string, DeckCase>>({});
+  const roomDeckVaultsRef = useRef<Record<string, DeckCase>>({});
+  const resetDeckVaults = useCallback(() => {
+    roomDeckVaultsRef.current = {};
+    setRoomDeckVaults({});
+    setKeys(0);
+    setSkipPortalKeyWarning(false);
+  }, [setKeys]);
   const rareCardDropChanceRef = useRef(0.05);
 
-  const deckPityBattlesRemainingRef = useRef(3);
 
   const nextCardIdRef = useRef(STARTING_DECK_SIZE);
   const nextConsumableIdRef = useRef(1);
@@ -52,6 +66,16 @@ export function useRunInventory() {
     return createConsumable(type, id);
   }, []);
 
+  const ensureDeckVault = useCallback((roomKey: string, region: number, capacityBonus = 0) => {
+    const existing = roomDeckVaultsRef.current[roomKey];
+    if (existing) return existing;
+    const deck = createRegionDeck(region, nextCardIdRef.current, capacityBonus);
+    nextCardIdRef.current += deck.cards.length;
+    roomDeckVaultsRef.current = { ...roomDeckVaultsRef.current, [roomKey]: deck };
+    setRoomDeckVaults(roomDeckVaultsRef.current);
+    return deck;
+  }, []);
+
   const updateDeckCards = useCallback((deckId: string | undefined, updater: Card[] | ((cards: Card[]) => Card[])) => {
     if (!deckId) return;
     setOwnedDecks((current) => current.map((deck) => {
@@ -63,10 +87,10 @@ export function useRunInventory() {
 
   const saveState = useMemo(() => ({
     ownedDecks, activeDeckId, inventoryCards, inventoryConsumables, roomDrops, roomConsumableDrops,
-    roomDeckDrops, roomShops, gold,
+    roomDeckDrops, roomShops, gold, keys, skipPortalKeyWarning, roomDeckVaults,
   }), [
     ownedDecks, activeDeckId, inventoryCards, inventoryConsumables, roomDrops, roomConsumableDrops,
-    roomDeckDrops, roomShops, gold,
+    roomDeckDrops, roomShops, gold, keys, skipPortalKeyWarning, roomDeckVaults,
   ]);
   const restoreInventory = useCallback((state: PreparedRunRestore) => {
     setOwnedDecks(state.ownedDecks.map(removeDeletedDeckEditions));
@@ -81,13 +105,18 @@ export function useRunInventory() {
     ])));
     setRoomShops(state.roomShops);
     setGold(state.gold);
-  }, []);
+    setKeys(state.keys);
+    setSkipPortalKeyWarning(state.skipPortalKeyWarning);
+    roomDeckVaultsRef.current = state.roomDeckVaults;
+    setRoomDeckVaults(state.roomDeckVaults);
+  }, [setKeys]);
 
   return { saveState, restoreInventory, ownedDecks, setOwnedDecks, activeDeckId, setActiveDeckId,
     inventoryCards, setInventoryCards, inventoryConsumables, setInventoryConsumables, inventoryConsumablesRef,
     roomDrops, setRoomDrops, roomConsumableDrops, setRoomConsumableDrops,
     roomDeckDrops, setRoomDeckDrops, roomShops, setRoomShops, gold, setGold,
-    deckDropChanceRef, rareCardDropChanceRef, deckPityBattlesRemainingRef,
+    keys, keysRef, setKeys, skipPortalKeyWarning, setSkipPortalKeyWarning, roomDeckVaults, roomDeckVaultsRef, ensureDeckVault, resetDeckVaults,
+    rareCardDropChanceRef,
     nextCardIdRef, nextConsumableIdRef, nextConsumable, updateDeckCards };
 }
 

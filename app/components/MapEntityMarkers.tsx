@@ -54,6 +54,17 @@ export function MapEntityMarkers({
       + layout.roomHeight / 2,
   });
   const playerMarkerStyle = markerStyle(playerPosition);
+  const enemyCellKeys = new Set(
+    [...rememberedEnemies, ...visibleEnemies].map(({ position }) => `${position.x}:${position.y}`),
+  );
+  const enemyMarkerStyle = (position: MapPosition): CSSProperties => ({
+    ...markerStyle(position),
+    // Adjacent labels share one row; keep both inside their cells instead of overlapping.
+    maxWidth: enemyCellKeys.has(`${position.x - 1}:${position.y}`)
+      || enemyCellKeys.has(`${position.x + 1}:${position.y}`)
+      ? layout.roomWidth - 8
+      : undefined,
+  });
 
   return (
     <>
@@ -75,7 +86,7 @@ export function MapEntityMarkers({
           <span
             className={`map-enemy is-memory ${isHigherRegionMapEnemy(memory.encounterIndex, memory.position, mapSeed) ? "is-overlevel" : ""}`}
             key={`memory-${memory.roomKey}`}
-            style={markerStyle(memory.position)}
+            style={enemyMarkerStyle(memory.position)}
             title={`${label} · 마지막 목격 위치`}
             aria-label={`${label}, 마지막 목격 위치`}
           >
@@ -90,7 +101,7 @@ export function MapEntityMarkers({
           <span
             className={`map-enemy is-${enemy.awareness} ${isHigherRegionMapEnemy(enemy.encounterIndex, enemy.position, mapSeed) ? "is-overlevel" : ""} ${collisionEnemyIds.includes(enemy.id) ? "is-colliding" : ""}`}
             key={enemy.id}
-            style={markerStyle(enemy.position)}
+            style={enemyMarkerStyle(enemy.position)}
             title={`${label} · ${awarenessSymbol(enemy.awareness)}`}
             aria-label={`${label}, 상태 ${awarenessSymbol(enemy.awareness)}`}
           >

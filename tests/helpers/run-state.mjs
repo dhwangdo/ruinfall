@@ -15,24 +15,26 @@ export function makeRunFixture() {
   const inventory = {};
   for (const [name, value] of Object.entries({
     ownedDecks: [createStarterDeck()], activeDeckId: "starter", inventoryCards: [], inventoryConsumables: [],
-    roomDrops: {}, roomConsumableDrops: {}, roomDeckDrops: {}, roomShops: {}, gold: 1000,
+    roomDrops: {}, roomConsumableDrops: {}, roomDeckDrops: {}, roomDeckVaults: {}, roomShops: {}, gold: 1000, keys: 0, skipPortalKeyWarning: false,
   })) field(inventory, name, value);
   inventory.inventoryConsumablesRef = { current: [] };
   inventory.nextCardIdRef = { current: 1000 };
   inventory.nextConsumableIdRef = { current: 1000 };
   inventory.nextConsumable = type => createConsumable(type, `consumable-${inventory.nextConsumableIdRef.current++}`);
-  inventory.deckDropChanceRef = { current: .25 };
   inventory.rareCardDropChanceRef = { current: .05 };
-  inventory.deckPityBattlesRemainingRef = { current: 3 };
+  inventory.keysRef = { get current() { return inventory.keys; } };
+  inventory.roomDeckVaultsRef = { get current() { return inventory.roomDeckVaults; } };
+  inventory.ensureDeckVault = key => inventory.roomDeckVaults[key];
   const world = { roomType: "empty" };
   for (const [name, value] of Object.entries({
     mapPosition: MAP_START, mapSeed: 1, mapEnemyWorld: { enemies: [] }, seenRooms: new Set(),
     safeAreaEntrySeenRooms: null, defeatedBossRegions: new Set(), usedHealRooms: new Set(),
-    usedBlessingRooms: new Set(), collapsedShrineRooms: new Set(), collapsedRecoveryShrineRooms: new Set(),
+    usedBlessingRooms: new Set(), collapsedExtractionShrineRooms: new Set(), collapsedRecoveryShrineRooms: new Set(),
     collapsedVitalityShrineRooms: new Set(), collapsedMindEyeShrineRooms: new Set(),
-    collapsedTransformShrineRooms: new Set(), collapsedCombinationShrineRooms: new Set(),
-    collapsedTreasureChestRooms: new Set(),
+    collapsedTransformShrineRooms: new Set(),
+    collapsedTreasureChestRooms: new Set(), openedDeckVaultRooms: new Set(),
   })) field(world, name, value);
+  world.openedDeckVaultRoomsRef = { get current() { return world.openedDeckVaultRooms; } };
   world.effectiveRoomType = () => world.roomType;
   const player = {};
   for (const [name, value] of Object.entries({
@@ -48,13 +50,13 @@ export function makeRunFixture() {
   for (const [name, value] of Object.entries({
     screen: "map", game: waitingState(40, []), phase: "playing", activeMapEnemyIds: [], activeBattleRoom: null,
     pendingBattleStart: null, battleDeckCheckEnabled: true, battleDeckPreviewId: null,
-    battleRewards: [], battleRewardDecks: [], battleRewardConsumables: [], battleRewardGold: 0,
+    battleRewards: [], battleRewardDecks: [], battleRewardConsumables: [], battleRewardGold: 0, battleRewardKeys: 0,
     battleCardView: null, dyingEnemyIds: new Set(), animatedEnemyHp: {}, attackingEnemyId: null, damagePopup: null,
   })) field(battle, name, value);
   for (const [name, value] of Object.entries({
     mapBattleQueueRef: [], previousBattleDeckIdRef: "starter", telemetryPreviousGameRef: null,
     battleRewardRegionRef: 1, battleRewardIsBossRef: false, battleRewardIsOutOfDepthRef: false,
-    rewardGrantedRef: false, pendingEnemyTokenIdsRef: new Set(), pendingPileTokenSourcesRef: new Map(),
+    rewardGrantedRef: false, rewardCollectedRef: false, pendingEnemyTokenIdsRef: new Set(), pendingPileTokenSourcesRef: new Map(),
   })) battle[name] = { current: value };
   battle.getGame = () => battle.game;
   const scheduled = [];
@@ -63,7 +65,7 @@ export function makeRunFixture() {
   const dialogs = {};
   for (const [name, value] of Object.entries({
     shopOpen: false, activeShopRoom: null, shopMessage: "", openedCardPack: null, blessingOpen: false,
-    shrineOpen: false, transformShrineOpen: false, combinationShrineOpen: false, treasureChestReward: null,
+    extractionShrineOpen: false, transformShrineOpen: false, treasureChestReward: null, deckVaultRoom: null, portalKeyWarningRoom: null,
   })) field(dialogs, name, value);
   const editor = { setDeckEditorMessage: noop };
   const telemetry = createTelemetryRecorder();

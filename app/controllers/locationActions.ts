@@ -27,26 +27,22 @@ import { shouldPreserveTicket } from "../game/blessingRules.ts";
 import { transformedCard } from "../game/cardTransforms.ts";
 import {
   chebyshevDistance,
-  clearMapEnemiesNear,
   MAP_PLAYER_VISION_HORIZONTAL_RADIUS,
   MAP_PLAYER_VISION_VERTICAL_RADIUS,
 } from "../game/mapEnemies.ts";
 import {
   mapRoomKey,
   getRegionNumber,
-  getDungeonRegionIndex,
-  safeAreaEntry,
-  getSafeAreaRegionIndex,
-  nextRegionEntry,
   visibleMapRoomKeys,
   parseMapRoomKey,
-  REGION_COUNT,
 } from "../game/mapRules.ts";
+import { createPortalActions } from "./portalActions.ts";
+
 type Options = {
   inventory: RunInventory; world: RunWorld; player: RunPlayer; dialogs: LocationDialogs;
   telemetry: ReturnType<typeof createTelemetryRecorder>; ensureTelemetryRun: () => void;
   queueRunSave: (delay?: number) => void;
-  maxPlayerHp: number; inventoryCapacity: number; blessingVisionBonus: number;
+  maxPlayerHp: number; blessingVisionBonus: number;
   setMapMessage: Dispatch<SetStateAction<string>>; showMapMessage: (message: string) => void;
   isSafeAreaSealed: (region: number) => boolean;
   focusMapOn: (position: MapPosition) => void;
@@ -55,60 +51,29 @@ type Options = {
   rememberPlayerVision: ReturnType<typeof useRunMapContent>["rememberPlayerVision"];
 };
 export function createLocationActions({
-  inventory, world, player, dialogs, telemetry, ensureTelemetryRun, queueRunSave, maxPlayerHp, inventoryCapacity, blessingVisionBonus, setMapMessage, showMapMessage, isSafeAreaSealed, focusMapOn, materializeMapContent, materializeVisibleMapContent, rememberPlayerVision,
+  inventory, world, player, dialogs, telemetry, ensureTelemetryRun, queueRunSave, maxPlayerHp, blessingVisionBonus, setMapMessage, showMapMessage, isSafeAreaSealed, focusMapOn, materializeMapContent, materializeVisibleMapContent, rememberPlayerVision,
 }: Options) {
   const {
-    ownedDecks, setOwnedDecks, inventoryCards, setInventoryCards, inventoryConsumablesRef,
+    ownedDecks, setOwnedDecks, inventoryCards, setInventoryCards,
     setRoomDrops, setRoomConsumableDrops, setRoomDeckDrops, nextCardIdRef, nextConsumable,
   } = inventory;
   const {
-    mapPosition, mapSeed, mapEnemyWorld, setMapEnemyWorld, effectiveRoomType, seenRooms,
-    safeAreaEntrySeenRooms, setSafeAreaEntrySeenRooms, setMapPosition, setUsedHealRooms,
+    mapPosition, mapSeed, mapEnemyWorld, setMapEnemyWorld, effectiveRoomType, setUsedHealRooms,
     setCollapsedRecoveryShrineRooms, setCollapsedVitalityShrineRooms,
     setCollapsedMindEyeShrineRooms, setCollapsedTransformShrineRooms,
-    setCollapsedCombinationShrineRooms, setCollapsedTreasureChestRooms, setCollapsedShrineRooms,
+    setCollapsedTreasureChestRooms, setCollapsedExtractionShrineRooms,
   } = world;
   const {
-    blessings, runPlayerHpRef, setRunPlayerHp, godsLamentChargesRef, setGodsLamentCharges,
+    blessings, runPlayerHpRef, setRunPlayerHp,
     setVitalityShrineMaxHpBonus, setMindEyeMovesRemaining, mindEyeMovesRemainingRef,
   } = player;
-  const { setTreasureChestReward, setShrineOpen, setTransformShrineOpen, setCombinationShrineOpen } = dialogs;
+  const { setTreasureChestReward, setExtractionShrineOpen, setTransformShrineOpen } = dialogs;
   function randomItem<T>(items: readonly T[]): T { return items[Math.floor(Math.random() * items.length)]; }
   const randomGameRoll = () => Math.random();
-  const useCurrentPortal = () => {
-    const roomType = effectiveRoomType(mapPosition);
-    if (roomType === "portal") {
-      const regionIndex = getDungeonRegionIndex(mapPosition);
-      if (regionIndex === null) return;
-      const destination = safeAreaEntry(regionIndex, mapSeed);
-      const revealedWorld = materializeVisibleMapContent(destination, mapSeed, mapEnemyWorld);
-      const nextWorld = clearMapEnemiesNear(revealedWorld, destination);
-      setSafeAreaEntrySeenRooms(new Set(seenRooms));
-      godsLamentChargesRef.current = 0;
-      setGodsLamentCharges(0);
-      setMapPosition(destination);
-      rememberPlayerVision(destination, mapSeed, nextWorld.enemies, revealedWorld.enemies);
-      setMapEnemyWorld(nextWorld);
-      focusMapOn(destination);
-      return;
-    }
-    if (roomType !== "safePortal") return;
-    const regionIndex = getSafeAreaRegionIndex(mapPosition, mapSeed);
-    if (regionIndex === null) return;
-    if (regionIndex >= REGION_COUNT - 1) return;
-    const destination = nextRegionEntry(regionIndex);
-    const revealedWorld = materializeVisibleMapContent(destination, mapSeed, mapEnemyWorld);
-    const nextWorld = clearMapEnemiesNear(revealedWorld, destination);
-    const discardSafeAreaMemory = safeAreaEntrySeenRooms !== null && isSafeAreaSealed(regionIndex);
-    const baseSeenRooms = discardSafeAreaMemory ? safeAreaEntrySeenRooms : null;
-    godsLamentChargesRef.current = 3;
-    setGodsLamentCharges(3);
-    setMapPosition(destination);
-    rememberPlayerVision(destination, mapSeed, nextWorld.enemies, revealedWorld.enemies, baseSeenRooms);
-    setSafeAreaEntrySeenRooms(null);
-    setMapEnemyWorld(nextWorld);
-    focusMapOn(destination);
-  };
+  const { useCurrentPortal, confirmPortalTravel } = createPortalActions({
+    inventory, world, player, dialogs, isSafeAreaSealed, focusMapOn,
+    materializeVisibleMapContent, rememberPlayerVision, queueRunSave,
+  });
 
   const useCurrentHeal = () => {
     if (effectiveRoomType(mapPosition) !== "heal") return;
@@ -207,45 +172,6 @@ export function createLocationActions({
     return { before: selectedCards, after: convertedCards, collapsed };
   };
 
-  const openCombinationShrine = () => {
-    if (effectiveRoomType(mapPosition) !== "combinationShrine") return;
-    setCombinationShrineOpen(true);
-  };
-
-  const combineCardsAtShrine = (selectedCardIds: number[]): ShrineCardConversionResult | null => {
-    if (effectiveRoomType(mapPosition) !== "combinationShrine") return null;
-    const selectedCards = inventoryCards.filter((card) => selectedCardIds.includes(card.id));
-    if (selectedCards.length !== 5 || selectedCards.some((card) => card.rarity !== "special")) return null;
-    const selectedIds = new Set(selectedCards.map((card) => card.id));
-    const remainingCards = inventoryCards.filter((card) => !selectedIds.has(card.id));
-    const rareCard: Card = {
-      ...randomItem(RARE_CARD_POOL),
-      id: nextCardIdRef.current,
-      revealed: false,
-    };
-    nextCardIdRef.current += 1;
-    const usedSlots = remainingCards.length + inventoryConsumablesRef.current.filter((item) =>
-      !blessings.includes("lightTicket") || item.type === "cardPack").length;
-    const roomKey = mapRoomKey(mapPosition);
-    applyShrinePilgrimBonus();
-    const destination = usedSlots < inventoryCapacity ? "inventory" : "floor";
-    if (destination === "inventory") {
-      setInventoryCards([...remainingCards, rareCard]);
-    } else {
-      setInventoryCards(remainingCards);
-      setRoomDrops((current) => ({
-        ...current,
-        [roomKey]: [...(current[roomKey] ?? []), rareCard],
-      }));
-    }
-    const preserved = shouldPreserveTicket(blessings.includes("archaeologist"));
-    const collapsed = !preserved && randomGameRoll() < 0.5;
-    if (collapsed) setCollapsedCombinationShrineRooms((current) => new Set(current).add(roomKey));
-    setMapMessage(`특별 카드 5장을 ${rareCard.name}(으)로 조합했습니다.${destination === "floor" ? " 인벤토리가 가득 차 바닥에 놓았습니다." : ""} 조합의 성소는 ${collapsed ? "붕괴했습니다." : "보존되었습니다."}`);
-    queueRunSave();
-    return { before: selectedCards, after: [rareCard], collapsed, destination };
-  };
-
   const raiseNearbyEnemiesBySound = (center: MapPosition) => {
     setMapEnemyWorld((current) => ({
       ...current,
@@ -334,13 +260,13 @@ export function createLocationActions({
     queueRunSave();
   };
 
-  const openShrine = () => {
-    if (effectiveRoomType(mapPosition) !== "shrine") return;
-    setShrineOpen(true);
+  const openExtractionShrine = () => {
+    if (effectiveRoomType(mapPosition) !== "extractionShrine") return;
+    setExtractionShrineOpen(true);
   };
 
-  const extractCardsAtShrine = (deckId: string, cardIds: number[]) => {
-    if (effectiveRoomType(mapPosition) !== "shrine") return null;
+  const extractCardsAtExtractionShrine = (deckId: string, cardIds: number[]) => {
+    if (effectiveRoomType(mapPosition) !== "extractionShrine") return null;
     const sourceDeck = ownedDecks.find((deck) => deck.id === deckId);
     if (!sourceDeck) return null;
     const selectedIds = new Set(cardIds);
@@ -357,11 +283,11 @@ export function createLocationActions({
     }));
     applyShrinePilgrimBonus();
     const preserved = shouldPreserveTicket(blessings.includes("archaeologist"));
-    if (!preserved) setCollapsedShrineRooms((current) => new Set(current).add(roomKey));
+    if (!preserved) setCollapsedExtractionShrineRooms((current) => new Set(current).add(roomKey));
     setMapMessage(`${selectedCards.map((card) => card.name).join(", ")} 추출 완료. 추출의 성소가 ${preserved ? "보존되었습니다." : "붕괴했습니다."}`);
     queueRunSave(RUN_SAVE_POLICY.stateChangeDelayMs);
     return selectedCards;
   };
 
-  return { useCurrentPortal, useCurrentHeal, useCurrentRecoveryShrine, useCurrentVitalityShrine, activateMindEye, useCurrentMindEyeShrine, openTransformShrine, transformCardsAtShrine, openCombinationShrine, combineCardsAtShrine, openTreasureChest, openShrine, extractCardsAtShrine };
+  return { useCurrentPortal, confirmPortalTravel, useCurrentHeal, useCurrentRecoveryShrine, useCurrentVitalityShrine, activateMindEye, useCurrentMindEyeShrine, openTransformShrine, transformCardsAtShrine, openTreasureChest, openExtractionShrine, extractCardsAtExtractionShrine };
 }

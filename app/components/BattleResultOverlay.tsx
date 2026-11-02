@@ -1,21 +1,20 @@
-import type { ComponentType, Dispatch, SetStateAction } from "react";
+import { CardVisual } from "./CardVisual";
+import { ConsumableVisual } from "./ConsumableVisual";
+import type { Dispatch, SetStateAction } from "react";
 import type { Card } from "../game/cards";
-import type { CardFaceProps } from "./CardFace";
 import type { Consumable, DeckCase } from "../game/rewards";
 import { DeckName } from "./DeckName";
-import { ConsumableTicketTierMark, consumableTicketTierClassName } from "./ConsumableTicketTierMark";
 
 type BattleResultStatus = "won" | "lost";
 
 type BattleResultOverlayProps = {
   status: BattleResultStatus;
-  playerHp: number;
   turn: number;
   rewardGold: number;
+  rewardKeys: number;
   rewardCards: Card[];
   rewardDecks: DeckCase[];
   rewardConsumables: Consumable[];
-  CardFace: ComponentType<CardFaceProps>;
   consumableDescription: (item: Consumable) => string;
   showCardKeywordOnly: (card: Card, right: number, top: number) => void;
   setHoveredDeckCard: Dispatch<SetStateAction<Card | null>>;
@@ -27,13 +26,12 @@ type BattleResultOverlayProps = {
 
 export function BattleResultOverlay({
   status,
-  playerHp,
   turn,
   rewardGold,
+  rewardKeys,
   rewardCards,
   rewardDecks,
   rewardConsumables,
-  CardFace,
   consumableDescription,
   showCardKeywordOnly,
   setHoveredDeckCard,
@@ -47,20 +45,17 @@ export function BattleResultOverlay({
   return (
     <div className="result-overlay" role="dialog" aria-modal="true" aria-labelledby="result-title">
       <div className={`result-card ${won ? "has-rewards" : ""}`}>
-        <p>{won ? "BATTLE CLEARED" : "RUN ENDED"}</p>
+        {!won && <p>RUN ENDED</p>}
         <h2 id="result-title">{won ? "승리" : "패배"}</h2>
-        <span>{won
-          ? `${playerHp} 체력으로 전투를 마쳤습니다.`
-          : `${turn}턴에서 탐험이 끝났습니다.`}</span>
+        {!won && <span>{turn}턴에서 탐험이 끝났습니다.</span>}
         {won && (
           <div className="battle-reward-section">
-            <strong>전투 보상</strong>
-            <small>골드는 획득하고, 추가 보상은 이 바닥에 떨어집니다.</small>
-            <div className="battle-gold-reward">골드 +{rewardGold}</div>
+            <div className="battle-gold-reward">골드 +{rewardGold}{rewardKeys > 0 && <span className="battle-key-reward"> · 열쇠 +{rewardKeys}</span>}</div>
             <div className="battle-reward-cards">
               {rewardCards.map((card) => (
-                <div
-                  className={`battle-reward-card card-face ${card.kind} ${card.damageType}`}
+                <CardVisual
+                  card={card}
+                  className="battle-reward-card"
                   key={card.id}
                   onMouseEnter={(event) => {
                     const bounds = event.currentTarget.getBoundingClientRect();
@@ -74,9 +69,7 @@ export function BattleResultOverlay({
                     setHoveredDeckCard(null);
                     clearCardKeywordHover();
                   }}
-                >
-                  <CardFace card={card} />
-                </div>
+                />
               ))}
               {rewardDecks.map((deck) => (
                 <div className="battle-reward-deck" key={deck.id}>
@@ -86,8 +79,11 @@ export function BattleResultOverlay({
                 </div>
               ))}
               {rewardConsumables.map((item) => (
-                <div
-                  className={`battle-reward-consumable consumable-ticket ${item.type} ${consumableTicketTierClassName(item.type)}`}
+                <ConsumableVisual
+                  item={item}
+                  variant="full"
+                  description={consumableDescription(item)}
+                  className="battle-reward-consumable"
                   key={item.id}
                   aria-label={`${item.name}: ${consumableDescription(item)}`}
                   onMouseEnter={(event) => {
@@ -104,11 +100,7 @@ export function BattleResultOverlay({
                     showConsumablePreview(item, bounds.right, bounds.top);
                   }}
                   onBlur={() => setHoveredConsumable(null)}
-                >
-                  <ConsumableTicketTierMark type={item.type} />
-                  <strong>{item.name}</strong>
-                  <small>{consumableDescription(item)}</small>
-                </div>
+                />
               ))}
             </div>
           </div>

@@ -29,10 +29,11 @@ export type MapEnemyCellMemory = Record<string, {
 
 export const MAP_ENEMY_ACTIVE_RADIUS = 4;
 export const MAP_ENEMY_DISTANCE_FIELD_RADIUS = 6;
-export const MAP_PLAYER_VISION_HORIZONTAL_RADIUS = 2;
-export const MAP_PLAYER_VISION_VERTICAL_RADIUS = 2;
+export const MAP_PLAYER_VISION_HORIZONTAL_RADIUS = 3;
+export const MAP_PLAYER_VISION_VERTICAL_RADIUS = 3;
 export const MAP_ENEMY_SAFE_RADIUS = 2;
-export const MAP_ENEMY_SPAWN_CHANCE = 0.08;
+export const MAP_ENEMY_SPAWN_CHANCE = 0.04;
+const MAP_ENEMY_DETECTION_CHANCES: readonly number[] = [0, 0.5, 0.125];
 
 export const EIGHT_DIRECTIONS: GridPosition[] = [
   { x: -1, y: -1 },
@@ -306,13 +307,12 @@ function awarenessAfterDetection(
   detectionMultiplier: number,
   detectionDistanceReduction: number,
 ) {
-  if (awareness === "alerted" && distance >= 4) return "awake";
-  if (awareness === "awake" && distance >= 3 && random() < 0.03) return "sleeping";
-  const detectionChance = distance === 1
-    ? 0.5
-    : distance === 2 && detectionDistanceReduction < 1
-      ? 0.05
-      : 0;
+  if (awareness === "alerted" && distance >= 5) return "awake";
+  if (awareness === "awake" && distance >= 4 && random() < 0.10) return "sleeping";
+  const maximumDetectionDistance = MAP_ENEMY_DETECTION_CHANCES.length - 1 - detectionDistanceReduction;
+  const detectionChance = distance <= maximumDetectionDistance
+    ? MAP_ENEMY_DETECTION_CHANCES[distance] ?? 0
+    : 0;
   if (detectionChance === 0 || random() / detectionMultiplier >= detectionChance) return awareness;
   if (awareness === "sleeping") return "awake";
   if (awareness === "awake") return "alerted";
@@ -376,7 +376,7 @@ export function advanceMapEnemies(
 
     const shouldMove = enemy.awareness === "awake"
       ? random() >= 0.5
-      : random() < 0.92;
+      : random() < 0.95;
     if (!shouldMove) continue;
     if (enemy.awareness === "alerted") alertedMovers.push(enemy);
     else awakeMovers.push(enemy);

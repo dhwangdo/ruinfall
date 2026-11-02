@@ -1,11 +1,11 @@
 import assert from "node:assert/strict";
 import test from "node:test";
-import { createSewerEncounterByIndex, chooseNextIntent, applyPlayerAttack, getEnemyCodexEntries } from "../app/game/enemies.ts";
+import { createSewerEncounterByIndex, chooseNextIntent, applyPlayerAttack, applyPlayerTurnStart, getEnemyCodexEntries } from "../app/game/enemies.ts";
 import { waitingState, drawFromPiles, drawFromFirstPile, drawRandomFromPiles } from "../app/game/battleState.ts";
 import { resolveEnemyTurn } from "../app/game/enemyTurnResolution.ts";
 import { resolveCardPlay } from "../app/game/cardPlayResolution.ts";
 import { resolveEnemyDefeats } from "../app/game/enemyDefeatRules.ts";
-import { blockedPileIndexes, preparePileSeals, enemyTemporaryStrength, enemyEnergyRecoveryPenalty } from "../app/game/enemyPassives.ts";
+import { blockedPileIndexes, preparePileSeals, enemyTemporaryStrength, enemyEnergyRecoveryPenalty, confiscatePileCards } from "../app/game/enemyPassives.ts";
 import { recoverBattleEnergy } from "../app/game/combatEconomy.ts";
 import { prepareBattleStart } from "../app/game/battleSetup.ts";
 import { createFermentedSlimeCard, STARTER_CARD_POOL, RARE_CARD_POOL } from "../app/game/cards.ts";
@@ -19,6 +19,34 @@ const options = { blessings: [], maxPlayerHp: 500, oneUpUsed: false, randomRolls
 const card = (id = 1) => ({ ...STARTER_CARD_POOL[0], id, revealed: true });
 const playOptions = { ...options, phase: "playing", nextCardId: 100 };
 
+test("rider starts at 90 HP and grants both sides strength only after a surviving enemy turn", () => {
+  const battleDeck = { id: "test", name: "", capacity: 20, rareSlotCapacity: 0,
+    cards: [card()], editions: [], editionColors: {} };
+  const start = prepareBattleStart({ battleDeck, encounters: [{ encounterIndex: 34 }], playerHp: 500,
+    blessings: [], godsLamentCharges: 0, nextCardId: 100 }).game;
+  assert.equal(enemy(34).maxHp, 90);
+  assert.equal(start.strength, 0);
+  assert.equal(start.enemies[0].strength, 0);
+  const first = resolveEnemyTurn({ ...start, enemies: [{ ...start.enemies[0], intentIndex: 0 }] }, options);
+  assert.equal(first.remainingHp, 488);
+  assert.equal(first.remainingStrength, 2);
+  assert.equal(first.nextEnemies[0].strength, 2);
+  const next = { ...start, playerHp: first.remainingHp, strength: first.remainingStrength,
+    enemies: first.nextEnemies.map(unit => ({ ...applyPlayerTurnStart(unit), intentIndex: 0 })) };
+  assert.equal(next.enemies[0].strength, 2);
+  const second = resolveEnemyTurn(next, options);
+  assert.equal(first.remainingHp - second.remainingHp, 16);
+  assert.equal(second.remainingStrength, 4);
+  assert.equal(second.nextEnemies[0].strength, 4);
+  const extra = resolveEnemyTurn({ ...next, extraTurns: 1 }, options);
+  assert.equal(extra.remainingStrength, 2);
+  assert.equal(extra.nextEnemies[0].strength, 2);
+  const killed = resolveEnemyTurn({ ...start, playerPhysicalBlock: 20, reflectDamage: 1,
+    enemies: [{ ...start.enemies[0], hp: 1, intentIndex: 0 }] }, options);
+  assert.equal(killed.nextEnemies[0].hp, 0);
+  assert.equal(killed.remainingStrength, 0);
+});
+
 test("selected random patterns never repeat and removed proposals are absent", () => {
   for (const index of [1, 4, 18, 19, 20, 21, 22, 25, 26, 27, 30, 31, 32, 34, 35]) {
     const actions = enemy(index).actions;
@@ -31,16 +59,20 @@ test("selected random patterns never repeat and removed proposals are absent", (
   assert.ok(!getEnemyCodexEntries().some(entry => /종지기|유리 가시상|마나 야수|도깨비불/.test(entry.label)));
 });
 
-test("two half-size fermented slimes each give one retained token, once per battle", () => {
+test("a single fermented slime in a mixed pair grants one retained token and both statuses", () => {
   const previousDocument = globalThis.document;
   globalThis.document = { querySelectorAll: () => [] };
   try {
     const slimes = createSewerEncounterByIndex(32, () => .999);
     assert.equal(slimes.length, 2);
-    assert.ok(slimes.every(slime => slime.maxHp === 45 && slime.fermentedSlimeCount === 1));
-    assert.deepEqual(slimes[0].actions.map(action => action.attacks[0].value), [7, 4, 5]);
+    assert.equal(slimes[0].maxHp, 45);
+    assert.equal(slimes.filter(slime => slime.fermentedSlimeCount === 1).length, 1);
+    assert.deepEqual(slimes[0].actions.map(action => action.attacks[0]?.value), [10, 5, undefined]);
     assert.equal(slimes[0].actions[1].attacks[0].hits, 2);
-    assert.equal(slimes[0].actions[2].healGain, 5);
+    const charged = resolveEnemyTurn(waitingState(500, [{ ...slimes[0], intentIndex: 2 }]), options).nextEnemies[0];
+    assert.equal(charged.amplification, 2);
+    assert.equal(charged.resistance, 2);
+    assert.equal(slimes[0].actions[2].healGain, undefined);
     slimes[0].actions[0].attacks[0].value = 99;
     assert.equal(slimes[1].actions[0].attacks[0].value, 7);
     let state = { ...waitingState(50, slimes), piles: [[card(1), card(2)]] };
@@ -50,9 +82,9 @@ test("two half-size fermented slimes each give one retained token, once per batt
       setGame: update => { state = update(state); }, setPileClearNotice() {}, later: () => 0,
       pickRandom: items => items[0] });
     draw();
-    assert.equal(state.hand.filter(card => card.effect === "fermentedSlime" && card.retain).length, 2);
+    assert.equal(state.hand.filter(card => card.effect === "fermentedSlime" && card.retain).length, 1);
     draw();
-    assert.equal(state.hand.filter(card => card.effect === "fermentedSlime").length, 2);
+    assert.equal(state.hand.filter(card => card.effect === "fermentedSlime").length, 1);
   } finally {
     globalThis.document = previousDocument;
   }
@@ -76,9 +108,9 @@ test("goblin grows after its attack and warlock curses once before repeating phy
 test("hound uses original end-of-turn hand including retained or unplayable cards", () => {
   const hound = enemy(28);
   assert.equal(enemyTemporaryStrength(hound, 3, 0), 0);
-  assert.equal(enemyTemporaryStrength(hound, 3, 1), 8);
+  assert.equal(enemyTemporaryStrength(hound, 3, 1), 4);
   const result = resolveEnemyTurn({ ...waitingState(500, [hound]), hand: [createFermentedSlimeCard(1)] }, options);
-  assert.equal(result.remainingHp, 482);
+  assert.equal(result.remainingHp, 491);
   assert.equal(result.nextEnemies[0].strength, 0);
 });
 
@@ -88,13 +120,13 @@ test("hammer rests and grows only after a completely blocked hit", () => {
   const blocked = resolveEnemyTurn({ ...state, playerPhysicalBlock: 20 }, options);
   assert.equal(blocked.nextEnemies[0].intentIndex, 1);
   const rest = resolveEnemyTurn({ ...state, enemies: blocked.nextEnemies }, options);
-  assert.equal(rest.nextEnemies[0].strength, 3);
+  assert.equal(rest.nextEnemies[0].strength, 1);
   assert.equal(rest.nextEnemies[0].intentIndex, 0);
 });
 
-test("powder grows by five, explosions chain once and bypass attack modifiers", () => {
+test("powder grows by two, explosions chain once and bypass attack modifiers", () => {
   const grow = resolveEnemyTurn(waitingState(500, [enemy(26, 2)]), options);
-  assert.equal(grow.nextEnemies[0].powder, 17);
+  assert.equal(grow.nextEnemies[0].powder, 8);
   const first = { ...enemy(26), id: "first", hp: 0, powder: 17 };
   const second = { ...enemy(26), id: "second", hp: 10, powder: 12 };
   const state = { ...waitingState(100, [first, second]), playerPhysicalBlock: 5, playerResistance: 5 };
@@ -147,10 +179,14 @@ test("jailer reduces only recovery, and retained slime grants energy without buf
 
 test("confiscation removes one rare from play and death returns it immediately", () => {
   const rare = { ...RARE_CARD_POOL[0], id: 99, revealed: true };
-  const deck = { id: "test", name: "test", cards: [rare, card(2), card(3)], capacity: 20, editions: [] };
+  const deck = { id: "test", name: "test", cards: [rare, ...Array.from({ length: 15 }, (_, i) => card(i + 1))],
+    capacity: 20, editions: ["drawPlus"] };
   const setup = prepareBattleStart({ encounters: [{ encounterIndex: 35 }], playerHp: 50,
     battleDeck: deck, blessings: [], godsLamentCharges: 0, nextCardId: 100 });
   assert.ok(!setup.game.piles.flat().some(card => card.id === 99));
+  assert.ok(!setup.game.hand.some(card => card.id === 99));
+  assert.equal(setup.game.piles.length, 4);
+  assert.equal(setup.game.piles.flat().length + setup.game.hand.length, 15);
   assert.equal(setup.game.initialDeck.filter(card => card.id === 99).length, 1);
   const dead = { ...setup.game, enemies: setup.game.enemies.map(enemy => enemy.confiscatesRare ? { ...enemy, hp: 0 } : enemy) };
   const returned = resolveEnemyDefeats(dead).state;
@@ -158,11 +194,35 @@ test("confiscation removes one rare from play and death returns it immediately",
   assert.equal(resolveEnemyDefeats(returned).state.hand.filter(card => card.id === 99).length, 1);
 });
 
-test("confiscator protects the other enemy rather than itself", () => {
+test("confiscation leaves dealt files in place, reveals the exposed top and keeps empty files", () => {
+  const confiscator = enemy(35);
+  const rare = { ...RARE_CARD_POOL[0], id: 99, revealed: true };
+  const hidden = { ...card(1), revealed: false };
+  const source = [[hidden, rare], [card(2)]];
+  const result = confiscatePileCards([confiscator], source, () => 0);
+  assert.deepEqual(result.piles.map(pile => pile.map(card => card.id)), [[1], [2]]);
+  assert.equal(result.piles[0][0].revealed, true);
+  assert.equal(hidden.revealed, false);
+  assert.equal(source[0].length, 2);
+  assert.deepEqual(result.enemies[0].confiscatedCards.map(card => card.id), [99]);
+
+  const withEmpty = confiscatePileCards([confiscator], [[card(1), card(2)], [rare]], () => 0);
+  assert.deepEqual(withEmpty.piles.map(pile => pile.map(card => card.id)), [[1, 2], []]);
+  const warden = preparePileSeals([enemy(31)], withEmpty.piles, 1, () => .999)[0];
+  assert.equal(warden.sealedPileIndex, 0);
+
+  const anotherRare = { ...rare, id: 100 };
+  const multiple = confiscatePileCards([confiscator, { ...confiscator, id: "second" }], [[rare, anotherRare]], () => 0);
+  assert.deepEqual(multiple.enemies.map(enemy => enemy.confiscatedCards[0].id), [99, 100]);
+  assert.deepEqual(multiple.piles, [[]]);
+});
+
+test("confiscator curses the player instead of protecting an ally", () => {
   const enemies = createSewerEncounterByIndex(35, () => .999).map((enemy, index) => ({ ...enemy, intentIndex: index === 0 ? 2 : 0 }));
   const result = resolveEnemyTurn(waitingState(500, enemies), options);
   assert.equal(result.nextEnemies[0].physicalBlock, 0);
-  assert.equal(result.nextEnemies[1].physicalBlock, 8);
+  assert.equal(result.nextEnemies[1].physicalBlock, 0);
+  assert.equal(result.nextPlayerResistance, -1);
 });
 
 test("a lethal explosion cannot schedule victory or bypass 1UP", () => {
@@ -199,17 +259,19 @@ test("the complete turn transition preserves retained cards and applies recovery
     let state = { ...waitingState(50, [enemy(30, 2)]), hand: [createFermentedSlimeCard(1), card(2)],
       piles: [[card(3), card(4)]], energy: 0 };
     const callbacks = [];
+    const effectPopups = [];
     createEndTurn({ game: state, phase: "playing", handCardRefs: { current: new Map() },
       setPhase() {}, setDragging() {}, later: callback => { callbacks.push(callback); return callbacks.length; },
       blessings: [], oneUpUsedRef: { current: false }, maxPlayerHp: 50, setOneUpUsed() {},
       setGame: update => { state = typeof update === "function" ? update(state) : update; }, drawCards() {},
-      telemetry: createTelemetryRecorder(), setDamagePopup() {}, setAttackingEnemyId() {}, grantBattleReward() {},
+      telemetry: createTelemetryRecorder(), setDamagePopup() {}, showEnemyPopup: (...args) => effectPopups.push(args), setAttackingEnemyId() {}, grantBattleReward() {},
       battleRewardRegionRef: { current: 2 }, maximumEnergyForGame: () => 3, animateCardToPlayer: () => null })();
     while (callbacks.length) callbacks.shift()();
     assert.deepEqual(state.hand.map(card => card.id), [1]);
     assert.deepEqual(state.discard.map(card => card.id), [2]);
     assert.equal(state.energy, 2);
     assert.equal(state.turn, 2);
+    assert.ok(effectPopups.some(([, text, kind]) => text === "증폭 2 획득" && kind === "buff"));
   } finally {
     globalThis.window = previousWindow;
   }

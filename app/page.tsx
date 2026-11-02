@@ -1,14 +1,24 @@
 "use client";
 
+import { CardVisual } from "./components/CardVisual";
+import { RarityText } from "./components/RarityText";
+
 import { blockedPileIndexes } from "./game/enemyPassives.ts";
 
 import { useLocationDialogs } from "./hooks/useLocationDialogs";
 import { createShopActions } from "./controllers/shopActions";
 import { createBlessingActions } from "./controllers/blessingActions";
 import { createLocationActions } from "./controllers/locationActions";
+import { createDeckVaultActions } from "./controllers/deckVaultActions";
+import { DeckVaultModal } from "./components/DeckVaultModal";
+import { PortalKeyWarning } from "./components/PortalKeyWarning";
 
 import { createBattleSessionActions } from "./controllers/battleSessionActions";
 import { useBattleSession, useBattleRewardFallback } from "./hooks/useBattleSession";
+import { useBattleCardFlights } from "./hooks/useBattleCardFlights";
+import { BattleResources } from "./components/BattleResources";
+import { GameVersion } from "./components/GameVersion";
+import { ConsumableCardPreview } from "./components/ConsumableCardPreview";
 
 import { useRunInventory } from "./hooks/useRunInventory";
 import { useRunWorld } from "./hooks/useRunWorld";
@@ -16,20 +26,20 @@ import { useRunPlayer } from "./hooks/useRunPlayer";
 
 import {
   animateCardToPlayer,
-  animateEnemyCardDelivery,
+  animateDiscardedCards,
   animatePlayedCardToCenter,
 } from "./components/cardAnimations";
 import {
   createDrawAstronomyResearchCard,
   createDrawSelectedPile,
   createMoveCardToPile,
+  resolvePendingPileOperation,
 } from "./game/pileActions";
 import { createResolvePlayedCard } from "./game/cardPlayAction";
 import type { DragState } from "./game/battleUiTypes";
 import { createEndTurn } from "./game/endTurnAction";
 import { createDrawCards } from "./game/drawCards";
 import {
-  Fragment,
   useEffect,
   useEffectEvent,
   useLayoutEffect,
@@ -38,7 +48,6 @@ import {
   type CSSProperties,
   type WheelEvent as ReactWheelEvent,
 } from "react";
-import { CardFace } from "./components/CardFace";
 import { CardKeywordPopover } from "./components/CardKeywordPopover";
 import { DeckName } from "./components/DeckName";
 import {
@@ -54,7 +63,6 @@ import { BattleDeckCheckModal } from "./components/BattleDeckCheckModal";
 import { BattlePileZone } from "./components/BattlePileZone";
 import { BattlePlayerPanel } from "./components/BattlePlayerPanel";
 import { BattleResultOverlay } from "./components/BattleResultOverlay";
-import { DeckEditorCardIcon } from "./components/DeckEditorCardIcon";
 import { CardConversionShrineModal } from "./components/CardConversionShrineModal";
 import { ExtractionShrineModal } from "./components/ExtractionShrineModal";
 import { DeckEditorModal } from "./components/DeckEditorModal";
@@ -84,12 +92,12 @@ import {
   DEBUG_CARD_RARITIES,
   UNPLAYABLE_CARD_EFFECTS,
   createAdrenalineCard,
-  isAttackCard,
   canTargetEnemy,
   type Card,
   type CardBlueprint,
 } from "./game/cards";
 import { canPlaceBySolitaireRule, cardEnergyCost } from "./game/cardEffects";
+import { canUseCardOnCenter, cardDropTarget } from "./game/cardTargetRules.ts";
 import { canPayEnergyCost, maximumBattleEnergy } from "./game/combatEconomy";
 import { MAX_PLAYER_HP, waitingState, type GameState } from "./game/battleState";
 import { sortBattleHandByCost } from "./game/battleHandRules";
@@ -226,10 +234,10 @@ export default function Home() {
     mapSeed, setMapSeed, mapPosition, setMapPosition, seenRooms, setSeenRooms,
     setSafeAreaEntrySeenRooms, mapEnemyWorld, setMapEnemyWorld,
     defeatedBossRegions, setDefeatedBossRegions, mapEnemyCellMemory, setMapEnemyCellMemory,
-    mapBombs, mapBombsRef, setDestroyedShopRooms, setCollapsedShrineRooms,
+    mapBombs, mapBombsRef, setDestroyedShopRooms, setCollapsedExtractionShrineRooms,
     setCollapsedRecoveryShrineRooms, setCollapsedVitalityShrineRooms,
     setCollapsedMindEyeShrineRooms, setCollapsedTransformShrineRooms,
-    setCollapsedCombinationShrineRooms, setCollapsedTreasureChestRooms, setUsedHealRooms,
+    setCollapsedTreasureChestRooms, setOpenedDeckVaultRooms, setUsedHealRooms,
     setUsedBlessingRooms, setRockBombHits, generatedMapRoomKeysRef, setMapBombsSynced,
     effectiveRoomType,
   } = world;
@@ -249,17 +257,16 @@ export default function Home() {
     roomDrops, setRoomDrops, roomConsumableDrops, setRoomConsumableDrops,
     roomDeckDrops, setRoomDeckDrops, roomShops, setRoomShops, gold, setGold,
     nextCardIdRef, nextConsumableIdRef, nextConsumable,
-    deckDropChanceRef, rareCardDropChanceRef, deckPityBattlesRemainingRef } = inventory;
+    keys, roomDeckVaults, resetDeckVaults, rareCardDropChanceRef } = inventory;
   const dialogs = useLocationDialogs();
   const {
+    deckVaultRoom, setDeckVaultRoom, portalKeyWarningRoom, setPortalKeyWarningRoom,
     treasureChestReward,
     setTreasureChestReward,
-    shrineOpen,
-    setShrineOpen,
+    extractionShrineOpen,
+    setExtractionShrineOpen,
     transformShrineOpen,
     setTransformShrineOpen,
-    combinationShrineOpen,
-    setCombinationShrineOpen,
     shopOpen,
     setShopOpen,
     blessingOpen,
@@ -275,12 +282,13 @@ export default function Home() {
     setPendingBattleStart, battleDeckCheckEnabled, setBattleDeckCheckEnabled, battleDeckPreviewId,
     setBattleDeckPreviewId, battleRewards, setBattleRewards, battleRewardDecks,
     setBattleRewardDecks, battleRewardConsumables, setBattleRewardConsumables, battleRewardGold,
-    setBattleRewardGold, game, setGame, telemetryPreviousGameRef, phase, setPhase,
+    setBattleRewardGold, battleRewardKeys, setBattleRewardKeys, game, setGame, telemetryPreviousGameRef, phase, setPhase,
     attackingEnemyId, setAttackingEnemyId, damagePopup, setDamagePopup, enemyPopups,
     animatedEnemyHp, setAnimatedEnemyHp, battleRewardRegionRef,
     battleRewardIsBossRef, battleRewardIsOutOfDepthRef, dyingEnemyIds, setDyingEnemyIds,
     battleCardView, setBattleCardView, pendingOriginsRef, pendingEnemyTokenIdsRef,
     pendingPileTokenSourcesRef, handCardRefs, pendingDiscardPlay, setPendingDiscardPlay, getGame, later, clearBattleTimers, showEnemyPopup,
+    afterAnimations, trackAnimation,
   } = battle;
   const [mapTraveling, setMapTraveling] = useState(false);
   const mapCamera = useMapCamera({ enabled: screen === "map", position: mapPosition, travelLocked: mapTraveling });
@@ -453,19 +461,17 @@ export default function Home() {
     allowed: !playerNameSetupOpen && screen === "map" && !mapTraveling && !deckEditorOpen,
     status: game.status,
     onInitialize: initializeMap,
-    counters: { deckDropChanceRef, rareCardDropChanceRef, deckPityBattlesRemainingRef },
+    counters: { rareCardDropChanceRef },
     onRestore: (state) => {
+      nextCardIdRef.current = state.nextCardId;
+      nextConsumableIdRef.current = state.nextConsumableId;
       player.restorePlayer(state);
       world.restoreWorld(state);
       inventory.restoreInventory(state);
       setMapEnemyWorld(materializeMapContent(
-        positionsInSquare(state.mapPosition, 5), state.mapSeed, state.mapEnemyWorld, [],
+        [...state.seenRooms.map(parseMapRoomKey), ...positionsInSquare(state.mapPosition, 5)], state.mapSeed, state.mapEnemyWorld, [],
       ));
-      nextCardIdRef.current = state.nextCardId;
-      nextConsumableIdRef.current = state.nextConsumableId;
-      deckDropChanceRef.current = state.deckDropChance;
       rareCardDropChanceRef.current = state.rareCardDropChance;
-      deckPityBattlesRemainingRef.current = state.deckPityBattlesRemaining;
       setGame(waitingState());
       setPhase("drawing");
       setScreen("map");
@@ -718,14 +724,16 @@ export default function Home() {
     maxPlayerHp, inventoryCapacity, queueRunSave, materializeMapContent, setMapMessage,
   });
   const {
-    useCurrentPortal, useCurrentHeal, useCurrentRecoveryShrine, useCurrentVitalityShrine,
+    useCurrentPortal, confirmPortalTravel, useCurrentHeal, useCurrentRecoveryShrine, useCurrentVitalityShrine,
     activateMindEye, useCurrentMindEyeShrine, openTransformShrine, transformCardsAtShrine,
-    openCombinationShrine, combineCardsAtShrine, openTreasureChest, openShrine, extractCardsAtShrine,
+    openTreasureChest, openExtractionShrine, extractCardsAtExtractionShrine,
   } = createLocationActions({
     inventory, world, player, dialogs, telemetry, ensureTelemetryRun, maxPlayerHp,
-    inventoryCapacity, blessingVisionBonus, queueRunSave, setMapMessage, showMapMessage,
+    blessingVisionBonus, queueRunSave, setMapMessage, showMapMessage,
     isSafeAreaSealed, focusMapOn, materializeMapContent, materializeVisibleMapContent, rememberPlayerVision,
   });
+
+  const { openDeckVault, unlockDeckVault } = createDeckVaultActions({ inventory, world, player, dialogs, queueRunSave, telemetry, ensureTelemetryRun });
 
   const researchDragImageRef = useRef<HTMLCanvasElement | null>(null);
   const researchDragActiveRef = useRef(false);
@@ -880,7 +888,7 @@ export default function Home() {
     setDestroyedShopRooms((current) => {
       const next = new Set(current);
       affectedPositions.forEach((position) => {
-        if (getRoomType(position, mapSeed) === "shop") next.add(mapRoomKey(position));
+        if (["shop", "bloodShop"].includes(getRoomType(position, mapSeed))) next.add(mapRoomKey(position));
       });
       return next;
     });
@@ -1126,6 +1134,11 @@ export default function Home() {
     setDebugMode(false);
     const nextSeed = createRandomMapSeed();
     const starterDeck = createStarterDeck();
+    resetDeckVaults();
+    nextCardIdRef.current = starterDeck.cards.length;
+    setOpenedDeckVaultRooms(new Set());
+    setDeckVaultRoom(null);
+    setPortalKeyWarningRoom(null);
     setPlayerName(createRandomPlayerName());
     setPlayerNameSetupOpen(true);
     runPlayerHpRef.current = MAX_PLAYER_HP;
@@ -1149,6 +1162,7 @@ export default function Home() {
       nextSeed,
       { enemies: [] },
       initialVisiblePositions,
+      0,
     );
     setSeenRooms(initialVisibleKeys);
     setSafeAreaEntrySeenRooms(null);
@@ -1157,18 +1171,16 @@ export default function Home() {
     setMapEnemyCellMemory({});
     setMapBombsSynced([]);
     setDestroyedShopRooms(new Set());
-    setCollapsedShrineRooms(new Set());
+    setCollapsedExtractionShrineRooms(new Set());
     setCollapsedRecoveryShrineRooms(new Set());
     setCollapsedVitalityShrineRooms(new Set());
     setCollapsedMindEyeShrineRooms(new Set());
     setCollapsedTransformShrineRooms(new Set());
-    setCollapsedCombinationShrineRooms(new Set());
     setCollapsedTreasureChestRooms(new Set());
     setTreasureChestReward(null);
     setVitalityShrineMaxHpBonus(0);
-    setShrineOpen(false);
+    setExtractionShrineOpen(false);
     setTransformShrineOpen(false);
-    setCombinationShrineOpen(false);
     setUsedHealRooms(new Set());
     setUsedBlessingRooms(new Set());
     setRockBombHits({});
@@ -1201,9 +1213,8 @@ export default function Home() {
     setBattleRewardDecks([]);
     setBattleRewardConsumables([]);
     setBattleRewardGold(0);
-    deckDropChanceRef.current = 0.25;
+    setBattleRewardKeys(0);
     rareCardDropChanceRef.current = 0.05;
-    deckPityBattlesRemainingRef.current = 3;
     finishDeckEditorSession();
     setHoveredDeckCard(null);
     clearCardKeywordHover();
@@ -1212,7 +1223,6 @@ export default function Home() {
     setPendingExtractTicketId(null);
     setPendingTransformTicketId(null);
       setArmedBombTicketIds(new Set());
-      nextCardIdRef.current = starterDeck.cards.length;
       setGame(waitingState());
     setPhase("drawing");
     setScreen("map");
@@ -1235,10 +1245,11 @@ export default function Home() {
     playerNameSetupOpen,
     pendingBattleStart,
     shopOpen,
+    deckVaultRoom,
+    portalKeyWarningRoom,
     blessingOpen,
-    shrineOpen,
+    extractionShrineOpen,
     transformShrineOpen,
-    combinationShrineOpen,
     deckSelectorOpen,
     deckEditorOpen,
     openedCardPack,
@@ -1440,11 +1451,12 @@ export default function Home() {
     deckEditorOpen,
     confirmDeckEditor,
     escapeTargets: [
+      { open: portalKeyWarningRoom !== null, close: () => setPortalKeyWarningRoom(null) },
+      { open: deckVaultRoom !== null, close: () => setDeckVaultRoom(null) },
       { open: cardPoolStatsOpen, close: () => setCardPoolStatsOpen(false) },
       { open: treasureChestReward !== null, close: () => setTreasureChestReward(null) },
-      { open: shrineOpen, close: () => setShrineOpen(false) },
+      { open: extractionShrineOpen, close: () => setExtractionShrineOpen(false) },
       { open: transformShrineOpen, close: () => setTransformShrineOpen(false) },
-      { open: combinationShrineOpen, close: () => setCombinationShrineOpen(false) },
       { open: blessingOpen, close: () => setBlessingOpen(false) },
       { open: shopOpen, close: () => setShopOpen(false) },
       { open: openedCardPack !== null, close: () => setOpenedCardPack(null) },
@@ -1455,16 +1467,18 @@ export default function Home() {
     openDeckEditor,
     quickPickUpFloorItems,
     waitOnMap,
+    interactionLocked: portalKeyWarningRoom !== null || deckVaultRoom !== null,
     roomType: effectiveRoomType(mapPosition),
     roomActions: {
+      bloodShop: () => openShop(mapRoomKey(mapPosition), getRegionNumber(mapPosition, mapSeed), "hp"),
       shop: () => openShop(mapRoomKey(mapPosition), getRegionNumber(mapPosition, mapSeed)),
-      shrine: openShrine,
+      extractionShrine: openExtractionShrine,
       recoveryShrine: useCurrentRecoveryShrine,
       vitalityShrine: useCurrentVitalityShrine,
       mindEyeShrine: useCurrentMindEyeShrine,
       transformShrine: openTransformShrine,
-      combinationShrine: openCombinationShrine,
       treasureChest: openTreasureChest,
+      deckVault: openDeckVault,
       blessing: openBlessings,
       portal: useCurrentPortal,
       safePortal: useCurrentPortal,
@@ -1484,85 +1498,7 @@ export default function Home() {
     return () => window.cancelAnimationFrame(frame);
   }, [screen, mapPosition]);
 
-  useLayoutEffect(() => {
-    const origins = pendingOriginsRef.current;
-    if (origins.size === 0 || game.hand.length === 0) return;
-
-    if (window.matchMedia("(prefers-reduced-motion: reduce)").matches) {
-      origins.clear();
-      const frame = window.requestAnimationFrame(() => {
-        if (!game.clearPlan) setPhase("playing");
-      });
-      return () => window.cancelAnimationFrame(frame);
-    }
-
-    const cardsToAnimate = game.hand
-      .filter((card) => origins.has(card.id) && handCardRefs.current.has(card.id))
-      .slice(0, 9);
-    let finishDelay = 0;
-    cardsToAnimate.forEach((card, index) => {
-      const source = origins.get(card.id)!;
-      const target = handCardRefs.current.get(card.id)!;
-      const delay = index * 50;
-      if (pendingEnemyTokenIdsRef.current.has(card.id)) {
-        target.style.zIndex = String(20 + index);
-        animateEnemyCardDelivery(target, source, delay);
-        finishDelay = Math.max(finishDelay, 860 + delay);
-        return;
-      }
-      finishDelay = Math.max(finishDelay, 320 + delay);
-      const targetRect = target.getBoundingClientRect();
-      target.style.zIndex = String(20 + index);
-      target.animate(
-        [
-          {
-            transform: `translate(${source.left - targetRect.left}px, ${source.top - targetRect.top}px) rotate(-3deg) scale(.94)`,
-            opacity: .72,
-            boxShadow: "0 2px 4px rgba(0,0,0,.28)",
-          },
-          {
-            transform: "translate(0, 0) rotate(0deg) scale(1)",
-            opacity: 1,
-            boxShadow: "0 7px 14px rgba(0,0,0,.3)",
-          },
-        ],
-        {
-          duration: 300,
-          delay,
-          easing: "cubic-bezier(.2,.72,.25,1)",
-          fill: "backwards",
-        },
-      );
-    });
-
-    origins.clear();
-    pendingEnemyTokenIdsRef.current.clear();
-    const timer = window.setTimeout(() => {
-      handCardRefs.current.forEach((element) => { element.style.zIndex = ""; });
-      if (!game.clearPlan) setPhase("playing");
-    }, finishDelay);
-    return () => window.clearTimeout(timer);
-  }, [game.hand, game.clearPlan, handCardRefs, pendingEnemyTokenIdsRef, pendingOriginsRef, setPhase]);
-
-  useLayoutEffect(() => {
-    if (screen !== "battle" || pendingPileTokenSourcesRef.current.size === 0) return;
-    pendingPileTokenSourcesRef.current.forEach((enemyId, cardId) => {
-      const source = document.querySelector<HTMLElement>(`[data-enemy-id="${enemyId}"]`);
-      const target = document.querySelector<HTMLElement>(`[data-card-id="${cardId}"]`);
-      if (!source || !target) return;
-      target.style.zIndex = "60";
-      const animation = animateEnemyCardDelivery(target, source.getBoundingClientRect());
-      if (animation) {
-        animation.finished.then(
-          () => { target.style.zIndex = ""; },
-          () => { target.style.zIndex = ""; },
-        );
-      } else {
-        target.style.zIndex = "";
-      }
-      pendingPileTokenSourcesRef.current.delete(cardId);
-    });
-  }, [screen, game.piles, pendingPileTokenSourcesRef]);
+  useBattleCardFlights(battle);
 
   const defeatEnemiesForDebug = () => {
     if (!debugMode || game.status !== "playing") return;
@@ -1626,6 +1562,10 @@ export default function Home() {
         game.activeRuleCards.filter((ruleCard) => ruleCard.effect === "economicsResearch").length,
       );
     if (!shouldAnimate) {
+      // A discard-cost card is already hidden while the player chooses its cost.
+      if (discardCostPaid && screen === "battle" && phase === "playing" && game.status === "playing") {
+        recordTelemetryCardPlayed(telemetry, telemetryCardSnapshot(card));
+      }
       resolvePlayedCard(card, targetEnemyId, discardCostPaid);
       return;
     }
@@ -1658,17 +1598,17 @@ export default function Home() {
       && !game.pendingSweep
       && game.hand.some((item) => item.id === card.id);
     if (canLogPlayedCard) recordTelemetryCardPlayed(telemetry, telemetryCardSnapshot(card));
-    const flightDuration = animatePlayedCardToCenter(sourceCard);
-    if (flightDuration === 0) {
+    const flight = animatePlayedCardToCenter(sourceCard);
+    if (!flight) {
       resolvePlayedCard(card, targetEnemyId, discardCostPaid);
       return;
     }
     setSelectedHandCardId(null);
     setPhase("resolving");
-    later(() => {
+    afterAnimations([flight], () => {
       setPhase("playing");
       resolvePlayedCard(card, targetEnemyId, discardCostPaid);
-    }, flightDuration);
+    });
   };
   const startResearchDraw = (research: "astronomy" | "necromancy") => {
     if (phase !== "playing" || game.status !== "playing") return;
@@ -1754,19 +1694,13 @@ export default function Home() {
   const playHandCardOnDoubleClick = (card: Card) => {
     // During a forced discard, the ordinary click is the card-selection input.
     if (game.pendingDiscards > 0) return;
-    const targetEnemy = canTargetEnemy(card)
-      ? game.enemies.find((enemy) => enemy.hp > 0)
-      : undefined;
-    playCard(card, targetEnemy?.id);
+    if (canTargetEnemy(card)) {
+      setSelectedHandCardId(card.id);
+      setGame(current => ({ ...current, message: `${card.name}: 적용할 적을 선택하세요.` }));
+      return;
+    }
+    playCard(card);
   };
-
-  const canUseCardOnCenter = (card: Card | undefined) => Boolean(
-    card
-    && card.kind !== "strike"
-    && card.effect !== "doubleHit"
-    && !UNPLAYABLE_CARD_EFFECTS.has(card.effect)
-    && !["slime", "combatManual", "grimoire", "scaleArmor"].includes(card.effect)
-  );
 
   const playSelectedHandCardOnCenter = () => {
     if (
@@ -1789,9 +1723,11 @@ export default function Home() {
   const playSelectedHandCardOnEnemy = (enemyId: string) => {
     if (screen !== "battle" || phase !== "playing" || game.status !== "playing" || selectedHandCardId === null) return;
     const card = game.hand.find((item) => item.id === selectedHandCardId);
-    if (!card || !canTargetEnemy(card)) return;
+    if (!card) return;
+    const target = cardDropTarget(card, `enemy:${enemyId}`);
+    if (!target) return;
     setSelectedHandCardId(null);
-    playCard(card, enemyId);
+    playCard(card, target.targetEnemyId);
   };
 
   const drawSelectedPile = (pileIndex: number) => createDrawSelectedPile({
@@ -1830,31 +1766,7 @@ export default function Home() {
 
   const takeSelectedPile = (pileIndex: number) => {
     if (!game.pendingSweep || game.pendingResearchDraw !== null || phase !== "playing" || game.status !== "playing") return;
-    const pile = game.piles[pileIndex];
-    if (!pile?.length) return;
-    setGame((current) => {
-      const currentPile = current.piles[pileIndex] ?? [];
-      if (!current.pendingSweep || current.pendingResearchDraw !== null || !currentPile.length) return current;
-      const nextPiles = current.piles.map((currentPile) => [...currentPile]);
-      const top = nextPiles[pileIndex].pop();
-      if (!top) return current;
-      const cards = [top];
-      if (current.pendingPileOperation !== "discardTop") {
-        nextPiles[pileIndex].unshift({ ...top, revealed: true });
-      }
-      if (nextPiles[pileIndex].length > 0) {
-        nextPiles[pileIndex][nextPiles[pileIndex].length - 1] = { ...nextPiles[pileIndex].at(-1)!, revealed: true };
-      }
-      const action = `${pileIndex + 1}번 파일 ${cards.length}장을 손으로 가져옴`;
-      return {
-        ...current,
-        piles: nextPiles,
-        discard: current.pendingPileOperation === "discardTop" ? [...current.discard, top] : current.discard,
-        pendingSweep: false,
-        pendingPileOperation: null,
-        message: action,
-      };
-    });
+    setGame(current => resolvePendingPileOperation(current, pileIndex));
   };
 
   const moveCardToPile = (drag: DragState, targetPileIndex: number) => createMoveCardToPile({
@@ -1900,7 +1812,7 @@ export default function Home() {
     return true;
   };
 
-  const { beginDrag, moveDrag, finishDrag, cancelDrag } = useBattlePointerInput({
+  const { beginDrag, moveDrag, finishDrag, cancelDrag, dragPreviewRef } = useBattlePointerInput({
     interaction: battleInteraction,
     game,
     phase,
@@ -1932,11 +1844,15 @@ export default function Home() {
     drawCards,
     telemetry,
     setDamagePopup,
+    showEnemyPopup,
     setAttackingEnemyId,
     grantBattleReward,
     battleRewardRegionRef,
     maximumEnergyForGame,
     animateCardToPlayer,
+    animateDiscardedCards,
+    afterAnimations,
+    trackAnimation,
   })();
 
   const endTurnFromKeyboard = useEffectEvent(() => endTurn());
@@ -2036,12 +1952,7 @@ export default function Home() {
         className={`game-shell map-shell card-style-simple watermark-${cardWatermarkStyle} ${constellationPreviewIndex === null ? "" : "is-previewing-constellation"}`}
         style={cardWatermarkVariables}
       >
-        <span
-          className="game-version"
-          aria-label={`게임 버전 ${GAME_VERSION}, 커밋 ${COMMIT_HASH}, 커밋 시각 ${COMMIT_DATE}`}
-        >
-          {GAME_VERSION} · {COMMIT_HASH} · {COMMIT_DATE}
-        </span>
+        <GameVersion version={GAME_VERSION} commitHash={COMMIT_HASH} commitDate={COMMIT_DATE} />
         {hoveredDeckEditionTooltip && (
           <aside
             className="deck-edition-tooltip-floating"
@@ -2067,7 +1978,7 @@ export default function Home() {
             role="tooltip"
           >
             <strong>{hoveredBlessingTooltip.name}</strong>
-            <span>{hoveredBlessingTooltip.description}</span>
+            <span><RarityText>{hoveredBlessingTooltip.description}</RarityText></span>
           </aside>
         )}
         {!saveReady && (
@@ -2135,11 +2046,12 @@ export default function Home() {
             onConfirm={confirmBattleDeck}
           />
         )}
-        <CardKeywordPopover popover={hoveredCardKeywords} popoverRef={cardKeywordPopoverRef} />
+        <CardKeywordPopover popover={hoveredCardKeywords} popoverRef={cardKeywordPopoverRef} onDismiss={clearCardKeywordHover} />
         <MapTopbar
           runPlayerHp={runPlayerHp}
           maxPlayerHp={maxPlayerHp}
           gold={gold}
+          keys={keys}
           deckCardCount={deckCards.length}
           mapTraveling={mapTraveling}
           canEditDeck={canEditDeck}
@@ -2223,6 +2135,7 @@ export default function Home() {
             roomDrops,
             roomConsumableDrops,
             roomDeckDrops,
+            roomDeckVaults,
           }}
           camera={mapCamera}
           debugTools={{
@@ -2274,14 +2187,14 @@ export default function Home() {
                 itemCount: floorItemNames.length,
               }
               : null}
-            onEnterShop={() => openShop(mapRoomKey(mapPosition), getRegionNumber(mapPosition, mapSeed))}
-            onOpenShrine={openShrine}
+            onEnterShop={() => openShop(mapRoomKey(mapPosition), getRegionNumber(mapPosition, mapSeed), currentRoomType === "bloodShop" ? "hp" : "gold")}
+            onOpenExtractionShrine={openExtractionShrine}
             onUseRecoveryShrine={useCurrentRecoveryShrine}
             onUseVitalityShrine={useCurrentVitalityShrine}
             onUseMindEyeShrine={useCurrentMindEyeShrine}
             onOpenTransformShrine={openTransformShrine}
-            onOpenCombinationShrine={openCombinationShrine}
             onOpenTreasureChest={openTreasureChest}
+            onOpenDeckVault={openDeckVault}
             onOpenBlessings={openBlessings}
             onUsePortal={useCurrentPortal}
             onUseHeal={useCurrentHeal}
@@ -2304,23 +2217,26 @@ export default function Home() {
           </label>
         </MapBoard>
 
+        {portalKeyWarningRoom !== null && <PortalKeyWarning
+          onCancel={() => setPortalKeyWarningRoom(null)} onConfirm={confirmPortalTravel} />}
+        {deckVaultRoom !== null && roomDeckVaults[deckVaultRoom] && <DeckVaultModal
+          deck={roomDeckVaults[deckVaultRoom]} keys={keys}
+          onClose={() => setDeckVaultRoom(null)} onUnlock={unlockDeckVault} />}
         <TreasureChestRewardModal
           reward={treasureChestReward}
-          onClose={() => setTreasureChestReward(null)}
-          CardFace={CardFace}
-          showCardKeywordOnly={showCardKeywordOnly}
+          onClose={() => setTreasureChestReward(null)}          showCardKeywordOnly={showCardKeywordOnly}
           setHoveredDeckCard={setHoveredDeckCard}
           clearCardKeywordHover={clearCardKeywordHover}
           consumableDescription={consumableDescription}
           showConsumablePreview={showConsumablePreview}
           setHoveredConsumable={setHoveredConsumable}
         />
-        {shrineOpen && (
+        {extractionShrineOpen && (
           <ExtractionShrineModal
             decks={ownedDecks}
             initialDeckId={activeDeck?.id ?? ""}
-            onClose={() => setShrineOpen(false)}
-            onExtract={extractCardsAtShrine}
+            onClose={() => setExtractionShrineOpen(false)}
+            onExtract={extractCardsAtExtractionShrine}
             onEditionTooltipHover={showDeckEditionTooltip}
             onEditionTooltipLeave={() => setHoveredDeckEditionTooltip(null)}
           />
@@ -2328,19 +2244,10 @@ export default function Home() {
 
         <CardConversionShrineModal
           key={`transform-${transformShrineOpen}`}
-          mode="transform"
           open={transformShrineOpen}
           inventoryCards={inventoryCards}
           onClose={() => setTransformShrineOpen(false)}
           onConfirm={transformCardsAtShrine}
-        />
-        <CardConversionShrineModal
-          key={`combination-${combinationShrineOpen}`}
-          mode="combination"
-          open={combinationShrineOpen}
-          inventoryCards={inventoryCards}
-          onClose={() => setCombinationShrineOpen(false)}
-          onConfirm={combineCardsAtShrine}
         />
         <BlessingModal
           open={blessingOpen}
@@ -2355,11 +2262,10 @@ export default function Home() {
         <ShopModal
           open={shopOpen}
           gold={gold}
+          playerHp={runPlayerHp}
           offers={activeShopOffers}
           onClose={() => setShopOpen(false)}
-          onBuy={buyShopOffer}
-          CardFace={CardFace}
-          showCardKeywordOnly={showCardKeywordOnly}
+          onBuy={buyShopOffer}          showCardKeywordOnly={showCardKeywordOnly}
           setHoveredDeckCard={setHoveredDeckCard}
           clearCardKeywordHover={clearCardKeywordHover}
           consumableDescription={consumableDescription}
@@ -2422,22 +2328,6 @@ export default function Home() {
             canApplyTicketToDeck,
             applyTicketToDeck,
           }}
-          cardPreview={{
-            hoveredDeckCard,
-            deckPreviewPosition,
-            consumablePreview: {
-              hovered: hoveredConsumable,
-              show: showConsumablePreview,
-              clear: () => setHoveredConsumable(null),
-            },
-            moveDeckCardPreview,
-            clearCardPreview: () => { setHoveredDeckCard(null); clearCardKeywordHover(); },
-            editionTooltip: {
-              show: showDeckEditionTooltip,
-              clear: () => setHoveredDeckEditionTooltip(null),
-            },
-            showDeckCardPreview,
-          }}
           behavior={{
             pendingRemovalBlinkDim,
             transformedCardNewIds,
@@ -2460,8 +2350,8 @@ export default function Home() {
               <header><div><p>CARD PACK</p><h2>카드 팩 개봉</h2></div><button type="button" onClick={() => setOpenedCardPack(null)}>확인</button></header>
               <div className="card-pack-cards">
                 {openedCardPack.map((card) => (
-                  <div
-                    className={`card-face ${card.kind} ${card.damageType}`}
+                  <CardVisual
+                    card={card}
                     key={card.id}
                     onMouseEnter={(event) => {
                       const bounds = event.currentTarget.getBoundingClientRect();
@@ -2472,9 +2362,7 @@ export default function Home() {
                       showCardKeywordOnly(card, bounds.right, bounds.top);
                     }}
                     onMouseLeave={() => { setHoveredDeckCard(null); clearCardKeywordHover(); }}
-                  >
-                    <CardFace card={card} />
-                  </div>
+                  />
                 ))}
               </div>
             </section>
@@ -2519,16 +2407,12 @@ export default function Home() {
     dragging?.moved
     && dragging.source.type === "hand"
     && draggedCard
-    && !UNPLAYABLE_CARD_EFFECTS.has(draggedCard.effect)
-    && !["slime", "combatManual", "grimoire"].includes(draggedCard.effect)
-    && (
-      ((draggedCard.kind === "strike" || draggedCard.effect === "doubleHit")
-        && game.enemies.some((enemy) => enemy.hp > 0))
-      || draggedCard.effect === "ironRampage"
-      || draggedCard.effect === "odinSpear"
-      || draggedCard.kind !== "strike"
-    )
+    && canUseCardOnCenter(draggedCard)
   );
+  const canShowEnemyCardTargets = !controlsLocked && game.enemies.some(enemy => enemy.hp > 0
+    && (dragging
+      ? dragging.moved && dragging.source.type === "hand" && cardDropTarget(dragging.card, `enemy:${enemy.id}`)
+      : selectedCenterCard && cardDropTarget(selectedCenterCard, `enemy:${enemy.id}`)));
   const isCenterDropHover = (
     (canDropDraggedCardOnCenter && dragOverDropTarget === "defend")
     || (canShowSelectedCenterDrop && centerDropPointerHover)
@@ -2539,12 +2423,7 @@ export default function Home() {
       className={`game-shell card-style-simple watermark-${cardWatermarkStyle} ${constellationPreviewIndex === null ? "" : "is-previewing-constellation"}`}
       style={cardWatermarkVariables}
     >
-      <span
-        className="game-version"
-        aria-label={`게임 버전 ${GAME_VERSION}, 커밋 ${COMMIT_HASH}, 커밋 시각 ${COMMIT_DATE}`}
-      >
-        {GAME_VERSION} · {COMMIT_HASH} · {COMMIT_DATE}
-      </span>
+      <GameVersion version={GAME_VERSION} commitHash={COMMIT_HASH} commitDate={COMMIT_DATE} />
       {restartHold.progress > 0 && (
         <div className="save-reset-hold" role="status">
           <strong>새 탐험 초기화</strong>
@@ -2553,7 +2432,7 @@ export default function Home() {
         </div>
       )}
       <section
-        className={`battlefield ${dragging ? `${dragging.source.type === "hand" ? `dragging-${dragging.card.kind}` : "dragging-from-pile"} dragging-solitaire` : ""} ${canShowSelectedCenterDrop ? "has-keyboard-center-drop" : ""} ${isCenterDropHover ? "is-center-drop-hover" : ""}`}
+        className={`battlefield ${dragging ? "dragging-solitaire" : ""} ${canDropDraggedCardOnCenter || (!dragging && canShowSelectedCenterDrop) ? "has-center-card-target" : ""} ${canShowEnemyCardTargets ? "has-enemy-card-target" : ""} ${isCenterDropHover ? "is-center-drop-hover" : ""}`}
         aria-label="전투 화면"
         onDragOver={(event) => {
           if (!researchDragActiveRef.current) return;
@@ -2592,12 +2471,13 @@ export default function Home() {
             }}
             aria-hidden="true"
           >
-            <div
-              className={`deck-editor-card battle-ledger-card rarity-${researchDragPreview.card.rarity} ${researchDragPreview.card.rarity === "legendary" ? "is-painted" : ""}`}
+            <CardVisual
+              card={researchDragPreview.card}
+              variant="compact"
+              count={researchDragPreview.count}
+              className={`battle-ledger-card ${researchDragPreview.card.rarity === "legendary" ? "is-painted" : ""}`}
               style={{ width: "74px", height: "76px", margin: 0 }}
-            >
-              <DeckEditorCardIcon card={researchDragPreview.card} count={researchDragPreview.count} />
-            </div>
+            />
           </div>
         )}
         <BattleThemeControls
@@ -2655,18 +2535,13 @@ export default function Home() {
             <div className="battle-card-ledger-cards">
               {battleCardViewGroups.length > 0
                 ? battleCardViewGroups.map(({ card, count, cardIds }) => (
-                  <div
-                    className={`battle-ledger-card-stack rarity-${card.rarity}`}
+                  <CardVisual
                     key={`${battleCardView}-${card.id}`}
+                    card={card}
+                    variant="compact"
+                    count={count}
                     aria-label={`${card.name} ${count}장`}
-                    style={{ width: 74 + Math.min(5, count - 1) * 7 }}
-                  >
-                    {Array.from({ length: Math.min(5, count - 1) }, (_, layer) => (
-                      <span className="battle-ledger-stack-layer" key={`${card.id}-layer-${layer}`} style={{ left: layer * 7 }} />
-                    ))}
-                  <div
-                    className={`deck-editor-card battle-ledger-card rarity-${card.rarity} ${card.rarity === "legendary" ? "is-painted" : ""}`}
-                    style={{ marginLeft: Math.min(5, count - 1) * 7 }}
+                    className={`battle-ledger-card ${card.rarity === "legendary" ? "is-painted" : ""}`}
                     draggable={battleCardView === "discard"
                       && (game.pendingResearchDraw === "necromancy" || canUseResearchDraw(game, "necromancy"))}
                     onDragStart={(event) => {
@@ -2706,10 +2581,7 @@ export default function Home() {
                     onMouseEnter={(event) => moveDeckCardPreview(event, card)}
                     onMouseMove={(event) => moveDeckCardPreview(event, card)}
                     onMouseLeave={() => { setHoveredDeckCard(null); clearCardKeywordHover(); }}
-                  >
-                    <DeckEditorCardIcon card={card} count={count} />
-                  </div>
-                  </div>
+                  />
                 ))
                 : <em>카드 없음</em>}
             </div>
@@ -2721,9 +2593,10 @@ export default function Home() {
             style={{ left: deckPreviewPosition.x, top: deckPreviewPosition.y }}
             aria-live="polite"
           >
-            <div className={`card-face ${hoveredDeckCard.kind} ${hoveredDeckCard.damageType}`}>
-              <CardFace card={hoveredDeckCard} {...attackPreview(game.playerAmplification)} strength={game.strength + combatManualBonus + backToBasicsBonus(hoveredDeckCard)} agility={game.agility + combatManualBonus + backToBasicsBonus(hoveredDeckCard)} defenseMultiplier={game.defenseMultiplier} radiancePlayedThisTurn={game.radiancePlayedThisTurn} ruleCostReduction={lawResearchCount} forgeCount={game.forgeCount} />
-            </div>
+            <CardVisual
+              card={hoveredDeckCard}
+              faceProps={{ ...attackPreview(game.playerAmplification), strength: game.strength + combatManualBonus + backToBasicsBonus(hoveredDeckCard), agility: game.agility + combatManualBonus + backToBasicsBonus(hoveredDeckCard), defenseMultiplier: game.defenseMultiplier, radiancePlayedThisTurn: game.radiancePlayedThisTurn, ruleCostReduction: lawResearchCount, forgeCount: game.forgeCount }}
+            />
           </aside>
         )}
         {hoveredDeckEditionTooltip && (
@@ -2740,7 +2613,7 @@ export default function Home() {
             <span>{DECK_EDITION_INFO[hoveredDeckEditionTooltip.edition].description}</span>
           </aside>
         )}
-        <CardKeywordPopover popover={hoveredCardKeywords} popoverRef={cardKeywordPopoverRef} />
+        <CardKeywordPopover popover={hoveredCardKeywords} popoverRef={cardKeywordPopoverRef} onDismiss={clearCardKeywordHover} />
         <div className="enemy-zone">
           <div className={`enemies-row ${game.enemies.length > 2 ? "is-crowded" : ""}`}>
             {game.enemies.filter((enemy) => enemy.hp > 0 || dyingEnemyIds.has(enemy.id)).map((enemy) => {
@@ -2800,31 +2673,16 @@ export default function Home() {
                 : game.pendingSweep
                 ? game.pendingPileOperation === "discardTop" ? "버릴 파일 선택" : "효과 적용 파일 선택"
                 : game.pendingDiscards > 0
-                ? "버릴 카드 선택"
+                ? `버릴 카드 ${game.pendingDiscards}장 선택`
                 : "드로우할 파일 선택"}</strong>
             </div>
           )}
-          <div
-            className="energy-star-system center-resource"
-            aria-label={`에너지 ${game.energy} 중 ${maximumEnergyForGame(game, blessings.includes("glassCannon"))}, 별 ${game.stars}개`}
-            title={`별 ${game.stars}개`}
-            style={{
-              "--energy-fill": `${Math.min(100, Math.max(0, game.energy / maximumEnergyForGame(game, blessings.includes("glassCannon")) * 100))}%`,
-            } as CSSProperties}
-          >
-            <div className="energy-orb">
-              <span>{game.energy}</span><small>/ {maximumEnergyForGame(game, blessings.includes("glassCannon"))}</small>
-            </div>
-            <div className="energy-stars" aria-hidden="true">
-              {game.stars > 6 ? (
-                <><span>★</span><small>x{game.stars}</small></>
-              ) : Array.from({ length: game.stars }, (_, index) => <span key={index}>★</span>)}
-            </div>
-          </div>
+          <BattleResources energy={game.energy}
+            maximumEnergy={maximumEnergyForGame(game, blessings.includes("glassCannon"))}
+            stars={game.stars} />
           <div className="drop-prompt defend-prompt">
             여기에 놓아 사용
           </div>
-          <div className="status-strip" role="status" aria-live="polite">{game.message}</div>
         </div>
 
         <div className="player-zone">
@@ -2880,14 +2738,12 @@ export default function Home() {
         {game.status !== "playing" && (
           <BattleResultOverlay
             status={game.status}
-            playerHp={game.playerHp}
             turn={game.turn}
             rewardGold={battleRewardGold}
+            rewardKeys={battleRewardKeys}
             rewardCards={battleRewards}
             rewardDecks={battleRewardDecks}
-            rewardConsumables={battleRewardConsumables}
-            CardFace={CardFace}
-            consumableDescription={consumableDescription}
+            rewardConsumables={battleRewardConsumables}            consumableDescription={consumableDescription}
             showCardKeywordOnly={showCardKeywordOnly}
             setHoveredDeckCard={setHoveredDeckCard}
             clearCardKeywordHover={clearCardKeywordHover}
@@ -2898,37 +2754,30 @@ export default function Home() {
         )}
 
         {hoveredConsumable && !consumableDragActive && (
-          <aside
-            className={`deck-consumable-preview-floating ${hoveredConsumable.type}`}
-            style={{ left: deckPreviewPosition.x, top: deckPreviewPosition.y }}
-            aria-live="polite"
-          >
-            <strong>{hoveredConsumable.name}</strong>
-            <p>{hoveredConsumable.description}</p>
-          </aside>
+          <ConsumableCardPreview item={hoveredConsumable} position={deckPreviewPosition}
+            description={consumableDescription(hoveredConsumable)} />
         )}
 
         {dragging?.moved && (
           <div
             className="drag-stack-preview"
+            ref={dragPreviewRef}
             style={{
-              left: dragging.x,
-              top: dragging.y,
               height: `${CARD_HEIGHT + Math.max(0, dragging.cards.length - 1) * getStackOffset()}px`,
             }}
             aria-hidden="true"
           >
             {dragging.cards.map((card, index) => (
-              <div
-                className={`drag-card-preview card-face ${card.kind} ${card.damageType}`}
+              <CardVisual
+                card={card}
+                faceProps={{ ...attackPreview(game.playerAmplification, game.enemies.find(enemy => enemy.hp > 0 && dragOverDropTarget === `enemy:${enemy.id}`), blessings.includes("bossSlayer")), strength: game.strength + combatManualBonus + backToBasicsBonus(card), agility: game.agility + combatManualBonus + backToBasicsBonus(card), defenseMultiplier: game.defenseMultiplier, ruleCostReduction: lawResearchCount, forgeCount: game.forgeCount, radiancePlayedThisTurn: game.radiancePlayedThisTurn }}
+                className="drag-card-preview"
                 style={{
                   top: `${index * getStackOffset()}px`,
                   zIndex: index + 1,
                 }}
                 key={card.id}
-              >
-                <CardFace card={card} {...attackPreview(game.playerAmplification, game.enemies.find(enemy => enemy.hp > 0 && dragOverDropTarget === `enemy:${enemy.id}`), blessings.includes("bossSlayer"))} strength={game.strength + combatManualBonus + backToBasicsBonus(card)} agility={game.agility + combatManualBonus + backToBasicsBonus(card)} defenseMultiplier={game.defenseMultiplier} ruleCostReduction={lawResearchCount} forgeCount={game.forgeCount} radiancePlayedThisTurn={game.radiancePlayedThisTurn} />
-              </div>
+              />
             ))}
           </div>
         )}

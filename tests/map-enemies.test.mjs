@@ -22,13 +22,15 @@ test("Chebyshev distance uses the larger axis difference", () => {
   assert.equal(chebyshevDistance({ x: 0, y: 0 }, { x: 3, y: -2 }), 3);
 });
 
-test("player vision has a 5 by 5 square with 25 cells", () => {
+test("player vision has a 7 by 7 square with 49 cells", () => {
   const center = { x: 0, y: 0 };
-  const visible = Array.from({ length: 5 }, (_, y) => y - 2).flatMap((y) =>
-    Array.from({ length: 5 }, (_, x) => x - 2).filter((x) =>
+  const visible = Array.from({ length: 7 }, (_, y) => y - 3).flatMap((y) =>
+    Array.from({ length: 7 }, (_, x) => x - 3).filter((x) =>
       isInPlayerVision({ x, y }, center)));
-  assert.equal(visible.length, 25);
-  assert.equal(isInPlayerVision({ x: 0, y: 3 }, center), false);
+  assert.equal(visible.length, 49);
+  assert.equal(isInPlayerVision({ x: 0, y: 4 }, center), false);
+  assert.equal(isInPlayerVision({ x: 4, y: 0 }, center), false);
+  assert.equal(isInPlayerVision({ x: -3, y: 3 }, center), true);
   assert.equal(isInPlayerVision({ x: 1, y: 1 }, center), true);
   assert.equal(isInPlayerVision({ x: 2, y: 1 }, center), true);
 });
@@ -84,7 +86,7 @@ test("pre-generation can reserve the start cell and its eight neighbors from spa
     5,
     1,
   );
-  assert.equal(MAP_ENEMY_SPAWN_CHANCE, 0.08);
+  assert.equal(MAP_ENEMY_SPAWN_CHANCE, 0.04);
   assert.equal(world.enemies.length, 72);
   assert.ok(world.enemies.every((enemy) => enemy.awareness === "sleeping"));
   assert.ok(world.enemies.every((enemy) =>
@@ -107,6 +109,21 @@ test("waking up consumes a sleeping enemy's move", () => {
   );
   assert.equal(result.enemies[0].awareness, "awake");
   assert.deepEqual(result.enemies[0].position, { x: 0, y: 0 });
+});
+
+test("sleeping and awake detection use 50, 12.5 and 0 percent at distances one, two and three", () => {
+  for (const [awareness, detected] of [["sleeping", "awake"], ["awake", "alerted"]]) {
+    for (const [distance, chance] of [[1, 0.5], [2, 0.125], [3, 0]]) {
+      for (const roll of chance === 0 ? [0] : [chance - 0.001, chance]) {
+        const result = advanceMapEnemies(
+          [{ id: "boundary", position: { x: 0, y: 0 }, encounterIndex: 0, awareness }],
+          { x: 0, y: 0 }, { x: distance, y: 0 }, alwaysWalkable, randomValues(roll, 0),
+        );
+        assert.equal(result.enemies[0].awareness, roll < chance ? detected : awareness);
+        assert.deepEqual(result.enemies[0].position, { x: 0, y: 0 });
+      }
+    }
+  }
 });
 
 test("unreachable enemies do not make an awareness check", () => {
@@ -163,16 +180,47 @@ test("dark ticket limits recognition to distance one", () => {
   assert.equal(darkened.enemies[0].awareness, "sleeping");
 });
 
-test("an unseen awake enemy has a 3 percent chance to fall asleep", () => {
-  const result = advanceMapEnemies(
-    [{ id: "unseen-wanderer", position: { x: 0, y: 0 }, encounterIndex: 0, awareness: "awake" }],
-    { x: 0, y: 0 },
-    { x: 3, y: 0 },
-    alwaysWalkable,
-    () => 0,
-  );
-  assert.equal(result.enemies[0].awareness, "sleeping");
-  assert.deepEqual(result.enemies[0].position, { x: 0, y: 0 });
+test("dark ticket preserves recognition chances inside its shortened range", () => {
+  for (const [distance, chance] of [[1, 0.5]]) {
+    for (const roll of [chance - 0.001, chance]) {
+      const result = advanceMapEnemies(
+        [{ id: "dark-boundary", position: { x: distance, y: 0 }, encounterIndex: 0, awareness: "sleeping" }],
+        { x: 0, y: 0 }, { x: 0, y: 0 }, alwaysWalkable, () => roll,
+        new Set(), 1, undefined, 1,
+      );
+      assert.equal(result.enemies[0].awareness, roll < chance ? "awake" : "sleeping");
+    }
+  }
+});
+
+test("recognition modifiers scale distance-two detection and keep distance three at zero", () => {
+  for (const [distance, chance] of [[2, .125], [3, 0]]) {
+    for (const multiplier of [0.5, 1.5]) {
+      const threshold = chance * multiplier;
+      for (const roll of threshold === 0 ? [0, .999] : [threshold - .001, threshold + .001]) {
+        const result = advanceMapEnemies(
+          [{ id: "modified-detection", position: { x: distance, y: 0 }, encounterIndex: 0, awareness: "sleeping" }],
+          { x: 0, y: 0 }, { x: 0, y: 0 }, alwaysWalkable, () => roll,
+          new Set(), multiplier,
+        );
+        assert.equal(result.enemies[0].awareness, roll < threshold ? "awake" : "sleeping");
+      }
+    }
+  }
+});
+
+test("an awake enemy at distance four has a 10 percent chance to fall asleep", () => {
+  for (const roll of [0.099, 0.1]) {
+    const result = advanceMapEnemies(
+      [{ id: "unseen-wanderer", position: { x: 0, y: 0 }, encounterIndex: 0, awareness: "awake" }],
+      { x: 0, y: 0 },
+      { x: 4, y: 0 },
+      alwaysWalkable,
+      randomValues(roll, 0),
+    );
+    assert.equal(result.enemies[0].awareness, roll < 0.1 ? "sleeping" : "awake");
+    assert.deepEqual(result.enemies[0].position, { x: 0, y: 0 });
+  }
 });
 
 test("an alerted enemy moves diagonally when that lowers L infinity distance", () => {
@@ -292,7 +340,7 @@ test("awake enemies block alerted distance-field planning even if they later mov
     { x: 1, y: 0 },
     { x: 3, y: 0 },
     (position) => corridor.has(`${position.x}:${position.y}`),
-    randomValues(0, 0.9, 0.9, 0),
+    randomValues(0, 0.9, 0.9, 0.9, 0),
     new Set(),
     1,
     { minX: 0, maxX: 3, minY: 0, maxY: 0 },
@@ -316,7 +364,7 @@ test("a planned player collision does not cancel other enemy movement", () => {
   assert.deepEqual(result.enemies.map((enemy) => enemy.position), [{ x: 2, y: 0 }, { x: 2, y: 1 }]);
 });
 
-test("an alerted enemy has a 92 percent chance to move closer", () => {
+test("an alerted enemy has a 95 percent chance to move closer", () => {
   const enemy = {
     id: "hunter",
     position: { x: 0, y: 0 },
@@ -328,20 +376,20 @@ test("an alerted enemy has a 92 percent chance to move closer", () => {
     { x: 0, y: 0 },
     { x: 2, y: 0 },
     alwaysWalkable,
-    randomValues(0.9, 0.91, 0),
+    randomValues(0.9, 0.949, 0),
   );
   const resting = advanceMapEnemies(
     [enemy],
     { x: 0, y: 0 },
     { x: 2, y: 0 },
     alwaysWalkable,
-    randomValues(0.9, 0.92),
+    randomValues(0.9, 0.95),
   );
   assert.equal(chebyshevDistance(moving.enemies[0].position, { x: 2, y: 0 }), 1);
   assert.deepEqual(resting.enemies[0].position, { x: 0, y: 0 });
 });
 
-test("an alerted enemy at distance four becomes awake and does not move", () => {
+test("an alerted enemy at distance five becomes awake and does not move", () => {
   const enemy = {
     id: "lost-hunter",
     position: { x: 0, y: 0 },
@@ -351,12 +399,21 @@ test("an alerted enemy at distance four becomes awake and does not move", () => 
   const result = advanceMapEnemies(
     [enemy],
     { x: 0, y: 0 },
-    { x: 4, y: 0 },
+    { x: 5, y: 0 },
     alwaysWalkable,
     () => 0,
   );
   assert.equal(result.enemies[0].awareness, "awake");
   assert.deepEqual(result.enemies[0].position, { x: 0, y: 0 });
+});
+
+test("an alerted enemy at distance four continues pursuing the player", () => {
+  const result = advanceMapEnemies(
+    [{ id: "pursuing-hunter", position: { x: 0, y: 0 }, encounterIndex: 0, awareness: "alerted" }],
+    { x: 0, y: 0 }, { x: 4, y: 0 }, alwaysWalkable, () => 0,
+  );
+  assert.equal(result.enemies[0].awareness, "alerted");
+  assert.deepEqual(result.enemies[0].position, { x: 1, y: 0 });
 });
 
 test("an enemy moving onto the player reports a collision", () => {

@@ -18,13 +18,13 @@ export function cardEffectDescription(card: Card, damageNumber: ReactNode, defen
     case "unyielding": return <span><strong className="effect-keyword">저항</strong>을 5 얻습니다.</span>;
     case "demolish": return <><span>피해를 {damageNumber} 줍니다.</span><span><strong className="effect-keyword">취약</strong>과 <strong className="effect-keyword">약화</strong>를 각각 3 부여합니다.</span></>;
     case "strike":
-      return <>{card.discardCost !== undefined && <span><strong className="effect-keyword">버리기 {card.discardCost}</strong>.</span>}<span><span className="effect-type damage">피해</span>를 {damageNumber} 줍니다.</span>{card.draw > 0 && <span>카드를 {card.draw}장 뽑습니다.</span>}</>;
+      return <>{card.discardCost !== undefined && <span><strong className="effect-keyword">버리기 {card.discardCost}</strong>.</span>}<span><span className="effect-type damage">피해</span>를 {damageNumber} 줍니다.</span>{card.discardPileTop && <span>파일 하나의 맨 위 카드를 버립니다.</span>}{card.draw > 0 && <span>카드를 {card.draw}장 뽑습니다.</span>}</>;
     case "pommel":
       return <><span><span className="effect-type damage">피해</span>를 {damageNumber} 줍니다.</span><span>첫 번째 파일에서 카드를 1장 뽑습니다.</span></>;
     case "defend":
       return <>{card.discardCost !== undefined && <span><strong className="effect-keyword">버리기 {card.discardCost}</strong>.</span>}<span><span className={`effect-type ${card.damageType}`}>{DEFENSE_LABEL[card.damageType]}</span>를 {defenseNumber} 얻습니다.</span></>;
     case "deflect":
-      return <><span><span className="effect-type physical">방어</span>를 {defenseNumber} 얻습니다.</span><span>카드를 1장 뽑습니다.</span></>;
+      return <><span><span className="effect-type physical">방어</span>를 {defenseNumber} 얻습니다.</span>{card.discardPileTop && <span>파일 하나의 맨 위 카드를 버립니다.</span>}{card.draw > 0 && <span>카드를 {card.draw}장 뽑습니다.</span>}</>;
     case "battlePlan":
       return <>{card.value > 0 && <span>{starIcons(card.value)}을 얻습니다.</span>}{card.draw > 0 && <span>카드를 {card.draw}장 뽑습니다.</span>}</>;
     case "prepare":
@@ -45,6 +45,8 @@ export function cardEffectDescription(card: Card, damageNumber: ReactNode, defen
       return <><span><strong className="effect-keyword">힘</strong>과 <strong className="effect-keyword">강인함</strong>을 4 얻습니다.</span><span>이 효과는 손패에 있는 동안에도 적용됩니다.</span></>;
     case "evolutionTheory":
       return <span>턴 시작 시 <strong className="effect-keyword">힘</strong>과 <strong className="effect-keyword">강인함</strong>을 1 얻습니다.</span>;
+    case "librariansPrivilege":
+      return <span>턴 시작 시 원하는 파일에서 카드를 1장 뽑습니다.</span>;
     case "dash":
       return <span>무작위 파일에서 카드를 1장씩 {card.forged ? 3 : "2[3]"}번 뽑습니다.</span>;
     case "quickStep":
@@ -133,7 +135,7 @@ export function cardEffectDescription(card: Card, damageNumber: ReactNode, defen
       return <span><strong className="effect-keyword">강인함</strong>을 {card.value} 얻습니다.</span>;
     case "boomerang":
       return card.name === "정리 타격"
-        ? <><span><span className="effect-type damage">피해</span>를 {damageNumber} 줍니다.</span><span>파일 하나의 맨 위 카드를 버립니다.</span></>
+        ? <><span><span className="effect-type damage">피해</span>를 {damageNumber} 줍니다.</span><span>파일 하나의 맨 위 카드를 버립니다.</span>{card.draw > 0 && <span>카드를 {card.draw}장 뽑습니다.</span>}</>
         : <><span><span className="effect-type damage">피해</span>를 {damageNumber} 줍니다.</span><span>파일 하나의 맨 위 카드를 맨 밑으로 보냅니다.</span></>;
     case "meteor":
       return <span><span className="effect-star">★</span>를 모두 소모하고, 소모한 <span className="effect-star">★</span>마다 무작위 적에게 <span className="effect-type damage">피해</span>를 {damageNumber} 줍니다.</span>;

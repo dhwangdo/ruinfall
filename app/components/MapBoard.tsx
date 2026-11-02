@@ -59,6 +59,7 @@ type MapBoardProps = {
     roomDrops: Record<string, Card[]>;
     roomConsumableDrops: Record<string, Consumable[]>;
     roomDeckDrops: Record<string, DeckCase[]>;
+    roomDeckVaults: Record<string, DeckCase>;
   };
   camera: MapCamera;
   debugTools: {
@@ -111,6 +112,7 @@ export function MapBoard({
     roomDrops,
     roomConsumableDrops,
     roomDeckDrops,
+    roomDeckVaults,
   } = world;
   const {
     pan: mapPan,
@@ -285,6 +287,7 @@ export function MapBoard({
                 mapTraveling={mapTraveling}
                 hasItems={hasItems}
                 roomItemsTitle={roomItemsTitle}
+                deckName={roomType === "deckVault" ? roomDeckVaults[roomKey]?.name : undefined}
                 gridColumn={position.x - DUNGEON_MIN_X + MAP_WORLD_MARGIN_X + 1}
                 gridRow={position.y + MAP_WORLD_MARGIN_Y + 1}
                 onClick={() => {

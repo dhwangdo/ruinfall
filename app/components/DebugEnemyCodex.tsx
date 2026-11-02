@@ -1,4 +1,5 @@
 import { getEnemyCodexEntries, type EnemyAction } from "../game/enemies";
+import { RarityText } from "./RarityText";
 import { statusLabel } from "../game/statuses";
 
 function debugEnemyActionText(action: EnemyAction) {
@@ -54,7 +55,7 @@ export function DebugEnemyCodex({ battle = false }: { battle?: boolean }) {
             {entry.enemies.map(({ enemy, count }) => (
               <div className="debug-enemy-codex-member" key={`${enemy.name}-${JSON.stringify(enemy.actions)}`}>
                 {entry.enemies.length > 1 && <strong>{enemy.name}{count > 1 ? ` × ${count}` : ""}</strong>}
-                <p>체력 {Math.floor(enemy.maxHp * 0.9)}~{enemy.maxHp} · 힘 {enemy.strength} · 방어 {enemy.physicalBlock}{enemy.armor ? ` · 갑옷 ${enemy.armor}` : ""}</p>
+                <p>체력 {enemy.fixedMaxHp ? enemy.maxHp : `${Math.floor(enemy.maxHp * 0.9)}~${enemy.maxHp}`} · 힘 {enemy.strength} · 방어 {enemy.physicalBlock}</p>
                 {(enemy.boon || enemy.berserk || enemy.thorns || enemy.sturdyThreshold > 0 || enemy.quicknessReady || enemy.nextAttackMagic) && (
                     <p>
                       {[
@@ -67,7 +68,7 @@ export function DebugEnemyCodex({ battle = false }: { battle?: boolean }) {
                     ].filter(Boolean).join(" · ")}
                   </p>
                 )}
-                {enemy.trait && <p className="debug-enemy-trait">특성: {enemy.trait}</p>}
+                {enemy.trait && <p className="debug-enemy-trait">특성: <RarityText>{enemy.trait}</RarityText></p>}
                 <p className="debug-enemy-pattern">패턴: {debugEnemyPatternText(enemy.actions)}</p>
                 {enemy.openingIntentIndex !== undefined && <p>첫 행동 고정: {enemy.actions[enemy.openingIntentIndex].name}</p>}
                 <ol>

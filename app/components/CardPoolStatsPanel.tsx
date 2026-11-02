@@ -14,7 +14,7 @@ import {
   type CardBlueprint,
 } from "../game/cards";
 import { cardPoolCost, cardPoolShare } from "../game/cardEffects";
-import { DeckEditorCardIcon } from "./DeckEditorCardIcon";
+import { CardVisual } from "./CardVisual";
 
 type CardPoolStatHover = {
   label: string;
@@ -152,12 +152,12 @@ export function CardPoolStatsPanel({ onClose }: { onClose: () => void }) {
           <strong>{hover.label}</strong>
           <div className="card-pool-stat-popover-cards">
             {hover.cards.map((card, index) => (
-              <span
-                className={`deck-editor-card rarity-${card.rarity} ${card.rarity === "legendary" ? "is-painted" : ""}`}
+              <CardVisual
+                variant="compact"
+                card={card}
+                className={`${card.rarity === "legendary" ? "is-painted" : ""}`}
                 key={`${card.name}-${card.effect}-${index}`}
-              >
-                <DeckEditorCardIcon card={card} />
-              </span>
+              />
             ))}
           </div>
         </aside>

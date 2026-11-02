@@ -2,6 +2,7 @@
 
 import { useEffect, useId, useLayoutEffect, useRef, useState, type ReactNode } from "react";
 import { createPortal } from "react-dom";
+import { RarityText } from "./RarityText";
 
 type Anchor = { left: number; top: number; bottom: number; width: number };
 
@@ -56,7 +57,7 @@ export function BattleStatusBadge({ children, description, kind = "buff" }: {
       <aside ref={tooltipRef} id={tooltipId} role="tooltip" className="battle-status-tooltip"
         style={{ left: 0, top: 0, visibility: "hidden" }}>
         <strong>{children}</strong>
-        <div>{description}</div>
+        <div><RarityText>{description}</RarityText></div>
       </aside>, document.body,
     )}
   </>;

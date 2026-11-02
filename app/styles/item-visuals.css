@@ -1,0 +1,193 @@
+/* Visual definitions only. Screens own layout, input, prices and selection state. */
+.rarity-word,
+.card-effect .rarity-word { display: inline; font-weight: 700; }
+.rarity-word.rarity-status { color: #e34b58; }
+.rarity-word.rarity-starter { color: #555b60; }
+.rarity-word.rarity-basic { color: var(--battle-basic-band-color, #756a60); }
+.rarity-word.rarity-special { color: var(--battle-special-band-color, #3472a2); }
+.rarity-word.rarity-rare { color: var(--rare-color); }
+.rarity-word.rarity-legendary { color: #d5a928; }
+.card-visual-compact,
+.consumable-visual-compact {
+  flex: 0 0 var(--item-compact-size, 82px);
+  width: var(--item-compact-size, 82px);
+  height: var(--item-compact-height, var(--item-compact-size, 82px));
+  min-height: var(--item-compact-height, var(--item-compact-size, 82px));
+}
+.card-visual-compact {
+  --editor-rarity: #756a60;
+  --editor-card-band-height: var(--item-compact-band-height, 19.6px);
+  --editor-stack-border: #9a9da2;
+  position: relative;
+  display: grid;
+  grid-template-columns: 1fr;
+  grid-template-rows: 1fr;
+  place-items: center;
+  padding: 8px 5px 5px;
+  overflow: visible;
+  border: 4px solid var(--editor-stack-border);
+  border-radius: 4px;
+  color: #272725;
+  background: var(--card-paper);
+  background-clip: padding-box;
+  box-shadow: var(--editor-stack-shadow, 0 2px 3px rgba(0,0,0,.18));
+  text-align: center;
+  cursor: grab;
+  transition: transform .12s ease, box-shadow .12s ease;
+}
+.card-visual-compact:hover { border-color: var(--editor-stack-border); }
+.card-visual-compact.rarity-starter { --editor-rarity: #555b60; }
+.card-visual-compact.rarity-status { --editor-rarity: #e34b58; }
+.card-visual-compact.rarity-special { --editor-rarity: var(--battle-special-band-color, #3472a2); }
+.card-visual-compact.rarity-rare { --editor-rarity: var(--rare-color); --editor-stack-border: var(--rare-border-color); }
+.card-visual-compact.rarity-legendary { --editor-rarity: #d5a928; --editor-stack-border: var(--rare-border-color); }
+.card-visual-compact::before { position: absolute; z-index: 0; inset: 0 0 auto; height: var(--editor-card-band-height); background: var(--editor-rarity); content: ""; pointer-events: none; }
+.card-visual-compact .editor-card-stack-bands {
+  position: absolute;
+  top: 0;
+  right: calc(100% + 4px);
+  display: block;
+  width: var(--editor-stack-width, 0px);
+  height: var(--editor-card-band-height);
+  background: repeating-linear-gradient(to right, var(--editor-stack-border) 0 4px, var(--editor-rarity) 4px 7px);
+  pointer-events: none;
+}
+.card-visual-compact .editor-card-cost { position: absolute; z-index: 1; top: 2px; left: 5px; color: #fff; font: 800 var(--item-compact-cost-size,15.5px)/1 Arial,sans-serif; }
+.card-visual-compact .editor-card-name {
+  position: absolute;
+  z-index: 1;
+  top: 50%;
+  right: 0;
+  left: 0;
+  display: block;
+  width: auto;
+  max-width: none;
+  padding: 0 6px;
+  overflow: hidden;
+  color: #272725;
+  font: 600 var(--item-compact-name-size,13.2px)/1.2 Pretendard,"Malgun Gothic",sans-serif;
+  letter-spacing: -.65px;
+  text-align: center;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  transform: translateY(-50%);
+}
+.card-visual-compact .deck-card-new,
+.card-visual-compact .deck-card-painted { z-index: 1; font-size: 8.8px; }
+.card-visual-compact .inventory-card-count,
+.consumable-visual .inventory-card-count {
+  position: absolute;
+  z-index: 8;
+  right: 3px;
+  bottom: 3px;
+  padding: 1px 3px;
+  border-radius: 2px;
+  color: var(--battle-cost-text-color, #ffd166);
+  background: var(--battle-cost-color, #17234f);
+  font: 800 var(--item-count-size,14.3px)/1 Arial,sans-serif;
+}
+.consumable-visual {
+  --ticket-fill: #fefdfa;
+  --ticket-border: #56534d;
+  --ticket-text: #252525;
+  --editor-stack-border: var(--ticket-border);
+  --editor-stack-fill: var(--ticket-fill);
+  position: relative;
+  display: grid;
+  grid-template-columns: 1fr;
+  grid-template-rows: 1fr;
+  place-items: center;
+  padding: 6px;
+  overflow: hidden;
+  border: 4px solid var(--ticket-border);
+  border-radius: 4px;
+  color: var(--ticket-text);
+  background: var(--ticket-fill);
+  background-clip: padding-box;
+  box-shadow: var(--editor-stack-shadow, 0 2px 3px rgba(0,0,0,.18));
+  text-align: center;
+  font-family: Pretendard,Arial,sans-serif;
+}
+.consumable-visual.swiftTicket { --ticket-fill: #cfdfea; --ticket-border: #526f82; }
+.consumable-visual.paintTicket { --ticket-fill: #f3b6ca; --ticket-border: #914b64; }
+.consumable-visual.mindEyeTicket { --ticket-fill: #bcd9ee; --ticket-border: #436f8c; }
+.consumable-visual.darkTicket { --ticket-fill: #a9a7c8; --ticket-border: #4b4770; }
+.consumable-visual.bombTicket { --ticket-fill: #e8b09d; --ticket-border: #8b503d; }
+.consumable-visual.cloneTicket {
+  --ticket-fill: hsl(175,88%,31%);
+  --ticket-border: hsl(175,88%,19%);
+  background: linear-gradient(120deg,hsl(130,88%,31%) 0%,hsl(175,88%,31%) 50%,hsl(205,88%,31%) 100%);
+}
+.consumable-visual.extractTicket,
+.consumable-visual.extractPlusTicket { --ticket-fill: #ead8aa; --ticket-border: #87703d; }
+.consumable-visual.transformTicket { --ticket-fill: #d8c1eb; --ticket-border: #704f87; }
+.consumable-visual.mapTicket { --ticket-fill: #c9ab88; --ticket-border: #735239; }
+.consumable-visual.cardPack { --ticket-fill: #e7c884; --ticket-border: #85691f; }
+.consumable-visual.expandTicket {
+  --ticket-fill: hsl(30,88%,32%);
+  --ticket-border: hsl(30,88%,19%);
+  background: linear-gradient(120deg,hsl(0,88%,32%) 0%,hsl(30,88%,32%) 50%,hsl(60,88%,32%) 100%);
+}
+.consumable-visual.ticket-tier-3 { --ticket-text: #fff; --editor-stack-border: var(--rare-border-color); border-color: var(--rare-border-color); }
+.consumable-visual .ticket-tier-mark { position: absolute; z-index: 5; top: 4px; left: 5px; color: color-mix(in srgb,var(--ticket-fill) 45%,#000 55%); font: 900 11px/1 Arial,sans-serif; letter-spacing: -.06em; pointer-events: none; }
+.consumable-visual.ticket-tier-3 .ticket-tier-mark { color: #fff; }
+.consumable-visual > .consumable-title { display: flex; align-items: center; justify-content: center; width: 100%; padding: 2px 3px; border: 0; color: inherit; font: 600 var(--item-compact-name-size,13.2px)/1.2 Pretendard,"Malgun Gothic",sans-serif; }
+.consumable-visual-compact.extractPlusTicket > .consumable-title { font-size: 12px; }
+.consumable-visual-full {
+  flex: none;
+  width: var(--card-w);
+  height: var(--card-h);
+  min-height: var(--card-h);
+  grid-template-rows: 37px minmax(0,1fr);
+  padding: 8px;
+  cursor: default;
+}
+.consumable-visual-full > .consumable-title { align-self: center; padding: 3px 0; font: 700 11pt/1.2 Pretendard,"Malgun Gothic",sans-serif; overflow-wrap: anywhere; }
+.consumable-effect { align-self: center; min-width: 0; margin: 0; color: inherit; font: 400 9pt/1.5 Pretendard,"Malgun Gothic",sans-serif; white-space: pre-line; word-break: keep-all; overflow-wrap: anywhere; }
+
+/* Responsive sizing is shared by every consumer, rather than by screen. */
+html[data-device-mode="mobile"] {
+  --item-compact-size: 60px;
+  --item-compact-height: 64px;
+  --item-compact-name-size: 9px;
+  --item-compact-cost-size: 14px;
+  --item-compact-band-height: 15px;
+  --item-count-size: 10px;
+}
+
+/* Empty deck slots and their divider are shared by inventory and deck previews. */
+.deck-editor-empty-card-slot {
+  flex: 0 0 var(--item-compact-size, 82px);
+  width: var(--item-compact-size, 82px);
+  height: var(--item-compact-height, var(--item-compact-size, 82px));
+  min-height: var(--item-compact-height, var(--item-compact-size, 82px));
+  border: 1px dashed rgba(255,255,255,.25);
+  border-radius: 3px;
+  background: rgba(255,255,255,.045);
+}
+.deck-editor-slot-divider {
+  flex: 0 0 1px;
+  width: 1px;
+  height: var(--item-compact-height, var(--item-compact-size, 82px));
+  margin-inline: 5px;
+  background-color: rgba(232,228,218,.42);
+  pointer-events: none;
+}
+.deck-editor-rare-slot {
+  display: grid;
+  flex: 0 0 var(--item-compact-size, 82px);
+  place-items: center;
+  width: var(--item-compact-size, 82px);
+  height: var(--item-compact-height, var(--item-compact-size, 82px));
+  min-height: var(--item-compact-height, var(--item-compact-size, 82px));
+  padding: 7px;
+  border: 1px dashed rgba(213,169,40,.88);
+  border-radius: 4px;
+  color: rgba(255,244,197,.9);
+  background: rgba(213,169,40,.18);
+  box-shadow: inset 0 0 12px rgba(213,169,40,.14), 0 0 9px rgba(213,169,40,.24);
+  font-size: 8px;
+  line-height: 1.25;
+  text-align: center;
+  pointer-events: none;
+}

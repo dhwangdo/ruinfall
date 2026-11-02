@@ -11,22 +11,24 @@ test("one encounter grants rewards only once even when victory paths overlap", (
   const ctx = makeRunFixture(), actions = createBattleSessionActions(ctx.options());
   actions.grantBattleReward(1);
   const first = { gold: ctx.battle.battleRewardGold, nextId: ctx.inventory.nextCardIdRef.current,
-    chance: ctx.inventory.deckDropChanceRef.current, pity: ctx.inventory.deckPityBattlesRemainingRef.current };
+    keys: ctx.battle.battleRewardKeys };
   actions.grantBattleReward(1);
   assert.ok(first.gold > 0);
   assert.deepEqual({ gold: ctx.battle.battleRewardGold, nextId: ctx.inventory.nextCardIdRef.current,
-    chance: ctx.inventory.deckDropChanceRef.current, pity: ctx.inventory.deckPityBattlesRemainingRef.current }, first);
+    keys: ctx.battle.battleRewardKeys }, first);
 });
 
 test("returning from chained encounters deposits rewards and carries HP into the next battle", () => {
   const ctx = makeRunFixture(), key = mapRoomKey(MAP_START);
   ctx.battle.setActiveBattleRoom(key);
   ctx.battle.setBattleRewardGold(12);
+  ctx.battle.setBattleRewardKeys(1);
   ctx.battle.setBattleRewards([{ id: 999, name: "reward" }]);
   ctx.battle.setGame({ ...ctx.battle.game, playerHp: 23, status: "won" });
   ctx.battle.mapBattleQueueRef.current = [{ id: "next", encounterIndex: 2 }];
   createBattleSessionActions(ctx.options()).returnToMap();
   assert.equal(ctx.inventory.gold, 1012);
+  assert.equal(ctx.inventory.keys, 1);
   assert.equal(ctx.inventory.roomDrops[key][0].id, 999);
   assert.equal(ctx.battle.game.playerHp, 23);
   assert.equal(ctx.player.runPlayerHpRef.current, 23);
@@ -49,7 +51,7 @@ test("finishing the last encounter removes the fought enemies and unlocks the bo
   assert.equal(ctx.battle.activeBattleRoom, null);
 });
 
-test("talismans grant two stats per copy and stack with other starting bonuses", () => {
+test("talismans grant one stat per copy and stack with other starting bonuses", () => {
   const ctx = makeRunFixture();
   const wolf = SPECIAL_CARD_POOL.find((card) => card.effect === "wolfTalisman");
   const turtle = SPECIAL_CARD_POOL.find((card) => card.effect === "turtleTalisman");
@@ -62,8 +64,8 @@ test("talismans grant two stats per copy and stack with other starting bonuses",
     battleDeck, encounters: [{ encounterIndex: 2 }], playerHp: 40,
     blessings: ["swordShield"], godsLamentCharges: 0, nextCardId: 100,
   });
-  assert.equal(result.game.strength, 8);
-  assert.equal(result.game.agility, 6);
+  assert.equal(result.game.strength, 6);
+  assert.equal(result.game.agility, 5);
 });
 
 test("battle preparation handles missing decks and bomb-defeated encounters", () => {
@@ -78,4 +80,40 @@ test("battle preparation handles missing decks and bomb-defeated encounters", ()
   assert.equal(bomb.game.status, "won");
   assert.equal(bomb.defeatedByBomb, true);
   assert.equal(bomb.remainingGodsLamentCharges, 2);
+});
+
+test("a puppeteer killed by map bomb damage cancels its colossus before the first turn", () => {
+  const ctx = makeRunFixture();
+  const result = prepareBattleStart({
+    encounters: [{ encounterIndex: 20, damageTaken: 12 }],
+    battleDeck: ctx.inventory.ownedDecks[0], playerHp: 40,
+    blessings: [], godsLamentCharges: 0, nextCardId: 100,
+  });
+  const [colossus, puppeteer] = result.game.enemies;
+  assert.ok(colossus.hp > 0);
+  assert.equal(colossus.stunned, true);
+  assert.equal(puppeteer.hp, 0);
+  assert.equal(puppeteer.deathStunTargetId, undefined);
+  assert.equal(result.game.status, "playing");
+});
+
+test("a multi-enemy encounter grants one key and continuing cannot collect it twice", () => {
+  const ctx = makeRunFixture();
+  ctx.battle.setActiveBattleRoom(mapRoomKey(MAP_START));
+  const actions = createBattleSessionActions(ctx.options());
+  actions.grantBattleReward(1);
+  assert.equal(ctx.battle.battleRewardKeys, 1);
+  assert.deepEqual(ctx.battle.battleRewardDecks, []);
+  const finished = createBattleSessionActions(ctx.options());
+  finished.returnToMap();
+  finished.returnToMap();
+  assert.equal(ctx.inventory.keys, 1);
+});
+
+test("future-region encounters retain the deck plus one key", () => {
+  const ctx = makeRunFixture();
+  ctx.battle.battleRewardIsOutOfDepthRef.current = true;
+  createBattleSessionActions(ctx.options()).grantBattleReward(2);
+  assert.equal(ctx.battle.battleRewardDecks.length, 1);
+  assert.equal(ctx.battle.battleRewardKeys, 1);
 });

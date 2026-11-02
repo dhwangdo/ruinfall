@@ -4,19 +4,19 @@ import type { Card } from "../game/cards";
 import type { DeckEditorCardLocation } from "../game/deckEditorRules";
 import type { Consumable, DeckCase } from "../game/rewards";
 import type { CardDrag, ConsumableDrag, ConsumableArea, DeckDrag, DeckEditorArea,
-  TouchDragCandidate, DeckEditorModalProps } from "../components/deck-editor/types";
+  TouchDragCandidate, DeckEditorModalProps, DeckEditorPreviewActions } from "../components/deck-editor/types";
 
 /** Owns desktop drag/drop and touch gestures, including cleanup and click suppression. */
-export function useDeckEditorInput(props: DeckEditorModalProps) {
+export function useDeckEditorInput(props: DeckEditorModalProps, cardPreview: DeckEditorPreviewActions) {
   const {
     inventoryArea: { inventoryCardGroups, moveInventoryConsumableToFloor },
     floorArea: { floorCardGroups, moveFloorConsumableToInventory },
     deckArea: { ownedDecks, setDeckEditorDeckId },
     ticketActions: { canApplyTicketToCard, applyTicketToCard, canApplyTicketToConsumable,
       applyTicketToConsumable, canApplyTicketToDeck, applyTicketToDeck },
-    cardPreview: { clearCardPreview, consumablePreview },
     behavior: { onMoveCard, onEditorDragActivityChange },
   } = props;
+  const { clearCardPreview, consumablePreview } = cardPreview;
   const [deckEditorDrag, setDeckEditorDrag] = useState<CardDrag>(null);
   const deckEditorDragRef = useRef<CardDrag>(null);
   const [deckEditorDropTarget, setDeckEditorDropTarget] = useState<DeckEditorArea | null>(null);
@@ -141,6 +141,7 @@ export function useDeckEditorInput(props: DeckEditorModalProps) {
   };
 
   const beginDeckCaseDrag = (event: DragEvent<HTMLElement>, deckId: string, source: "floor" | "owned", virtualKey?: string) => {
+    clearCardPreview();
     const drag = { deckId, source, virtualKey };
     event.dataTransfer.effectAllowed = "move";
     event.dataTransfer.setData("text/plain", `deck-case:${source}:${deckId}`);

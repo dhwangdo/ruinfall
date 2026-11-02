@@ -21,7 +21,7 @@ export const MAP_PADDING = 42;
 const MAP_DEFAULT_ZOOM = 0.625;
 const MAP_MIN_ZOOM = 0.1875;
 const MAP_MAX_ZOOM = 0.875;
-const MAP_ZOOM_STEP = 0.125;
+const MAP_ZOOM_STEP = 0.04;
 
 type MapCameraOptions = {
   enabled: boolean;
@@ -173,7 +173,7 @@ export function useMapCamera({ enabled, position, travelLocked }: MapCameraOptio
     if (!viewport) return;
     const nextZoom = Math.min(
       MAP_MAX_ZOOM,
-      Math.max(MAP_MIN_ZOOM, Number((zoom + direction * MAP_ZOOM_STEP).toFixed(2))),
+      Math.max(MAP_MIN_ZOOM, Number((zoom + direction * MAP_ZOOM_STEP).toFixed(4))),
     );
     if (nextZoom === zoom) return;
 

@@ -118,7 +118,6 @@ html[data-device-mode="mobile"] { --mobile-visual-viewport-height: 100dvh; }
     overflow: visible;
   }
   html[data-device-mode="mobile"] .center-resource { transform: scale(.55); transform-origin: top right; }
-  html[data-device-mode="mobile"] .center-drop-zone .status-strip { max-width: 65vw; font-size: 9px; }
   html[data-device-mode="mobile"] .player-zone {
     flex: 1 1 auto;
     min-height: 0;
@@ -211,18 +210,12 @@ html[data-device-mode="mobile"] { --mobile-visual-viewport-height: 100dvh; }
   html[data-device-mode="mobile"] .deck-editor-card-list,
   html[data-device-mode="mobile"] .deck-editor-deck-list,
   html[data-device-mode="mobile"] .deck-editor-floor-cards { gap: 5px; padding: 4px; }
-  html[data-device-mode="mobile"] .deck-editor-panel .deck-editor-card,
-  html[data-device-mode="mobile"] .deck-editor-panel .consumable-ticket,
   html[data-device-mode="mobile"] .deck-editor-panel .deck-editor-empty-card-slot { flex-basis: 66px; width: 66px; height: 66px; min-height: 66px; }
-  html[data-device-mode="mobile"] .deck-editor-panel .deck-editor-card .editor-card-name,
-  html[data-device-mode="mobile"] .deck-editor-panel .consumable-ticket > strong { font-size: 10px; }
-  html[data-device-mode="mobile"] .deck-editor-panel .deck-editor-card .editor-card-cost { font-size: 14px; }
   html[data-device-mode="mobile"] .deck-editor-footer { grid-column: 1 / -1; grid-row: 4; padding: 2px 5px; }
   html[data-device-mode="mobile"] .deck-editor-mobile-actions { display: flex; align-items: center; gap: 4px; }
   html[data-device-mode="mobile"] .deck-editor-mobile-actions button,
   html[data-device-mode="mobile"] .deck-editor-footer .confirm { min-height: 29px; padding: 3px 8px; font-size: 10px; }
   html[data-device-mode="mobile"] .deck-editor-footer-actions { margin-left: auto; }
-  html[data-device-mode="mobile"] .deck-editor-card.is-mobile-action-selected { outline: 2px solid #fff0a8; outline-offset: 1px; }
 }
 
 @media (orientation: landscape) {
@@ -468,17 +461,12 @@ html[data-device-mode="mobile"] { --mobile-visual-viewport-height: 100dvh; }
   html[data-device-mode="mobile"] .deck-editor-panel[data-mobile-section="decks"] .deck-editor-floor-section,
   html[data-device-mode="mobile"] .deck-editor-panel[data-mobile-section="floor"] .inventory-column,
   html[data-device-mode="mobile"] .deck-editor-panel[data-mobile-section="floor"] .deck-editor-decks { display: none; }
-  html[data-device-mode="mobile"] .deck-editor-panel .deck-editor-card,
-  html[data-device-mode="mobile"] .deck-editor-panel .consumable-ticket,
   html[data-device-mode="mobile"] .deck-editor-panel .deck-editor-empty-card-slot {
     flex-basis: 60px;
     width: 60px;
     height: 62px;
     min-height: 62px;
   }
-  html[data-device-mode="mobile"] .deck-editor-panel .deck-editor-card .editor-card-name,
-  html[data-device-mode="mobile"] .deck-editor-panel .consumable-ticket > strong { font-size: 9px; }
-  html[data-device-mode="mobile"] .deck-editor-panel .deck-editor-card .editor-card-cost { font-size: 14px; }
   html[data-device-mode="mobile"] .deck-editor-deck-list,
   html[data-device-mode="mobile"] .deck-editor-card-list,
   html[data-device-mode="mobile"] .deck-editor-floor-cards { gap: 5px; }
@@ -631,8 +619,6 @@ html[data-device-mode="mobile"] { --mobile-visual-viewport-height: 100dvh; }
     min-height: 0;
   }
   html[data-device-mode="mobile"] .deck-editor-deck-list { grid-column: 2; grid-row: 1; }
-  html[data-device-mode="mobile"] .deck-editor-panel .deck-editor-card,
-  html[data-device-mode="mobile"] .deck-editor-panel .consumable-ticket,
   html[data-device-mode="mobile"] .deck-editor-panel .deck-editor-empty-card-slot,
   html[data-device-mode="mobile"] .deck-editor-panel .deck-editor-rare-slot {
     flex: 0 0 54px;
@@ -643,11 +629,6 @@ html[data-device-mode="mobile"] { --mobile-visual-viewport-height: 100dvh; }
     user-select: none;
     -webkit-user-select: none;
   }
-  html[data-device-mode="mobile"] .deck-editor-panel .deck-editor-card,
-  html[data-device-mode="mobile"] .deck-editor-panel .consumable-ticket { touch-action: none !important; }
-  html[data-device-mode="mobile"] .deck-editor-panel .deck-editor-card .editor-card-name,
-  html[data-device-mode="mobile"] .deck-editor-panel .consumable-ticket > strong { font-size: 8px; }
-html[data-device-mode="mobile"] .deck-editor-panel .deck-editor-card .editor-card-cost { font-size: 13px; }
   html[data-device-mode="mobile"] .deck-editor-column.is-drop-target,
   html[data-device-mode="mobile"] .deck-editor-deck-row.is-drop-target,
   html[data-device-mode="mobile"] .deck-editor-floor-cards.is-drop-target { outline: 2px solid #e6c77b; outline-offset: -2px; }
@@ -701,8 +682,6 @@ html[data-device-mode="mobile"] .deck-editor-footer .confirm { min-height: 32px;
     border-right-color: rgba(255,255,255,.22);
     background: rgba(3,7,5,.24);
   }
-  html[data-device-mode="mobile"] .deck-editor-panel .deck-editor-card,
-  html[data-device-mode="mobile"] .deck-editor-panel .consumable-ticket,
   html[data-device-mode="mobile"] .deck-editor-panel .deck-editor-empty-card-slot,
   html[data-device-mode="mobile"] .deck-editor-panel .deck-editor-rare-slot {
     flex-basis: 60px;
@@ -710,9 +689,6 @@ html[data-device-mode="mobile"] .deck-editor-footer .confirm { min-height: 32px;
     height: 64px;
     min-height: 64px;
   }
-  html[data-device-mode="mobile"] .deck-editor-panel .deck-editor-card .editor-card-name,
-  html[data-device-mode="mobile"] .deck-editor-panel .consumable-ticket > strong { font-size: 9px; }
-  html[data-device-mode="mobile"] .deck-editor-panel .deck-editor-card .editor-card-cost { font-size: 14px; }
 }
 
 .deck-editor-confirm-mobile { display: none; }

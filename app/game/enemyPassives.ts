@@ -11,8 +11,8 @@ export function enemyEnergyRecoveryPenalty(enemies: readonly EnemyState[]) {
   return Math.max(0, ...enemies.filter(enemy => enemy.hp > 0).map(enemy => enemy.energyRecoveryPenalty ?? 0));
 }
 
-export function sharedTurnStrength(enemies: readonly EnemyState[]) {
-  return enemies.reduce((total, enemy) => total + (enemy.hp > 0 ? enemy.sharedTurnStrengthGain ?? 0 : 0), 0);
+export function sharedTurnEndStrength(enemies: readonly EnemyState[]) {
+  return enemies.reduce((total, enemy) => total + (enemy.hp > 0 ? enemy.sharedTurnEndStrengthGain ?? 0 : 0), 0);
 }
 
 export function blockedPileIndexes(enemies: readonly EnemyState[]) {
@@ -28,8 +28,9 @@ export function preparePileSeals(enemies: EnemyState[], piles: Card[][], turn: n
     : enemy);
 }
 
-export function confiscateBattleCards(enemies: EnemyState[], cards: Card[], random = Math.random) {
-  let available = cards;
+/** Steal from dealt files without rebuilding, compacting or removing empty files. */
+export function confiscatePileCards(enemies: EnemyState[], piles: Card[][], random = Math.random) {
+  let available = piles.flat();
   const nextEnemies = enemies.map(enemy => {
     if (enemy.hp <= 0 || !enemy.confiscatesRare) return enemy;
     const candidates = available.filter(card => card.rarity === "rare");
@@ -38,7 +39,13 @@ export function confiscateBattleCards(enemies: EnemyState[], cards: Card[], rand
     available = available.filter(item => item.id !== card.id);
     return { ...enemy, confiscatedCards: [{ ...card }] };
   });
-  return { enemies: nextEnemies, cards: available };
+  const remainingIds = new Set(available.map(card => card.id));
+  const nextPiles = piles.map(pile => {
+    const remaining = pile.filter(card => remainingIds.has(card.id));
+    return remaining.map((card, index) => index === remaining.length - 1
+      ? { ...card, revealed: true } : card);
+  });
+  return { enemies: nextEnemies, piles: nextPiles };
 }
 
 /** Called only after a legal move/forge has spent its star. */

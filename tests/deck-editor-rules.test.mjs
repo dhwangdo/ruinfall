@@ -8,7 +8,7 @@ import {
   validateDeckEditorCardMove,
 } from "../app/game/deckEditorRules.ts";
 import { transitionDeckEditorCardCollections } from "../app/game/deckEditorTransitions.ts";
-import { groupAndSortDeckEditorCards } from "../app/game/deckEditorViews.ts";
+import { groupAndSortDeckEditorCards, createDeckCardView } from "../app/game/deckEditorViews.ts";
 import { sortBattleHandByCost } from "../app/game/battleHandRules.ts";
 import { createDeckEditorSnapshot } from "../app/hooks/useDeckEditorSession.ts";
 
@@ -374,4 +374,26 @@ test("deck rarity sorting puts higher rarities first while battle ties keep the 
   assert.deepEqual(groupAndSortDeckEditorCards(cards, "rarity", new Set()).map(({ card }) => card.id), [3, 2, 1]);
   assert.deepEqual(groupAndSortDeckEditorCards(cards, "cost", new Set()).map(({ card }) => card.id), [2, 1, 3]);
   assert.deepEqual(sortBattleHandByCost(cards, 0, 0).map((card) => card.id), [1, 2, 3]);
+});
+
+test("inventory and vault deck views share grouping, rarity separation and actual empty capacity", () => {
+  const card = { effect: "strike", damageType: "physical", value: 6, cost: 1, rarity: "starter", name: "타격" };
+  const deck = { id: "preview", capacity: 10, rareSlotCapacity: 3, cards: [
+    { ...card, id: 1 }, { ...card, id: 2 },
+    { ...card, id: 3, rarity: "rare", name: "희귀", cost: 2 },
+    { ...card, id: 4, rarity: "legendary", name: "전설", cost: 3 },
+    { ...card, id: 5, rarity: "special", name: "특별", cost: 0 },
+  ] };
+  const original = structuredClone(deck);
+  const view = createDeckCardView(deck);
+  assert.deepEqual(view.items.map(item => item.kind), [
+    "card", "card", "rare-slot", "divider", "card", "card",
+    "normal-slot", "normal-slot", "normal-slot", "normal-slot",
+  ]);
+  assert.deepEqual(view.items.filter(item => item.kind === "card").map(item => item.group.cardIds),
+    [[4], [3], [5], [1, 2]]);
+  assert.equal(view.items.find(item => item.kind === "card" && item.group.cardIds.length === 2).width, 89);
+  assert.equal(view.rareSlotCount, 2);
+  assert.equal(view.normalCardCount, 3);
+  assert.deepEqual(deck, original);
 });

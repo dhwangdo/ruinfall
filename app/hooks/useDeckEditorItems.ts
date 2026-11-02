@@ -1,7 +1,6 @@
 import { useMemo } from "react";
-import { usesRareCardSlot } from "../game/deckEditorRules";
-import { groupAndSortDeckEditorCards } from "../game/deckEditorViews";
-import type { DeckEditorModalProps, OwnedDeckCardView, OwnedDeckVirtualItem, InventoryVirtualItem, FloorVirtualItem } from "../components/deck-editor/types";
+import { createDeckCardView } from "../game/deckEditorViews";
+import type { DeckEditorModalProps, OwnedDeckCardView, InventoryVirtualItem, FloorVirtualItem } from "../components/deck-editor/types";
 
 function stackedVirtualWidth(itemCount: number) {
   return 82 + Math.min(5, Math.max(0, itemCount - 1)) * 7;
@@ -26,46 +25,7 @@ export function useDeckEditorItems(props: DeckEditorModalProps) {
   const ownedDeckCardViews = useMemo(() => {
     const views = new Map<string, OwnedDeckCardView>();
     ownedDecks.forEach((deck) => {
-      const groups = groupAndSortDeckEditorCards(deck.cards, deckEditorSort, transformedCardNewIds);
-      const rareCardGroups = groups.filter(({ card }) => usesRareCardSlot(card));
-      const normalCardGroups = groups.filter(({ card }) => !usesRareCardSlot(card));
-      const rareSlotCount = rareSlotCountForDeck(deck);
-      const rareSlotCapacity = Math.max(deck.rareSlotCapacity ?? 0, rareSlotCount);
-      const normalSlotCapacity = Math.max(0, deck.capacity - rareSlotCapacity);
-      const normalCardCount = deck.cards.filter((card) => !usesRareCardSlot(card)).length;
-      const emptyRareSlotCount = Math.max(0, rareSlotCapacity - rareSlotCount);
-      const items: OwnedDeckVirtualItem[] = [
-        ...rareCardGroups.map((group) => ({
-          kind: "card" as const,
-          key: `deck-card:${deck.id}:${group.cardIds.at(-1)}`,
-          width: stackedVirtualWidth(group.cardIds.length),
-          group,
-        })),
-        ...Array.from({ length: emptyRareSlotCount }, (_, slot) => ({
-          kind: "rare-slot" as const,
-          key: `deck-rare-slot:${deck.id}:${slot}`,
-          width: 82,
-          slot,
-        })),
-        ...(rareSlotCapacity > 0 ? [{
-          kind: "divider" as const,
-          key: `deck-divider:${deck.id}`,
-          width: 11,
-        }] : []),
-        ...normalCardGroups.map((group) => ({
-          kind: "card" as const,
-          key: `deck-card:${deck.id}:${group.cardIds.at(-1)}`,
-          width: stackedVirtualWidth(group.cardIds.length),
-          group,
-        })),
-        ...Array.from({ length: Math.max(0, normalSlotCapacity - normalCardCount) }, (_, slot) => ({
-          kind: "normal-slot" as const,
-          key: `deck-normal-slot:${deck.id}:${slot}`,
-          width: 82,
-          slot,
-        })),
-      ];
-      views.set(deck.id, { items, rareSlotCount, rareSlotCapacity, normalSlotCapacity, normalCardCount });
+      views.set(deck.id, createDeckCardView(deck, deckEditorSort, transformedCardNewIds, rareSlotCountForDeck(deck)));
     });
     return views;
   }, [ownedDecks, deckEditorSort, transformedCardNewIds, rareSlotCountForDeck]);

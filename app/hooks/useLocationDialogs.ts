@@ -5,11 +5,13 @@ import type { TreasureChestReward } from "../game/runTypes";
 export function useLocationDialogs() {
   const [treasureChestReward, setTreasureChestReward] = useState<TreasureChestReward | null>(null);
 
-  const [shrineOpen, setShrineOpen] = useState(false);
+  const [extractionShrineOpen, setExtractionShrineOpen] = useState(false);
 
   const [transformShrineOpen, setTransformShrineOpen] = useState(false);
 
-  const [combinationShrineOpen, setCombinationShrineOpen] = useState(false);
+
+  const [deckVaultRoom, setDeckVaultRoom] = useState<string | null>(null);
+  const [portalKeyWarningRoom, setPortalKeyWarningRoom] = useState<string | null>(null);
 
   const [shopOpen, setShopOpen] = useState(false);
 
@@ -21,14 +23,13 @@ export function useLocationDialogs() {
 
   const [shopMessage, setShopMessage] = useState("필요한 물건을 골라보세요.");
   return {
+    deckVaultRoom, setDeckVaultRoom, portalKeyWarningRoom, setPortalKeyWarningRoom,
     treasureChestReward,
     setTreasureChestReward,
-    shrineOpen,
-    setShrineOpen,
+    extractionShrineOpen,
+    setExtractionShrineOpen,
     transformShrineOpen,
     setTransformShrineOpen,
-    combinationShrineOpen,
-    setCombinationShrineOpen,
     shopOpen,
     setShopOpen,
     blessingOpen,

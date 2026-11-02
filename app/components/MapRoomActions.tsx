@@ -11,13 +11,13 @@ type MapRoomActionsProps = {
     itemCount: number;
   } | null;
   onEnterShop: () => void;
-  onOpenShrine: () => void;
+  onOpenExtractionShrine: () => void;
   onUseRecoveryShrine: () => void;
   onUseVitalityShrine: () => void;
   onUseMindEyeShrine: () => void;
   onOpenTransformShrine: () => void;
-  onOpenCombinationShrine: () => void;
   onOpenTreasureChest: () => void;
+  onOpenDeckVault: () => void;
   onOpenBlessings: () => void;
   onUsePortal: () => void;
   onUseHeal: () => void;
@@ -30,13 +30,13 @@ export function MapRoomActions({
   messageNonce,
   quickPickup,
   onEnterShop,
-  onOpenShrine,
+  onOpenExtractionShrine,
   onUseRecoveryShrine,
   onUseVitalityShrine,
   onUseMindEyeShrine,
   onOpenTransformShrine,
-  onOpenCombinationShrine,
   onOpenTreasureChest,
+  onOpenDeckVault,
   onOpenBlessings,
   onUsePortal,
   onUseHeal,
@@ -45,13 +45,18 @@ export function MapRoomActions({
   return (
     <div className="room-action-notices">
       {message && <p key={messageNonce} className="map-message" role="status" aria-live="polite">{message}</p>}
-      {roomType === "shop" && (
+      {(roomType === "shop" || roomType === "bloodShop") && (
         <button type="button" className="room-floor-notice room-action-notice is-shop simple-room-action-notice" onClick={onEnterShop}>
-          <strong>상점 들어가기</strong>
+          <strong>{roomType === "bloodShop" ? "피의 상점 들어가기" : "상점 들어가기"}</strong>
         </button>
       )}
-      {roomType === "shrine" && (
-        <button type="button" className="room-floor-notice room-action-notice is-shrine simple-room-action-notice" onClick={onOpenShrine}>
+      {roomType === "deckVault" && (
+        <button type="button" className="room-floor-notice room-action-notice simple-room-action-notice" onClick={onOpenDeckVault}>
+          <strong>덱 살펴보기 · 열쇠 3개로 개방</strong>
+        </button>
+      )}
+      {roomType === "extractionShrine" && (
+        <button type="button" className="room-floor-notice room-action-notice is-shrine simple-room-action-notice" onClick={onOpenExtractionShrine}>
           <strong>추출의 성소 이용하기</strong>
           <small>카드 최대 2장 추출 · 사용 후 붕괴</small>
         </button>
@@ -78,12 +83,6 @@ export function MapRoomActions({
         <button type="button" className="room-floor-notice room-action-notice is-shrine simple-room-action-notice" onClick={onOpenTransformShrine}>
           <strong>변환의 성소 이용하기</strong>
           <small>인벤토리 카드 2장 변환 · 사용 후 붕괴</small>
-        </button>
-      )}
-      {roomType === "combinationShrine" && (
-        <button type="button" className="room-floor-notice room-action-notice is-shrine simple-room-action-notice" onClick={onOpenCombinationShrine}>
-          <strong>조합의 성소 이용하기</strong>
-          <small>특별 카드 5장을 무작위 희귀 카드 1장으로 조합</small>
         </button>
       )}
       {roomType === "treasureChest" && (
