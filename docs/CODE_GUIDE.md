@@ -187,6 +187,9 @@ setGame((current) => ({ ...current, energy: 2 }));
 | `app/components/MapRoomActions.tsx` | 현재 방 행동 안내와 바닥 아이템 빠른 줍기 UI |
 | `app/components/MapFloorItem.tsx` | 지도 바닥 물품의 덱 > 카드 > 티켓 우선순위. CardVisual·ConsumableVisual 간소화 외형 재사용 |
 | `app/game/mapAutoExplore.ts` | O 자동 여행의 미탐사 경로 탐색과 새 장소·물품 발견 판정. 실제 이동은 기존 빠른 이동 처리 공유 |
+| `app/game/karmaRules.ts` | 12승부터 카르마 단계 계산·적 힘/체력 보정. useRunPlayer가 승리 수를 저장하고 포탈에서 초기화 |
+| `app/game/mapSearch.ts`, `mapRoomLabels.ts` | 발견한 칸만 대상으로 검색 목록 생성·필터. 지도와 장소 이름 공유 |
+| `app/components/MapSearchModal.tsx`, `app/hooks/useMapSearchShortcut.ts` | Ctrl+F를 캡처해 게임 검색 창을 열고 공통 금고/카드 미리보기와 카메라 위치 보기를 연결 |
 | `app/game/discardRules.ts` | 직접 손패 버리기와 재활용 룰의 ★ 지급. 파일 버리기는 pileActions에서 같은 계산 사용 |
 | `app/components/BattleDeckCheckModal.tsx` | 전투 전에 사용할 덱 선택과 구성 미리보기 |
 | `app/components/CardKeywordPopover.tsx` | 카드 키워드 팝오버 배치와 표시 |
@@ -205,7 +208,7 @@ setGame((current) => ({ ...current, energy: 2 }));
 | `app/components/CardPoolStatsPanel.tsx` | 카드 풀 통계 계산과 디버그 패널 |
 | `app/components/cardAnimations.ts` | 카드가 전투 화면 사이를 이동하는 DOM 애니메이션 |
 | `app/components/cardFlightGeometry.ts` | 확대·회전된 카드의 실제 화면 위치를 복제 카드 좌표로 복원 |
-| `app/components/battleAnimationLifecycle.ts` | 비행 그룹의 완료·취소와 초기화 이후 오래된 콜백 차단 |
+| `app/components/battleAnimationLifecycle.ts` | 비행 그룹의 완료·취소와 초기화 이후 오래된 콜백 차단. 이미 손패에 반영된 드로우는 비행 취소 시에도 입력 잠금을 해제하지만 사용·버리기는 정상 완료 후에만 실행 |
 | `app/hooks/useBattleCardFlights.ts` | 손패 최종 배치 이후 드로우·적 토큰 비행과 완료 연결. 실제 재련 횟수 증가 시 강화된 카드의 별 연출을 추적하며 단순 비용 할인·재배치는 제외 |
 | `app/components/BattleResources.tsx` | 실제 전투·강화 시연이 공유하는 에너지 구슬·별 개수 UI |
 | `app/components/forgeAnimation.ts`, `app/styles/forge-animation.css` | 카드 중심의 정원에 주황 별을 배치하고 빠르게 퍼진 뒤 감속·소멸. 반복 재련 판별과 완료·취소 정리 |
@@ -375,7 +378,7 @@ flowchart LR
 
 React의 `useState`는 현재 열린 페이지가 살아 있는 동안의 메모리다. 탐험 진행 일부는 별도의 저장 코드가 `localStorage`에서 복원한다. 저장 대상은 맵 화면 상태이며, 전투 중이거나 덱 편집 중인 상태는 저장하지 않는다. 패배하거나 새 탐험을 시작하면 진행 저장을 지운다.
 
-`saveGame.ts`는 버전 5 저장 봉투를 읽고 쓴다. 지역별 장소 개수 개편 전의 버전 1~4 탐험은 복원하지 않는다. 사용자는 개발 저장을 중요하게 보지 않으며 필요 시 초기화를 허용했다. 이후 저장 범위는 기존처럼 지도 화면이고, 새로고침 복원은 유지한다. 현재 진행 저장과 `telemetry.ts`의 전투 기록은 별도 항목이다. 진행 저장을 확장할 때는 다음을 검토한다.
+`saveGame.ts`는 버전 6 저장 봉투를 읽고 쓴다. 지역 높이 41→31칸 축소 전의 버전 1~5 탐험은 복원하지 않는다. 사용자는 개발 저장을 중요하게 보지 않으며 필요 시 초기화를 허용했다. 이후 저장 범위는 기존처럼 지도 화면이고, 새로고침 복원은 유지한다. 현재 진행 저장과 `telemetry.ts`의 전투 기록은 별도 항목이다. 진행 저장을 확장할 때는 다음을 검토한다.
 
 - 저장할 상태와 다시 계산할 상태의 구분
 - 카드·덱·적 ID의 안정성

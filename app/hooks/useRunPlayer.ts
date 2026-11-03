@@ -1,8 +1,9 @@
-import { useCallback, useMemo, useRef, useState } from "react";
+import { useCallback, useMemo, useRef, useState, type Dispatch, type SetStateAction } from "react";
 import { MAX_PLAYER_HP } from "../game/battleState";
 import { createRandomPlayerName } from "../game/randomNames";
 import type { BlessingId, BlessingOfferId } from "../game/blessingRules";
 import type { PreparedRunRestore } from "../game/runSaveState";
+import { normalizeBattleWins } from "../game/karmaRules";
 
 /** Persistent player progress, blessings, and movement-limited effects. */
 export function useRunPlayer() {
@@ -21,6 +22,14 @@ export function useRunPlayer() {
   const [godsLamentCharges, setGodsLamentCharges] = useState(3);
 
   const godsLamentChargesRef = useRef(3);
+
+  const [regionBattleWins, setRenderedBattleWins] = useState(0);
+  const regionBattleWinsRef = useRef(0);
+  const setRegionBattleWins = useCallback<Dispatch<SetStateAction<number>>>(update => {
+    const next = normalizeBattleWins(typeof update === "function" ? update(regionBattleWinsRef.current) : update);
+    regionBattleWinsRef.current = next;
+    setRenderedBattleWins(next);
+  }, []);
 
   const [darkTicketTurnsRemaining, setDarkTicketTurnsRemaining] = useState(0);
 
@@ -43,17 +52,18 @@ export function useRunPlayer() {
   const saveState = useMemo(() => ({
     playerName, runPlayerHp, mindEyeMovesRemaining, godsLamentCharges, darkTicketTurnsRemaining,
     vitalityShrineMaxHpBonus, blessingOffers, blessingSeenOfferIds, blessings, blessingRerollCost,
-    oneUpUsed,
+    oneUpUsed, regionBattleWins,
   }), [
     playerName, runPlayerHp, mindEyeMovesRemaining, godsLamentCharges, darkTicketTurnsRemaining,
     vitalityShrineMaxHpBonus, blessingOffers, blessingSeenOfferIds, blessings, blessingRerollCost,
-    oneUpUsed,
+    oneUpUsed, regionBattleWins,
   ]);
   const restorePlayer = useCallback((state: PreparedRunRestore) => {
     setPlayerName(state.playerName);
     setRunPlayerHp(state.runPlayerHp);
     setMindEyeMovesRemaining(state.mindEyeMovesRemaining);
     setGodsLamentCharges(state.godsLamentCharges);
+    setRegionBattleWins(state.regionBattleWins);
     setDarkTicketTurnsRemaining(state.darkTicketTurnsRemaining);
     setVitalityShrineMaxHpBonus(state.vitalityShrineMaxHpBonus);
     setBlessingOffers(state.blessingOffers);
@@ -67,11 +77,12 @@ export function useRunPlayer() {
     godsLamentChargesRef.current = state.godsLamentCharges;
     darkTicketTurnsRemainingRef.current = state.darkTicketTurnsRemaining;
     oneUpUsedRef.current = state.oneUpUsed;
-  }, []);
+  }, [setRegionBattleWins]);
   return {
     playerName, setPlayerName, playerNameSetupOpen, setPlayerNameSetupOpen, runPlayerHp,
     setRunPlayerHp, runPlayerHpRef, mindEyeMovesRemaining, setMindEyeMovesRemaining,
     mindEyeMovesRemainingRef, godsLamentCharges, setGodsLamentCharges, godsLamentChargesRef,
+    regionBattleWins, regionBattleWinsRef, setRegionBattleWins,
     darkTicketTurnsRemaining, setDarkTicketTurnsRemaining, darkTicketTurnsRemainingRef,
     vitalityShrineMaxHpBonus, setVitalityShrineMaxHpBonus, blessingOffers, setBlessingOffers,
     blessingSeenOfferIds, setBlessingSeenOfferIds, blessings, setBlessings, blessingRerollCost,

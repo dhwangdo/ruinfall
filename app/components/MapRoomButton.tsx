@@ -2,6 +2,7 @@ import { memo, type CSSProperties } from "react";
 import type { MapPosition, RoomType } from "../game/mapRules";
 import { mapTileColor } from "./mapTileAppearance";
 import { MapFloorItem, type MapFloorItemProps } from "./MapFloorItem";
+import { MAP_ROOM_LABELS as ROOM_LABELS } from "../game/mapRoomLabels";
 
 type MapRoomButtonProps = {
   position: MapPosition;
@@ -13,6 +14,7 @@ type MapRoomButtonProps = {
   reachable: boolean;
   walkable: boolean;
   mapTraveling: boolean;
+  searchHighlighted?: boolean;
   itemCount: number;
   floorDeck?: MapFloorItemProps["deck"];
   floorCard?: MapFloorItemProps["card"];
@@ -24,26 +26,6 @@ type MapRoomButtonProps = {
   gridColumn: number;
   gridRow: number;
   onClick: (position: MapPosition) => void;
-};
-
-const ROOM_LABELS: Record<RoomType, string> = {
-  void: "먼 공간",
-  rock: "단단한 바위",
-  empty: "방",
-  blessing: "축복",
-  shop: "상점",
-  bloodShop: "피의 상점",
-  extractionShrine: "추출의 성소",
-  recoveryShrine: "회복의 성소",
-  vitalityShrine: "건강의 성소",
-  mindEyeShrine: "심안의 성소",
-  transformShrine: "변환의 성소",
-  treasureChest: "보물 상자",
-  deckVault: "덱 보관소",
-  boss: "보스",
-  portal: "안전 지역 포탈",
-  heal: "회복 노드",
-  safePortal: "다음 지역 포탈",
 };
 
 const ROOM_BADGES: Partial<Record<RoomType, string>> = {
@@ -73,6 +55,7 @@ function MapRoomButtonView({
   reachable,
   walkable,
   mapTraveling,
+  searchHighlighted = false,
   itemCount,
   floorDeck,
   floorCard,
@@ -90,6 +73,7 @@ function MapRoomButtonView({
   return (
     <button
       type="button"
+      data-search-highlight={searchHighlighted || undefined}
       className={`map-room is-${roomType} ${itemCount > 0 ? "has-floor-items" : ""} ${dungeonRegionIndex === null ? "" : `is-region-${dungeonRegionIndex + 1}`} ${current ? "is-current" : ""} ${inVision ? "is-in-vision" : "is-out-of-vision"} ${adjacent ? "is-adjacent" : ""} ${reachable ? "is-reachable" : ""}`}
       style={{ gridColumn, gridRow, "--map-tile-color": current ? undefined : mapTileColor(position, roomType, dungeonRegionIndex) } as CSSProperties}
       tabIndex={adjacent || reachable ? 0 : -1}

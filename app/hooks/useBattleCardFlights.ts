@@ -40,7 +40,9 @@ export function useBattleCardFlights(battle: BattleSession) {
     }
     origins.clear();
     pendingEnemyTokenIdsRef.current.clear();
-    afterAnimations(animations, () => finishDraw());
+    // Drawn cards are already in the hand; cancelling only their visual flight
+    // must not leave input locked. A battle reset still invalidates this callback.
+    afterAnimations(animations, () => finishDraw(), { completeOnCancel: true });
   }, [screen, game.hand, handCardRefs, pendingEnemyTokenIdsRef, pendingOriginsRef, afterAnimations]);
 
   useLayoutEffect(() => {

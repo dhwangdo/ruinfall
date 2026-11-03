@@ -92,6 +92,9 @@ import { useRunPersistence } from "./hooks/useRunPersistence";
 import { CONSTELLATION_PRESETS, constellationPresetCssImage } from "./cardConstellations";
 import { MapTopbar } from "./components/MapTopbar";
 import { GameSettingsModal } from "./components/GameSettingsModal";
+import { MapSearchModal } from "./components/MapSearchModal";
+import { useMapSearchShortcut } from "./hooks/useMapSearchShortcut";
+import { karmaDescription, karmaStageForWins } from "./game/karmaRules";
 import {
   ALL_CARD_BLUEPRINTS,
   DEBUG_CARD_RARITIES,
@@ -256,7 +259,10 @@ export default function Home() {
     vitalityShrineMaxHpBonus, setVitalityShrineMaxHpBonus, blessingOffers, setBlessingOffers,
     setBlessingSeenOfferIds, blessings, setBlessings, blessingRerollCost,
     setBlessingRerollCost, oneUpUsed, setOneUpUsed, oneUpUsedRef,
+    regionBattleWins, setRegionBattleWins,
   } = player;
+  const karmaStage = karmaStageForWins(regionBattleWins);
+  const karmaInfo = { name: "카르마", description: karmaDescription(karmaStage) };
   const inventory = useRunInventory();
   const { ownedDecks, setOwnedDecks, activeDeckId, setActiveDeckId,
     inventoryCards, setInventoryCards, inventoryConsumables, setInventoryConsumables, inventoryConsumablesRef,
@@ -303,6 +309,13 @@ export default function Home() {
   const [mapBattleFlash, setMapBattleFlash] = useState(false);
   const [cardPoolStatsOpen, setCardPoolStatsOpen] = useState(false);
   const [settingsOpen, setSettingsOpen] = useState(false);
+  const [mapSearchOpen, setMapSearchOpen] = useState(false);
+  const [searchHighlightedRoom, setSearchHighlightedRoom] = useState<string | null>(null);
+  useEffect(() => {
+    if (!searchHighlightedRoom) return;
+    const timer = window.setTimeout(() => setSearchHighlightedRoom(null), 2400);
+    return () => window.clearTimeout(timer);
+  }, [searchHighlightedRoom]);
   const [debugSpawnSelection, setDebugSpawnSelection] = useState("card:basic:0");
   const [debugDeckRegion, setDebugDeckRegion] = useState("1");
   const [debugDeckCount, setDebugDeckCount] = useState("1");
@@ -1200,6 +1213,9 @@ export default function Home() {
     setMindEyeMovesRemaining(0);
     mindEyeMovesRemainingRef.current = 0;
     setGodsLamentCharges(3);
+    setRegionBattleWins(0);
+    setMapSearchOpen(false);
+    setSearchHighlightedRoom(null);
     godsLamentChargesRef.current = 3;
     setDarkTicketTurnsRemaining(0);
     darkTicketTurnsRemainingRef.current = 0;
@@ -1280,7 +1296,7 @@ export default function Home() {
   };
 
   const restartHold = useRunKeyboardControls({
-    playerNameSetupOpen: playerNameSetupOpen || mapLoading || settingsOpen,
+    playerNameSetupOpen: playerNameSetupOpen || mapLoading || settingsOpen || mapSearchOpen,
     saveRunNow,
     showMapMessage,
     clearRunSave,
@@ -1497,11 +1513,27 @@ export default function Home() {
     queueRunSave();
   };
 
+  useMapSearchShortcut(screen === "map" && !mapLoading && !playerNameSetupOpen, () => {
+    if (mapSearchOpen) {
+      const input = document.querySelector<HTMLInputElement>(".map-search-input");
+      input?.focus(); input?.select();
+      return;
+    }
+    if (settingsOpen || deckEditorOpen || shopOpen || blessingOpen || extractionShrineOpen
+      || transformShrineOpen || treasureChestReward !== null || deckVaultRoom !== null
+      || portalKeyWarningRoom !== null || openedCardPack !== null || pendingBattleStart !== null
+      || mapBattleFlash || mapCollisionEnemyIds.length > 0) return;
+    clearMapTravel(); clearMapKeyboardMovement(); clearFloatingTooltips();
+    setSearchHighlightedRoom(null);
+    setMapSearchOpen(true);
+  });
+
   useMapKeyboardShortcuts({
     playerNameSetupOpen,
     deckEditorOpen,
     confirmDeckEditor,
     escapeTargets: [
+      { open: mapSearchOpen, close: () => setMapSearchOpen(false) },
       { open: settingsOpen, close: () => setSettingsOpen(false) },
       { open: portalKeyWarningRoom !== null, close: () => setPortalKeyWarningRoom(null) },
       { open: deckVaultRoom !== null, close: () => setDeckVaultRoom(null) },
@@ -1521,7 +1553,7 @@ export default function Home() {
     waitOnMap,
     startAutoExplore,
     cancelAutoExplore,
-    interactionLocked: settingsOpen || mapLoading || portalKeyWarningRoom !== null || deckVaultRoom !== null
+    interactionLocked: mapSearchOpen || settingsOpen || mapLoading || portalKeyWarningRoom !== null || deckVaultRoom !== null
       || cardPoolStatsOpen || treasureChestReward !== null || extractionShrineOpen
       || transformShrineOpen || blessingOpen || shopOpen || openedCardPack !== null,
     roomType: effectiveRoomType(mapPosition),
@@ -2125,8 +2157,21 @@ export default function Home() {
             setBattleDeckPreviewId(null);
           }
         }} />}
-        {(blessings.length > 0 || mindEyeMovesRemaining > 0 || godsLamentCharges > 0 || darkTicketTurnsRemaining > 0) && (
+        {mapSearchOpen && <MapSearchModal currentRegion={getRegionNumber(mapPosition, mapSeed)}
+          data={{ seenRooms, seed: mapSeed, roomTypeAt: effectiveRoomType, openedVaultRooms: world.openedDeckVaultRooms,
+            vaults: roomDeckVaults, cards: roomDrops, decks: roomDeckDrops, consumables: roomConsumableDrops }}
+          onClose={() => setMapSearchOpen(false)} onLocate={position => {
+            setMapSearchOpen(false); focusMapOn(position); setSearchHighlightedRoom(mapRoomKey(position));
+          }} />}
+        {(karmaStage > 0 || blessings.length > 0 || mindEyeMovesRemaining > 0 || godsLamentCharges > 0 || darkTicketTurnsRemaining > 0) && (
           <aside className="map-blessing-list" aria-label="획득한 축복">
+            {karmaStage > 0 && <span className="is-karma" tabIndex={0}
+              onMouseEnter={event => showBlessingTooltip(event, karmaInfo)}
+              onMouseMove={event => showBlessingTooltip(event, karmaInfo)}
+              onMouseLeave={() => setHoveredBlessingTooltip(null)}
+              onFocus={event => showBlessingTooltip(event, karmaInfo)}
+              onBlur={() => setHoveredBlessingTooltip(null)}
+              aria-label={`카르마 ${karmaStage}단계: ${karmaInfo.description}`}>카르마({karmaStage})</span>}
             {blessings.map((blessing) => (
               <span
                 key={blessing}
@@ -2190,6 +2235,7 @@ export default function Home() {
             waitNoticeNonce: mapWaitNoticeNonce,
             travelLocked: mapTraveling,
             travelStepMs: mapTravelStepMs,
+            highlightedRoomKey: searchHighlightedRoom,
             debugMode,
             safeAreaRegionIndex,
             safeAreaMemoryRestricted,

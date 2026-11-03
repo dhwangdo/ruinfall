@@ -1,6 +1,7 @@
 import type { EnemyState } from "./enemies.ts";
 import { ROACH_HATCHLING } from "./regionOneEnemies.ts";
 import type { Card } from "./cards.ts";
+import { applyKarmaToEnemy } from "./karmaRules.ts";
 
 export function enemyTemporaryStrength(enemy: EnemyState, playerEnergy: number, handCount = 0) {
   return (playerEnergy <= 0 ? enemy.emptyEnergyStrengthGain ?? 0 : 0)
@@ -64,13 +65,13 @@ export function spawnEnemyMinions(enemies: EnemyState[], summoningEnemyIds: Read
     const count = (parent.summonsCreated ?? 0) + 1;
     const index = next.findIndex(enemy => enemy.id === parent.id);
     next[index] = { ...next[index], summonsCreated: count };
-    next.push({
+    next.push(applyKarmaToEnemy({
       ...ROACH_HATCHLING,
       id: `${parent.id}-hatchling-${count}`,
       intentIndex: 0,
       summonerId: parent.id,
       actions: ROACH_HATCHLING.actions.map(action => ({ ...action, attacks: action.attacks.map(attack => ({ ...attack })) })),
-    });
+    }, parent.karmaStage ?? 0));
   }
   return next;
 }

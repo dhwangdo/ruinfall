@@ -11,6 +11,7 @@ import { nextRareCardDropChance } from "../game/rewardRules.ts";
 import { isHigherRegionMapEnemy } from "../game/mapRules.ts";
 import { getEncounterRegionNumber } from "../game/enemies.ts";
 import { RUN_SAVE_POLICY } from "../game/saveGame.ts";
+import { karmaStageForWins } from "../game/karmaRules.ts";
 import {
   beginTelemetryBattle, finishTelemetryBattle,
   recordTelemetryCardAcquired, recordTelemetryDeckAcquired, recordTelemetryConsumableAcquired,
@@ -49,6 +50,7 @@ export function createBattleSessionActions({
   const grantBattleReward = (regionNumber: number) => {
     if (battle.rewardGrantedRef.current) return;
     battle.rewardGrantedRef.current = true;
+    player.setRegionBattleWins(wins => wins + 1);
     ensureTelemetryRun();
     const rewardDeck = ownedDecks.find((deck) => deck.id === previousBattleDeckIdRef.current) ?? activeDeck;
     const reward = battleRewardIsBossRef.current
@@ -123,6 +125,7 @@ export function createBattleSessionActions({
     const prepared = prepareBattleStart({
       encounters, playerHp, battleDeck, blessings, godsLamentCharges: godsLamentChargesRef.current,
       nextCardId: nextCardIdRef.current,
+      karmaStage: karmaStageForWins(player.regionBattleWinsRef.current),
     });
     const { game: battleStartState, battleEnemies, defeatedByBomb, relicSource } = prepared;
     godsLamentChargesRef.current = prepared.remainingGodsLamentCharges;

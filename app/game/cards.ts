@@ -243,7 +243,7 @@ export const RARE_CARD_POOL: CardBlueprint[] = [
   { kind: "skill", effect: "rapidFire", rarity: "rare", name: "연사", cost: 1, value: 0, draw: 0, damageType: "physical", exhaust: true },
   { kind: "skill", effect: "superStrategist", rarity: "rare", name: "대전략가", cost: 1, value: 3, draw: 2, damageType: "physical", exhaust: true },
   { kind: "skill", effect: "supernova", rarity: "rare", name: "초신성", cost: 0, value: 3, draw: 0, damageType: "physical", exhaust: true },
-  { kind: "strike", effect: "meteor", rarity: "rare", name: "유성우", cost: 2, value: 9, draw: 0, damageType: "physical" },
+  { kind: "strike", effect: "meteor", rarity: "rare", name: "유성우", cost: 2, value: 7, draw: 0, damageType: "physical" },
   { kind: "skill", effect: "massDeal", rarity: "rare", name: "대분배", cost: 0, value: 0, draw: 0, damageType: "physical", exhaust: true, rule: true },
   { kind: "skill", effect: "sturdyStance", rarity: "rare", name: "견고한 태세", cost: 2, value: 10, draw: 0, damageType: "physical", exhaust: true, rule: true },
   { kind: "skill", effect: "lawResearch", rarity: "rare", name: "법학 연구", cost: 0, value: 1, draw: 0, damageType: "physical", exhaust: true, rule: true },

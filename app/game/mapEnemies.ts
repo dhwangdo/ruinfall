@@ -34,7 +34,7 @@ export const MAP_PLAYER_VISION_HORIZONTAL_RADIUS = 3;
 export const MAP_PLAYER_VISION_VERTICAL_RADIUS = 3;
 export const MAP_ENEMY_SAFE_RADIUS = 2;
 export const MAP_ENEMY_START_SAFE_RADIUS = 4;
-export const MAP_ENEMY_SPAWN_CHANCE = 0.03;
+export const MAP_ENEMY_SPAWN_CHANCE = 0.045;
 const MAP_ENEMY_DETECTION_CHANCES: readonly number[] = [0, 0.5, 0.1];
 
 export const EIGHT_DIRECTIONS: GridPosition[] = [

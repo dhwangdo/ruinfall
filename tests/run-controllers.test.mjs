@@ -2,7 +2,7 @@ import assert from "node:assert/strict";
 import test from "node:test";
 import { BASIC_CARD_POOL, RARE_CARD_POOL, LEGENDARY_CARD_POOL } from "../app/game/cards.ts";
 import { createConsumable } from "../app/game/rewards.ts";
-import { MAP_START, mapRoomKey } from "../app/game/mapRules.ts";
+import { MAP_START, mapRoomKey, safeAreaCenterX, safeAreaCenterY } from "../app/game/mapRules.ts";
 import { createDeckEditorMoves } from "../app/controllers/deckEditorMoves.ts";
 import { createTicketActions } from "../app/controllers/ticketActions.ts";
 
@@ -53,7 +53,7 @@ function setup({ type = "extractTicket", blessings = [], capacity = 2, target = 
     pendingTransformTicketId: null, armedBombTicketIds: new Set(), deckEditorMessage: "",
     transformedCardNewIds: new Set(), deckEditorDeckId: "deck",
   })) field(editor, name, value);
-  const render = () => {
+  const render = (overrides = {}) => {
     const inventoryItemCount = inventory.inventoryCards.length + inventory.inventoryConsumables.length;
     const { moveDeckEditorCard } = createDeckEditorMoves({
       inventory, player, world, editor, inventoryCapacity: capacity,
@@ -67,10 +67,27 @@ function setup({ type = "extractTicket", blessings = [], capacity = 2, target = 
       queueRunSave: noop, showMapMessage: noop, activateMindEye: noop, grantConsumables: noop,
       openCardPack: noop, materializeMapContent: (_positions, _seed, existing) => existing,
       startMapTicketCameraTour: noop,
+      ...overrides,
     });
   };
   return { inventory, player, world, editor, render, target, ticket };
 }
+
+test("map tickets reveal field facilities and exclude even undiscovered safe-area facilities", () => {
+  const ctx = setup({ type: "mapTicket" });
+  const safe = { x: safeAreaCenterX(0, ctx.world.mapSeed), y: safeAreaCenterY(0, ctx.world.mapSeed) };
+  const field = { x: 10, y: 10 };
+  ctx.world.effectiveRoomType = position => [safe, field].some(target => mapRoomKey(target) === mapRoomKey(position)) ? "shop" : "empty";
+  let revealed = [];
+  ctx.render({ materializeMapContent: (positions, _seed, world) => { revealed = positions; return world; } })
+    .selectExtractionTicket(ctx.ticket);
+  assert.deepEqual(revealed, [field]);
+  assert.equal(ctx.inventory.inventoryConsumables.length, 0);
+  const onlySafe = setup({ type: "mapTicket" });
+  onlySafe.world.effectiveRoomType = position => mapRoomKey(position) === mapRoomKey(safe) ? "shop" : "empty";
+  onlySafe.render().selectExtractionTicket(onlySafe.ticket);
+  assert.equal(onlySafe.inventory.inventoryConsumables.length, 1);
+});
 
 test("extraction uses the inventory slot freed by consuming its ticket", () => {
   const ctx = setup();

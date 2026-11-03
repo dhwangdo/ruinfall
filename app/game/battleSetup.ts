@@ -7,13 +7,15 @@ import { applyPlayerTurnStart, createSewerEncounterByIndex } from "./enemies.ts"
 import { hasUniqueCardEffects } from "./blessingRules.ts";
 import { enemyEnergyRecoveryPenalty } from "./enemyPassives.ts";
 import { resolveEnemyDeathStuns } from "./enemyDefeatRules.ts";
+import { applyKarmaToEnemy } from "./karmaRules.ts";
 
 /** Prepares the game data for an encounter, independently of UI and telemetry. */
 export function prepareBattleStart({
-  encounters, playerHp, battleDeck, blessings, godsLamentCharges, nextCardId: firstId,
+  encounters, playerHp, battleDeck, blessings, godsLamentCharges, nextCardId: firstId, karmaStage = 0,
 }: {
   encounters: BattleEncounter[]; playerHp: number; battleDeck?: DeckCase;
   blessings: readonly BlessingId[]; godsLamentCharges: number; nextCardId: number;
+  karmaStage?: number;
 }) {
   let nextCardId = firstId;
   const godsLamentApplies = godsLamentCharges > 0;
@@ -23,6 +25,7 @@ export function prepareBattleStart({
   );
   const battleEnemies = resolveEnemyDeathStuns(encounters.flatMap((encounter) =>
     createSewerEncounterByIndex(encounter.encounterIndex).map((enemy) => {
+      enemy = applyKarmaToEnemy(enemy, karmaStage);
       const currentHp = Math.max(0, enemy.hp - (encounter.damageTaken ?? 0));
       return {
         ...enemy,

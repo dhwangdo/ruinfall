@@ -5,6 +5,7 @@ import type { Consumable, DeckCase } from "./rewards.ts";
 import { STARTER_DECK_CAPACITY, STARTER_DECK_RARE_SLOT_CAPACITY, isDeckEdition, getDeckEditionColor } from "./rewards.ts";
 import type { SavedRunState } from "./runTypes";
 import { isEncounterAvailable, normalizeEncounterIndex } from "./enemies.ts";
+import { normalizeBattleWins } from "./karmaRules.ts";
 
 const REMOVED_EFFECTS = new Set(["sacrifice", "magicCrystal", "delay", "boneArmor", "steelHeart", "ironWall", "blessing", "berserk"]);
 const REMOVED_CARD_NAMES = new Set(["불티", "잔바위", "유예", "뼈 갑옷", "환기"]);
@@ -145,6 +146,7 @@ type NormalizedRunRestoreFields =
   | "collapsedTreasureChestRooms"
   | "vitalityShrineMaxHpBonus"
   | "godsLamentCharges"
+  | "regionBattleWins"
   | "darkTicketTurnsRemaining"
   | "blessingOffers"
   | "blessingSeenOfferIds"
@@ -211,6 +213,7 @@ export function prepareRunRestore(
     skipPortalKeyWarning: state.skipPortalKeyWarning === true,
     vitalityShrineMaxHpBonus: state.vitalityShrineMaxHpBonus ?? state.healthShrineMaxHpBonus ?? 0,
     godsLamentCharges,
+    regionBattleWins: normalizeBattleWins(state.regionBattleWins),
     darkTicketTurnsRemaining: state.darkTicketTurnsRemaining ?? 0,
     blessingOffers: state.blessingOffers ?? [],
     blessingSeenOfferIds: state.blessingSeenOfferIds ?? [],

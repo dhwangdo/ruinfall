@@ -189,7 +189,7 @@ export function createDrawCards(context: DrawCardsContext) {
               };
             });
             if (origins.size === 0) {
-              window.requestAnimationFrame(() => setPhase("playing"));
+              later(() => setPhase("playing"), 0);
             }
           };
 
@@ -248,6 +248,15 @@ export function createDrawCards(context: DrawCardsContext) {
         { length: nextTurnRadianceCount },
         () => createRadianceCard(nextCardIdRef.current++),
       );
+      const drawnCards = [...initialDraw, ...toxicSlimes, ...fermentedSlimes, ...opticalRadiances];
+      // Confiscation/sealing can leave no drawable card, or a newly exposed top
+      // may not have a rendered origin yet. No flight means no animation callback
+      // will unlock input; finish explicitly, using the battle's cancellable timer.
+      if (!clearedAllPiles && !drawnCards.some(card => origins.has(card.id))) {
+        origins.clear();
+        pendingEnemyTokenIdsRef.current.clear();
+        later(() => setPhase("playing"), 0);
+      }
       const piles = clearedAllPiles ? drawPiles : drawPiles.map((pile, index) => [
         ...pile,
         ...(soilCardsByPile[index] ?? []),
@@ -257,7 +266,7 @@ export function createDrawCards(context: DrawCardsContext) {
         ...current,
         piles,
         enemies: enemiesAfterDiscardTargeting,
-        hand: [...current.hand, ...initialDraw, ...toxicSlimes, ...fermentedSlimes, ...opticalRadiances],
+        hand: [...current.hand, ...drawnCards],
         initialDeck: [
           ...current.initialDeck,
           ...toxicSlimes.map((card) => ({ ...card, revealed: false })),

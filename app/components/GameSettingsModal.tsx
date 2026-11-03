@@ -4,6 +4,7 @@ import { useLayoutEffect, useRef } from "react";
 import { useGameSettings } from "../hooks/useGameSettings";
 
 const SHORTCUTS = [
+  ["Ctrl+F / ⌘F", "지도 검색"],
   ["W A S D / 방향키", "지도 이동"],
   ["숫자패드 1~9", "8방향 이동 · 5는 한 턴 쉬기"],
   ["O", "자동 여행 시작 · 중단"],

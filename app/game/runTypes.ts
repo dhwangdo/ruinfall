@@ -34,6 +34,7 @@ export type SavedRunState = {
   rockBombHits: Record<string, number>;
   mindEyeMovesRemaining: number;
   godsLamentCharges?: number;
+  regionBattleWins?: number;
   darkTicketTurnsRemaining?: number;
   ownedDecks: DeckCase[];
   activeDeckId: string;

@@ -68,6 +68,21 @@ test("reset cancels finished and unfinished members without running an old compl
   await flush(); assert.equal(committed, true);
 });
 
+test("draw input unlocks after cancelled visuals but never after a battle reset", async () => {
+  const lifecycle = createBattleAnimationLifecycle(), first = flight(), last = flight();
+  let unlocked = false;
+  lifecycle.afterAnimations([first.animation, last.animation], () => { unlocked = true; }, { completeOnCancel: true });
+  first.animation.cancel(); await flush();
+  assert.equal(unlocked, false);
+  last.finish(); await flush();
+  assert.equal(unlocked, true);
+
+  const stale = flight(); unlocked = false;
+  lifecycle.afterAnimations([stale.animation], () => { unlocked = true; }, { completeOnCancel: true });
+  lifecycle.clearAnimations(); await flush();
+  assert.equal(unlocked, false);
+});
+
 test("ending a turn waits for discard and allows every hit to return before the next", () => {
   const previousWindow = globalThis.window;
   globalThis.window = { matchMedia: () => ({ matches: false }) };

@@ -76,7 +76,7 @@ export const SAFE_AREA_LAYOUT_MIN_OFFSET_X = -6;
 export const SAFE_AREA_LAYOUT_MAX_OFFSET_X = 2;
 const SAFE_AREA_SPAWN_OFFSET_X = SAFE_AREA_LAYOUT_MIN_OFFSET_X + 1;
 export const MAP_COLUMNS = DUNGEON_MAX_X - DUNGEON_MIN_X + 1;
-export const REGION_HEIGHT = 41;
+export const REGION_HEIGHT = 31;
 export const MAP_ROWS = REGION_COUNT * REGION_HEIGHT + (REGION_COUNT - 1) * ROCK_BARRIER_HEIGHT;
 export const MAP_START: MapPosition = { x: 0, y: 0 };
 

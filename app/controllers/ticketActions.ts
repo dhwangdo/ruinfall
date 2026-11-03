@@ -399,7 +399,8 @@ export function createTicketActions({
         for (let x = DUNGEON_MIN_X; x <= DUNGEON_MAX_X; x += 1) {
           const position = { x, y };
           const type = effectiveRoomType(position);
-          if (specialRoomTypes.has(type) && !seenRooms.has(mapRoomKey(position))) candidates.push(position);
+          if (specialRoomTypes.has(type) && !isSafeAreaPosition(position, mapSeed)
+            && !seenRooms.has(mapRoomKey(position))) candidates.push(position);
         }
       }
       candidates.sort((left, right) => chebyshevDistance(left, mapPosition) - chebyshevDistance(right, mapPosition));

@@ -38,12 +38,13 @@ export function makeRunFixture() {
   world.effectiveRoomType = () => world.roomType;
   const player = {};
   for (const [name, value] of Object.entries({
-    blessings: [], runPlayerHp: 40, godsLamentCharges: 3, vitalityShrineMaxHpBonus: 0,
+    blessings: [], runPlayerHp: 40, godsLamentCharges: 3, regionBattleWins: 0, vitalityShrineMaxHpBonus: 0,
     mindEyeMovesRemaining: 0, blessingOffers: [], blessingSeenOfferIds: new Set(),
     blessingRerollCost: 5, oneUpUsed: false,
   })) field(player, name, value);
   player.runPlayerHpRef = { current: 40 };
   player.godsLamentChargesRef = { current: 3 };
+  player.regionBattleWinsRef = { get current() { return player.regionBattleWins; } };
   player.mindEyeMovesRemainingRef = { current: 0 };
   player.oneUpUsedRef = { current: false };
   const battle = {};

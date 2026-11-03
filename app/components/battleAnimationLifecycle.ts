@@ -10,13 +10,14 @@ export function createBattleAnimationLifecycle() {
     animation.finished.then(forget, forget);
   };
 
-  const afterAnimations = (animations: Array<Animation | null>, callback: () => void) => {
+  const afterAnimations = (animations: Array<Animation | null>, callback: () => void,
+    { completeOnCancel = false }: { completeOnCancel?: boolean } = {}) => {
     const group = animations.filter((animation): animation is Animation => animation !== null);
     const startedIn = generation;
     group.forEach(animation => active.add(animation));
     Promise.allSettled(group.map(animation => animation.finished)).then(results => {
       try {
-        if (startedIn === generation && results.every(result => result.status === "fulfilled")) callback();
+        if (startedIn === generation && (completeOnCancel || results.every(result => result.status === "fulfilled"))) callback();
       } finally {
         group.forEach(animation => {
           active.delete(animation);

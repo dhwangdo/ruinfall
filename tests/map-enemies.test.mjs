@@ -86,7 +86,7 @@ test("pre-generation can reserve the start cell and its eight neighbors from spa
     5,
     1,
   );
-  assert.equal(MAP_ENEMY_SPAWN_CHANCE, 0.03);
+  assert.equal(MAP_ENEMY_SPAWN_CHANCE, 0.045);
   assert.equal(world.enemies.length, 72);
   assert.ok(world.enemies.every((enemy) => enemy.awareness === "sleeping"));
   assert.ok(world.enemies.every((enemy) =>

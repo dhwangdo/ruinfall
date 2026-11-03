@@ -35,6 +35,7 @@ export function createPortalActions({ inventory, world, player, dialogs, isSafeA
     const baseSeenRooms = type === "safePortal" && world.safeAreaEntrySeenRooms !== null && isSafeAreaSealed(region)
       ? world.safeAreaEntrySeenRooms : null;
     inventory.setKeys(0);
+    player.setRegionBattleWins(0);
     if (type === "portal") world.setSafeAreaEntrySeenRooms(new Set(world.seenRooms));
     else world.setSafeAreaEntrySeenRooms(null);
     player.godsLamentChargesRef.current = type === "portal" ? 0 : 3;

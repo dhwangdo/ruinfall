@@ -68,9 +68,10 @@ test("ordinary location counts stay in range, spread across the map and add to p
       const locations = [...map.ordinarySites].filter(([, type]) => type === kind).map(([index]) => index);
       assert.equal(locations.length, map.locationCounts[kind]);
       assert.ok(locations.length >= min && locations.length <= max);
-      const thirds = [0, 0, 0];
-      for (const index of locations) thirds[Math.floor(index % MAP_COLUMNS * 3 / MAP_COLUMNS)]++;
-      assert.ok(thirds.every(count => count > 0), `${kind} covers the region instead of clustering`);
+      // Shops cover their quota's bands; dense vaults may borrow nearby bands to preserve spacing.
+      const bands = Array(kind === "deckVault" ? 3 : locations.length).fill(0);
+      for (const index of locations) bands[Math.floor(index % MAP_COLUMNS * bands.length / MAP_COLUMNS)]++;
+      assert.ok(bands.every(count => count > 0), `${kind} covers the region instead of clustering`);
       if (kind === "deckVault") for (let i = 0; i < locations.length; i++) for (let j = 0; j < i; j++) {
         const a = locations[i], b = locations[j];
         assert.ok(Math.hypot(a % MAP_COLUMNS - b % MAP_COLUMNS, Math.floor(a / MAP_COLUMNS) - Math.floor(b / MAP_COLUMNS)) >= 6);

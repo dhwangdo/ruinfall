@@ -1,7 +1,7 @@
 export const MAP_TICKET_CAMERA_HOLD_MS = 450;
 
 export function ticketCameraDuration(distanceInCells: number) {
-  return Math.min(4000, 700 + Math.max(0, distanceInCells) * 20);
+  return Math.min(2000, 350 + Math.max(0, distanceInCells) * 10);
 }
 
 type Pan = { x: number; y: number };

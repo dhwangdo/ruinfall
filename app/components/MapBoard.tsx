@@ -59,6 +59,7 @@ type MapBoardProps = {
     roomConsumableDrops: Record<string, Consumable[]>;
     roomDeckDrops: Record<string, DeckCase[]>;
     roomDeckVaults: Record<string, DeckCase>;
+    highlightedRoomKey?: string | null;
   };
   camera: MapCamera;
   debugTools: {
@@ -112,6 +113,7 @@ export function MapBoard({
     roomConsumableDrops,
     roomDeckDrops,
     roomDeckVaults,
+    highlightedRoomKey,
   } = world;
   const {
     pan: mapPan,
@@ -335,6 +337,7 @@ export function MapBoard({
                 reachable={reachable}
                 walkable={walkable}
                 mapTraveling={mapTraveling}
+                searchHighlighted={highlightedRoomKey === roomKey}
                 itemCount={itemCount}
                 floorDeck={roomDeckDrops[roomKey]?.[0]}
                 floorCard={roomDrops[roomKey]?.[0]}

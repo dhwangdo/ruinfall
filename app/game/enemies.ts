@@ -101,6 +101,7 @@ export type EnemyState = {
   /** Use this opening once, then follow the actions' usual selection rules. */
   openingIntentIndex?: number;
   strength: number;
+  karmaStage?: number;
   resistance?: number;
   amplification?: number;
   /** Count-based damage immunity. Each successful hit consumes one stack. */

@@ -217,6 +217,60 @@ test("confiscation leaves dealt files in place, reveals the exposed top and keep
   assert.deepEqual(multiple.piles, [[]]);
 });
 
+test("turn-start drawing unlocks after confiscation even with missing origins or no drawable cards", () => {
+  const previousDocument = globalThis.document;
+  const rare = { ...RARE_CARD_POOL[0], id: 99, revealed: true };
+  try {
+    for (const scenario of [
+      { piles: [[card(1), rare]], visible: [99], drawn: [1] },
+      { piles: [[card(1), rare]], visible: [], drawn: [1] },
+      { piles: [[rare]], visible: [99], drawn: [] },
+      { piles: [[card(1)], [rare]], visible: [1, 99], drawn: [], sealed: true },
+    ]) {
+      const result = confiscatePileCards([enemy(35)], scenario.piles, () => 0);
+      let state = { ...waitingState(50, scenario.sealed ? [...result.enemies, enemy(31)] : result.enemies),
+        piles: result.piles };
+      globalThis.document = { querySelectorAll: () => scenario.visible.map(id => ({
+        dataset: { topCardId: String(id) }, getBoundingClientRect: () => ({}),
+      })) };
+      let phase = "playing";
+      const scheduled = [], origins = { current: new Map() };
+      createDrawCards({ pendingOriginsRef: origins,
+        pendingPileTokenSourcesRef: { current: new Map() }, pendingEnemyTokenIdsRef: { current: new Set() },
+        nextCardIdRef: { current: 100 }, blessings: [], setPhase: value => { phase = value; },
+        setGame: update => { state = update(state); }, setPileClearNotice() {},
+        later: (callback, delay) => { scheduled.push({ callback, delay }); return scheduled.length; },
+        pickRandom: items => items[0] })();
+      assert.deepEqual(state.hand.map(card => card.id), scenario.drawn);
+      assert.equal(phase, "drawing");
+      assert.equal(scheduled.length, 1);
+      assert.equal(scheduled[0].delay, 0);
+      scheduled[0].callback();
+      assert.equal(phase, "playing");
+      assert.equal(origins.current.size, 0);
+      assert.equal(state.enemies[0].confiscatedCards[0].id, 99);
+    }
+  } finally { globalThis.document = previousDocument; }
+});
+
+test("a visible turn-start draw still waits for its flight to finish", () => {
+  const previousDocument = globalThis.document;
+  try {
+    globalThis.document = { querySelectorAll: () => [{
+      dataset: { topCardId: "1" }, getBoundingClientRect: () => ({}),
+    }] };
+    let state = { ...waitingState(50, [enemy(35)]), piles: [[card(1)]] }, phase = "playing";
+    createDrawCards({ pendingOriginsRef: { current: new Map() },
+      pendingPileTokenSourcesRef: { current: new Map() }, pendingEnemyTokenIdsRef: { current: new Set() },
+      nextCardIdRef: { current: 100 }, blessings: [], setPhase: value => { phase = value; },
+      setGame: update => { state = update(state); }, setPileClearNotice() {},
+      later: () => assert.fail("a visible flight must finish through the animation lifecycle"),
+      pickRandom: items => items[0] })();
+    assert.equal(phase, "drawing");
+    assert.deepEqual(state.hand.map(card => card.id), [1]);
+  } finally { globalThis.document = previousDocument; }
+});
+
 test("confiscator curses the player instead of protecting an ally", () => {
   const enemies = createSewerEncounterByIndex(35, () => .999).map((enemy, index) => ({ ...enemy, intentIndex: index === 0 ? 2 : 0 }));
   const result = resolveEnemyTurn(waitingState(500, enemies), options);
