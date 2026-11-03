@@ -60,6 +60,7 @@ type MapBoardProps = {
     roomDeckDrops: Record<string, DeckCase[]>;
     roomDeckVaults: Record<string, DeckCase>;
     highlightedRoomKey?: string | null;
+    bloodstainedRooms: ReadonlySet<string>;
   };
   camera: MapCamera;
   debugTools: {
@@ -114,6 +115,7 @@ export function MapBoard({
     roomDeckDrops,
     roomDeckVaults,
     highlightedRoomKey,
+    bloodstainedRooms,
   } = world;
   const {
     pan: mapPan,
@@ -338,6 +340,7 @@ export function MapBoard({
                 walkable={walkable}
                 mapTraveling={mapTraveling}
                 searchHighlighted={highlightedRoomKey === roomKey}
+                bloodstained={bloodstainedRooms.has(roomKey)}
                 itemCount={itemCount}
                 floorDeck={roomDeckDrops[roomKey]?.[0]}
                 floorCard={roomDrops[roomKey]?.[0]}

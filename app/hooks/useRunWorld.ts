@@ -16,6 +16,8 @@ export function useRunWorld() {
 
   const [safeAreaEntrySeenRooms, setSafeAreaEntrySeenRooms] = useState<Set<string> | null>(null);
 
+  const [bloodstainedRooms, setBloodstainedRooms] = useState<Set<string>>(() => new Set());
+
   const [mapEnemyWorld, setMapEnemyWorld] = useState<MapEnemyWorld>(() => ({
     enemies: [],
   }));
@@ -90,18 +92,19 @@ export function useRunWorld() {
     mapEnemyCellMemory, mapBombs, destroyedShopRooms, collapsedExtractionShrineRooms,
     collapsedRecoveryShrineRooms, collapsedVitalityShrineRooms, collapsedMindEyeShrineRooms,
     collapsedTransformShrineRooms, collapsedTreasureChestRooms, openedDeckVaultRooms,
-    usedHealRooms, usedBlessingRooms, rockBombHits,
+    usedHealRooms, usedBlessingRooms, rockBombHits, bloodstainedRooms,
   }), [
     mapSeed, mapPosition, seenRooms, safeAreaEntrySeenRooms, mapEnemyWorld, defeatedBossRegions,
     mapEnemyCellMemory, mapBombs, destroyedShopRooms, collapsedExtractionShrineRooms,
     collapsedRecoveryShrineRooms, collapsedVitalityShrineRooms, collapsedMindEyeShrineRooms,
     collapsedTransformShrineRooms, collapsedTreasureChestRooms, openedDeckVaultRooms,
-    usedHealRooms, usedBlessingRooms, rockBombHits,
+    usedHealRooms, usedBlessingRooms, rockBombHits, bloodstainedRooms,
   ]);
   const restoreWorld = useCallback((state: PreparedRunRestore) => {
     setMapSeed(state.mapSeed);
     setMapPosition(state.mapPosition);
     setSeenRooms(new Set(state.seenRooms));
+    setBloodstainedRooms(new Set(state.bloodstainedRooms));
     setSafeAreaEntrySeenRooms(state.safeAreaEntrySeenRooms ? new Set(state.safeAreaEntrySeenRooms) : null);
     setDefeatedBossRegions(new Set(state.defeatedBossRegions));
     setMapEnemyCellMemory(state.mapEnemyCellMemory);
@@ -124,6 +127,7 @@ export function useRunWorld() {
   }, [setOpenedDeckVaultRooms]);
   return {
     mapSeed, setMapSeed, mapPosition, setMapPosition, seenRooms, setSeenRooms,
+    bloodstainedRooms, setBloodstainedRooms,
     safeAreaEntrySeenRooms, setSafeAreaEntrySeenRooms, mapEnemyWorld, setMapEnemyWorld,
     defeatedBossRegions, setDefeatedBossRegions, mapEnemyCellMemory, setMapEnemyCellMemory,
     mapBombs, setMapBombs, mapBombsRef, destroyedShopRooms, setDestroyedShopRooms,

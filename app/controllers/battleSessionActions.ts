@@ -7,8 +7,7 @@ import type { useRunMapContent } from "../hooks/useRunMapContent";
 import type { BattleEncounter, MapBattleEnemy } from "../game/runTypes";
 import { prepareBattleStart } from "../game/battleSetup.ts";
 import { createBattleReward, createBossBattleReward } from "../game/rewards.ts";
-import { nextRareCardDropChance } from "../game/rewardRules.ts";
-import { isHigherRegionMapEnemy } from "../game/mapRules.ts";
+import { createRoulettePrize, rollRewardRoulette } from "../game/rewardRoulette.ts";
 import { getEncounterRegionNumber } from "../game/enemies.ts";
 import { RUN_SAVE_POLICY } from "../game/saveGame.ts";
 import { karmaStageForWins } from "../game/karmaRules.ts";
@@ -38,10 +37,10 @@ export function createBattleSessionActions({
   clearMapTravel, closeMapOverlays, clearCardPreview,
   drawCards, rememberPlayerVision, queueRunSave,
 }: Options) {
-  const { activeMapEnemyIds, setActiveMapEnemyIds, activeBattleRoom, setActiveBattleRoom, mapBattleQueueRef, previousBattleDeckIdRef, pendingBattleStart, setPendingBattleStart, battleDeckCheckEnabled, setBattleDeckPreviewId, battleRewards, setBattleRewards, battleRewardDecks, setBattleRewardDecks, battleRewardConsumables, setBattleRewardConsumables, battleRewardGold, setBattleRewardGold, battleRewardKeys, setBattleRewardKeys, game, setGame, telemetryPreviousGameRef, setPhase, setAttackingEnemyId, setDamagePopup, setAnimatedEnemyHp, battleRewardRegionRef, battleRewardIsBossRef, battleRewardIsOutOfDepthRef, setDyingEnemyIds, setBattleCardView, setScreen, clearBattleTimers, later,
-    pendingEnemyTokenIdsRef, pendingPileTokenSourcesRef } = battle;
+  const { activeMapEnemyIds, setActiveMapEnemyIds, activeBattleRoom, setActiveBattleRoom, mapBattleQueueRef, previousBattleDeckIdRef, pendingBattleStart, setPendingBattleStart, battleDeckCheckEnabled, setBattleDeckPreviewId, battleRewards, setBattleRewards, battleRewardDecks, setBattleRewardDecks, battleRewardConsumables, setBattleRewardConsumables, battleRewardGold, setBattleRewardGold, battleRewardKeys, setBattleRewardKeys, game, setGame, telemetryPreviousGameRef, setPhase, setAttackingEnemyId, setDamagePopup, setAnimatedEnemyHp, battleRewardRegionRef, battleRewardIsBossRef, setDyingEnemyIds, setBattleCardView, setScreen, clearBattleTimers, later,
+    pendingEnemyTokenIdsRef, pendingPileTokenSourcesRef, setBattleRewardRoulette, battleRewardRouletteRef } = battle;
   const { ownedDecks, activeDeckId, setActiveDeckId, nextCardIdRef, nextConsumable,
-    rareCardDropChanceRef, setKeys,
+    setKeys,
     roomDrops, setRoomDrops, setRoomDeckDrops, setRoomConsumableDrops, setGold } = inventory;
   const { mapPosition, mapSeed, mapEnemyWorld, setMapEnemyWorld, setDefeatedBossRegions } = world;
   const { blessings, godsLamentChargesRef, setGodsLamentCharges, runPlayerHp, runPlayerHpRef, setRunPlayerHp } = player;
@@ -52,38 +51,54 @@ export function createBattleSessionActions({
     battle.rewardGrantedRef.current = true;
     player.setRegionBattleWins(wins => wins + 1);
     ensureTelemetryRun();
-    const rewardDeck = ownedDecks.find((deck) => deck.id === previousBattleDeckIdRef.current) ?? activeDeck;
     const reward = battleRewardIsBossRef.current
       ? createBossBattleReward(
         nextCardIdRef.current,
         blessings.includes("bossSlayer") ? regionNumber + 1 : undefined,
         blessings.includes("deckSize") ? 5 : 0,
       )
-      : createBattleReward(
-        regionNumber,
-        nextCardIdRef.current,
-        blessings.includes("deckSize") ? 5 : 0,
-        rareCardDropChanceRef.current,
-        battleRewardIsOutOfDepthRef.current,
-      );
+      : createBattleReward(regionNumber);
     [...reward.cards, ...reward.decks.flatMap((deck) => deck.cards)].forEach((card) => {
       recordTelemetryCardAcquired(telemetry, telemetryCardSnapshot(card), "battle-reward");
     });
     const rewardConsumables = reward.consumableTypes.map((type) => nextConsumable(type));
     const generatedCardCount = reward.cards.length + reward.decks.reduce((total, deck) => total + deck.cards.length, 0);
     nextCardIdRef.current += generatedCardCount;
-    if (!battleRewardIsBossRef.current) {
-      rareCardDropChanceRef.current = nextRareCardDropChance(
-        rareCardDropChanceRef.current,
-        reward.cards,
-      );
-    }
+    const remaining = [...player.rewardRouletteRemainingRef.current];
+    setBattleRewardRoulette(battleRewardIsBossRef.current ? null : {
+      remaining, selected: null, phase: remaining.length ? "ready" : "empty",
+    });
+    if (activeBattleRoom) world.setBloodstainedRooms(current => new Set([...current, activeBattleRoom]));
     const rewardGold = reward.gold * (blessings.includes("greed") ? 2 : 1);
     setBattleRewardGold(rewardGold);
     setBattleRewardKeys(reward.keys);
     setBattleRewards(reward.cards);
     setBattleRewardDecks(reward.decks);
     setBattleRewardConsumables(rewardConsumables);
+  };
+
+  const spinBattleReward = () => {
+    const roulette = battleRewardRouletteRef.current;
+    if (!battle.rewardGrantedRef.current || battle.getGame().status !== "won" || roulette?.phase !== "ready") return;
+    const draw = rollRewardRoulette(player.rewardRouletteRemainingRef.current);
+    if (!draw) return;
+    setBattleRewardRoulette({ ...draw, phase: "spinning" });
+    player.setRewardRouletteRemaining(draw.remaining);
+  };
+
+  const finishBattleRewardSpin = () => {
+    const roulette = battleRewardRouletteRef.current;
+    if (roulette?.phase !== "spinning" || !roulette.selected) return;
+    // Lock before creating IDs/rewards: repeated animation events cannot pay twice.
+    setBattleRewardRoulette({ ...roulette, phase: "settled" });
+    const prize = createRoulettePrize(roulette.selected, battleRewardRegionRef.current, nextCardIdRef.current);
+    if (prize.card) {
+      nextCardIdRef.current += 1;
+      setBattleRewards([prize.card]);
+      recordTelemetryCardAcquired(telemetry, telemetryCardSnapshot(prize.card), "battle-reward");
+    }
+    if (prize.consumableType) setBattleRewardConsumables([nextConsumable(prize.consumableType)]);
+    if (prize.gold) setBattleRewardGold(current => current + prize.gold * (blessings.includes("greed") ? 2 : 1));
   };
 
 
@@ -120,6 +135,7 @@ export function createBattleSessionActions({
     setBattleRewardConsumables([]);
     setBattleRewardGold(0);
     setBattleRewardKeys(0);
+    setBattleRewardRoulette(null);
     pendingEnemyTokenIdsRef.current.clear();
     pendingPileTokenSourcesRef.current.clear();
     const prepared = prepareBattleStart({
@@ -160,8 +176,6 @@ export function createBattleSessionActions({
     playerHp = runPlayerHp,
   ) => {
     battleRewardIsBossRef.current = encounters.some((encounter) => encounter.isBoss === true);
-    battleRewardIsOutOfDepthRef.current = encounters.some((encounter) =>
-      encounter.isBoss !== true && isHigherRegionMapEnemy(encounter.encounterIndex, mapPosition, mapSeed));
     if (battleDeckCheckEnabled && ownedDecks.length >= 2) {
       setPendingBattleStart({ encounters, playerHp });
       setBattleDeckPreviewId(activeDeckId);
@@ -181,6 +195,8 @@ export function createBattleSessionActions({
 
 
   const returnToMap = () => {
+    const roulette = battleRewardRouletteRef.current;
+    if (roulette?.phase === "ready" || roulette?.phase === "spinning") return;
     if (battle.rewardCollectedRef.current) return;
     battle.rewardCollectedRef.current = true;
     const battleRoom = activeBattleRoom;
@@ -225,8 +241,6 @@ export function createBattleSessionActions({
       setBattleRewardGold(0);
       setBattleRewardKeys(0);
       battleRewardIsBossRef.current = nextEnemy.isBoss === true;
-      battleRewardIsOutOfDepthRef.current = nextEnemy.isBoss !== true
-        && isHigherRegionMapEnemy(nextEnemy.encounterIndex, mapPosition, mapSeed);
       startBattleNow(
         [nextEnemy],
         nextPlayerHp,
@@ -274,5 +288,6 @@ export function createBattleSessionActions({
   };
 
 
-  return { grantBattleReward, startBattleNow, startBattle, confirmBattleDeck, returnToMap, beginMapEnemyBattle };
+  return { grantBattleReward, spinBattleReward, finishBattleRewardSpin,
+    startBattleNow, startBattle, confirmBattleDeck, returnToMap, beginMapEnemyBattle };
 }

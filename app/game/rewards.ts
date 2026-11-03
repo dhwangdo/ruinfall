@@ -19,6 +19,7 @@ import {
 } from "./cards.ts";
 import { createDeckName } from "./randomNames.ts";
 import { TICKET_TIERS, TICKET_TYPES, type TicketType } from "./shopRules.ts";
+import { rollBattleRewardGold } from "./rewardRules.ts";
 
 export type DeckEdition =
   | "clever"
@@ -423,30 +424,14 @@ export function createConsumable(type: ConsumableType, id: string): Consumable {
   };
 }
 
-export function createBattleReward(
-  regionNumber: number,
-  nextCardId: number,
-  capacityBonus = 0,
-  rareCardChance = 0.05,
-  forceDeck = false,
-) {
-  const regionMultiplier = 1.3 ** Math.max(0, regionNumber - 1);
-  const minimumGold = Math.floor(10 * regionMultiplier);
-  const maximumGold = Math.floor(15 * regionMultiplier);
-  const gold = minimumGold + Math.floor(Math.random() * (maximumGold - minimumGold + 1));
-  const decks = forceDeck
-    ? [createRegionDeck(regionNumber, nextCardId, capacityBonus)]
-    : [];
-  const consumableType = decks.length === 0 && Math.random() < 0.5
-    ? consumableTypeFromRoll(Math.random())
-    : null;
+export function createBattleReward(regionNumber: number) {
   return {
-    gold,
+    gold: rollBattleRewardGold(regionNumber),
     keys: 1,
-    cards: decks.length > 0 ? [] : [createBattleRewardCard(nextCardId, rareCardChance)],
-    decks,
-    consumableType,
-    consumableTypes: consumableType ? [consumableType] : [],
+    cards: [] as Card[],
+    decks: [] as DeckCase[],
+    consumableType: null,
+    consumableTypes: [] as TicketType[],
   };
 }
 

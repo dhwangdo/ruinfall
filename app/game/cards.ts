@@ -235,7 +235,7 @@ export const RARE_CARD_POOL: CardBlueprint[] = [
   { kind: "skill", effect: "fourSeasons", rarity: "rare", name: "사계절", cost: 2, value: 2, draw: 0, damageType: "physical", discardCost: 3 },
   { kind: "skill", effect: "unyielding", rarity: "rare", name: "불굴", cost: 1, value: 5, draw: 0, damageType: "physical", exhaust: true },
   { kind: "strike", effect: "demolish", rarity: "rare", name: "개박살", cost: 3, value: 15, draw: 0, damageType: "physical" },
-  { kind: "skill", effect: "wish", rarity: "rare", name: "소원", cost: 0, value: 0, draw: 0, damageType: "physical" },
+  { kind: "skill", effect: "wish", rarity: "rare", name: "소원", cost: 0, value: 3, draw: 0, damageType: "physical", exhaust: true },
   { kind: "skill", effect: "strategyBook", rarity: "rare", name: "병법서", cost: 2, value: 4, draw: 0, damageType: "physical", exhaust: true },
   { kind: "skill", effect: "evolutionTheory", rarity: "rare", name: "진화론", cost: 2, value: 1, draw: 0, damageType: "physical", exhaust: true, rule: true },
   { kind: "skill", effect: "drawEachPile", rarity: "rare", name: "책 펼치기", cost: 1, value: 0, draw: 0, damageType: "physical" },

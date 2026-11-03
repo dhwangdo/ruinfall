@@ -6,6 +6,7 @@ import { STARTER_DECK_CAPACITY, STARTER_DECK_RARE_SLOT_CAPACITY, isDeckEdition, 
 import type { SavedRunState } from "./runTypes";
 import { isEncounterAvailable, normalizeEncounterIndex } from "./enemies.ts";
 import { normalizeBattleWins } from "./karmaRules.ts";
+import { normalizeRewardRoulette } from "./rewardRoulette.ts";
 
 const REMOVED_EFFECTS = new Set(["sacrifice", "magicCrystal", "delay", "boneArmor", "steelHeart", "ironWall", "blessing", "berserk"]);
 const REMOVED_CARD_NAMES = new Set(["불티", "잔바위", "유예", "뼈 갑옷", "환기"]);
@@ -18,7 +19,7 @@ const RENAMED_CARD_NAMES: Readonly<Record<string, string>> = {
   "전술가": "대전략가",
 };
 const RESTORED_EFFECTS = new Set([
-  "rapidFire", "supernova", "meteor", "sturdyStance", "lawResearch", "economicsResearch", "lightTravelTime", "wolfTalisman", "turtleTalisman", "obsidianDagger", "plateArmorDefense",
+  "rapidFire", "supernova", "meteor", "wish", "sturdyStance", "lawResearch", "economicsResearch", "lightTravelTime", "wolfTalisman", "turtleTalisman", "obsidianDagger", "plateArmorDefense",
 ]);
 
 function restoreLegacyCard(card: Card): Card | null {
@@ -84,6 +85,7 @@ function removeDeletedTickets(consumables: readonly Consumable[] = []) {
 
 type SetBackedRunStateFields =
   | "seenRooms"
+  | "bloodstainedRooms"
   | "safeAreaEntrySeenRooms"
   | "defeatedBossRegions"
   | "destroyedShopRooms"
@@ -100,6 +102,7 @@ type SetBackedRunStateFields =
 
 export type RunSaveSnapshotSource = Omit<SavedRunState, SetBackedRunStateFields> & {
   seenRooms: ReadonlySet<string>;
+  bloodstainedRooms?: ReadonlySet<string>;
   safeAreaEntrySeenRooms: ReadonlySet<string> | null;
   defeatedBossRegions: ReadonlySet<number>;
   destroyedShopRooms: ReadonlySet<string>;
@@ -119,6 +122,7 @@ export function createRunSaveSnapshot(source: RunSaveSnapshotSource): SavedRunSt
   return {
     ...source,
     seenRooms: [...source.seenRooms],
+    bloodstainedRooms: [...(source.bloodstainedRooms ?? [])],
     safeAreaEntrySeenRooms: source.safeAreaEntrySeenRooms
       ? [...source.safeAreaEntrySeenRooms]
       : null,
@@ -147,6 +151,8 @@ type NormalizedRunRestoreFields =
   | "vitalityShrineMaxHpBonus"
   | "godsLamentCharges"
   | "regionBattleWins"
+  | "rewardRouletteRemaining"
+  | "bloodstainedRooms"
   | "darkTicketTurnsRemaining"
   | "blessingOffers"
   | "blessingSeenOfferIds"
@@ -214,6 +220,8 @@ export function prepareRunRestore(
     vitalityShrineMaxHpBonus: state.vitalityShrineMaxHpBonus ?? state.healthShrineMaxHpBonus ?? 0,
     godsLamentCharges,
     regionBattleWins: normalizeBattleWins(state.regionBattleWins),
+    rewardRouletteRemaining: normalizeRewardRoulette(state.rewardRouletteRemaining),
+    bloodstainedRooms: state.bloodstainedRooms ?? [],
     darkTicketTurnsRemaining: state.darkTicketTurnsRemaining ?? 0,
     blessingOffers: state.blessingOffers ?? [],
     blessingSeenOfferIds: state.blessingSeenOfferIds ?? [],

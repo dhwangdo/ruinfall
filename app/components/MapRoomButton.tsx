@@ -15,6 +15,7 @@ type MapRoomButtonProps = {
   walkable: boolean;
   mapTraveling: boolean;
   searchHighlighted?: boolean;
+  bloodstained?: boolean;
   itemCount: number;
   floorDeck?: MapFloorItemProps["deck"];
   floorCard?: MapFloorItemProps["card"];
@@ -56,6 +57,7 @@ function MapRoomButtonView({
   walkable,
   mapTraveling,
   searchHighlighted = false,
+  bloodstained = false,
   itemCount,
   floorDeck,
   floorCard,
@@ -89,6 +91,8 @@ function MapRoomButtonView({
       onFocus={onPreview ? (event) => onPreview(event.currentTarget, position) : undefined}
       onBlur={(event) => onClearPreview?.(event.relatedTarget, false)}
     >
+      {bloodstained && <i className="map-bloodstain" aria-hidden="true"
+        style={{ transform: `rotate(${((position.x * 13 + position.y * 7) % 8) * 45}deg)` }} />}
       {itemCount > 0 && <MapFloorItem deck={floorDeck} card={floorCard} ticket={floorTicket} />}
       {ROOM_BADGES[roomType] && <span className="map-room-label">{roomType === "deckVault" ? deckName ?? ROOM_BADGES[roomType] : ROOM_BADGES[roomType]}</span>}
       {itemCount > 1 && <span className="room-item-indicator" aria-label="추가 아이템 있음" />}

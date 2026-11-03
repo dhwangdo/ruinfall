@@ -4,6 +4,7 @@ import type { MapEnemyCellMemory, MapEnemyWorld } from "./mapEnemies";
 import type { MapBomb } from "./mapEffects";
 import type { MapPosition } from "./mapRules";
 import type { Consumable, DeckCase, ShopOffer } from "./rewards";
+import type { RewardRouletteSlot } from "./rewardRoulette";
 
 export type SavedRunState = {
   playerName: string;
@@ -11,6 +12,7 @@ export type SavedRunState = {
   mapSeed: number;
   mapPosition: MapPosition;
   seenRooms: string[];
+  bloodstainedRooms?: string[];
   safeAreaEntrySeenRooms: string[] | null;
   mapEnemyWorld: MapEnemyWorld;
   defeatedBossRegions: number[];
@@ -35,6 +37,7 @@ export type SavedRunState = {
   mindEyeMovesRemaining: number;
   godsLamentCharges?: number;
   regionBattleWins?: number;
+  rewardRouletteRemaining?: RewardRouletteSlot[];
   darkTicketTurnsRemaining?: number;
   ownedDecks: DeckCase[];
   activeDeckId: string;

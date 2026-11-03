@@ -136,16 +136,19 @@ test("a multi-enemy encounter grants one key and continuing cannot collect it tw
   actions.grantBattleReward(1);
   assert.equal(ctx.battle.battleRewardKeys, 1);
   assert.deepEqual(ctx.battle.battleRewardDecks, []);
+  ctx.battle.setGame({ ...ctx.battle.game, status: "won" });
+  actions.spinBattleReward();
+  actions.finishBattleRewardSpin();
   const finished = createBattleSessionActions(ctx.options());
   finished.returnToMap();
   finished.returnToMap();
   assert.equal(ctx.inventory.keys, 1);
 });
 
-test("future-region encounters retain the deck plus one key", () => {
+test("future-region encounters use the roulette and one key instead of dropping a deck", () => {
   const ctx = makeRunFixture();
-  ctx.battle.battleRewardIsOutOfDepthRef.current = true;
   createBattleSessionActions(ctx.options()).grantBattleReward(2);
-  assert.equal(ctx.battle.battleRewardDecks.length, 1);
+  assert.equal(ctx.battle.battleRewardDecks.length, 0);
   assert.equal(ctx.battle.battleRewardKeys, 1);
+  assert.equal(ctx.battle.battleRewardRoulette.phase, "ready");
 });

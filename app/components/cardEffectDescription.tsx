@@ -40,7 +40,7 @@ export function cardEffectDescription(card: Card, damageNumber: ReactNode, defen
     case "drawEachPile":
       return <span>모든 파일에서 카드를 1장씩 뽑습니다.</span>;
     case "wish":
-      return <span>무작위 희귀 카드를 가져옵니다. 그 카드에 <strong className="effect-keyword">토큰</strong> 속성을 부여합니다.</span>;
+      return <span>무작위 희귀 카드를 {card.value}장 가져옵니다. 그 카드들에 <strong className="effect-keyword">토큰</strong> 속성을 부여합니다.</span>;
     case "strategyBook":
       return <><span><strong className="effect-keyword">힘</strong>과 <strong className="effect-keyword">강인함</strong>을 4 얻습니다.</span><span>이 효과는 손패에 있는 동안에도 적용됩니다.</span></>;
     case "evolutionTheory":

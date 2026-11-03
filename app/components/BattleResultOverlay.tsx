@@ -4,6 +4,8 @@ import type { Dispatch, SetStateAction } from "react";
 import type { Card } from "../game/cards";
 import type { Consumable, DeckCase } from "../game/rewards";
 import { DeckName } from "./DeckName";
+import { BattleRewardRoulette } from "./BattleRewardRoulette";
+import type { BattleRewardRoulette as RouletteState } from "../game/rewardRoulette";
 
 type BattleResultStatus = "won" | "lost";
 
@@ -15,6 +17,9 @@ type BattleResultOverlayProps = {
   rewardCards: Card[];
   rewardDecks: DeckCase[];
   rewardConsumables: Consumable[];
+  roulette: RouletteState | null;
+  onSpin: () => void;
+  onSpinFinish: () => void;
   consumableDescription: (item: Consumable) => string;
   showCardKeywordOnly: (card: Card, right: number, top: number) => void;
   setHoveredDeckCard: Dispatch<SetStateAction<Card | null>>;
@@ -32,6 +37,9 @@ export function BattleResultOverlay({
   rewardCards,
   rewardDecks,
   rewardConsumables,
+  roulette,
+  onSpin,
+  onSpinFinish,
   consumableDescription,
   showCardKeywordOnly,
   setHoveredDeckCard,
@@ -44,14 +52,20 @@ export function BattleResultOverlay({
 
   return (
     <div className="result-overlay" role="dialog" aria-modal="true" aria-labelledby="result-title">
-      <div className={`result-card ${won ? "has-rewards" : ""}`}>
+      <div className={`result-card ${won ? "has-rewards" : ""} ${won && roulette ? "has-roulette" : ""}`}>
         {!won && <p>RUN ENDED</p>}
         <h2 id="result-title">{won ? "승리" : "패배"}</h2>
         {!won && <span>{turn}턴에서 탐험이 끝났습니다.</span>}
         {won && (
           <div className="battle-reward-section">
             <div className="battle-gold-reward">골드 +{rewardGold}{rewardKeys > 0 && <span className="battle-key-reward"> · 열쇠 +{rewardKeys}</span>}</div>
+            <div className="battle-reward-layout">
+            {roulette && <BattleRewardRoulette roulette={roulette} onSpin={onSpin} onFinish={onSpinFinish} />}
             <div className="battle-reward-cards">
+              {roulette && roulette.phase !== "empty" && !rewardCards.length && !rewardConsumables.length && (
+                roulette.phase === "settled" ? <span className="roulette-gold-prize">$</span>
+                  : <span className="roulette-prize-placeholder" aria-hidden="true">?</span>
+              )}
               {rewardCards.map((card) => (
                 <CardVisual
                   card={card}
@@ -103,9 +117,10 @@ export function BattleResultOverlay({
                 />
               ))}
             </div>
+            </div>
           </div>
         )}
-        <button onClick={onContinue}>{won ? "다음" : "새 탐험 시작"}</button>
+        <button onClick={onContinue} disabled={won && (roulette?.phase === "ready" || roulette?.phase === "spinning")}>{won ? "다음" : "새 탐험 시작"}</button>
       </div>
     </div>
   );

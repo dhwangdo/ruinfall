@@ -95,6 +95,7 @@ import { GameSettingsModal } from "./components/GameSettingsModal";
 import { MapSearchModal } from "./components/MapSearchModal";
 import { useMapSearchShortcut } from "./hooks/useMapSearchShortcut";
 import { karmaDescription, karmaStageForWins } from "./game/karmaRules";
+import { freshRewardRoulette } from "./game/rewardRoulette";
 import {
   ALL_CARD_BLUEPRINTS,
   DEBUG_CARD_RARITIES,
@@ -248,7 +249,7 @@ export default function Home() {
     setCollapsedMindEyeShrineRooms, setCollapsedTransformShrineRooms,
     setCollapsedTreasureChestRooms, setOpenedDeckVaultRooms, setUsedHealRooms,
     setUsedBlessingRooms, setRockBombHits, generatedMapRoomKeysRef, setMapBombsSynced,
-    effectiveRoomType,
+    effectiveRoomType, bloodstainedRooms, setBloodstainedRooms,
   } = world;
   const player = useRunPlayer();
   const {
@@ -259,7 +260,7 @@ export default function Home() {
     vitalityShrineMaxHpBonus, setVitalityShrineMaxHpBonus, blessingOffers, setBlessingOffers,
     setBlessingSeenOfferIds, blessings, setBlessings, blessingRerollCost,
     setBlessingRerollCost, oneUpUsed, setOneUpUsed, oneUpUsedRef,
-    regionBattleWins, setRegionBattleWins,
+    regionBattleWins, setRegionBattleWins, setRewardRouletteRemaining,
   } = player;
   const karmaStage = karmaStageForWins(regionBattleWins);
   const karmaInfo = { name: "카르마", description: karmaDescription(karmaStage) };
@@ -295,9 +296,10 @@ export default function Home() {
     setBattleDeckPreviewId, battleRewards, setBattleRewards, battleRewardDecks,
     setBattleRewardDecks, battleRewardConsumables, setBattleRewardConsumables, battleRewardGold,
     setBattleRewardGold, battleRewardKeys, setBattleRewardKeys, game, setGame, telemetryPreviousGameRef, phase, setPhase,
+    battleRewardRoulette, setBattleRewardRoulette,
     attackingEnemyId, setAttackingEnemyId, damagePopup, setDamagePopup, enemyPopups,
     animatedEnemyHp, setAnimatedEnemyHp, battleRewardRegionRef,
-    battleRewardIsBossRef, battleRewardIsOutOfDepthRef, dyingEnemyIds, setDyingEnemyIds,
+    battleRewardIsBossRef, dyingEnemyIds, setDyingEnemyIds,
     battleCardView, setBattleCardView, pendingOriginsRef, pendingEnemyTokenIdsRef,
     pendingPileTokenSourcesRef, handCardRefs, pendingDiscardPlay, setPendingDiscardPlay, getGame, later, clearBattleTimers, showEnemyPopup,
     afterAnimations, trackAnimation,
@@ -729,7 +731,8 @@ export default function Home() {
     }
     setMapMessage(`디버그 ${regionNumber}지역 덱 ${decks.length}개를 바닥에 생성했습니다.`);
   };
-  const { grantBattleReward, confirmBattleDeck, returnToMap, beginMapEnemyBattle } = createBattleSessionActions({
+  const { grantBattleReward, spinBattleReward, finishBattleRewardSpin,
+    confirmBattleDeck, returnToMap, beginMapEnemyBattle } = createBattleSessionActions({
     battle, inventory, world, player, interaction: battleInteraction, telemetry, ensureTelemetryRun,
     clearMapTravel: () => clearMapTravel(),
     closeMapOverlays: () => {
@@ -1214,6 +1217,8 @@ export default function Home() {
     mindEyeMovesRemainingRef.current = 0;
     setGodsLamentCharges(3);
     setRegionBattleWins(0);
+    setRewardRouletteRemaining(freshRewardRoulette());
+    setBloodstainedRooms(new Set());
     setMapSearchOpen(false);
     setSearchHighlightedRoom(null);
     godsLamentChargesRef.current = 3;
@@ -1256,7 +1261,6 @@ export default function Home() {
     mapBattleQueueRef.current = [];
     previousBattleDeckIdRef.current = null;
     battleRewardIsBossRef.current = false;
-    battleRewardIsOutOfDepthRef.current = false;
     setPendingBattleStart(null);
     setBattleDeckPreviewId(null);
     setOwnedDecks([starterDeck]);
@@ -1281,6 +1285,7 @@ export default function Home() {
     setBattleRewardConsumables([]);
     setBattleRewardGold(0);
     setBattleRewardKeys(0);
+    setBattleRewardRoulette(null);
     rareCardDropChanceRef.current = 0.05;
     finishDeckEditorSession();
     setHoveredDeckCard(null);
@@ -2236,6 +2241,7 @@ export default function Home() {
             travelLocked: mapTraveling,
             travelStepMs: mapTravelStepMs,
             highlightedRoomKey: searchHighlightedRoom,
+            bloodstainedRooms,
             debugMode,
             safeAreaRegionIndex,
             safeAreaMemoryRestricted,
@@ -2837,6 +2843,9 @@ export default function Home() {
             turn={game.turn}
             rewardGold={battleRewardGold}
             rewardKeys={battleRewardKeys}
+            roulette={battleRewardRoulette}
+            onSpin={spinBattleReward}
+            onSpinFinish={finishBattleRewardSpin}
             rewardCards={battleRewards}
             rewardDecks={battleRewardDecks}
             rewardConsumables={battleRewardConsumables}            consumableDescription={consumableDescription}

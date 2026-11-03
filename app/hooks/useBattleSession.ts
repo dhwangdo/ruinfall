@@ -6,6 +6,7 @@ import type { Consumable, DeckCase } from "../game/rewards";
 import type { MapBattleEnemy, PendingBattleStart } from "../game/runTypes";
 import { createBattleAnimationLifecycle } from "../components/battleAnimationLifecycle";
 import { useGameSettings } from "./useGameSettings";
+import type { BattleRewardRoulette } from "../game/rewardRoulette";
 type Screen = "map" | "battle";
 
 /** Owns a battle's state, encounter queue, rewards, and cancellable timers/animations. */
@@ -34,6 +35,13 @@ export function useBattleSession() {
 
   const [battleRewardGold, setBattleRewardGold] = useState(0);
   const [battleRewardKeys, setBattleRewardKeys] = useState(0);
+  const [battleRewardRoulette, setRenderedRoulette] = useState<BattleRewardRoulette | null>(null);
+  const battleRewardRouletteRef = useRef<BattleRewardRoulette | null>(null);
+  const setBattleRewardRoulette = useCallback<Dispatch<SetStateAction<BattleRewardRoulette | null>>>(update => {
+    const next = typeof update === "function" ? update(battleRewardRouletteRef.current) : update;
+    battleRewardRouletteRef.current = next;
+    setRenderedRoulette(next);
+  }, []);
 
   const [game, setRenderedGame] = useState<GameState>(waitingState);
   const gameRef = useRef(game);
@@ -63,8 +71,6 @@ export function useBattleSession() {
   const battleRewardRegionRef = useRef(1);
 
   const battleRewardIsBossRef = useRef(false);
-
-  const battleRewardIsOutOfDepthRef = useRef(false);
 
   const [dyingEnemyIds, setDyingEnemyIds] = useState<Set<string>>(() => new Set());
 
@@ -115,9 +121,10 @@ export function useBattleSession() {
     setBattleDeckPreviewId, battleRewards, setBattleRewards, battleRewardDecks,
     setBattleRewardDecks, battleRewardConsumables, setBattleRewardConsumables, battleRewardGold,
     setBattleRewardGold, battleRewardKeys, setBattleRewardKeys, game, setGame, telemetryPreviousGameRef, phase, setPhase,
+    battleRewardRoulette, battleRewardRouletteRef, setBattleRewardRoulette,
     attackingEnemyId, setAttackingEnemyId, damagePopup, setDamagePopup, enemyPopups,
     setEnemyPopups, animatedEnemyHp, setAnimatedEnemyHp, enemyPopupKeyRef, battleRewardRegionRef,
-    battleRewardIsBossRef, battleRewardIsOutOfDepthRef, dyingEnemyIds, setDyingEnemyIds,
+    battleRewardIsBossRef, dyingEnemyIds, setDyingEnemyIds,
     battleCardView, setBattleCardView, pendingOriginsRef, pendingEnemyTokenIdsRef,
     pendingPileTokenSourcesRef, handCardRefs, pendingDiscardPlay, setPendingDiscardPlay, timersRef,
     rewardGrantedRef, rewardCollectedRef, getGame, later, clearBattleTimers, showEnemyPopup, trackAnimation, afterAnimations,

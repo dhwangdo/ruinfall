@@ -3,6 +3,7 @@ import type { RunWorld } from "../hooks/useRunWorld";
 import type { RunPlayer } from "../hooks/useRunPlayer";
 import type { LocationDialogs } from "../hooks/useLocationDialogs";
 import type { useRunMapContent } from "../hooks/useRunMapContent";
+import { freshRewardRoulette } from "../game/rewardRoulette.ts";
 import { clearMapEnemiesNear } from "../game/mapEnemies.ts";
 import { getDungeonRegionIndex, getSafeAreaRegionIndex, mapRoomKey, nextRegionEntry,
   REGION_COUNT, safeAreaEntry, type MapPosition } from "../game/mapRules.ts";
@@ -36,6 +37,7 @@ export function createPortalActions({ inventory, world, player, dialogs, isSafeA
       ? world.safeAreaEntrySeenRooms : null;
     inventory.setKeys(0);
     player.setRegionBattleWins(0);
+    player.setRewardRouletteRemaining(freshRewardRoulette());
     if (type === "portal") world.setSafeAreaEntrySeenRooms(new Set(world.seenRooms));
     else world.setSafeAreaEntrySeenRooms(null);
     player.godsLamentChargesRef.current = type === "portal" ? 0 : 3;

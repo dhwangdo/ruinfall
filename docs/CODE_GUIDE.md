@@ -200,7 +200,8 @@ setGame((current) => ({ ...current, energy: 2 }));
 | `app/components/BattleStatusBadge.tsx`, `battleStatusDescriptions.ts` | 양측 공통 상태 배지·설명. 툴팁은 화면 경계 안에 즉시 표시하고 스크롤·화면 전환 시 정리 |
 | `app/components/CardKeywordPopover.tsx`, `CardMechanicExamplePopover.tsx`, `cardMechanicExamples.ts`, `battlePileLayout.ts` | 3초 호버와 진행 바 뒤 재련·별 이동을 파일 3개에서 5.6초 주기로 시연. 금속학 연구·오딘의 창은 설명만 표시하고 치환 합금은 양쪽 비용 교환을 표시. 별은 타격을 이동하며 실제 전투 카드 크기·간격·배치/재련 네온을 공유. 희귀도 띠의 ::after를 시연용 강조로 덮지 않음 |
 | `app/components/BattlePlayerPanel.tsx` | 전투 중 플레이어 체력·방어·상태 표시 |
-| `app/components/BattleResultOverlay.tsx` | 전투 승패와 보상, 다음 진행 버튼 표시 |
+| `app/components/BattleResultOverlay.tsx`, `BattleRewardRoulette.tsx` | 승패·보상과 수동 원형 룰렛. 회전 중/추첨 전에는 다음 진행을 막고 완료 이벤트는 중복 지급을 막는 컨트롤러로 연결 |
+| `app/game/rewardRoulette.ts`, `tests/reward-roulette.test.mjs` | 9칸 비복원 추첨·등급별 실제 보상 생성. useRunPlayer가 잔여 칸을 저장하고 포탈 실제 이용 시 초기화. 보스는 룰렛 제외 |
 | `app/components/DebugEnemyCodex.tsx` | 디버그 적 도감 화면 |
 | `app/components/CardVisual.tsx`, `ConsumableVisual.tsx` | 모든 화면의 카드·티켓·카드팩 외형 진입점. compact/full 버전, 묶음 띠·수량 표시, 카드 앞뒷면을 공유 |
 | `app/components/VisualSurface.tsx`, `itemStackStyle.ts` | 버튼·일반 요소의 입력/ref를 유지하며 공통 외형을 렌더링하고 묶음 레이어를 계산 |
@@ -245,7 +246,7 @@ setGame((current) => ({ ...current, energy: 2 }));
 | `tests/starter-rework.test.mjs` | 시작 카드 개편의 파일 버리기→드로우 순서, 마지막 카드 처리, 버리기 비용과 구 저장 갱신 |
 | `app/game/mapRules.ts` | 지도 지역·노드·안전 지대·보스 위치·바닥 드롭 생성 |
 | `app/game/mapLocationPlacement.ts` | 지역별 장소 개수 범위·가로 구간 분산·근접 회피·아래쪽 포탈 배치 |
-| `app/game/mapRegionGenerator.ts` | 321×41 혼합 지형 생성. 지역별 캐시와 세계 좌표 변환은 mapRules가 담당 |
+| `app/game/mapRegionGenerator.ts` | 현재 321×31 혼합 지형 생성. 지역별 캐시와 세계 좌표 변환은 mapRules가 담당 |
 | `app/game/mapCorridors.ts`, `app/game/mapGenerationMath.ts` | 통로 연결망·A* 굴착·거리장·시드 난수·공간 노이즈·연결 영역 탐색 |
 | `app/game/mapPrefabDefinitions.ts`, `app/game/mapPrefabs.ts` | 수제 지형 데이터와 검증·회전·반전·출입구·보호 영역·가중 배치 |
 | `tests/map-generation.test.mjs`, `tests/save-game.test.mjs` | 실제 지형 접근성·추가 장소·수제 지형 확장·개발 저장 버전 전환 |
@@ -348,6 +349,8 @@ flowchart LR
 적 턴 계산의 단계에는 효과 메시지와 표시 대상·강화/디버프 종류도 담는다. `endTurnAction`은 이 정보를 받아 적·플레이어 팝업과 중앙 안내를 표시하며 계산을 다시 하지 않는다. 초기 배치는 `dealtState`에서 전체 덱으로 파일을 만든 뒤 압수, 봉인, 시작 추가 드로우 순서로 처리한다.
 
 `useBattleSession`의 `setGame`은 전투 상태와 지연 콜백용 최신 스냅샷을 함께 갱신한다. 지연된 카드 사용은 `getGame()`으로 이 스냅샷을 읽는다. 상태 변경을 이 소유자 밖에서 우회하지 않는다. 연출은 계산 결과를 받아 실행하며, 전투 시작·초기화·언마운트 때 예약된 전투 타이머를 취소한다. 한 조우의 보상은 생성 완료와 수령 완료 표시를 통해 중복 지급을 막는다. 일반전 열쇠는 전투당 1개이며 지도 복귀 때 지급한다. 덱 보관소 내용은 소지품 상태가 저장하고, 개방된 방 집합은 지도 상태가 저장한다. 포탈 경고 생략은 소지품 저장 상태의 런 한정 설정이며 새 런에서 초기화한다.
+
+룰렛의 잔여 9칸은 `useRunPlayer.rewardRouletteRemaining`이 저장하고 현재 전투의 회전 단계는 `useBattleSession.battleRewardRoulette`가 소유한다. 버튼 입력 때 칸을 한 번만 소모하고 회전 완료 때 보상을 한 번만 만든다. 포탈 실제 이용 시에만 잔여 칸을 초기화한다. 승리 타일의 `bloodstainedRooms`는 `useRunWorld`가 집합으로 관리하고 저장할 때 배열로 바꾼다. 구 저장의 두 필드는 각각 9칸 전체·빈 핏자국 목록으로 복원한다.
 
 ### 카드 사용 한 번
 

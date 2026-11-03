@@ -239,12 +239,11 @@ export function resolveCardPlay(
     { length: radianceCount },
     () => createRadianceCard(nextCardId++),
   );
-  const wishBlueprint = card.effect === "wish"
-    ? RARE_CARD_POOL[Math.floor(effectRandom() * RARE_CARD_POOL.length)]
-    : undefined;
-  const generatedWishCards: Card[] = wishBlueprint
-    ? [{ ...wishBlueprint, id: nextCardId++, revealed: true, token: true }]
-    : [];
+  const generatedWishCards: Card[] = card.effect === "wish"
+    ? Array.from({ length: card.value }, () => ({
+      ...RARE_CARD_POOL[Math.floor(effectRandom() * RARE_CARD_POOL.length)],
+      id: nextCardId++, revealed: true, token: true,
+    })) : [];
   const pendingDiscards = discardCostPaid ? 0 : card.discardCost ?? (card.effect === "prepare"
     ? (canDraw || remainingHand.length > 0 ? 1 : 0)
     : card.effect === "focus" && remainingHand.length > 0 ? 1 : 0);
@@ -289,7 +288,7 @@ export function resolveCardPlay(
     if (card.effect === "adrenaline") return `체력 2 감소 · 에너지 ${card.value} 획득 · 카드 ${card.draw}장 드로우`;
     if (card.effect === "sweep") return canDraw ? "가져올 파일을 선택하세요." : "가져올 카드가 없습니다.";
     if (card.effect === "drawEachPile") return `모든 파일에서 ${drawEachPileResult?.hand.length ?? 0}장 뽑음`;
-    if (card.effect === "wish") return `소원: ${generatedWishCards[0]?.name ?? "희귀 카드"} 획득`;
+    if (card.effect === "wish") return `소원: 무작위 희귀 카드 ${generatedWishCards.length}장 획득`;
     if (card.effect === "dash") return `질주: 무작위 파일에서 ${dashRandomResult?.hand.length ?? 0}장 뽑음`;
     if (card.effect === "transcend") return "이번 턴 피해 면역 · 힘 5 획득";
     if (card.effect === "rapidFire") return "다음 공격 카드가 2회 발동";

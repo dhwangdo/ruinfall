@@ -840,6 +840,20 @@
   place-items: center;
   pointer-events: none;
 }
+
+.map-bloodstain {
+  position: absolute;
+  inset: 18%;
+  pointer-events: none;
+  opacity: .72;
+  background:
+    radial-gradient(ellipse 27% 21% at 47% 52%, #682222 94%, transparent),
+    radial-gradient(ellipse 18% 24% at 65% 48%, #702727 93%, transparent),
+    radial-gradient(ellipse 20% 14% at 36% 67%, #662222 93%, transparent),
+    radial-gradient(circle at 76% 24%, #702727 0 4%, transparent 4.8%),
+    radial-gradient(circle at 25% 29%, #702727 0 3%, transparent 3.8%),
+    radial-gradient(circle at 81% 72%, #702727 0 2.5%, transparent 3.3%);
+}
 .map-floor-item .floor-deck-item {
   width: 104px;
   height: 92px;
