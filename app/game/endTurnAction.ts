@@ -121,11 +121,7 @@ export function createEndTurn(context: EndTurnContext) {
         setOneUpUsed(result.oneUpUsed);
       }
       if (game.extraTurns > 0) {
-        const recyclingMultiplier = game.deckEditions.includes("frugalPlus")
-          ? 2
-          : game.deckEditions.includes("frugal")
-            ? 1
-            : 0;
+        const recyclingMultiplier = game.deckEditions.includes("frugalPlus") ? 2 : 0;
         setGame({
           ...game,
           piles: pilesAfterSlime,
@@ -318,11 +314,7 @@ export function createEndTurn(context: EndTurnContext) {
             };
           })()
           : null;
-        const recyclingMultiplier = game.deckEditions.includes("frugalPlus")
-          ? 2
-          : game.deckEditions.includes("frugal")
-            ? 1
-            : 0;
+        const recyclingMultiplier = game.deckEditions.includes("frugalPlus") ? 2 : 0;
         setGame({
           ...game,
           piles: pilesAfterSlime,

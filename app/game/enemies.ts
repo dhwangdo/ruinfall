@@ -573,7 +573,7 @@ export function getSewerEncounterLabel(encounterIndex: number) {
   const safeIndex = normalizeEncounterIndex(Math.max(0, Math.min(SEWER_ENCOUNTERS.length - 1, Math.floor(encounterIndex))));
   const encounter = SEWER_ENCOUNTERS[safeIndex];
   if (!encounter) return "삭제된 조우";
-  if (MIXED_ENCOUNTER_INDICES.has(safeIndex)) return `${encounter[0].name} 외 1마리`;
+  if (MIXED_ENCOUNTER_INDICES.has(safeIndex)) return `${encounter[0].name} + ?`;
   return encounter.length > 1 && encounter.every((enemy) => enemy.name === encounter[0].name)
     ? `${encounter[0].name} ${encounter.length}마리`
     : encounter[0].name;

@@ -5,6 +5,7 @@ import type { Card } from "../game/cards";
 import type { Consumable, DeckCase } from "../game/rewards";
 import type { MapBattleEnemy, PendingBattleStart } from "../game/runTypes";
 import { createBattleAnimationLifecycle } from "../components/battleAnimationLifecycle";
+import { useGameSettings } from "./useGameSettings";
 type Screen = "map" | "battle";
 
 /** Owns a battle's state, encounter queue, rewards, and cancellable timers/animations. */
@@ -21,7 +22,7 @@ export function useBattleSession() {
 
   const [pendingBattleStart, setPendingBattleStart] = useState<PendingBattleStart | null>(null);
 
-  const [battleDeckCheckEnabled, setBattleDeckCheckEnabled] = useState(true);
+  const { battleDeckCheckEnabled, setBattleDeckCheckEnabled } = useGameSettings();
 
   const [battleDeckPreviewId, setBattleDeckPreviewId] = useState<string | null>(null);
 

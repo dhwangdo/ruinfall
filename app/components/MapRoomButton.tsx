@@ -1,5 +1,7 @@
 import { memo, type CSSProperties } from "react";
 import type { MapPosition, RoomType } from "../game/mapRules";
+import { mapTileColor } from "./mapTileAppearance";
+import { MapFloorItem, type MapFloorItemProps } from "./MapFloorItem";
 
 type MapRoomButtonProps = {
   position: MapPosition;
@@ -11,7 +13,10 @@ type MapRoomButtonProps = {
   reachable: boolean;
   walkable: boolean;
   mapTraveling: boolean;
-  hasItems: boolean;
+  itemCount: number;
+  floorDeck?: MapFloorItemProps["deck"];
+  floorCard?: MapFloorItemProps["card"];
+  floorTicket?: MapFloorItemProps["ticket"];
   roomItemsTitle?: string;
   deckName?: string;
   onPreview?: (element: HTMLElement, position: MapPosition) => void;
@@ -68,7 +73,10 @@ function MapRoomButtonView({
   reachable,
   walkable,
   mapTraveling,
-  hasItems,
+  itemCount,
+  floorDeck,
+  floorCard,
+  floorTicket,
   roomItemsTitle,
   deckName,
   onPreview,
@@ -82,8 +90,8 @@ function MapRoomButtonView({
   return (
     <button
       type="button"
-      className={`map-room is-${roomType} ${dungeonRegionIndex === null ? "" : `is-region-${dungeonRegionIndex + 1}`} ${current ? "is-current" : ""} ${inVision ? "is-in-vision" : "is-out-of-vision"} ${adjacent ? "is-adjacent" : ""} ${reachable ? "is-reachable" : ""}`}
-      style={{ gridColumn, gridRow } as CSSProperties}
+      className={`map-room is-${roomType} ${itemCount > 0 ? "has-floor-items" : ""} ${dungeonRegionIndex === null ? "" : `is-region-${dungeonRegionIndex + 1}`} ${current ? "is-current" : ""} ${inVision ? "is-in-vision" : "is-out-of-vision"} ${adjacent ? "is-adjacent" : ""} ${reachable ? "is-reachable" : ""}`}
+      style={{ gridColumn, gridRow, "--map-tile-color": current ? undefined : mapTileColor(position, roomType, dungeonRegionIndex) } as CSSProperties}
       tabIndex={adjacent || reachable ? 0 : -1}
       aria-disabled={!walkable || mapTraveling || (!adjacent && !reachable)}
       title={roomItemsTitle ?? (roomType === "rock" ? ROOM_LABELS.rock : undefined)}
@@ -97,8 +105,9 @@ function MapRoomButtonView({
       onFocus={onPreview ? (event) => onPreview(event.currentTarget, position) : undefined}
       onBlur={(event) => onClearPreview?.(event.relatedTarget, false)}
     >
-      {ROOM_BADGES[roomType] && <span>{roomType === "deckVault" ? deckName ?? ROOM_BADGES[roomType] : ROOM_BADGES[roomType]}</span>}
-      {hasItems && <span className="room-item-indicator" aria-label="아이템 있음" />}
+      {itemCount > 0 && <MapFloorItem deck={floorDeck} card={floorCard} ticket={floorTicket} />}
+      {ROOM_BADGES[roomType] && <span className="map-room-label">{roomType === "deckVault" ? deckName ?? ROOM_BADGES[roomType] : ROOM_BADGES[roomType]}</span>}
+      {itemCount > 1 && <span className="room-item-indicator" aria-label="추가 아이템 있음" />}
     </button>
   );
 }

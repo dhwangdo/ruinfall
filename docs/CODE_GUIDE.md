@@ -167,6 +167,7 @@ setGame((current) => ({ ...current, energy: 2 }));
 | `app/components/MapTopbar.tsx` | 지도 상단 체력·골드·대기·덱 편집 UI |
 | `app/components/GameVersion.tsx`, `build/dev-source-version.ts` | 지도·전투 공통 버전 표시. 개발 중 소스 수정 시각 자동 갱신, 배포본은 기존 커밋 시각 유지 |
 | `app/hooks/useMapCamera.ts` | 지도 뷰포트 크기, 확대·축소, 이동과 카메라 포커스 |
+| `app/hooks/mapCameraMotion.ts` | 지도 티켓 안내의 거리별 0.7~4초 감속 이동과 취소. 격자 원점 변경과 독립적으로 카메라 위치를 프레임별 보간 |
 | `app/hooks/useMapKeyboardMovement.ts` | WASD·방향키·숫자패드 지도 이동과 입력 타이머 |
 | `app/hooks/useMapKeyboardShortcuts.ts` | 지도 단축키, 방 행동, 오버레이 닫기 입력 |
 | `app/hooks/useRunKeyboardControls.ts` | F8 저장, R키·다시하기 버튼이 공유하는 초기화 타이머·진행 상태·취소 처리 |
@@ -176,11 +177,17 @@ setGame((current) => ({ ...current, energy: 2 }));
 | `app/components/cardPreviewLayout.ts` | 공통 카드 미리보기 틀 크기와 키워드 내용에 맞춘 팝오버 폭 |
 | `app/components/ConsumableCardPreview.tsx` | 인벤토리·상점·전투에서 공유하는 카드 형태의 티켓·카드팩 호버 미리보기 |
 | `app/components/MapRoomButton.tsx` | 지도 방 버튼, 접근성 이름과 방 유형 표시 |
+| `app/components/mapTileAppearance.ts` | 좌표 기반 바닥·바위 명도와 채도 변주. 색상만 계산하고 필터 레이어를 추가하지 않음 |
+| `app/game/randomNames.ts` | 플레이어·덱 이름 생성. 새 덱 이름은 생성 용량에 따라 2~12글자로 정함 |
 | `app/components/MapDeckSelector.tsx` | 보유 가능한 덱 슬롯 수만큼 펼쳐지는 전투 덱 선택 메뉴 |
 | `app/hooks/useMapDeckSelectorDrag.ts` | 덱 선택 아이콘의 화면 전체 드래그·클릭 구분·위치 기억 |
 | `app/components/MapDebugToolbar.tsx` | 지도 디버그 아이템·덱 생성 도구와 적 도감 연결 |
-| `app/components/MapEntityMarkers.tsx` | 지도 폭탄·적·플레이어 표식 표시 |
+| `app/components/MapEntityMarkers.tsx` | 지도 폭탄·적·전투 진입·대기 피드백. 플레이어 @ 문자는 표시하지 않음 |
+| `app/components/GameSettingsModal.tsx`, `app/hooks/useGameSettings.ts` | 설정 창·단축키 안내. 잠깐/애니메이션 툴팁을 useSyncExternalStore로 공유하고 별도 localStorage 키에 저장 |
 | `app/components/MapRoomActions.tsx` | 현재 방 행동 안내와 바닥 아이템 빠른 줍기 UI |
+| `app/components/MapFloorItem.tsx` | 지도 바닥 물품의 덱 > 카드 > 티켓 우선순위. CardVisual·ConsumableVisual 간소화 외형 재사용 |
+| `app/game/mapAutoExplore.ts` | O 자동 여행의 미탐사 경로 탐색과 새 장소·물품 발견 판정. 실제 이동은 기존 빠른 이동 처리 공유 |
+| `app/game/discardRules.ts` | 직접 손패 버리기와 재활용 룰의 ★ 지급. 파일 버리기는 pileActions에서 같은 계산 사용 |
 | `app/components/BattleDeckCheckModal.tsx` | 전투 전에 사용할 덱 선택과 구성 미리보기 |
 | `app/components/CardKeywordPopover.tsx` | 카드 키워드 팝오버 배치와 표시 |
 | `app/components/CardKeywordSections.tsx` | 키워드 설명을 유형별 구역으로 표시 |
@@ -188,7 +195,7 @@ setGame((current) => ({ ...current, energy: 2 }));
 | `app/components/EnemyIntentIcons.tsx` | 적 의도 피해·상태 표시 아이콘 |
 | `app/components/BattleEnemyUnit.tsx` | 전투 중 적 체력·상태·의도와 선택 버튼 표시 |
 | `app/components/BattleStatusBadge.tsx`, `battleStatusDescriptions.ts` | 양측 공통 상태 배지·설명. 툴팁은 화면 경계 안에 즉시 표시하고 스크롤·화면 전환 시 정리 |
-| `app/components/CardKeywordPopover.tsx`, `CardMechanicExamplePopover.tsx`, `cardMechanicExamples.ts`, `battlePileLayout.ts` | 1.5초 호버 뒤 재련·별 이동을 파일 3개에서 5.6초 주기로 시연. 별은 타격을 이동하며 실제 전투 카드 크기·간격·배치/재련 네온을 공유. 희귀도 띠의 ::after를 시연용 강조로 덮지 않음 |
+| `app/components/CardKeywordPopover.tsx`, `CardMechanicExamplePopover.tsx`, `cardMechanicExamples.ts`, `battlePileLayout.ts` | 3초 호버와 진행 바 뒤 재련·별 이동을 파일 3개에서 5.6초 주기로 시연. 금속학 연구·오딘의 창은 설명만 표시하고 치환 합금은 양쪽 비용 교환을 표시. 별은 타격을 이동하며 실제 전투 카드 크기·간격·배치/재련 네온을 공유. 희귀도 띠의 ::after를 시연용 강조로 덮지 않음 |
 | `app/components/BattlePlayerPanel.tsx` | 전투 중 플레이어 체력·방어·상태 표시 |
 | `app/components/BattleResultOverlay.tsx` | 전투 승패와 보상, 다음 진행 버튼 표시 |
 | `app/components/DebugEnemyCodex.tsx` | 디버그 적 도감 화면 |
@@ -226,6 +233,7 @@ setGame((current) => ({ ...current, energy: 2 }));
 | `app/game/cardStatusEffects.ts` | 저항·증폭 카드의 상태 부여·상쇄와 다음 턴 싸움 준비 지급 |
 | `app/game/enemyTurnResolution.ts` | 적 턴의 피해·저항·반사·파일 버리기와 순서별 연출 자료 계산 |
 | `app/game/battleSetup.ts` | 전투 시작 덱·적·축복·에디션 적용 데이터 생성 |
+| `app/game/startingForge.ts` | 빠른 망치의 무작위 시작 재련. 특수 재련 제외·원본 보존과 전투 중 재배치에 사용할 카드 복사본 생성 |
 | `app/game/cardTransforms.ts` | 같은 희귀도 안에서 ID를 유지하는 카드 변환 |
 | `app/components/battleCardPresentation.ts` | 계산된 타격 목록을 팝업·체력 표시·사망 연출로 표시 |
 | `app/game/drawCards.ts` | 턴 시작과 카드 효과에 따른 손패 드로우 처리. 사서의 특권은 기본/재배치 드로우 뒤 기존 pendingDraws 파일 선택으로 연결하며 봉인·빈 파일을 제외 |

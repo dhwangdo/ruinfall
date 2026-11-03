@@ -42,7 +42,7 @@ test("region-two sampling is half mixed pairs and gives all fifteen combinations
       const enemies = createSewerEncounterByIndex(index, () => .999);
       assert.equal(enemies.length, 2);
       assert.notEqual(enemies[0].variant, enemies[1].variant);
-      assert.equal(getSewerEncounterLabel(index), `${enemies[0].name} 외 1마리`);
+      assert.equal(getSewerEncounterLabel(index), `${enemies[0].name} + ?`);
       const pair = enemies.map(enemy => enemy.variant).sort().join("+");
       combinations.set(pair, (combinations.get(pair) ?? 0) + 1);
     }
@@ -65,7 +65,7 @@ test("region-one sampling is half mixed and gives all ten different-family pairs
     if (index >= 66) {
       assert.equal(enemies.length, 2);
       assert.notEqual(enemies[0].variant, enemies[1].variant);
-      assert.equal(getSewerEncounterLabel(index), `${enemies[0].name} 외 1마리`);
+      assert.equal(getSewerEncounterLabel(index), `${enemies[0].name} + ?`);
       const pair = enemies.map(enemy => enemy.variant).sort().join("+");
       combinations.set(pair, (combinations.get(pair) ?? 0) + 1);
     }

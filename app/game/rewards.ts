@@ -26,8 +26,7 @@ export type DeckEdition =
   | "lively"
   | "fantastic"
   | "rampaging"
-  | "greedy"
-  | "frugal"
+  | "quickHammer"
   | "drawPlus"
   | "starPlus"
   | "energyPlus"
@@ -167,15 +166,14 @@ export const DECK_EDITION_INFO: Record<DeckEdition, { name: string; description:
   lively: { name: "아드레날린", description: "전투 시작 시 아드레날린 카드를 1장 획득합니다." },
   fantastic: { name: "압축", description: "파일을 4장씩 쌓습니다." },
   rampaging: { name: "지속 에너지", description: "최대 에너지가 1 증가합니다." },
-  greedy: { name: "탐욕", description: "전투 보상으로 얻는 골드가 2배가 됩니다." },
-  frugal: { name: "재활용", description: "턴 종료 시 남은 에너지 1당 ★ 1개를 획득합니다." },
+  quickHammer: { name: "빠른 망치", description: "전투 시작 시 덱의 재련 가능한 무작위 카드 1장을 재련합니다. 치환 합금과 흑요석 단검은 제외합니다." },
   drawPlus: { name: "드로우+", description: "전투 시작 시 무작위 파일에서 카드 1장을 뽑습니다." },
   starPlus: { name: "별+", description: "전투 시작 시 ★ 1개를 획득합니다." },
   energyPlus: { name: "에너지+", description: "전투 시작 시 에너지가 1 증가합니다." },
   persistentDraw: { name: "지속 드로우", description: "매 턴 시작 시 무작위 파일에서 카드 1장을 뽑습니다." },
   frugalPlus: { name: "재활용+", description: "턴 종료 시 남은 에너지 1당 ★ 2개를 획득합니다." },
   defensiveStance: { name: "방호 태세", description: "전투 시작 시 방어도 5를 획득합니다." },
-  resistance: { name: "저항", description: "전투 시작 시 저항 1을 획득합니다." },
+  resistance: { name: "저항", description: "전투 시작 시 저항 2를 획득합니다." },
   giant: { name: "거인", description: "전투 시작 시 힘 3과 강인함 3을 획득합니다." },
   whiteSpace: { name: "여백의 미", description: "현재 빈 파일 하나당 힘 2를 획득합니다." },
   invincible: { name: "무적", description: "전투 시작 시 무적 1을 획득합니다." },
@@ -192,8 +190,7 @@ export const DECK_EDITION_SCORES: Record<DeckEdition, number> = {
   lively: 50,
   fantastic: 60,
   rampaging: 50,
-  greedy: 20,
-  frugal: 5,
+  quickHammer: 10,
   drawPlus: 5,
   starPlus: 5,
   energyPlus: 10,
@@ -217,8 +214,7 @@ const EDITION_COLORS: Record<DeckEdition, string> = {
   lively: "#eab308",
   fantastic: "#84cc16",
   rampaging: "#06b6d4",
-  greedy: "#0ea5e9",
-  frugal: "#3b82f6",
+  quickHammer: "#e29842",
   drawPlus: "#6366f1",
   starPlus: "#8b5cf6",
   energyPlus: "#a855f7",
@@ -240,12 +236,14 @@ export function getDeckEditionColor(edition: DeckEdition) {
   return EDITION_COLORS[edition];
 }
 
+export function isDeckEdition(value: string): value is DeckEdition {
+  return Object.hasOwn(DECK_EDITION_INFO, value);
+}
+
 export function getAvailableDeckEditions(selected: readonly DeckEdition[]): DeckEdition[] {
   const selectedSet = new Set(selected);
-  const hasRecyclingEdition = selectedSet.has("frugal") || selectedSet.has("frugalPlus");
   return (Object.keys(DECK_EDITION_INFO) as DeckEdition[]).filter((edition) => (
     !selectedSet.has(edition)
-      && (!hasRecyclingEdition || (edition !== "frugal" && edition !== "frugalPlus"))
   ));
 }
 
@@ -361,7 +359,7 @@ function generateRegionDeck(
     nextCardId,
     deck: {
       id: `region-${regionNumber}-${startCardId}`,
-      name: createDeckName(),
+      name: createDeckName(capacity),
       capacity,
       rareSlotCapacity,
       cards,

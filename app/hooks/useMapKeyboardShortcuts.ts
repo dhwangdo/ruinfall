@@ -14,6 +14,8 @@ export function useMapKeyboardShortcuts({
   openDeckEditor,
   quickPickUpFloorItems,
   waitOnMap,
+  startAutoExplore,
+  cancelAutoExplore,
   roomType,
   roomActions,
   changeMapZoom,
@@ -33,6 +35,8 @@ export function useMapKeyboardShortcuts({
   openDeckEditor: (message: string) => void;
   quickPickUpFloorItems: () => void;
   waitOnMap: () => void;
+  startAutoExplore: () => void;
+  cancelAutoExplore: () => boolean;
   roomType: string;
   roomActions: Record<string, (() => void) | undefined>;
   changeMapZoom: (delta: number) => void;
@@ -53,6 +57,11 @@ export function useMapKeyboardShortcuts({
       }
       if (target?.closest("input, textarea, select, [contenteditable='true']")) return;
 
+      if (screen === "map" && !event.repeat && (event.code === "KeyO" || event.key === "Escape") && cancelAutoExplore()) {
+        event.preventDefault();
+        return;
+      }
+
       if (deckEditorOpen && (event.key === "Escape" || event.key === "Enter" || event.key === "Tab" || event.key.toLowerCase() === "i")) {
         event.preventDefault();
         confirmDeckEditor();
@@ -69,6 +78,11 @@ export function useMapKeyboardShortcuts({
       }
 
       if (screen !== "map" || mapTraveling || deckEditorOpen || interactionLocked) return;
+      if (event.code === "KeyO" && !event.repeat) {
+        event.preventDefault();
+        startAutoExplore();
+        return;
+      }
       if (event.code === "KeyB" && !event.repeat) {
         event.preventDefault();
         handleGoldDebugClick();
@@ -135,6 +149,8 @@ export function useMapKeyboardShortcuts({
     openDeckEditor,
     quickPickUpFloorItems,
     waitOnMap,
+    startAutoExplore,
+    cancelAutoExplore,
     roomType,
     roomActions,
     changeMapZoom,

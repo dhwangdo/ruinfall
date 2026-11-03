@@ -3,6 +3,7 @@ import { createAdrenalineCard, createRelicCard, type Card } from "./cards.ts";
 import { createSewerEncounter, type EnemyState } from "./enemies.ts";
 import { createDeck, type DeckEdition } from "./rewards.ts";
 import { blockedPileIndexes, preparePileSeals, confiscatePileCards } from "./enemyPassives.ts";
+import { forgeRandomStartingCard } from "./startingForge.ts";
 
 export const MAX_PLAYER_HP = 50;
 
@@ -239,7 +240,9 @@ export function dealtState(
   deckEditions: DeckEdition[] = [],
   randomFaceUpChance = 0,
 ): GameState {
-  const preparedDeck = prepareDeckForPiles(deck);
+  const startingForge = deckEditions.includes("quickHammer")
+    ? forgeRandomStartingCard(deck) : { cards: deck, forged: false };
+  const preparedDeck = prepareDeckForPiles(startingForge.cards);
   const initialPiles = buildPiles(
     preparedDeck,
     deckEditions.includes("fantastic") ? 4 : 5,
@@ -266,14 +269,16 @@ export function dealtState(
       ...startingDraw.hand,
       ...(deckEditions.includes("lively") ? [createAdrenalineCard()] : []),
     ],
-    initialDeck: [...deck, ...encounterTokens].map((card) => ({ ...card, revealed: false })),
+    initialDeck: [...startingForge.cards, ...encounterTokens].map((card) => ({ ...card, revealed: false })),
+    forgeCount: startingForge.forged ? 1 : 0,
     energy: (deckEditions.includes("rampaging") ? 4 : 3)
       + (deckEditions.includes("energyPlus") ? 1 : 0)
       + (deckEditions.includes("energyThree") ? 3 : 0),
     stars: (deckEditions.includes("clever") ? 4 : 2)
       + (deckEditions.includes("starPlus") ? 1 : 0)
       + (deckEditions.includes("starThree") ? 3 : 0)
-      + (deckEditions.includes("starFive") ? 5 : 0),
+      + (deckEditions.includes("starFive") ? 5 : 0)
+      + (startingForge.forged && deckEditions.includes("hammering") ? 1 : 0),
     deckEditions,
     evenDealOnReshuffle: false,
     preserveDefenseOnTurnEnd: false,

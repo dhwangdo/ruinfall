@@ -100,11 +100,13 @@ test("deck edition scores do not use a progressive surcharge", () => {
   assert.equal(score.editionScore, 65);
 });
 
-test("recycling editions are mutually exclusive", () => {
-  assert.equal(getAvailableDeckEditions(["frugal"]).includes("frugalPlus"), false);
-  assert.equal(getAvailableDeckEditions(["frugalPlus"]).includes("frugal"), false);
-  assert.equal(getAvailableDeckEditions([]).includes("frugal"), true);
-  assert.equal(getAvailableDeckEditions([]).includes("frugalPlus"), true);
+test("removed editions are unavailable and quick hammer costs ten points", () => {
+  const available = getAvailableDeckEditions([]);
+  assert.equal(available.includes("frugal"), false);
+  assert.equal(available.includes("greedy"), false);
+  assert.equal(available.includes("frugalPlus"), true);
+  assert.ok(available.includes("quickHammer"));
+  assert.equal(calculateDeckScore({ capacity: 15, cards: [], editions: ["quickHammer"] }).editionScore, 10);
 });
 
 test("region deck shape keeps the chosen sum and rejects rare overflow", () => {
@@ -121,7 +123,8 @@ test("region deck shape keeps the chosen sum and rejects rare overflow", () => {
     const distribution = regionDeckShapeDistribution(k);
     assert.ok(Math.abs(distribution.reduce((sum, entry) => sum + entry.probability, 0) - 1) < 1e-12);
     for (const { shape } of distribution) {
-      assert.ok(shape.x >= -k && shape.y >= -k && shape.z >= -k);
+      assert.ok(shape.x >= -k - 1 && shape.y >= -k && shape.z >= -k);
+      assert.ok(shape.capacity >= 15);
       assert.equal(shape.capacity, 20 + 5 * (k + shape.x));
       assert.equal(shape.rareSlotCapacity, k + shape.y);
       assert.ok(shape.rareSlotCapacity >= 0 && shape.rareSlotCapacity <= shape.capacity);
@@ -131,8 +134,9 @@ test("region deck shape keeps the chosen sum and rejects rare overflow", () => {
 });
 
 test("shape sampling uses distance rather than squared distance within the rolled sum", () => {
-  // At k=1,s=0: origin, six permutations of (1,0,-1), three of (2,-1,-1).
-  const expectedOrigin = 1 / (1 + 6 * 1.75 ** -Math.SQRT2 + 3 * 1.75 ** -Math.sqrt(6));
+  // The old ten candidates plus x=-2 with (y,z)=(-1,3),(0,2),(1,1),(2,0),(3,-1).
+  const expectedOrigin = 1 / (1 + 6 * 1.75 ** -Math.SQRT2 + 4 * 1.75 ** -Math.sqrt(6)
+    + 2 * 1.75 ** -Math.sqrt(8) + 2 * 1.75 ** -Math.sqrt(14));
   const origin = regionDeckShapeDistribution(1).find(({ shape }) => shape.x === 0 && shape.y === 0 && shape.z === 0);
   assert.ok(Math.abs(origin.probability / (7 / 27) - expectedOrigin) < 1e-12);
   let origins = 0;
@@ -161,7 +165,7 @@ test("region deck uses its shape and adds deck-size blessing capacity last", () 
 });
 
 test("regional distance means match the chosen square-root spread", () => {
-  for (const [region, expected] of [[1, 1.605813616947457], [3, 2.920963677960506], [7, 4.694220120145332]]) {
+  for (const [region, expected] of [[1, 1.8766441344112121], [3, 3.0750308649403864], [7, 4.751383293438747]]) {
     const mean = regionDeckShapeDistribution(region).reduce((sum, { shape, probability }) =>
       sum + probability * Math.hypot(shape.x, shape.y, shape.z), 0);
     assert.ok(Math.abs(mean - expected) < 1e-10, `region ${region}: ${mean}`);
@@ -184,7 +188,7 @@ test("the starter deck has 20 cards, capacity 25, and every starter/basic type",
 
 test("independent filler slots can all pick the same kind without bag quotas", () => {
   for (const [roll, kind] of [[.125, "empty"], [.375, "starter"], [.625, "basic"], [.875, "special"]]) {
-    const shapeRolls = [0, 0, 0, 0]; // k=1,s=-3: 20 normal slots, no rare slots or editions.
+    const shapeRolls = [0, 0, 0, .999]; // Choose (-1,-1,-1), no rare slots or editions.
     const deck = createRegionDeck(1, 200, 0, () => shapeRolls.length ? shapeRolls.shift() : roll);
     assert.equal(deck.capacity, 20);
     assert.equal(deck.rareSlotCapacity, 0);
@@ -214,7 +218,7 @@ test("generated filler slots give empty, starter, basic, special equal shares", 
 test("starter and basic slots can independently draw every type and repeat it", () => {
   for (const [kindRoll, pool] of [[.375, STARTER_CARD_POOL], [.625, BASIC_CARD_POOL]]) {
     const draws = Array.from({ length: 20 }, (_, index) => index % pool.length);
-    const rolls = [0, 0, 0, 0, ...draws.flatMap(index => [kindRoll, (index + .5) / pool.length])];
+    const rolls = [0, 0, 0, .999, ...draws.flatMap(index => [kindRoll, (index + .5) / pool.length])];
     const deck = createRegionDeck(1, 200, 0, () => {
       assert.ok(rolls.length > 0, "each slot uses one independent kind and card draw");
       return rolls.shift();

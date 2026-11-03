@@ -86,7 +86,7 @@ export function getCardKeywordInfos(card: Card): CardKeywordInfo[] {
   if (card.retain) add("보존");
   if (card.effect === "fermentedSlime") add("에너지");
   if (card.effect === "wish") add("토큰");
-  if (card.effect === "obsidianDagger" || card.effect === "odinSpear" || (
+  if (["obsidianDagger", "odinSpear", "metallurgyResearch"].includes(card.effect) || (
     !["astronomyResearch", "necromancyResearch", "massDeal"].includes(card.effect)
     && (card.forgeCost !== undefined || card.forgeCosts?.length || card.forgeTargetName || card.forgeAny)
   )) add("재련");

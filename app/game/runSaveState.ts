@@ -2,13 +2,13 @@ import type { BlessingId } from "./blessingRules";
 import { ALL_CARD_BLUEPRINTS, RARE_CARD_POOL, SPECIAL_CARD_POOL, type Card } from "./cards.ts";
 import { countRareSlotCards } from "./deckEditorRules.ts";
 import type { Consumable, DeckCase } from "./rewards.ts";
-import { STARTER_DECK_CAPACITY, STARTER_DECK_RARE_SLOT_CAPACITY } from "./rewards.ts";
+import { STARTER_DECK_CAPACITY, STARTER_DECK_RARE_SLOT_CAPACITY, isDeckEdition, getDeckEditionColor } from "./rewards.ts";
 import type { SavedRunState } from "./runTypes";
 import { isEncounterAvailable, normalizeEncounterIndex } from "./enemies.ts";
 
 const REMOVED_EFFECTS = new Set(["sacrifice", "magicCrystal", "delay", "boneArmor", "steelHeart", "ironWall", "blessing", "berserk"]);
 const REMOVED_CARD_NAMES = new Set(["불티", "잔바위", "유예", "뼈 갑옷", "환기"]);
-const UPDATED_CARD_NAMES = new Set(["몸 사리기", "기회 창출", "기회 포착", "정리 타격", "과감한 회피", "싸움 준비"]);
+const UPDATED_CARD_NAMES = new Set(["몸 사리기", "기회 창출", "기회 포착", "정리 타격", "과감한 회피", "싸움 준비", "대전략가"]);
 const RENAMED_CARD_NAMES: Readonly<Record<string, string>> = {
   "비늘 갑옷": "위압",
   "갈라치기": "돌파구",
@@ -59,6 +59,7 @@ function restoreLegacyCards(cards: Card[]): Card[] {
 
 function restoreLegacyDeck(deck: DeckCase): DeckCase {
   const cards = restoreLegacyCards(deck.cards ?? []);
+  const editions = (deck.editions ?? []).filter(isDeckEdition);
   const savedRareSlots = Number(deck.rareSlotCapacity);
   const minimumRareSlots = Math.max(countRareSlotCards(cards),
     deck.id === "starter" ? STARTER_DECK_RARE_SLOT_CAPACITY : 0);
@@ -66,6 +67,8 @@ function restoreLegacyDeck(deck: DeckCase): DeckCase {
     ...deck,
     capacity: deck.id === "starter" ? Math.max(STARTER_DECK_CAPACITY, deck.capacity) : deck.capacity,
     cards,
+    editions,
+    editionColors: Object.fromEntries(editions.map(edition => [edition, deck.editionColors?.[edition] ?? getDeckEditionColor(edition)])),
     rareSlotCapacity: Math.max(minimumRareSlots, Number.isFinite(savedRareSlots) ? Math.floor(savedRareSlots) : 0),
   };
 }

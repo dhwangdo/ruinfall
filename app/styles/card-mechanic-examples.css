@@ -1,4 +1,19 @@
 .card-keyword-popover { max-width: calc(100vw - 24px); }
+.card-mechanic-hover-progress {
+  flex: none;
+  height: 4px;
+  overflow: hidden;
+  border-radius: 2px;
+  background: #513e40;
+}
+.card-mechanic-hover-progress i {
+  display: block;
+  height: 100%;
+  background: #e7bc70;
+  transform-origin: left;
+  animation: mechanic-hover-fill var(--mechanic-hover-duration) linear both;
+}
+@keyframes mechanic-hover-fill { from { transform: scaleX(0); } to { transform: scaleX(1); } }
 .card-mechanic-popover {
   position: fixed;
   z-index: 181;

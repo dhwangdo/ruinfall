@@ -430,24 +430,6 @@
 .portal-trigger:hover { background: white; }
 
 .map-wait-trigger { grid-template-columns: auto; color: #36533a; border-color: #4f7654; background: #e2edd8; white-space: nowrap; }
-.map-battle-check-toggle {
-  position: absolute;
-  right: 120px;
-  bottom: -42px;
-  z-index: 20;
-  display: inline-flex;
-  align-items: center;
-  gap: 5px;
-  min-height: 28px;
-  padding: 4px 8px;
-  border: 1px solid #4f7654;
-  border-radius: 3px;
-  color: #36533a;
-  background: rgba(226, 237, 216, .92);
-  cursor: pointer;
-  font: 700 11px Arial, sans-serif;
-}
-.map-battle-check-toggle input { margin: 0; accent-color: #36533a; }
 .map-wait-trigger:disabled { cursor: wait; opacity: .56; }
 
 .debug-defeat-trigger {

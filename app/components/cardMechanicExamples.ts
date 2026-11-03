@@ -11,6 +11,7 @@ export type CardMechanicExample = {
   middle: Card;
   right: Card;
   result?: Card;
+  targetResult?: Card;
   observer?: Card;
   consumesTarget?: boolean;
 };
@@ -29,7 +30,8 @@ function forgeExample(card: Card): CardMechanicExample | undefined {
   if (!blueprint) return;
   const moving = demoCard(blueprint, -10);
   const available = candidates();
-  const right = available.find(target => canPlaceBySolitaireRule(moving, target) && canForgeCardOnto(moving, target));
+  const right = available.find(target => canPlaceBySolitaireRule(moving, target) && canForgeCardOnto(moving, target)
+    && (moving.effect !== "exchange" || (target.cost !== undefined && target.cost !== moving.cost)));
   if (!right) return;
   const dagger = moving.effect === "obsidianDagger";
   const exchange = moving.effect === "exchange";
@@ -46,11 +48,14 @@ function forgeExample(card: Card): CardMechanicExample | undefined {
       forgeCostsCompleted: dagger ? [1] : undefined,
     },
     observer: observer ? demoCard(observer, -11) : undefined,
+    targetResult: exchange ? { ...right, baseCost: right.baseCost ?? right.cost, cost: cardEnergyCost(moving) } : undefined,
     consumesTarget: dagger,
   };
 }
 
 export function getCardMechanicExamples(card: Card): CardMechanicExample[] {
+  // These cards refer to other cards being forged; their dedicated examples are pending.
+  if (["metallurgyResearch", "odinSpear"].includes(card.effect)) return [];
   const keywords = new Set(getCardKeywordInfos(card).map(keyword => keyword.name));
   const examples: CardMechanicExample[] = [];
   if (keywords.has("재련")) {

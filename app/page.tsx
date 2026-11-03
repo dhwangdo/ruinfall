@@ -80,6 +80,7 @@ import { useMapKeyboardMovement } from "./hooks/useMapKeyboardMovement";
 import { useMapKeyboardShortcuts } from "./hooks/useMapKeyboardShortcuts";
 import { RESET_HOLD_DURATION_MS, useRunKeyboardControls } from "./hooks/useRunKeyboardControls";
 import { useRunMapContent } from "./hooks/useRunMapContent";
+import { findAutoExploreRoute, hasAutoExploreDiscovery } from "./game/mapAutoExplore";
 import { useDebugMapContent } from "./hooks/useDebugMapContent";
 import { createTicketActions } from "./controllers/ticketActions";
 import { createDeckEditorMoves } from "./controllers/deckEditorMoves";
@@ -90,6 +91,7 @@ import { useBattlePointerInput } from "./hooks/useBattlePointerInput";
 import { useRunPersistence } from "./hooks/useRunPersistence";
 import { CONSTELLATION_PRESETS, constellationPresetCssImage } from "./cardConstellations";
 import { MapTopbar } from "./components/MapTopbar";
+import { GameSettingsModal } from "./components/GameSettingsModal";
 import {
   ALL_CARD_BLUEPRINTS,
   DEBUG_CARD_RARITIES,
@@ -117,6 +119,7 @@ import {
   type ConsumableType,
 } from "./game/rewards";
 import { type TicketType } from "./game/shopRules";
+import { discardHandCard } from "./game/discardRules";
 import { groupConsumables, sortConsumableGroupsByTier } from "./game/ticketRules";
 import {
   createDeckName,
@@ -282,7 +285,7 @@ export default function Home() {
   const battle = useBattleSession();
   const {
     screen, setScreen, setActiveMapEnemyIds, setActiveBattleRoom, mapBattleQueueRef, previousBattleDeckIdRef, pendingBattleStart,
-    setPendingBattleStart, battleDeckCheckEnabled, setBattleDeckCheckEnabled, battleDeckPreviewId,
+    setPendingBattleStart, setBattleDeckCheckEnabled, battleDeckPreviewId,
     setBattleDeckPreviewId, battleRewards, setBattleRewards, battleRewardDecks,
     setBattleRewardDecks, battleRewardConsumables, setBattleRewardConsumables, battleRewardGold,
     setBattleRewardGold, battleRewardKeys, setBattleRewardKeys, game, setGame, telemetryPreviousGameRef, phase, setPhase,
@@ -299,6 +302,7 @@ export default function Home() {
   const [mapCollisionEnemyIds, setMapCollisionEnemyIds] = useState<string[]>([]);
   const [mapBattleFlash, setMapBattleFlash] = useState(false);
   const [cardPoolStatsOpen, setCardPoolStatsOpen] = useState(false);
+  const [settingsOpen, setSettingsOpen] = useState(false);
   const [debugSpawnSelection, setDebugSpawnSelection] = useState("card:basic:0");
   const [debugDeckRegion, setDebugDeckRegion] = useState("1");
   const [debugDeckCount, setDebugDeckCount] = useState("1");
@@ -525,7 +529,7 @@ export default function Home() {
   useEffect(() => {
     if (!ownedDecks.some((deck) => deck.id === "starter" && deck.name === "")) return;
     const timer = window.setTimeout(() => setOwnedDecks((current) => current.map((deck) => deck.id === "starter" && deck.name === ""
-      ? { ...deck, name: createDeckName() }
+      ? { ...deck, name: createDeckName(deck.capacity) }
       : deck)), 0);
     return () => window.clearTimeout(timer);
   }, [ownedDecks, setOwnedDecks]);
@@ -757,6 +761,7 @@ export default function Home() {
     setResearchDragPreview(null);
   };
   const mapTravelTimerRef = useRef<number | null>(null);
+  const autoExploringRef = useRef(false);
   const pileScrollRef = useRef<HTMLDivElement | null>(null);
 
   const captureDrawOrigins = (cards: Card[]) => {
@@ -813,6 +818,7 @@ export default function Home() {
   }, [game.hand, game.stars, game.status, screen, setGame]);
 
   const clearMapTravel = () => {
+    autoExploringRef.current = false;
     if (mapTravelTimerRef.current !== null) {
       window.clearTimeout(mapTravelTimerRef.current);
       mapTravelTimerRef.current = null;
@@ -1054,9 +1060,9 @@ export default function Home() {
     spendMapTurn();
   };
 
-  const travelSafePath = (path: MapPosition[]) => {
+  const travelSafePath = (path: MapPosition[], autoExplore = false) => {
     if (screen !== "map" || playerNameSetupOpen || mapTraveling || mapLoading || path.length < 2) return;
-    if (debugMode) {
+    if (debugMode && !autoExplore) {
       const destination = path.at(-1)!;
       clearMapTravel();
       const revealedWorld = materializeVisibleMapContent(destination, mapSeed, mapEnemyWorld);
@@ -1067,26 +1073,27 @@ export default function Home() {
       activateRoomFeature(destination);
       return;
     }
-    const currentVisibleRoomKeys = visibleMapRoomKeys(
-      mapPosition,
-      mapSeed,
-      visionHorizontalRadius,
-      visionVerticalRadius,
-    );
-    if (mapEnemyWorld.enemies.some((enemy) =>
-      currentVisibleRoomKeys.has(mapRoomKey(enemy.position)))) {
-      showMapMessage("적이 시야 안에 있습니다! (빠른 이동 불가)");
-      return;
-    }
-
+    clearMapTravel();
+    clearMapKeyboardMovement();
+    autoExploringRef.current = autoExplore;
+    const initiallyVisible = visibleMapRoomKeys(mapPosition, mapSeed, visionHorizontalRadius, visionVerticalRadius);
+    const explored = new Set([...seenRooms, ...initiallyVisible]);
+    const knownEnemyIds = new Set(mapEnemyWorld.enemies
+      .filter(enemy => initiallyVisible.has(mapRoomKey(enemy.position))).map(enemy => enemy.id));
     const stepDuration = Math.max(70, Math.round(MAP_TRAVEL_STEP_MS / Math.sqrt(path.length - 1)));
     setMapTravelStepMs(stepDuration);
     setMapTraveling(true);
     let currentPosition = mapPosition;
     let currentWorld = mapEnemyWorld;
+    let route = path;
     let stepIndex = 1;
+    const stopTravel = () => {
+      mapTravelTimerRef.current = null;
+      autoExploringRef.current = false;
+      setMapTraveling(false);
+    };
     const advance = () => {
-      const nextPosition = path[stepIndex];
+      const nextPosition = route[stepIndex];
       const roomKey = mapRoomKey(nextPosition);
       const previousWorld = currentWorld;
       const revealedWorld = materializeVisibleMapContent(nextPosition, mapSeed, currentWorld);
@@ -1104,40 +1111,66 @@ export default function Home() {
       setMapEnemyWorld(bombWorld);
       if (RUN_SAVE_POLICY.afterEveryMapMove) queueRunSave(RUN_SAVE_POLICY.mapMoveDelayMs);
       if (bombResult.playerDefeated) {
-        mapTravelTimerRef.current = null;
-        setMapTraveling(false);
+        stopTravel();
         return;
       }
 
       if (collisionEnemies.length > 0) {
         mapTravelTimerRef.current = null;
+        autoExploringRef.current = false;
         animateMapCollision(collisionEnemies, roomKey);
         return;
       }
-      const visibleRoomKeys = visibleMapRoomKeys(
-        nextPosition,
-        mapSeed,
-        visionHorizontalRadius,
-        visionVerticalRadius,
-      );
-      if (bombWorld.enemies.some((enemy) =>
-        visibleRoomKeys.has(mapRoomKey(enemy.position)))) {
-        mapTravelTimerRef.current = null;
-        setMapTraveling(false);
-        showMapMessage("적을 발견해 빠른 이동이 중지 되었습니다.");
+      const visible = visibleMapRoomKeys(nextPosition, mapSeed, visionHorizontalRadius, visionVerticalRadius);
+      if (bombWorld.enemies.some(enemy => !knownEnemyIds.has(enemy.id) && visible.has(mapRoomKey(enemy.position)))) {
+        stopTravel();
+        showMapMessage(`새로운 적을 발견해 ${autoExplore ? "자동 여행" : "빠른 이동"}을 멈췄습니다.`);
         return;
       }
-
+      if (autoExplore && hasAutoExploreDiscovery(visible, explored, effectiveRoomType, inventory.hasFloorItems)) {
+        stopTravel();
+        showMapMessage("새로운 아이템이나 장소를 발견해 자동 여행을 멈췄습니다.");
+        return;
+      }
+      if (autoExplore) visible.forEach(key => explored.add(key));
       stepIndex += 1;
-      if (stepIndex < path.length) {
+      if (autoExplore && stepIndex >= route.length) {
+        const nextRoute = findAutoExploreRoute(currentPosition, explored, effectiveRoomType);
+        if (!nextRoute) {
+          stopTravel();
+          showMapMessage("이동할 수 있는 미탐사 지역이 없습니다.");
+          return;
+        }
+        route = nextRoute;
+        stepIndex = 1;
+      }
+      if (stepIndex < route.length) {
         mapTravelTimerRef.current = window.setTimeout(advance, stepDuration);
       } else {
-        mapTravelTimerRef.current = null;
-        setMapTraveling(false);
+        stopTravel();
         activateRoomFeature(nextPosition);
       }
     };
     advance();
+  };
+
+  const startAutoExplore = () => {
+    if (screen !== "map" || mapTraveling || mapLoading) return;
+    const visible = visibleMapRoomKeys(mapPosition, mapSeed, visionHorizontalRadius, visionVerticalRadius);
+    if (mapEnemyWorld.enemies.some(enemy => visible.has(mapRoomKey(enemy.position)))) {
+      showMapMessage("시야에 적이 있어 자동 여행을 시작할 수 없습니다.");
+      return;
+    }
+    const route = findAutoExploreRoute(mapPosition, new Set([...seenRooms, ...visible]), effectiveRoomType);
+    if (route) travelSafePath(route, true);
+    else showMapMessage("이동할 수 있는 미탐사 지역이 없습니다.");
+  };
+
+  const cancelAutoExplore = () => {
+    if (!autoExploringRef.current) return false;
+    clearMapTravel();
+    showMapMessage("자동 여행을 멈췄습니다.");
+    return true;
   };
 
   const startNewRun = async () => {
@@ -1214,7 +1247,7 @@ export default function Home() {
     setActiveDeckId(starterDeck.id);
     setInventoryCards([]);
     nextConsumableIdRef.current = 1;
-    setInventoryConsumables([nextConsumable("extractTicket")]);
+    setInventoryConsumables([]);
     setRoomDeckDrops({});
     setRoomShops({});
     setShopOpen(false);
@@ -1247,7 +1280,7 @@ export default function Home() {
   };
 
   const restartHold = useRunKeyboardControls({
-    playerNameSetupOpen: playerNameSetupOpen || mapLoading,
+    playerNameSetupOpen: playerNameSetupOpen || mapLoading || settingsOpen,
     saveRunNow,
     showMapMessage,
     clearRunSave,
@@ -1469,6 +1502,7 @@ export default function Home() {
     deckEditorOpen,
     confirmDeckEditor,
     escapeTargets: [
+      { open: settingsOpen, close: () => setSettingsOpen(false) },
       { open: portalKeyWarningRoom !== null, close: () => setPortalKeyWarningRoom(null) },
       { open: deckVaultRoom !== null, close: () => setDeckVaultRoom(null) },
       { open: cardPoolStatsOpen, close: () => setCardPoolStatsOpen(false) },
@@ -1485,7 +1519,11 @@ export default function Home() {
     openDeckEditor,
     quickPickUpFloorItems,
     waitOnMap,
-    interactionLocked: portalKeyWarningRoom !== null || deckVaultRoom !== null,
+    startAutoExplore,
+    cancelAutoExplore,
+    interactionLocked: settingsOpen || mapLoading || portalKeyWarningRoom !== null || deckVaultRoom !== null
+      || cardPoolStatsOpen || treasureChestReward !== null || extractionShrineOpen
+      || transformShrineOpen || blessingOpen || shopOpen || openedCardPack !== null,
     roomType: effectiveRoomType(mapPosition),
     roomActions: {
       bloodShop: () => openShop(mapRoomKey(mapPosition), getRegionNumber(mapPosition, mapSeed), "hp"),
@@ -1760,22 +1798,7 @@ export default function Home() {
     if (pendingDiscardPlay?.card.id === cardId) return;
     if (!game.hand.some((card) => card.id === cardId)) return;
     const resumePlay = game.pendingDiscards === 1 ? pendingDiscardPlay : null;
-    setGame((current) => {
-      if (current.pendingDiscards < 1 || current.pendingResearchDraw !== null || phase !== "playing") return current;
-      const card = current.hand.find((item) => item.id === cardId);
-      if (!card) return current;
-      const remainingDiscards = current.pendingDiscards - 1;
-      const action = remainingDiscards > 0
-        ? `${card.name} 버림 · ${remainingDiscards}장 더 선택하세요.`
-        : `${card.name} 버림`;
-      return {
-        ...current,
-        hand: current.hand.filter((item) => item.id !== cardId),
-        discard: [...current.discard, card],
-        pendingDiscards: remainingDiscards,
-        message: action,
-      };
-    });
+    setGame(current => phase === "playing" ? discardHandCard(current, cardId) : current);
     if (resumePlay) {
       setPendingDiscardPlay(null);
       playCard(resumePlay.card, resumePlay.targetEnemyId, true);
@@ -2021,7 +2044,7 @@ export default function Home() {
                 const trimmedPlayerName = playerName.trim();
                 setPlayerName(trimmedPlayerName);
                 setOwnedDecks((current) => current.map((deck) => deck.id === "starter" && !deck.name
-                  ? { ...deck, name: createDeckName() }
+                  ? { ...deck, name: createDeckName(deck.capacity) }
                   : deck));
                 beginTelemetryRun(telemetry, {
                   playerName: trimmedPlayerName,
@@ -2083,10 +2106,25 @@ export default function Home() {
           onGoldDebugClick={handleGoldDebugClick}
           onWait={waitOnMap}
           restartHold={restartHold}
+          onOpenSettings={() => {
+            clearMapKeyboardMovement();
+            clearFloatingTooltips();
+            restartHold.stop("shortcut");
+            restartHold.stop("pointer");
+            restartHold.stop("buttonKeyboard");
+            setSettingsOpen(true);
+          }}
           onEditDeck={() => openDeckEditor(usesSafeAreaDeckRules
             ? "덱 카드를 인벤토리로 회수할 수 있습니다. 희귀도에 따라 골드를 냅니다."
             : "좌클릭: 바닥 → 인벤토리 → 덱. 덱 카드 우클릭·바닥 드래그: 제거 예정 상태")}
         />
+        {settingsOpen && <GameSettingsModal onClose={() => setSettingsOpen(false)} onBattleCheckChange={enabled => {
+          setBattleDeckCheckEnabled(enabled);
+          if (!enabled) {
+            setPendingBattleStart(null);
+            setBattleDeckPreviewId(null);
+          }
+        }} />}
         {(blessings.length > 0 || mindEyeMovesRemaining > 0 || godsLamentCharges > 0 || darkTicketTurnsRemaining > 0) && (
           <aside className="map-blessing-list" aria-label="획득한 축복">
             {blessings.map((blessing) => (
@@ -2225,21 +2263,6 @@ export default function Home() {
             onUseHeal={useCurrentHeal}
             onQuickPickup={quickPickUpFloorItems}
           />
-          <label className="map-battle-check-toggle">
-            <input
-              type="checkbox"
-              checked={battleDeckCheckEnabled}
-              onChange={(event) => {
-                const enabled = event.target.checked;
-                setBattleDeckCheckEnabled(enabled);
-                if (!enabled) {
-                  setPendingBattleStart(null);
-                  setBattleDeckPreviewId(null);
-                }
-              }}
-            />
-            <span>잠깐!</span>
-          </label>
         </MapBoard></MapPerformanceProbe>}
 
         {portalKeyWarningRoom !== null && <PortalKeyWarning

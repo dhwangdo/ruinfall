@@ -1,6 +1,6 @@
 import assert from "node:assert/strict";
 import test from "node:test";
-import { ALL_CARD_BLUEPRINTS, createAdrenalineCard } from "../app/game/cards.ts";
+import { ALL_CARD_BLUEPRINTS, TEMPORARILY_REMOVED_CARD_POOL, createAdrenalineCard } from "../app/game/cards.ts";
 import { calculateAttackDamage } from "../app/game/statuses.ts";
 import { attackPreview } from "../app/game/attackPreview.ts";
 import { waitingState } from "../app/game/battleState.ts";
@@ -9,7 +9,7 @@ import { resolveCardPlay } from "../app/game/cardPlayResolution.ts";
 import { createResolvePlayedCard } from "../app/game/cardPlayAction.ts";
 
 const card = (effect, extra = {}) => {
-  const blueprint = ALL_CARD_BLUEPRINTS.find(item => item.effect === effect);
+  const blueprint = [...ALL_CARD_BLUEPRINTS, ...TEMPORARILY_REMOVED_CARD_POOL].find(item => item.effect === effect);
   assert.ok(blueprint, effect);
   return { ...blueprint, id: 1, revealed: true, ...extra };
 };

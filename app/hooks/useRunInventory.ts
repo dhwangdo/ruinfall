@@ -1,14 +1,24 @@
 import { useCallback, useEffect, useMemo, useRef, useState, type Dispatch, type SetStateAction } from "react";
 import type { Card } from "../game/cards";
-import { createConsumable, createStarterDeck, createRegionDeck, getDeckEditionColor, STARTING_DECK_SIZE, type Consumable,
+import { createConsumable, createStarterDeck, createRegionDeck, getDeckEditionColor, isDeckEdition, STARTING_DECK_SIZE, type Consumable,
   type ConsumableType, type DeckCase, type ShopOffer } from "../game/rewards";
 
 import type { PreparedRunRestore } from "../game/runSaveState";
 
-const REMOVED_DECK_EDITIONS = new Set(["transparent", "golden", "debug", "firepower", "growth"]);
+/** Travel needs newly generated loot before React's next render commits. */
+function useFloorDrops<T>() {
+  const [drops, setRenderedDrops] = useState<Record<string, T[]>>({});
+  const ref = useRef(drops);
+  const setDrops = useCallback<Dispatch<SetStateAction<Record<string, T[]>>>>((update) => {
+    const next = typeof update === "function" ? update(ref.current) : update;
+    ref.current = next;
+    setRenderedDrops(next);
+  }, []);
+  return [drops, setDrops, ref] as const;
+}
 
 function removeDeletedDeckEditions(deck: DeckCase): DeckCase {
-  const editions = deck.editions.filter((edition) => !REMOVED_DECK_EDITIONS.has(edition as string));
+  const editions = deck.editions.filter(isDeckEdition);
   return {
     ...deck,
     editions,
@@ -24,13 +34,15 @@ export function useRunInventory() {
   const [ownedDecks, setOwnedDecks] = useState<DeckCase[]>(() => [createStarterDeck()]);
   const [activeDeckId, setActiveDeckId] = useState("starter");
   const [inventoryCards, setInventoryCards] = useState<Card[]>([]);
-  const [inventoryConsumables, setInventoryConsumables] = useState<Consumable[]>(() => [
-    createConsumable("extractTicket", "starter-extract"),
-  ]);
+  const [inventoryConsumables, setInventoryConsumables] = useState<Consumable[]>([]);
   const inventoryConsumablesRef = useRef<Consumable[]>([]);
-  const [roomDrops, setRoomDrops] = useState<Record<string, Card[]>>({});
-  const [roomConsumableDrops, setRoomConsumableDrops] = useState<Record<string, Consumable[]>>({});
-  const [roomDeckDrops, setRoomDeckDrops] = useState<Record<string, DeckCase[]>>({});
+  const [roomDrops, setRoomDrops, roomDropsRef] = useFloorDrops<Card>();
+  const [roomConsumableDrops, setRoomConsumableDrops, roomConsumableDropsRef] = useFloorDrops<Consumable>();
+  const [roomDeckDrops, setRoomDeckDrops, roomDeckDropsRef] = useFloorDrops<DeckCase>();
+  const hasFloorItems = useCallback((key: string) =>
+    (roomDropsRef.current[key]?.length ?? 0) + (roomConsumableDropsRef.current[key]?.length ?? 0)
+      + (roomDeckDropsRef.current[key]?.length ?? 0) > 0,
+  [roomDropsRef, roomConsumableDropsRef, roomDeckDropsRef]);
   const [roomShops, setRoomShops] = useState<Record<string, ShopOffer[]>>({});
   const [gold, setGold] = useState(0);
 
@@ -109,11 +121,11 @@ export function useRunInventory() {
     setSkipPortalKeyWarning(state.skipPortalKeyWarning);
     roomDeckVaultsRef.current = state.roomDeckVaults;
     setRoomDeckVaults(state.roomDeckVaults);
-  }, [setKeys]);
+  }, [setKeys, setRoomDrops, setRoomConsumableDrops, setRoomDeckDrops]);
 
   return { saveState, restoreInventory, ownedDecks, setOwnedDecks, activeDeckId, setActiveDeckId,
     inventoryCards, setInventoryCards, inventoryConsumables, setInventoryConsumables, inventoryConsumablesRef,
-    roomDrops, setRoomDrops, roomConsumableDrops, setRoomConsumableDrops,
+    roomDrops, setRoomDrops, roomConsumableDrops, setRoomConsumableDrops, hasFloorItems,
     roomDeckDrops, setRoomDeckDrops, roomShops, setRoomShops, gold, setGold,
     keys, keysRef, setKeys, skipPortalKeyWarning, setSkipPortalKeyWarning, roomDeckVaults, roomDeckVaultsRef, ensureDeckVault, resetDeckVaults,
     rareCardDropChanceRef,

@@ -19,8 +19,8 @@ import { getCardKeywordInfos } from "../app/game/cardEffects.ts";
 test("card pools preserve the current content counts", () => {
   assert.equal(STARTER_CARD_POOL.length, 2);
   assert.equal(BASIC_CARD_POOL.length, 8);
-  assert.equal(SPECIAL_CARD_POOL.length, 37);
-  assert.equal(RARE_CARD_POOL.length, 20);
+  assert.equal(SPECIAL_CARD_POOL.length, 38);
+  assert.equal(RARE_CARD_POOL.length, 19);
   assert.equal(LEGENDARY_CARD_POOL.length, 6);
   assert.equal(ALL_CARD_BLUEPRINTS.length, 74);
 });

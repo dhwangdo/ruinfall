@@ -44,7 +44,7 @@ export function cardEffectDescription(card: Card, damageNumber: ReactNode, defen
     case "strategyBook":
       return <><span><strong className="effect-keyword">힘</strong>과 <strong className="effect-keyword">강인함</strong>을 4 얻습니다.</span><span>이 효과는 손패에 있는 동안에도 적용됩니다.</span></>;
     case "evolutionTheory":
-      return <span>턴 시작 시 <strong className="effect-keyword">힘</strong>과 <strong className="effect-keyword">강인함</strong>을 1 얻습니다.</span>;
+      return <><span><strong className="effect-keyword">힘</strong>과 <strong className="effect-keyword">강인함</strong>을 1 얻습니다.</span><span>내 턴 시작 시 반복합니다.</span></>;
     case "librariansPrivilege":
       return <span>턴 시작 시 원하는 파일에서 카드를 1장 뽑습니다.</span>;
     case "dash":
@@ -97,6 +97,8 @@ export function cardEffectDescription(card: Card, damageNumber: ReactNode, defen
       return <span><span className="effect-star">★★★</span>을 지불하고 버린 카드 더미에서 원하는 카드 1장을 가져올 수 있습니다. (한 턴에 한 번)</span>;
     case "metallurgyResearch":
       return <span>카드를 <strong className="effect-keyword">재련</strong>할 때마다 <strong className="effect-keyword">재련</strong>된 카드를 가져옵니다.</span>;
+    case "recycling":
+      return <span>내 턴 동안 카드를 버릴 때마다 <span className="effect-star">★</span>를 얻습니다.</span>;
     case "economicsResearch":
       return <span>에너지가 -3이 될 때까지 카드를 사용할 수 있습니다. 이 효과는 중첩됩니다.</span>;
     case "opticsResearch":
@@ -148,7 +150,7 @@ export function cardEffectDescription(card: Card, damageNumber: ReactNode, defen
     case "endStart":
       return <span>모든 파일이 비어 있어야 사용할 수 있습니다. <strong className="effect-keyword">에너지</strong>를 {card.value} 얻습니다.</span>;
     case "superStrategist":
-      return <span><span className="effect-star">★★★★★</span>을 얻습니다.</span>;
+      return <><span>{starIcons(card.value)}을 얻습니다.</span><span>카드를 {card.draw}장 뽑습니다.</span></>;
     case "slime":
       return <span>턴 종료 시 손패에 있다면 <span className="effect-type physical">물리 피해</span>를 12 받습니다.</span>;
     case "fermentedSlime":

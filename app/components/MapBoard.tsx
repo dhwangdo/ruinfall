@@ -118,6 +118,7 @@ export function MapBoard({
     zoom: mapZoom,
     viewportSize: mapViewportSize,
     isFocusing: mapCameraFocusing,
+    isTicketTouring,
     viewportRef: mapViewportRef,
     wasDraggedRef: mapWasDraggedRef,
     focusOnPlayer: focusMapOnPlayer,
@@ -177,8 +178,10 @@ export function MapBoard({
     if (!canvas) return;
     // Rebasing changes local grid coordinates, not the camera's world position.
     // Do not interpolate between the old and new coordinate origins.
-    canvas.style.transition = "none";
-    const frame = window.requestAnimationFrame(() => canvas.style.removeProperty("transition"));
+    canvas.dataset.rebasing = "true";
+    // Commit the new origin for the canvas and every marker before transitions resume.
+    void canvas.getBoundingClientRect();
+    const frame = window.requestAnimationFrame(() => canvas.removeAttribute("data-rebasing"));
     return () => window.cancelAnimationFrame(frame);
   }, [surface.minX, surface.minY]);
   const currentVisibleRoomKeys = useMemo(() => visibleMapRoomKeys(
@@ -286,7 +289,7 @@ export function MapBoard({
       >
         <div
           ref={canvasRef}
-          className={`map-canvas ${mapTraveling ? "is-traveling" : ""} ${mapCameraFocusing ? "is-camera-focusing" : ""}`}
+          className={`map-canvas ${mapTraveling ? "is-traveling" : ""} ${mapCameraFocusing && !isTicketTouring ? "is-camera-focusing" : ""}`}
           style={{
             width: surfaceColumns * mapStrideX,
             height: surfaceRows * mapStrideY,
@@ -309,9 +312,9 @@ export function MapBoard({
             const walkable = isWalkableRoom(roomType);
             const adjacent = distance === 1 && walkable;
             const reachable = !current && (debugMode ? walkable : knownRoomRoutes.has(roomKey));
-            const hasItems = (roomDrops[roomKey]?.length ?? 0) > 0
-              || (roomConsumableDrops[roomKey]?.length ?? 0) > 0
-              || (roomDeckDrops[roomKey]?.length ?? 0) > 0;
+            const itemCount = (roomDrops[roomKey]?.length ?? 0)
+              + (roomConsumableDrops[roomKey]?.length ?? 0)
+              + (roomDeckDrops[roomKey]?.length ?? 0);
             const roomItemNames = [
               ...(roomDrops[roomKey] ?? []).map((card) => card.name),
               ...(roomConsumableDrops[roomKey] ?? []).map((consumable) => consumable.name),
@@ -332,7 +335,10 @@ export function MapBoard({
                 reachable={reachable}
                 walkable={walkable}
                 mapTraveling={mapTraveling}
-                hasItems={hasItems}
+                itemCount={itemCount}
+                floorDeck={roomDeckDrops[roomKey]?.[0]}
+                floorCard={roomDrops[roomKey]?.[0]}
+                floorTicket={roomConsumableDrops[roomKey]?.[0]}
                 roomItemsTitle={roomItemsTitle}
                 deckName={roomType === "deckVault" ? roomDeckVaults[roomKey]?.name : undefined}
                 onPreview={roomType === "deckVault" && roomDeckVaults[roomKey] ? showVaultPreview : undefined}

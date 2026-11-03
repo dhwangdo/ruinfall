@@ -4,6 +4,18 @@ import test from "node:test";
 import { createRunSaveSnapshot, prepareRunRestore } from "../app/game/runSaveState.ts";
 import { RARE_CARD_POOL, SPECIAL_CARD_POOL } from "../app/game/cards.ts";
 
+test("deleted editions are removed from owned decks, ground decks and unopened vaults", () => {
+  const deck = { id: "old", name: "old", capacity: 25, cards: [], rareSlotCapacity: 1,
+    editions: ["greedy", "frugal", "frugalPlus", "quickHammer"], editionColors: {} };
+  const restored = prepareRunRestore({ mapSeed: 1, mapPosition: { x: 0, y: 0 }, blessings: [],
+    ownedDecks: [deck], roomDeckDrops: { "1:1": [deck] }, roomDeckVaults: { "2:2": deck } }, () => false);
+  for (const item of [restored.ownedDecks[0], restored.roomDeckDrops["1:1"][0], restored.roomDeckVaults["2:2"]]) {
+    assert.deepEqual(item.editions, ["frugalPlus", "quickHammer"]);
+    assert.deepEqual(Object.keys(item.editionColors), ["frugalPlus", "quickHammer"]);
+  }
+  assert.deepEqual(deck.editions, ["greedy", "frugal", "frugalPlus", "quickHammer"]);
+});
+
 test("run save snapshots serialize set-backed state without changing the source", () => {
   const seenRooms = new Set(["1:2", "3:4"]);
   const snapshot = createRunSaveSnapshot({

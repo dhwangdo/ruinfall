@@ -45,7 +45,7 @@ export function useMapDeckSelectorDrag() {
 
     const keepInBounds = (next = offsetRef.current) => {
       const area = getViewportBounds();
-      const icon = trigger.getBoundingClientRect();
+      const icon = selector.firstElementChild?.getBoundingClientRect() ?? trigger.getBoundingClientRect();
       const current = offsetRef.current;
       const bounded = {
         x: clamp(next.x, current.x + area.left + MARGIN - icon.left, current.x + area.right - MARGIN - icon.right),
@@ -74,7 +74,7 @@ export function useMapDeckSelectorDrag() {
     if (!event.isPrimary || event.button !== 0) return;
     event.stopPropagation();
     const area = getViewportBounds();
-    const icon = event.currentTarget.getBoundingClientRect();
+    const icon = selectorRef.current?.firstElementChild?.getBoundingClientRect() ?? event.currentTarget.getBoundingClientRect();
     suppressClickRef.current = false;
     dragRef.current = {
       pointerId: event.pointerId, x: event.clientX, y: event.clientY,

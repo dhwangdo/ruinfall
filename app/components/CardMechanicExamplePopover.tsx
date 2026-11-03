@@ -114,7 +114,7 @@ function AnimationBoard({ example }: { example: CardMechanicExample }) {
         const forge = valid && canForgeCardOnto(example.moving, card);
         const hovered = dragging && location === ["left", "middle", "right"][index];
         const highlight = valid ? `${forge ? "is-forge-drop-target" : "is-solitaire-drop-target"} ${hovered ? "is-hovered-solitaire-drop-target" : ""}` : "";
-        return <DemoPile key={index} card={card} side={(["left", "middle", "right"] as const)[index]}
+        return <DemoPile key={index} card={forged && index === 2 && example.targetResult ? example.targetResult : card} side={(["left", "middle", "right"] as const)[index]}
           highlight={highlight} consumed={forged && index === 2 && example.consumesTarget}
           forgeCount={index === 1 && example.observer && forged ? 1 : 0}
           ghost={star && index === 0 && (phase === 4 || phase === 5) ? example.moving : undefined} />;

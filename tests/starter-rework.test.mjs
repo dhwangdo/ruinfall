@@ -31,7 +31,7 @@ function turnStart(initial) {
 }
 
 test("temporary removals leave the generation catalog and librarian activates without an immediate draw", () => {
-  for (const name of ["응수", "천문학 연구", "강령학 연구", "반전"]) {
+  for (const name of ["응수", "천문학 연구", "강령학 연구", "반전", "마도서"]) {
     assert.equal(ALL_CARD_BLUEPRINTS.some(card => card.name === name), false);
     assert.ok(TEMPORARILY_REMOVED_CARD_POOL.some(card => card.name === name));
   }
@@ -84,6 +84,27 @@ function play(name, piles, paid = false) {
   return resolveCardPlay({ ...waitingState(50, [enemy()]), energy: 3, hand: [played], piles },
     { card: played, targetEnemyId: "enemy", discardCostPaid: paid }, options);
 }
+
+test("super strategist grants three stars, two draws, and exhausts", () => {
+  const result = play("대전략가", [[card("타격", 1), card("방어", 2)]]);
+  assert.equal(result.played, true);
+  assert.equal(result.state.stars, waitingState(50, [enemy()]).stars + 3);
+  assert.equal(result.state.pendingDraws, 2);
+  assert.ok(result.state.removedFromReshuffleIds.includes(card("대전략가").id));
+  assert.equal(result.state.discard.some(item => item.id === card("대전략가").id), false);
+});
+
+test("evolution grants both stats immediately and repeats at each player turn start", () => {
+  let state = play("진화론", [[card("타격", 1), card("방어", 2), card("잽", 3)]]).state;
+  assert.equal(state.strength, 1);
+  assert.equal(state.agility, 1);
+  assert.equal(state.activeRuleCards[0].effect, "evolutionTheory");
+  for (const expected of [2, 3]) {
+    state = turnStart(state);
+    assert.equal(state.strength, expected);
+    assert.equal(state.agility, expected);
+  }
+});
 
 test("opportunity cards keep damage/defense but choose a top-card discard without drawing", () => {
   for (const name of ["기회 포착", "기회 창출"]) {
@@ -177,11 +198,11 @@ test("renamed cards migrate in every saved location while keeping identities and
 });
 
 test("old saves update changed cards in every location and upgrade starter capacity without adding cards", () => {
-  const oldCards = ["기회 포착", "기회 창출", "정리 타격", "과감한 회피", "싸움 준비", "몸 사리기"].map((name, id) => ({
+  const oldCards = ["기회 포착", "기회 창출", "정리 타격", "과감한 회피", "싸움 준비", "몸 사리기", "대전략가"].map((name, id) => ({
     ...card(name, id), draw: name === "기회 포착" || name === "기회 창출" ? 1 : 0,
     rarity: name === "몸 사리기" ? "starter" : card(name).rarity,
     discardPileTop: undefined, cost: 1,
-    value: name === "몸 사리기" ? 7 : name === "기회 포착" ? 6 : name === "과감한 회피" ? 15 : card(name).value,
+    value: name === "대전략가" ? 5 : name === "몸 사리기" ? 7 : name === "기회 포착" ? 6 : name === "과감한 회피" ? 15 : card(name).value,
     colored: true,
   }));
   const deck = { id: "starter", capacity: 20, cards: oldCards, editions: [], editionColors: {}, rareSlotCapacity: 0 };

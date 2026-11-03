@@ -4,7 +4,7 @@ import { prepareBattleStart } from "../app/game/battleSetup.ts";
 import { createBattleSessionActions } from "../app/controllers/battleSessionActions.ts";
 import { makeRunFixture } from "./helpers/run-state.mjs";
 import { mapRoomKey, MAP_START } from "../app/game/mapRules.ts";
-import { SPECIAL_CARD_POOL } from "../app/game/cards.ts";
+import { SPECIAL_CARD_POOL, RARE_CARD_POOL } from "../app/game/cards.ts";
 
 test("one encounter grants rewards only once even when victory paths overlap", (t) => {
   t.mock.method(Math, "random", () => .9);
@@ -66,6 +66,38 @@ test("talismans grant one stat per copy and stack with other starting bonuses", 
   });
   assert.equal(result.game.strength, 6);
   assert.equal(result.game.agility, 5);
+});
+
+test("quick hammer forges a battle copy, preserves it for reshuffles and triggers forge bonuses", () => {
+  const ctx = makeRunFixture();
+  const core = SPECIAL_CARD_POOL.find(card => card.name === "낡은 노심");
+  const exchange = SPECIAL_CARD_POOL.find(card => card.effect === "exchange");
+  const dagger = RARE_CARD_POOL.find(card => card.effect === "obsidianDagger");
+  const battleDeck = { ...ctx.inventory.ownedDecks[0], editions: ["quickHammer", "hammering", "resistance"],
+    cards: [core, exchange, dagger].map((card, index) => ({ ...card, id: index + 1 })) };
+  const { game } = prepareBattleStart({ battleDeck, encounters: [{ encounterIndex: 2 }], playerHp: 40,
+    blessings: ["blacksmith"], godsLamentCharges: 0, nextCardId: 100 });
+  assert.equal(game.initialDeck.find(card => card.id === 1).forged, true);
+  assert.equal(game.initialDeck.filter(card => card.forged).length, 1);
+  assert.equal([...game.piles.flat(), ...game.hand].filter(card => card.forged).length, 1);
+  assert.ok(battleDeck.cards.every(card => !card.forged));
+  assert.equal(game.forgeCount, 1);
+  assert.equal(game.stars, 4);
+  assert.equal(game.blacksmithForgeUsedThisTurn, true);
+  assert.equal(game.playerResistance, 2);
+});
+
+test("quick hammer skips decks without eligible cards and glass cannon blocks starting resistance", () => {
+  const ctx = makeRunFixture();
+  const battleDeck = { ...ctx.inventory.ownedDecks[0], editions: ["quickHammer", "resistance"],
+    cards: [SPECIAL_CARD_POOL.find(card => card.effect === "exchange"),
+      RARE_CARD_POOL.find(card => card.effect === "obsidianDagger")].map((card, id) => ({ ...card, id })) };
+  const { game } = prepareBattleStart({ battleDeck, encounters: [{ encounterIndex: 2 }], playerHp: 40,
+    blessings: ["glassCannon", "blacksmith"], godsLamentCharges: 0, nextCardId: 100 });
+  assert.equal(game.forgeCount, 0);
+  assert.equal(game.stars, 2);
+  assert.equal(game.playerResistance, 0);
+  assert.ok(game.initialDeck.every(card => !card.forged));
 });
 
 test("battle preparation handles missing decks and bomb-defeated encounters", () => {

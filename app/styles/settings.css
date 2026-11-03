@@ -1,0 +1,76 @@
+.map-settings-trigger {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 7px;
+  flex: none;
+  min-height: 54px;
+  padding: 8px 16px;
+  border: 1px solid #797d82;
+  border-radius: 2px;
+  color: #f0f1f2;
+  background: #555a60;
+  font: 700 14px/1.2 Pretendard, "Malgun Gothic", sans-serif;
+  cursor: pointer;
+}
+.map-settings-trigger:hover:not(:disabled) { background: #656b72; }
+.map-settings-trigger:disabled { opacity: .5; cursor: default; }
+.game-settings-dialog {
+  width: min(600px, calc(100vw - 32px));
+  max-width: none;
+  max-height: min(780px, calc(100dvh - 40px));
+  margin: auto;
+  padding: 0;
+  overflow: hidden;
+  border: 1px solid #82735a;
+  border-radius: 6px;
+  color: #e8e5dd;
+  background: #151816;
+  box-shadow: 0 16px 55px #0009;
+  font: 400 14px/1.5 Pretendard, "Malgun Gothic", sans-serif;
+}
+.game-settings-dialog::backdrop { background: #0009; }
+.game-settings-panel { display: flex; flex-direction: column; max-height: inherit; }
+.game-settings-panel > header {
+  display: flex;
+  flex: none;
+  align-items: center;
+  justify-content: space-between;
+  padding: 17px 22px;
+  border-bottom: 1px solid #49483f;
+}
+.game-settings-panel h2 { margin: 0; font-size: 22px; font-weight: 700; }
+.game-settings-panel header button {
+  padding: 6px 13px;
+  border: 1px solid #6d6b60;
+  border-radius: 3px;
+  color: inherit;
+  background: #2a2d28;
+  font: inherit;
+  cursor: pointer;
+}
+.game-settings-body { min-height: 0; padding: 0 22px 20px; overflow-y: auto; scrollbar-width: none; }
+.game-settings-body::-webkit-scrollbar { display: none; }
+.game-settings-toggle {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 20px;
+  padding: 18px 0;
+  border-bottom: 1px solid #383c35;
+  cursor: pointer;
+}
+.game-settings-toggle strong { display: block; font-weight: 650; font-size: 16px; }
+.game-settings-toggle small { display: block; margin-top: 4px; color: #b3b6aa; font-size: 13px; }
+.game-settings-toggle input { flex: none; width: 20px; height: 20px; margin: 0; accent-color: #d58a41; cursor: pointer; }
+.game-settings-shortcuts h3 { margin: 22px 0 10px; font-size: 16px; font-weight: 650; }
+.game-settings-shortcuts dl { margin: 0; }
+.game-settings-shortcuts dl > div { display: grid; grid-template-columns: minmax(140px, .9fr) 1.4fr; gap: 12px; padding: 7px 0; }
+.game-settings-shortcuts dt, .game-settings-shortcuts dd { margin: 0; }
+.game-settings-shortcuts dd { color: #c6c7bc; }
+.game-settings-shortcuts kbd { font: 600 13px/1.5 Pretendard, "Malgun Gothic", sans-serif; color: #e0bf8f; }
+@media (max-width: 480px) {
+  .game-settings-panel > header { padding: 13px 16px; }
+  .game-settings-body { padding-inline: 16px; }
+  .game-settings-shortcuts dl > div { grid-template-columns: minmax(110px, 1fr) 1.4fr; gap: 8px; }
+}

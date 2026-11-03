@@ -61,7 +61,8 @@ export function prepareBattleStart({
   const deckHighlanderActive = battleDeck.editions.includes("deckHighlander")
     && battleDeck.cards.length >= battleDeck.capacity
     && hasUniqueCardEffects(battleDeck.cards);
-  const startingResistance = !blessings.includes("glassCannon") && battleDeck.editions.includes("resistance") ? 1 : 0;
+  const startingResistance = !blessings.includes("glassCannon") && battleDeck.editions.includes("resistance") ? 2 : 0;
+  const startingBlacksmith = dealtGame.forgeCount > 0 && blessings.includes("blacksmith");
   const nextGame = {
     ...dealtGame,
     hand: blessings.includes("ninja") && encounters.some((encounter) => encounter.awareness === "sleeping")
@@ -78,7 +79,9 @@ export function prepareBattleStart({
       + turtleTalismanAgility,
     playerResistance: dealtGame.playerResistance + startingResistance,
     invulnerable: battleDeck.editions.includes("invincible"),
-    stars: dealtGame.stars + (blessings.includes("binaryStars") ? 2 : 0) + (highlanderActive ? 1 : 0),
+    stars: dealtGame.stars + (blessings.includes("binaryStars") ? 2 : 0) + (highlanderActive ? 1 : 0)
+      + (startingBlacksmith ? 1 : 0),
+    blacksmithForgeUsedThisTurn: startingBlacksmith,
     energy: dealtGame.energy
       + (blessings.includes("glassCannon") ? 1 : 0)
       + (deckHighlanderActive ? 1 : 0) - enemyEnergyRecoveryPenalty(battleEnemies),

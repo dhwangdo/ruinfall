@@ -27,8 +27,8 @@ function getShapeCandidates(k: number, sum: RegionDeckSum) {
   const candidates: WeightedShape[] = [];
   let totalWeight = 0;
   const distanceScale = Math.sqrt(1 + SPREAD_GROWTH * (k - 1));
-  // x, y, z >= -k and x+y+z=sum give a finite set without a distance cutoff.
-  for (let x = -k; x <= sum + 2 * k; x++) {
+  // k+x >= -1; k+y and k+z remain nonnegative.
+  for (let x = -k - 1; x <= sum + 2 * k; x++) {
     for (let y = -k; y <= sum - x + k; y++) {
       const z = sum - x - y;
       const capacity = 20 + 5 * (k + x);

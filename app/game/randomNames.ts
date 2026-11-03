@@ -29,8 +29,8 @@ export function createRandomPlayerName() {
   }).join("");
 }
 
-export function createDeckName() {
-  const length = 1 + Math.floor(Math.random() * 6);
+export function createDeckName(capacity = 25) {
+  const length = Math.max(2, Math.min(12, Math.round(capacity / 10) + Math.floor(Math.random() * 3) - 1));
   const spaceAfter = length > 2 && Math.random() < .3
     ? 1 + Math.floor(Math.random() * (length - 1))
     : -1;

@@ -8,6 +8,17 @@ import { REGION_LOCATION_COUNTS } from "../app/game/mapLocationPlacement.ts";
 import { createMapEnemyWorldForPositions } from "../app/game/mapRules.ts";
 import { getEncounterRegionNumber } from "../app/game/enemies.ts";
 
+test("every region start reserves its centered nine-by-nine square from enemy spawning", () => {
+  for (let region = 0; region < 3; region++) {
+    for (let y = -4; y <= 4; y++) for (let x = -4; x <= 4; x++) {
+      assert.equal(isMapEnemySpawnCell({ x, y: regionStartY(region) + y }, 173), false);
+    }
+    // The first row beyond the square still has eligible floor cells.
+    assert.ok(Array.from({ length: 81 }, (_, index) => ({ x: index - 40, y: regionStartY(region) + 5 }))
+      .some(position => isMapEnemySpawnCell(position, 173)));
+  }
+});
+
 test("terrain remains deterministic after other seeds evict its cache", () => {
   const positions = Array.from({ length: 120 }, (_, index) => ({ x: index - 60, y: index % 15 }));
   const original = positions.map((position) => getRoomType(position, 173));

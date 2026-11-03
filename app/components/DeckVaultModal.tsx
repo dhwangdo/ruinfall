@@ -23,7 +23,7 @@ export function DeckVaultModal({ deck, keys, onClose, onUnlock }: {
         <DeckVaultCards deck={deck} onCardHover={previews.actions.moveDeckCardPreview}
           onCardLeave={previews.actions.clearCardPreview} />
         <footer>
-          <span>보유 열쇠 {keys}개</span>
+          <span className="map-currency-count map-key-count">보유 열쇠 {keys}개</span>
           <button type="button" disabled={!canUnlockDeckVault(keys, false)} onClick={onUnlock}>
             열쇠 {DECK_VAULT_KEY_COST}개로 개방
           </button>

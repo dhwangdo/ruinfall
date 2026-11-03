@@ -16,6 +16,7 @@
 @import "./styles/deck-vault.css";
 @import "./styles/item-visuals.css";
 @import "./styles/card-mechanic-examples.css";
+@import "./styles/settings.css";
 @import "./styles/mobile.css";
 
 /* Import order preserves the original cascade. Keep screen refinements after base rules. */

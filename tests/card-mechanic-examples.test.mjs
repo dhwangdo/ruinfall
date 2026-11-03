@@ -8,7 +8,8 @@ const cards = ALL_CARD_BLUEPRINTS.map((card, index) => ({ ...card, id: index }))
 
 test("only forge and star keywords create animation examples", () => {
   for (const card of [...cards, createFermentedSlimeCard(999)]) {
-    const supported = getCardKeywordInfos(card).some(keyword => keyword.name === "재련" || keyword.name === "★");
+    const supported = !["metallurgyResearch", "odinSpear"].includes(card.effect)
+      && getCardKeywordInfos(card).some(keyword => keyword.name === "재련" || keyword.name === "★");
     const examples = getCardMechanicExamples(card);
     assert.equal(examples.length > 0, supported, card.name);
     assert.ok(examples.every(example => example.kind === "forge" || example.kind === "star"));
@@ -40,12 +41,22 @@ test("star examples can move from hand to the first pile and from that pile to t
   }
 });
 
-test("Odin observes another card's forge and the dagger consumes its attack target", () => {
-  const odin = getCardMechanicExamples(cards.find(card => card.effect === "odinSpear"))[0];
-  assert.equal(odin.observer.effect, "odinSpear");
-  assert.notEqual(odin.moving.effect, "odinSpear");
+test("forge observers show the keyword explanation without an animation; the dagger consumes its target", () => {
+  for (const effect of ["odinSpear", "metallurgyResearch"]) {
+    const card = cards.find(card => card.effect === effect);
+    assert.ok(getCardKeywordInfos(card).some(keyword => keyword.name === "재련"));
+    assert.deepEqual(getCardMechanicExamples(card), []);
+  }
   const dagger = getCardMechanicExamples(cards.find(card => card.effect === "obsidianDagger"))[0];
   assert.equal(dagger.consumesTarget, true);
   assert.equal(dagger.result.value, dagger.moving.value + dagger.right.value);
   assert.deepEqual(dagger.result.forgeCostsCompleted, [1]);
+});
+
+test("exchange alloy demonstrates both cards swapping their costs", () => {
+  const example = getCardMechanicExamples(cards.find(card => card.effect === "exchange"))[0];
+  assert.notEqual(example.moving.cost, example.right.cost);
+  assert.equal(example.result.cost, example.right.cost);
+  assert.equal(example.targetResult.cost, example.moving.cost);
+  assert.equal(example.targetResult.baseCost, example.right.cost);
 });

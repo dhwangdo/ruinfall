@@ -8,7 +8,7 @@ import {
 } from "./enemies.ts";
 import {
   EIGHT_DIRECTIONS,
-  MAP_ENEMY_SAFE_RADIUS,
+  MAP_ENEMY_START_SAFE_RADIUS,
   MAP_PLAYER_VISION_HORIZONTAL_RADIUS,
   MAP_PLAYER_VISION_VERTICAL_RADIUS,
   chebyshevDistance,
@@ -372,8 +372,8 @@ export function visibleMapRoomKeys(
 
 export function isMapEnemySpawnCell(position: MapPosition, seed: number) {
   const regionIndex = getDungeonRegionIndex(position);
-  return chebyshevDistance(position, MAP_START) > MAP_ENEMY_SAFE_RADIUS
-    && regionIndex !== null
+  return regionIndex !== null
+    && chebyshevDistance(position, { x: MAP_START.x, y: regionStartY(regionIndex) }) > MAP_ENEMY_START_SAFE_RADIUS
     && getEncounterSpawnPool(regionIndex, 1).length > 0
     && !isSafeAreaPosition(position, seed)
     && isMainDungeonFloor(position, seed)

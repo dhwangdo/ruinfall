@@ -112,11 +112,6 @@ export function MapEntityMarkers({
       {showPlayer && battleFlash && (
         <span className="map-battle-flash" style={playerMarkerStyle} aria-live="assertive">전투!</span>
       )}
-      {showPlayer && <span
-        className="map-player map-player-marker"
-        style={playerMarkerStyle}
-        aria-hidden="true"
-      >@</span>}
       {showPlayer && waitNoticeNonce > 0 && (
         <span
           key={waitNoticeNonce}

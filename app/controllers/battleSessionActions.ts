@@ -76,7 +76,7 @@ export function createBattleSessionActions({
         reward.cards,
       );
     }
-    const rewardGold = reward.gold * (rewardDeck?.editions.includes("greedy") ? 2 : 1) * (blessings.includes("greed") ? 2 : 1);
+    const rewardGold = reward.gold * (blessings.includes("greed") ? 2 : 1);
     setBattleRewardGold(rewardGold);
     setBattleRewardKeys(reward.keys);
     setBattleRewards(reward.cards);

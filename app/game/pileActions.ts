@@ -11,6 +11,7 @@ import { drawRandomFromPiles } from "./battleState.ts";
 import { applySolitaireEnemyPassives, blockedPileIndexes } from "./enemyPassives.ts";
 
 import { resolveEnemyDefeats } from "./enemyDefeatRules.ts";
+import { recyclingStars } from "./discardRules.ts";
 
 type ResearchDrawKind = "astronomy" | "necromancy";
 
@@ -302,6 +303,7 @@ export function resolvePendingPileOperation(current: GameState, pileIndex: numbe
   return {
     ...current, piles,
     discard: discardTop ? [...current.discard, top] : current.discard,
+    stars: current.stars + (discardTop ? recyclingStars(current) : 0),
     pendingSweep: false, pendingPileOperation: null,
     pendingDraws: Math.min(current.pendingDraws, available),
     pendingPileDrawCount: Math.min(current.pendingPileDrawCount, available),
