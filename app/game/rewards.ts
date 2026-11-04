@@ -424,14 +424,27 @@ export function createConsumable(type: ConsumableType, id: string): Consumable {
   };
 }
 
-export function createBattleReward(regionNumber: number) {
+export function createBattleReward(
+  regionNumber: number,
+  nextCardId: number,
+  capacityBonus = 0,
+  rareCardChance = 0.05,
+  forceDeck = false,
+) {
+  const gold = rollBattleRewardGold(regionNumber);
+  const decks = forceDeck
+    ? [createRegionDeck(regionNumber, nextCardId, capacityBonus)]
+    : [];
+  const consumableType = decks.length === 0 && Math.random() < 0.5
+    ? consumableTypeFromRoll(Math.random())
+    : null;
   return {
-    gold: rollBattleRewardGold(regionNumber),
+    gold,
     keys: 1,
-    cards: [] as Card[],
-    decks: [] as DeckCase[],
-    consumableType: null,
-    consumableTypes: [] as TicketType[],
+    cards: decks.length > 0 ? [] : [createBattleRewardCard(nextCardId, rareCardChance)],
+    decks,
+    consumableType,
+    consumableTypes: consumableType ? [consumableType] : [],
   };
 }
 

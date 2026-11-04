@@ -689,9 +689,15 @@
 }
 
 .floor-deck-item { cursor: pointer; }
+.floor-deck-item {
+  color: #f2eadb;
+  border-color: #db8a3d;
+  background: #29251e;
+  box-shadow: 0 3px 8px rgba(0,0,0,.38);
+}
 .floor-deck-item[draggable="true"] { cursor: grab; }
 .floor-deck-item[draggable="true"]:active { cursor: grabbing; }
-.floor-deck-item:hover { border-color: #2d6547; transform: translateY(-4px); }
+.floor-deck-item:hover { border-color: #f4b256; background: #332a1f; box-shadow: 0 5px 12px #0008, 0 0 12px #db8a3d30; transform: translateY(-4px); }
 .floor-deck-item strong,
 .battle-reward-deck strong { font-size: 12px; }
 .floor-deck-item > span,
@@ -709,12 +715,20 @@
   box-shadow: -5px -5px 0 #c3bba8, -9px -9px 0 #8e8676;
 }
 
+.floor-deck-item .floor-deck-icon {
+  border-color: #8e6730;
+  background: #f4d496;
+  box-shadow: -5px -5px 0 #c99a4a, -9px -9px 0 #72552c;
+}
+
 .floor-deck-icon::after {
   position: absolute;
   inset: 7px;
   border: 1px solid #777064;
   content: "";
 }
+
+.floor-deck-item .floor-deck-icon::after { border-color: #8e6730; }
 
 .deck-editor-empty {
   grid-column: 1 / -1;

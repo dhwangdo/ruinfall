@@ -40,9 +40,9 @@ test("card rewards update the rare-card pity chance", () => {
   assert.equal(nextRareCardDropChance(0.17, [{ rarity: "special" }]), 0.19);
 });
 
-test("ordinary and out-of-depth base rewards contain only gold and a key", () => {
-  const reward = createBattleReward(2);
-  assert.equal(reward.decks.length, 0);
+test("out-of-depth battle rewards always include a deck", () => {
+  const reward = createBattleReward(2, 0, 0, 0, true);
+  assert.equal(reward.decks.length, 1);
   assert.equal(reward.keys, 1);
   assert.equal(reward.cards.length, 0);
   assert.equal(reward.consumableType, null);
@@ -50,6 +50,8 @@ test("ordinary and out-of-depth base rewards contain only gold and a key", () =>
 });
 
 test("ticket tiers and base prices match the shop rules", () => {
+  assert.ok(!TICKET_TYPES.includes("mindEyeTicket"));
+  assert.ok(!TICKET_TYPES.includes("darkTicket"));
   assert.deepEqual(TICKET_TIERS, {
     paintTicket: 1,
     bombTicket: 1,
@@ -239,10 +241,10 @@ test("region deck draws rare cards without repeating before exhausting the pool"
 test("ordinary victories always add one key and never roll a deck", (t) => {
   t.mock.method(Math, "random", () => 0);
   for (let index = 0; index < 12; index++) {
-    const reward = createBattleReward(1);
+    const reward = createBattleReward(1, index * 100);
     assert.equal(reward.keys, 1);
     assert.equal(reward.decks.length, 0);
-    assert.equal(reward.cards.length, 0);
+    assert.equal(reward.cards.length, 1);
   }
 });
 

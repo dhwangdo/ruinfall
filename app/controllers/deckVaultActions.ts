@@ -36,6 +36,7 @@ export function createDeckVaultActions({ inventory, world, player, dialogs, queu
     recordTelemetryDeckAcquired(telemetry, telemetryDeckSnapshot(deck), "deck-vault");
     dialogs.setDeckVaultRoom(null);
     queueRunSave();
+    return deck;
   };
   return { openDeckVault, unlockDeckVault };
 }

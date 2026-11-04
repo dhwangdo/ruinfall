@@ -1,6 +1,6 @@
 # Python 사용자를 위한 코드 가이드
 
-마지막 갱신: 2026-11-03
+마지막 갱신: 2026-11-04
 
 이 문서는 Python 문법에는 익숙하지만 TypeScript·React는 처음인 사람이 현재 DTTS 코드를 읽고 안전하게 수정할 수 있도록 쓴 안내서다.
 
@@ -181,10 +181,12 @@ setGame((current) => ({ ...current, energy: 2 }));
 | `app/game/randomNames.ts` | 플레이어·덱 이름 생성. 새 덱 이름은 생성 용량에 따라 2~12글자로 정함 |
 | `app/components/MapDeckSelector.tsx` | 보유 가능한 덱 슬롯 수만큼 펼쳐지는 전투 덱 선택 메뉴 |
 | `app/hooks/useMapDeckSelectorDrag.ts` | 덱 선택 아이콘의 화면 전체 드래그·클릭 구분·위치 기억 |
-| `app/components/MapDebugToolbar.tsx` | 지도 디버그 아이템·덱 생성 도구와 적 도감 연결 |
+| `app/components/MapDebugToolbar.tsx` | 지도 디버그 아이템·덱 생성, 골드 1000·열쇠 10개 추가, 카드 통계와 적 도감 연결 |
 | `app/components/MapEntityMarkers.tsx` | 지도 폭탄·적·전투 진입·대기 피드백. 플레이어 @ 문자는 표시하지 않음 |
 | `app/components/GameSettingsModal.tsx`, `app/hooks/useGameSettings.ts` | 설정 창·단축키 안내. 잠깐/애니메이션 툴팁을 useSyncExternalStore로 공유하고 별도 localStorage 키에 저장 |
-| `app/components/MapRoomActions.tsx` | 현재 방 행동 안내와 바닥 아이템 빠른 줍기 UI |
+| `app/components/MapNotices.tsx` | 비용 부족·인벤토리 포화 등 지도 메시지만 표시. 장소 이용·줍기는 타일 클릭과 E/G 단축키로 연결 |
+| `app/components/DeckVaultUnlockButton.tsx`, `app/game/deckVaultRules.ts` | 열쇠 3개 미만은 비활성화·1.5초 홀드·입력 취소. 프레임 진행은 버튼·금고 창 CSS 변수만 갱신하며 막바지에 떨림 표시 |
+| `app/components/DeckVaultReleaseNotice.tsx` | 컨트롤러가 실제 개방한 덱을 반환한 경우에만 중앙 해방 메시지·덱 아이콘 연출을 2.4초 표시. 상태는 장소 모달 훅이 소유하고 저장하지 않음 |
 | `app/components/MapFloorItem.tsx` | 지도 바닥 물품의 덱 > 카드 > 티켓 우선순위. CardVisual·ConsumableVisual 간소화 외형 재사용 |
 | `app/game/mapAutoExplore.ts` | O 자동 여행의 미탐사 경로 탐색과 새 장소·물품 발견 판정. 실제 이동은 기존 빠른 이동 처리 공유 |
 | `app/game/karmaRules.ts` | 12승부터 카르마 단계 계산·적 힘/체력 보정. useRunPlayer가 승리 수를 저장하고 포탈에서 초기화 |
@@ -200,8 +202,8 @@ setGame((current) => ({ ...current, energy: 2 }));
 | `app/components/BattleStatusBadge.tsx`, `battleStatusDescriptions.ts` | 양측 공통 상태 배지·설명. 툴팁은 화면 경계 안에 즉시 표시하고 스크롤·화면 전환 시 정리 |
 | `app/components/CardKeywordPopover.tsx`, `CardMechanicExamplePopover.tsx`, `cardMechanicExamples.ts`, `battlePileLayout.ts` | 3초 호버와 진행 바 뒤 재련·별 이동을 파일 3개에서 5.6초 주기로 시연. 금속학 연구·오딘의 창은 설명만 표시하고 치환 합금은 양쪽 비용 교환을 표시. 별은 타격을 이동하며 실제 전투 카드 크기·간격·배치/재련 네온을 공유. 희귀도 띠의 ::after를 시연용 강조로 덮지 않음 |
 | `app/components/BattlePlayerPanel.tsx` | 전투 중 플레이어 체력·방어·상태 표시 |
-| `app/components/BattleResultOverlay.tsx`, `BattleRewardRoulette.tsx` | 승패·보상과 수동 원형 룰렛. 회전 중/추첨 전에는 다음 진행을 막고 완료 이벤트는 중복 지급을 막는 컨트롤러로 연결 |
-| `app/game/rewardRoulette.ts`, `tests/reward-roulette.test.mjs` | 9칸 비복원 추첨·등급별 실제 보상 생성. useRunPlayer가 잔여 칸을 저장하고 포탈 실제 이용 시 초기화. 보스는 룰렛 제외 |
+| `app/components/BattleResultOverlay.tsx` | 승패·즉시 생성된 보상과 다음 버튼. 공통 큰 카드·티켓을 사용하며 큰 티켓은 추가 상세 미리보기 없음 |
+| `tests/battle-rewards.test.mjs` | 즉시 보상·티켓 확률·희귀 누적 보정·중복 수령 방지와 핏자국·소원 유지 검사 |
 | `app/components/DebugEnemyCodex.tsx` | 디버그 적 도감 화면 |
 | `app/components/CardVisual.tsx`, `ConsumableVisual.tsx` | 모든 화면의 카드·티켓·카드팩 외형 진입점. compact/full 버전, 묶음 띠·수량 표시, 카드 앞뒷면을 공유 |
 | `app/components/VisualSurface.tsx`, `itemStackStyle.ts` | 버튼·일반 요소의 입력/ref를 유지하며 공통 외형을 렌더링하고 묶음 레이어를 계산 |
@@ -350,7 +352,7 @@ flowchart LR
 
 `useBattleSession`의 `setGame`은 전투 상태와 지연 콜백용 최신 스냅샷을 함께 갱신한다. 지연된 카드 사용은 `getGame()`으로 이 스냅샷을 읽는다. 상태 변경을 이 소유자 밖에서 우회하지 않는다. 연출은 계산 결과를 받아 실행하며, 전투 시작·초기화·언마운트 때 예약된 전투 타이머를 취소한다. 한 조우의 보상은 생성 완료와 수령 완료 표시를 통해 중복 지급을 막는다. 일반전 열쇠는 전투당 1개이며 지도 복귀 때 지급한다. 덱 보관소 내용은 소지품 상태가 저장하고, 개방된 방 집합은 지도 상태가 저장한다. 포탈 경고 생략은 소지품 저장 상태의 런 한정 설정이며 새 런에서 초기화한다.
 
-룰렛의 잔여 9칸은 `useRunPlayer.rewardRouletteRemaining`이 저장하고 현재 전투의 회전 단계는 `useBattleSession.battleRewardRoulette`가 소유한다. 버튼 입력 때 칸을 한 번만 소모하고 회전 완료 때 보상을 한 번만 만든다. 포탈 실제 이용 시에만 잔여 칸을 초기화한다. 승리 타일의 `bloodstainedRooms`는 `useRunWorld`가 집합으로 관리하고 저장할 때 배열로 바꾼다. 구 저장의 두 필드는 각각 9칸 전체·빈 핏자국 목록으로 복원한다.
+일반 전투 보상은 승리 시 카드 1장과 50% 확률의 티켓을 즉시 생성한다. `useRunInventory.rareCardDropChanceRef`는 희귀 카드 누적 확률을 관리한다. `useBattleSession.battleRewardIsOutOfDepthRef`는 미래 지역 적의 덱 보상 예외를 기록하며 연속 전투에서도 갱신한다. 승리 타일의 `bloodstainedRooms`는 `useRunWorld`가 집합으로 관리하고 저장할 때 배열로 바꾸며 구 저장에서는 빈 목록으로 복원한다.
 
 ### 카드 사용 한 번
 
@@ -390,6 +392,8 @@ React의 `useState`는 현재 열린 페이지가 살아 있는 동안의 메모
 - 전투 중 상태를 저장할지 여부
 
 ## 8. CSS와 화면 수정
+
+골드 글자는 `--currency-gold`의 노란색, 열쇠는 `--currency-keys`의 하늘색을 쓴다. 보상창은 `.currency-amount`·`.currency-gold`·`.currency-keys`를 쓰고 지도·금고도 같은 통화 토큰과 `--currency-font`를 공유한다. 밝은 패널은 `.currency-on-light`로 진한 금색·하늘색 변형을 적용해 배경 상자 없이 읽히게 한다. 통화 종류가 다른 자식에게 부모의 골드 색을 상속시키지 않는다.
 
 결과창 같은 외부 화면의 안내문·제목·버튼 스타일은 `.result-card > p`처럼 직계 자식이나 전용 클래스로 한정한다. `.result-card p` 같은 후손 선택자로 공통 카드·티켓 내부의 글꼴·색·자간을 덮지 않는다.
 

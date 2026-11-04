@@ -12,6 +12,114 @@
 .map-deck-vault-preview .deck-vault-cards { border-bottom: 0; }
 .deck-vault-panel > header > button, .deck-vault-panel > footer > button, .portal-key-warning button { padding: 9px 16px; color: #f0eee7; border: 1px solid #928b7a; border-radius: 3px; background: #484941; font-family: inherit; font-size: 14px; font-weight: 600; line-height: 1.4; cursor: pointer; }
 .deck-vault-panel > header > button:disabled, .deck-vault-panel > footer > button:disabled { opacity: .45; cursor: default; }
+.deck-vault-panel > footer > .deck-vault-unlock { position: relative; isolation: isolate; overflow: hidden; color: #12394c; border-color: #61b6df; background: var(--currency-keys); touch-action: none; user-select: none; -webkit-user-select: none; }
+.deck-vault-unlock-fill { position: absolute; z-index: -1; inset: 0; background: #369cc8; transform: scaleX(var(--vault-unlock-progress, 0)); transform-origin: left; pointer-events: none; }
+.deck-vault-panel > footer > .deck-vault-unlock:disabled { color: #bebfbb; border-color: #747773; background: #50524f; opacity: 1; cursor: not-allowed; }
+.deck-vault-unlock-label { position: relative; pointer-events: none; }
+.deck-vault-overlay > .deck-vault-panel { position: relative; }
+.deck-vault-overlay > .deck-vault-panel::after {
+  content: "";
+  position: absolute;
+  inset: -1px;
+  border: 1px solid #cef1ff;
+  border-radius: inherit;
+  box-shadow: 0 0 22px #8fd4f36b, inset 0 0 18px #8fd4f329;
+  opacity: var(--vault-charge, 0);
+  pointer-events: none;
+}
+.deck-vault-panel[data-unlock-phase="charged"] { animation: vault-charge-shake 75ms linear infinite; }
+.deck-vault-unlock[data-holding] {
+  transform: translateY(1px);
+  box-shadow: inset 0 2px 5px #124a5e66, 0 0 14px #8fd4f366;
+}
+@keyframes vault-charge-shake {
+  0%, 100% { transform: translate(0, 0) rotate(0); }
+  25% { transform: translate(var(--vault-shake-x, .5px), calc(0px - var(--vault-shake-y, .35px))) rotate(var(--vault-shake-angle, .04deg)); }
+  50% { transform: translate(calc(0px - var(--vault-shake-x, .5px)), var(--vault-shake-y, .35px)) rotate(calc(0deg - var(--vault-shake-angle, .04deg))); }
+  75% { transform: translate(var(--vault-shake-y, .35px), var(--vault-shake-x, .5px)) rotate(var(--vault-shake-angle, .04deg)); }
+}
+.deck-vault-release {
+  position: fixed;
+  z-index: 240;
+  inset: 0;
+  display: grid;
+  place-items: center;
+  padding: 24px;
+  pointer-events: none;
+  font-family: Pretendard, "Malgun Gothic", sans-serif;
+}
+.deck-vault-release::before {
+  content: "";
+  position: absolute;
+  inset: 0;
+  background: radial-gradient(ellipse at center, #f0a94b38, transparent 58%);
+  opacity: 0;
+  animation: vault-release-flash 650ms ease-out both;
+}
+.deck-vault-release-notice {
+  position: relative;
+  width: fit-content;
+  max-width: min(720px, 100%);
+  padding: 24px 32px;
+  border: 1px solid #db8a3d;
+  border-radius: 6px;
+  background: #29251ef5;
+  box-shadow: 0 12px 44px #0009, 0 0 32px #db8a3d38;
+  text-align: center;
+  animation: vault-release-notice 2400ms ease-out both;
+}
+.deck-vault-release-emblem {
+  position: relative;
+  display: grid;
+  place-items: center;
+  width: 72px;
+  height: 66px;
+  margin: 0 auto 15px;
+}
+.deck-vault-release-emblem::before {
+  content: "";
+  position: absolute;
+  width: 72px;
+  height: 72px;
+  border: 2px solid #f4c16f;
+  border-radius: 50%;
+  opacity: 0;
+  animation: vault-release-ring 700ms ease-out both;
+}
+.deck-vault-release-emblem > .deck-stack-icon {
+  border-color: #8e6730;
+  background: #f4d496;
+  box-shadow: -4px 4px 0 #c99a4a, -6px 6px 0 1px #72552c;
+  animation: vault-release-deck 600ms cubic-bezier(.2,.8,.3,1) both;
+}
+.deck-vault-release-emblem > .deck-stack-icon::after { border-color: #8e6730; }
+.deck-vault-release-notice > p { margin: 0; color: #f2eadb; font-size: clamp(17px, 2vw, 24px); font-weight: 600; line-height: 1.5; overflow-wrap: anywhere; }
+.deck-vault-release-notice > p > strong { color: #f4d496; font-weight: 800; }
+@keyframes vault-release-flash {
+  0% { opacity: .95; }
+  100% { opacity: 0; }
+}
+@keyframes vault-release-ring {
+  0% { opacity: .9; transform: scale(.55); }
+  100% { opacity: 0; transform: scale(1.8); }
+}
+@keyframes vault-release-deck {
+  0% { transform: translateY(18px) scale(.85) rotate(-7deg); }
+  60% { transform: translateY(-3px) scale(1.3) rotate(2deg); }
+  100% { transform: translateY(0) scale(1.2); }
+}
+@keyframes vault-release-notice {
+  0% { opacity: 0; transform: translateY(12px) scale(.97); }
+  12%, 80% { opacity: 1; transform: translateY(0) scale(1); }
+  100% { opacity: 0; transform: translateY(-8px) scale(1); }
+}
+@media (prefers-reduced-motion: reduce) {
+  .deck-vault-panel[data-unlock-phase="charged"],
+  .deck-vault-release-emblem > .deck-stack-icon,
+  .deck-vault-release-emblem::before,
+  .deck-vault-release::before { animation: none; }
+  .deck-vault-release-notice { animation: none; }
+}
 .portal-key-warning-overlay { z-index: 220; padding: 20px; }
 .portal-key-warning { width: min(430px, 100%); padding: 26px; color: #eeeae0; border: 1px solid #9b8b70; border-radius: 5px; background: #23231f; box-shadow: 0 12px 36px #0008; font-family: Pretendard, "Malgun Gothic", sans-serif; }
 .portal-key-warning p { margin: 0 0 22px; font-size: 18px; font-weight: 600; }

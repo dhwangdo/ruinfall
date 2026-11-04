@@ -759,6 +759,7 @@
 
 .result-card > p { margin: 0 0 9px; color: var(--muted); font: 10px Arial, sans-serif; letter-spacing: .14em; }
 .result-card > h2 { margin: 0 0 8px; font-size: 36px; }
+.result-card.has-rewards > h2 { font: 800 32px/1.2 Pretendard, "Malgun Gothic", sans-serif; letter-spacing: -.02em; }
 .result-card > span { display: block; color: var(--muted); font-size: 12px; }
 .result-card > button { margin-top: 22px; padding: 9px 16px; border: 1px solid #5e5547; border-radius: 3px; background: white; cursor: pointer; font-weight: 700; }
 .result-card > button:disabled { cursor: wait; opacity: .55; }
@@ -767,7 +768,9 @@
   margin-top: 12px;
 }
 
-.battle-gold-reward { margin-top: 12px; color: #8a6415; font: 800 18px Arial, sans-serif; }
+.battle-reward-currencies { display: flex; justify-content: center; align-items: center; gap: 10px; width: fit-content; margin: 12px auto 0; }
+.battle-reward-currencies .currency-amount { font-size: 20px; font-weight: 800; }
+.reward-currency-separator { color: var(--muted); }
 
 .battle-reward-cards {
   text-align: initial;

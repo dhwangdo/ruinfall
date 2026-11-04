@@ -1,4 +1,4 @@
-export const TICKET_TYPES = [
+const ALL_TICKET_TYPES = [
   "paintTicket",
   "mindEyeTicket",
   "darkTicket",
@@ -11,7 +11,11 @@ export const TICKET_TYPES = [
   "expandTicket",
 ] as const;
 
-export type TicketType = typeof TICKET_TYPES[number];
+export type TicketType = typeof ALL_TICKET_TYPES[number];
+
+// Keep definitions so these tickets can return later; exclude every acquisition pool now.
+export const TEMPORARILY_DISABLED_TICKETS: ReadonlySet<string> = new Set(["mindEyeTicket", "darkTicket"]);
+export const TICKET_TYPES: readonly TicketType[] = ALL_TICKET_TYPES.filter(type => !TEMPORARILY_DISABLED_TICKETS.has(type));
 
 export const TICKET_TIERS: Record<TicketType, 1 | 2 | 3> = {
   paintTicket: 1,

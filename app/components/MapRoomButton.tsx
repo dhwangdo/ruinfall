@@ -9,6 +9,7 @@ type MapRoomButtonProps = {
   roomType: RoomType;
   dungeonRegionIndex: number | null;
   current: boolean;
+  interactable?: boolean;
   inVision: boolean;
   adjacent: boolean;
   reachable: boolean;
@@ -26,7 +27,7 @@ type MapRoomButtonProps = {
   onClearPreview?: (nextTarget: EventTarget | null, pointerLeave: boolean) => void;
   gridColumn: number;
   gridRow: number;
-  onClick: (position: MapPosition) => void;
+  onClick: (position: MapPosition, pickUpItems?: boolean) => void;
 };
 
 const ROOM_BADGES: Partial<Record<RoomType, string>> = {
@@ -51,6 +52,7 @@ function MapRoomButtonView({
   roomType,
   dungeonRegionIndex,
   current,
+  interactable = false,
   inVision,
   adjacent,
   reachable,
@@ -76,14 +78,15 @@ function MapRoomButtonView({
     <button
       type="button"
       data-search-highlight={searchHighlighted || undefined}
-      className={`map-room is-${roomType} ${itemCount > 0 ? "has-floor-items" : ""} ${dungeonRegionIndex === null ? "" : `is-region-${dungeonRegionIndex + 1}`} ${current ? "is-current" : ""} ${inVision ? "is-in-vision" : "is-out-of-vision"} ${adjacent ? "is-adjacent" : ""} ${reachable ? "is-reachable" : ""}`}
+      className={`map-room is-${roomType} ${itemCount > 0 ? "has-floor-items" : ""} ${dungeonRegionIndex === null ? "" : `is-region-${dungeonRegionIndex + 1}`} ${current ? "is-current" : ""} ${interactable ? "is-interactable" : ""} ${inVision ? "is-in-vision" : "is-out-of-vision"} ${adjacent ? "is-adjacent" : ""} ${reachable ? "is-reachable" : ""}`}
       style={{ gridColumn, gridRow, "--map-tile-color": current ? undefined : mapTileColor(position, roomType, dungeonRegionIndex) } as CSSProperties}
-      tabIndex={adjacent || reachable ? 0 : -1}
-      aria-disabled={!walkable || mapTraveling || (!adjacent && !reachable)}
+      tabIndex={adjacent || reachable || interactable ? 0 : -1}
+      aria-disabled={!walkable || mapTraveling || (!adjacent && !reachable && !interactable)}
       title={roomItemsTitle ?? (roomType === "rock" ? ROOM_LABELS.rock : undefined)}
       aria-describedby={onPreview ? "map-deck-vault-preview" : undefined}
       aria-label={`${roomLabel}, 좌표 ${position.x + 1}, 깊이 ${position.y}${roomItemsTitle ? `, ${roomItemsTitle}` : ""}`}
-      onClick={() => onClick(position)}
+      onClick={(event) => onClick(position, current && itemCount > 0
+        && event.target instanceof Element && !!event.target.closest(".map-floor-item"))}
       onMouseEnter={onPreview ? (event) => {
         if (event.buttons === 0) onPreview(event.currentTarget, position);
       } : undefined}
@@ -91,7 +94,7 @@ function MapRoomButtonView({
       onFocus={onPreview ? (event) => onPreview(event.currentTarget, position) : undefined}
       onBlur={(event) => onClearPreview?.(event.relatedTarget, false)}
     >
-      {bloodstained && <i className="map-bloodstain" aria-hidden="true"
+      {bloodstained && !current && roomType === "empty" && <i className="map-bloodstain" aria-hidden="true"
         style={{ transform: `rotate(${((position.x * 13 + position.y * 7) % 8) * 45}deg)` }} />}
       {itemCount > 0 && <MapFloorItem deck={floorDeck} card={floorCard} ticket={floorTicket} />}
       {ROOM_BADGES[roomType] && <span className="map-room-label">{roomType === "deckVault" ? deckName ?? ROOM_BADGES[roomType] : ROOM_BADGES[roomType]}</span>}

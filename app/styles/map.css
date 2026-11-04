@@ -40,10 +40,10 @@
 .map-run-stats .map-health { display: block; width: var(--map-health-width, 165px); min-width: 0; height: 28px; padding: 0; border: 2px solid #512522; border-radius: 3px; background: #2c2825; text-align: initial; }
 .map-run-stats .map-health i { display: block; height: 100%; background: #b34a42; transition: width .2s ease; }
 .map-run-stats .map-health span { position: absolute; inset: 0; display: grid; place-items: center; color: white; font: 800 16px Arial, sans-serif; letter-spacing: 0; text-shadow: 0 1px 2px #000, 0 0 3px #000; }
-.map-run-stats .map-gold { display: block; min-width: 0; padding: 0; border: 0; border-radius: 0; color: #f2cf69; background: transparent; text-align: left; }
+.map-run-stats .map-gold { display: block; min-width: 0; padding: 0; border: 0; border-radius: 0; color: var(--currency-gold); background: transparent; text-align: left; }
 .map-run-stats .map-gold-debug-trigger { cursor: pointer; }
-.game-shell .map-currency-count { font: 700 18px/1.3 Pretendard, "Malgun Gothic", sans-serif; letter-spacing: 0; font-variant-numeric: tabular-nums; white-space: nowrap; }
-.game-shell .map-key-count { color: #8fd4f3; }
+.game-shell .map-currency-count { font: var(--currency-font); letter-spacing: 0; font-variant-numeric: tabular-nums; white-space: nowrap; }
+.game-shell .map-key-count { color: var(--currency-keys); }
 .map-run-stats .map-currencies { display: flex; align-items: center; gap: 18px; }
 
 /* Keep the map controls compact without making their labels hard to read. */
@@ -85,51 +85,8 @@
   gap: 8px;
 }
 
-.room-floor-notice {
-  position: relative;
-  display: grid;
-  grid-template-columns: auto auto;
-  gap: 2px 10px;
-  min-width: 150px;
-  padding: 9px 11px;
-  border: 1px solid #b5afa1;
-  border-radius: 4px;
-  color: #292824;
-  background: rgba(244,241,232,.94);
-  box-shadow: 0 4px 12px rgba(0,0,0,.34);
-  cursor: pointer;
-  text-align: left;
-}
-
-.room-floor-notice span { color: #777268; font: 9px Arial, sans-serif; letter-spacing: .08em; }
-.room-floor-notice strong { grid-row: 2; font-size: 13px; }
-.room-floor-notice small { grid-column: 2; grid-row: 1 / 3; align-self: center; color: #615e56; font: 10px Arial, sans-serif; }
-.room-floor-notice:hover { background: white; }
-.quick-pickup-notice {
-  display: block;
-  min-width: 0;
-  padding: 8px 11px;
-}
-.quick-pickup-notice strong { display: block; font-size: 13px; }
-.room-floor-notice .quick-pickup-card {
-  font: inherit;
-  font-size: 13px;
-  letter-spacing: normal;
-}
-.quick-pickup-card.rarity-basic { color: var(--battle-basic-band-color, #756A60); }
-.quick-pickup-card.rarity-status { color: #e34b58; }
-.quick-pickup-card.rarity-starter { color: #555B60; }
-.quick-pickup-card.rarity-special { color: var(--battle-special-band-color, #3472a2); }
-.quick-pickup-card.rarity-rare { color: #272725; }
-.simple-room-action-notice {
-  display: block;
-  min-width: 0;
-  padding: 8px 11px;
-}
-.simple-room-action-notice strong { display: block; font-size: 13px; }
-.room-action-notice.is-shop { border-color: #91733d; }
-.room-action-notice.is-shrine { border-color: #6f638e; }
-.room-action-notice.is-portal { border-color: #76569b; }
+/* This area only shows messages, including during refreshes of older control markup. */
+.room-action-notices > button { display: none; }
 
 .map-toolbar {
   position: relative;
@@ -791,7 +748,8 @@
 }
 .map-room.is-cleared { border-color: #5b5f5e; color: white; background: #909493; }
 .map-room.is-adjacent,
-.map-room.is-reachable { cursor: pointer; }
+.map-room.is-reachable,
+.map-room.is-interactable { cursor: pointer; }
 .map-room.is-adjacent:hover,
 .map-room.is-reachable:hover { transform: translateY(-2px); filter: brightness(1.12); }
 .map-room:focus-visible { outline: 3px solid #87958d; outline-offset: 2px; }
@@ -863,6 +821,7 @@
   transform: none;
 }
 .map-floor-item .floor-deck-item strong { font-size: 12px; }
+.map-room.is-current .map-floor-item > * { pointer-events: auto; }
 .map-floor-item .floor-deck-item > span { font-size: 12px; }
 .map-room.has-floor-items > .map-room-label {
   position: absolute;
@@ -871,6 +830,8 @@
   font-size: 14px;
   padding: 2px 4px;
 }
+.map-room.has-floor-items:not(.is-empty) .map-floor-item { top: 28px; }
+.map-room.has-floor-items:not(.is-empty) > .map-room-label { max-width: calc(100% - 8px); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .room-item-indicator {
   position: absolute;
   right: 10px;

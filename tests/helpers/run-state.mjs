@@ -2,7 +2,6 @@ import { createStarterDeck, createConsumable } from "../../app/game/rewards.ts";
 import { waitingState } from "../../app/game/battleState.ts";
 import { MAP_START } from "../../app/game/mapRules.ts";
 import { createTelemetryRecorder } from "../../app/game/telemetry.ts";
-import { freshRewardRoulette } from "../../app/game/rewardRoulette.ts";
 
 export const noop = () => {};
 export function field(owner, name, initial) {
@@ -40,14 +39,12 @@ export function makeRunFixture() {
   const player = {};
   for (const [name, value] of Object.entries({
     blessings: [], runPlayerHp: 40, godsLamentCharges: 3, regionBattleWins: 0, vitalityShrineMaxHpBonus: 0,
-    rewardRouletteRemaining: freshRewardRoulette(),
     mindEyeMovesRemaining: 0, blessingOffers: [], blessingSeenOfferIds: new Set(),
     blessingRerollCost: 5, oneUpUsed: false,
   })) field(player, name, value);
   player.runPlayerHpRef = { current: 40 };
   player.godsLamentChargesRef = { current: 3 };
   player.regionBattleWinsRef = { get current() { return player.regionBattleWins; } };
-  player.rewardRouletteRemainingRef = { get current() { return player.rewardRouletteRemaining; } };
   player.mindEyeMovesRemainingRef = { current: 0 };
   player.oneUpUsedRef = { current: false };
   const battle = {};
@@ -55,16 +52,14 @@ export function makeRunFixture() {
     screen: "map", game: waitingState(40, []), phase: "playing", activeMapEnemyIds: [], activeBattleRoom: null,
     pendingBattleStart: null, battleDeckCheckEnabled: true, battleDeckPreviewId: null,
     battleRewards: [], battleRewardDecks: [], battleRewardConsumables: [], battleRewardGold: 0, battleRewardKeys: 0,
-    battleRewardRoulette: null,
     battleCardView: null, dyingEnemyIds: new Set(), animatedEnemyHp: {}, attackingEnemyId: null, damagePopup: null,
   })) field(battle, name, value);
   for (const [name, value] of Object.entries({
     mapBattleQueueRef: [], previousBattleDeckIdRef: "starter", telemetryPreviousGameRef: null,
-    battleRewardRegionRef: 1, battleRewardIsBossRef: false,
+    battleRewardRegionRef: 1, battleRewardIsBossRef: false, battleRewardIsOutOfDepthRef: false,
     rewardGrantedRef: false, rewardCollectedRef: false, pendingEnemyTokenIdsRef: new Set(), pendingPileTokenSourcesRef: new Map(),
   })) battle[name] = { current: value };
   battle.getGame = () => battle.game;
-  battle.battleRewardRouletteRef = { get current() { return battle.battleRewardRoulette; } };
   const scheduled = [];
   battle.later = (callback, delay) => { scheduled.push({ callback, delay }); return scheduled.length; };
   battle.clearBattleTimers = () => { scheduled.length = 0; };

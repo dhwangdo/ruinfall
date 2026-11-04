@@ -5,6 +5,16 @@ import { mapRoomKey, MAP_START } from "../app/game/mapRules.ts";
 import { createShopActions } from "../app/controllers/shopActions.ts";
 import { createBlessingActions } from "../app/controllers/blessingActions.ts";
 import { createDeckVaultActions } from "../app/controllers/deckVaultActions.ts";
+import { deckVaultUnlockHold } from "../app/game/deckVaultRules.ts";
+
+test("vault holds require three keys and 2 seconds", () => {
+  for (const keys of [0, 1, 2]) {
+    assert.deepEqual(deckVaultUnlockHold(2000, keys), { progress: 0, complete: false });
+  }
+  assert.deepEqual(deckVaultUnlockHold(1999, 3), { progress: 1999 / 2000, complete: false });
+  assert.deepEqual(deckVaultUnlockHold(2000, 3), { progress: 1, complete: true });
+  assert.deepEqual(deckVaultUnlockHold(2100, 9), { progress: 1, complete: true });
+});
 import { createLocationActions } from "../app/controllers/locationActions.ts";
 import { makeRunFixture } from "./helpers/run-state.mjs";
 
@@ -217,8 +227,8 @@ test("a vault preview costs nothing; opening spends three keys and drops the exa
   assert.deepEqual(ctx.inventory.roomDeckDrops, {});
   ctx.inventory.setKeys(6);
   const actions = createDeckVaultActions(ctx.options());
-  actions.unlockDeckVault();
-  actions.unlockDeckVault();
+  assert.equal(actions.unlockDeckVault(), deck);
+  assert.equal(actions.unlockDeckVault(), undefined);
   assert.equal(ctx.inventory.keys, 3);
   assert.equal(ctx.inventory.roomDeckDrops[key].length, 1);
   assert.equal(ctx.inventory.roomDeckDrops[key][0], deck);

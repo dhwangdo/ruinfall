@@ -72,10 +72,14 @@ type MapBoardProps = {
     onDeckCountChange: (value: string) => void;
     onSpawnItem: () => void;
     onGenerateDecks: () => void;
+    onAddDebugGold: () => void;
+    onAddDebugKeys: () => void;
     onOpenCardStats: () => void;
   };
   effectiveRoomType: (position: MapPosition) => RoomType;
   onClearMessage: () => void;
+  onInteractCurrentRoom?: () => void;
+  onPickUpCurrentRoom?: () => void;
   onMove: (deltaX: number, deltaY: number) => void;
   onDebugTeleport: (position: MapPosition) => void;
   onTravel: (path: MapPosition[]) => void;
@@ -88,6 +92,8 @@ export function MapBoard({
   debugTools,
   effectiveRoomType,
   onClearMessage,
+  onInteractCurrentRoom,
+  onPickUpCurrentRoom,
   onMove,
   onDebugTeleport,
   onTravel,
@@ -133,12 +139,12 @@ export function MapBoard({
   } = camera;
   const vaultPreviewRef = useRef<MapDeckVaultPreviewControls | null>(null);
   const interactionRef = useRef({ mapPosition, mapTraveling, debugMode, seenRooms, roomDeckVaults,
-    effectiveRoomType, onClearMessage, onMove, onDebugTeleport, onTravel });
+    effectiveRoomType, onClearMessage, onInteractCurrentRoom, onPickUpCurrentRoom, onMove, onDebugTeleport, onTravel });
   useLayoutEffect(() => {
     interactionRef.current = { mapPosition, mapTraveling, debugMode, seenRooms, roomDeckVaults,
-      effectiveRoomType, onClearMessage, onMove, onDebugTeleport, onTravel };
+      effectiveRoomType, onClearMessage, onInteractCurrentRoom, onPickUpCurrentRoom, onMove, onDebugTeleport, onTravel };
   }, [mapPosition, mapTraveling, debugMode, seenRooms, roomDeckVaults,
-    effectiveRoomType, onClearMessage, onMove, onDebugTeleport, onTravel]);
+    effectiveRoomType, onClearMessage, onInteractCurrentRoom, onPickUpCurrentRoom, onMove, onDebugTeleport, onTravel]);
   const showVaultPreview = useCallback((element: HTMLElement, position: MapPosition) => {
     const deck = interactionRef.current.roomDeckVaults[mapRoomKey(position)];
     if (deck) vaultPreviewRef.current?.show(deck, element);
@@ -146,13 +152,18 @@ export function MapBoard({
   const hideVaultPreview = useCallback((nextTarget: EventTarget | null, pointerLeave: boolean) => {
     vaultPreviewRef.current?.hide(nextTarget, pointerLeave);
   }, []);
-  const clickRoom = useCallback((position: MapPosition) => {
+  const clickRoom = useCallback((position: MapPosition, pickUpItems = false) => {
     const latest = interactionRef.current;
     vaultPreviewRef.current?.clear();
     if (mapWasDraggedRef.current) { mapWasDraggedRef.current = false; return; }
     if (latest.mapTraveling) return;
     latest.onClearMessage();
     const distance = chebyshevDistance(position, latest.mapPosition);
+    if (distance === 0) {
+      if (pickUpItems || !latest.onInteractCurrentRoom) latest.onPickUpCurrentRoom?.();
+      else latest.onInteractCurrentRoom();
+      return;
+    }
     const walkable = isWalkableRoom(latest.effectiveRoomType(position));
     if (latest.debugMode && walkable && distance > 1) { latest.onDebugTeleport(position); return; }
     if (distance === 1 && walkable) {
@@ -279,6 +290,8 @@ export function MapBoard({
           onDeckCountChange={debugTools.onDeckCountChange}
           onSpawnItem={debugTools.onSpawnItem}
           onGenerateDecks={debugTools.onGenerateDecks}
+          onAddDebugGold={debugTools.onAddDebugGold}
+          onAddDebugKeys={debugTools.onAddDebugKeys}
           onOpenCardStats={debugTools.onOpenCardStats}
         />
       )}
@@ -334,6 +347,7 @@ export function MapBoard({
                 roomType={roomType}
                 dungeonRegionIndex={dungeonRegionIndex}
                 current={current}
+                interactable={current && (onInteractCurrentRoom !== undefined || onPickUpCurrentRoom !== undefined)}
                 inVision={inVision}
                 adjacent={adjacent}
                 reachable={reachable}

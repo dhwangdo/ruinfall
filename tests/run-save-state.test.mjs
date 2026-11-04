@@ -4,6 +4,18 @@ import test from "node:test";
 import { createRunSaveSnapshot, prepareRunRestore } from "../app/game/runSaveState.ts";
 import { RARE_CARD_POOL, SPECIAL_CARD_POOL } from "../app/game/cards.ts";
 
+test("temporarily disabled tickets are removed from inventory, floor and shops on restore", () => {
+  const tickets = ["mindEyeTicket", "darkTicket", "extractTicket"].map(type => ({ id: type, type }));
+  const restored = prepareRunRestore({ mapSeed: 1, mapPosition: { x: 0, y: 0 }, blessings: [],
+    inventoryConsumables: tickets, roomConsumableDrops: { "1:1": tickets }, darkTicketTurnsRemaining: 18,
+    roomShops: { "2:2": tickets.map(consumable => ({ id: consumable.id, consumable, price: 30, sold: false })) } }, () => false);
+  assert.deepEqual(restored.inventoryConsumables.map(item => item.type), ["extractTicket"]);
+  assert.deepEqual(restored.roomConsumableDrops["1:1"].map(item => item.type), ["extractTicket"]);
+  assert.deepEqual(restored.roomShops["2:2"].map(item => item.consumable.type), ["extractTicket"]);
+  assert.equal(restored.darkTicketTurnsRemaining, 0);
+  assert.equal(tickets.length, 3);
+});
+
 test("deleted editions are removed from owned decks, ground decks and unopened vaults", () => {
   const deck = { id: "old", name: "old", capacity: 25, cards: [], rareSlotCapacity: 1,
     editions: ["greedy", "frugal", "frugalPlus", "quickHammer"], editionColors: {} };

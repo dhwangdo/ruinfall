@@ -12,6 +12,7 @@ import { createBlessingActions } from "./controllers/blessingActions";
 import { createLocationActions } from "./controllers/locationActions";
 import { createDeckVaultActions } from "./controllers/deckVaultActions";
 import { DeckVaultModal } from "./components/DeckVaultModal";
+import { DeckVaultReleaseNotice } from "./components/DeckVaultReleaseNotice";
 import { PortalKeyWarning } from "./components/PortalKeyWarning";
 
 import { createBattleSessionActions } from "./controllers/battleSessionActions";
@@ -74,7 +75,7 @@ import { CardPoolStatsPanel } from "./components/CardPoolStatsPanel";
 import { MapBoard } from "./components/MapBoard";
 import { MapPerformanceProbe } from "./components/MapPerformanceProbe";
 import { MapDeckSelector } from "./components/MapDeckSelector";
-import { MapRoomActions } from "./components/MapRoomActions";
+import { MapNotices } from "./components/MapNotices";
 import { useMapCamera } from "./hooks/useMapCamera";
 import { useMapKeyboardMovement } from "./hooks/useMapKeyboardMovement";
 import { useMapKeyboardShortcuts } from "./hooks/useMapKeyboardShortcuts";
@@ -95,7 +96,6 @@ import { GameSettingsModal } from "./components/GameSettingsModal";
 import { MapSearchModal } from "./components/MapSearchModal";
 import { useMapSearchShortcut } from "./hooks/useMapSearchShortcut";
 import { karmaDescription, karmaStageForWins } from "./game/karmaRules";
-import { freshRewardRoulette } from "./game/rewardRoulette";
 import {
   ALL_CARD_BLUEPRINTS,
   DEBUG_CARD_RARITIES,
@@ -260,7 +260,7 @@ export default function Home() {
     vitalityShrineMaxHpBonus, setVitalityShrineMaxHpBonus, blessingOffers, setBlessingOffers,
     setBlessingSeenOfferIds, blessings, setBlessings, blessingRerollCost,
     setBlessingRerollCost, oneUpUsed, setOneUpUsed, oneUpUsedRef,
-    regionBattleWins, setRegionBattleWins, setRewardRouletteRemaining,
+    regionBattleWins, setRegionBattleWins,
   } = player;
   const karmaStage = karmaStageForWins(regionBattleWins);
   const karmaInfo = { name: "카르마", description: karmaDescription(karmaStage) };
@@ -270,10 +270,11 @@ export default function Home() {
     roomDrops, setRoomDrops, roomConsumableDrops, setRoomConsumableDrops,
     roomDeckDrops, setRoomDeckDrops, roomShops, setRoomShops, gold, setGold,
     nextCardIdRef, nextConsumableIdRef, nextConsumable,
-    keys, roomDeckVaults, resetDeckVaults, rareCardDropChanceRef } = inventory;
+    keys, setKeys, roomDeckVaults, resetDeckVaults, rareCardDropChanceRef } = inventory;
   const dialogs = useLocationDialogs();
   const {
     deckVaultRoom, setDeckVaultRoom, portalKeyWarningRoom, setPortalKeyWarningRoom,
+    releasedVaultDeck, setReleasedVaultDeck,
     treasureChestReward,
     setTreasureChestReward,
     extractionShrineOpen,
@@ -296,7 +297,6 @@ export default function Home() {
     setBattleDeckPreviewId, battleRewards, setBattleRewards, battleRewardDecks,
     setBattleRewardDecks, battleRewardConsumables, setBattleRewardConsumables, battleRewardGold,
     setBattleRewardGold, battleRewardKeys, setBattleRewardKeys, game, setGame, telemetryPreviousGameRef, phase, setPhase,
-    battleRewardRoulette, setBattleRewardRoulette,
     attackingEnemyId, setAttackingEnemyId, damagePopup, setDamagePopup, enemyPopups,
     animatedEnemyHp, setAnimatedEnemyHp, battleRewardRegionRef,
     battleRewardIsBossRef, dyingEnemyIds, setDyingEnemyIds,
@@ -731,7 +731,7 @@ export default function Home() {
     }
     setMapMessage(`디버그 ${regionNumber}지역 덱 ${decks.length}개를 바닥에 생성했습니다.`);
   };
-  const { grantBattleReward, spinBattleReward, finishBattleRewardSpin,
+  const { grantBattleReward,
     confirmBattleDeck, returnToMap, beginMapEnemyBattle } = createBattleSessionActions({
     battle, inventory, world, player, interaction: battleInteraction, telemetry, ensureTelemetryRun,
     clearMapTravel: () => clearMapTravel(),
@@ -1205,6 +1205,7 @@ export default function Home() {
     nextCardIdRef.current = starterDeck.cards.length;
     setOpenedDeckVaultRooms(new Set());
     setDeckVaultRoom(null);
+    setReleasedVaultDeck(null);
     setPortalKeyWarningRoom(null);
     setPlayerName(createRandomPlayerName());
     setPlayerNameSetupOpen(true);
@@ -1217,7 +1218,6 @@ export default function Home() {
     mindEyeMovesRemainingRef.current = 0;
     setGodsLamentCharges(3);
     setRegionBattleWins(0);
-    setRewardRouletteRemaining(freshRewardRoulette());
     setBloodstainedRooms(new Set());
     setMapSearchOpen(false);
     setSearchHighlightedRoom(null);
@@ -1285,7 +1285,6 @@ export default function Home() {
     setBattleRewardConsumables([]);
     setBattleRewardGold(0);
     setBattleRewardKeys(0);
-    setBattleRewardRoulette(null);
     rareCardDropChanceRef.current = 0.05;
     finishDeckEditorSession();
     setHoveredDeckCard(null);
@@ -1435,6 +1434,7 @@ export default function Home() {
     if (floorCards.length + floorConsumables.length > freeItemSlots) {
       showMapMessage("인벤토리가 가득찼습니다!");
     }
+    if (floorDecks.length > pickedDecks.length) showMapMessage("보유 덱 슬롯이 가득찼습니다!");
     if (pickedCards.length + pickedConsumables.length + pickedDecks.length > 0) queueRunSave();
   };
 
@@ -1533,6 +1533,22 @@ export default function Home() {
     setMapSearchOpen(true);
   });
 
+  const currentRoomActions: Record<string, (() => void) | undefined> = {
+    bloodShop: () => openShop(mapRoomKey(mapPosition), getRegionNumber(mapPosition, mapSeed), "hp"),
+    shop: () => openShop(mapRoomKey(mapPosition), getRegionNumber(mapPosition, mapSeed)),
+    extractionShrine: openExtractionShrine,
+    recoveryShrine: useCurrentRecoveryShrine,
+    vitalityShrine: useCurrentVitalityShrine,
+    mindEyeShrine: useCurrentMindEyeShrine,
+    transformShrine: openTransformShrine,
+    treasureChest: openTreasureChest,
+    deckVault: openDeckVault,
+    blessing: openBlessings,
+    portal: useCurrentPortal,
+    safePortal: useCurrentPortal,
+    heal: useCurrentHeal,
+  };
+
   useMapKeyboardShortcuts({
     playerNameSetupOpen,
     deckEditorOpen,
@@ -1562,21 +1578,7 @@ export default function Home() {
       || cardPoolStatsOpen || treasureChestReward !== null || extractionShrineOpen
       || transformShrineOpen || blessingOpen || shopOpen || openedCardPack !== null,
     roomType: effectiveRoomType(mapPosition),
-    roomActions: {
-      bloodShop: () => openShop(mapRoomKey(mapPosition), getRegionNumber(mapPosition, mapSeed), "hp"),
-      shop: () => openShop(mapRoomKey(mapPosition), getRegionNumber(mapPosition, mapSeed)),
-      extractionShrine: openExtractionShrine,
-      recoveryShrine: useCurrentRecoveryShrine,
-      vitalityShrine: useCurrentVitalityShrine,
-      mindEyeShrine: useCurrentMindEyeShrine,
-      transformShrine: openTransformShrine,
-      treasureChest: openTreasureChest,
-      deckVault: openDeckVault,
-      blessing: openBlessings,
-      portal: useCurrentPortal,
-      safePortal: useCurrentPortal,
-      heal: useCurrentHeal,
-    },
+    roomActions: currentRoomActions,
     changeMapZoom,
     resetMapZoom,
     handleMapMovementKeyDown,
@@ -2017,13 +2019,6 @@ export default function Home() {
     );
     const inventoryConsumableGroups = sortConsumableGroupsByTier(groupConsumables(inventoryConsumables));
     const floorConsumableGroups = groupConsumables(currentFloorConsumables);
-    const floorItemNames = [
-      ...currentFloorCards.map((card) => card.name),
-      ...currentFloorConsumables.map((consumable) => consumable.name),
-      ...currentFloorDecks.map((deck) => `덱 '${deck.name}'`),
-    ];
-    const quickPickUpFirstCard = currentFloorCards[0];
-    const quickPickUpFirstName = floorItemNames[0] ?? "물건";
     const activeShopOffers = activeShopRoom ? roomShops[activeShopRoom] ?? [] : [];
     return (
       <DebugModeContext value={debugMode}>
@@ -2262,10 +2257,15 @@ export default function Home() {
             onDeckCountChange: setDebugDeckCount,
             onSpawnItem: spawnDebugItemOnFloor,
             onGenerateDecks: generateDebugRegionDecksOnFloor,
+            onAddDebugGold: () => setGold((current) => current + 1000),
+            onAddDebugKeys: () => setKeys((current) => current + 10),
             onOpenCardStats: () => setCardPoolStatsOpen(true),
           }}
           effectiveRoomType={effectiveRoomType}
           onClearMessage={() => setMapMessage("")}
+          onInteractCurrentRoom={currentRoomActions[currentRoomType]}
+          onPickUpCurrentRoom={currentFloorCards.length + currentFloorConsumables.length + currentFloorDecks.length > 0
+            ? quickPickUpFloorItems : undefined}
           onMove={moveOnMap}
           onDebugTeleport={(position) => {
             setMapPosition(position);
@@ -2291,29 +2291,9 @@ export default function Home() {
               closeDeckSelector(deck.id);
             }}
           />
-          <MapRoomActions
-            roomType={currentRoomType}
+          <MapNotices
             message={mapMessage && !deckEditorOpen ? mapMessage : ""}
             messageNonce={mapMessageNonce}
-            quickPickup={(currentFloorCards.length > 0 || currentFloorConsumables.length > 0 || currentFloorDecks.length > 0) && canEditDeck
-              ? {
-                firstCard: quickPickUpFirstCard,
-                firstName: quickPickUpFirstName,
-                itemCount: floorItemNames.length,
-              }
-              : null}
-            onEnterShop={() => openShop(mapRoomKey(mapPosition), getRegionNumber(mapPosition, mapSeed), currentRoomType === "bloodShop" ? "hp" : "gold")}
-            onOpenExtractionShrine={openExtractionShrine}
-            onUseRecoveryShrine={useCurrentRecoveryShrine}
-            onUseVitalityShrine={useCurrentVitalityShrine}
-            onUseMindEyeShrine={useCurrentMindEyeShrine}
-            onOpenTransformShrine={openTransformShrine}
-            onOpenTreasureChest={openTreasureChest}
-            onOpenDeckVault={openDeckVault}
-            onOpenBlessings={openBlessings}
-            onUsePortal={useCurrentPortal}
-            onUseHeal={useCurrentHeal}
-            onQuickPickup={quickPickUpFloorItems}
           />
         </MapBoard></MapPerformanceProbe>}
 
@@ -2321,7 +2301,12 @@ export default function Home() {
           onCancel={() => setPortalKeyWarningRoom(null)} onConfirm={confirmPortalTravel} />}
         {deckVaultRoom !== null && roomDeckVaults[deckVaultRoom] && <DeckVaultModal
           deck={roomDeckVaults[deckVaultRoom]} keys={keys}
-          onClose={() => setDeckVaultRoom(null)} onUnlock={unlockDeckVault} />}
+          onClose={() => setDeckVaultRoom(null)} onUnlock={() => {
+            const releasedDeck = unlockDeckVault();
+            if (releasedDeck) setReleasedVaultDeck(releasedDeck);
+          }} />}
+        {releasedVaultDeck && <DeckVaultReleaseNotice key={releasedVaultDeck.id}
+          deck={releasedVaultDeck} />}
         <TreasureChestRewardModal
           reward={treasureChestReward}
           onClose={() => setTreasureChestReward(null)}          showCardKeywordOnly={showCardKeywordOnly}
@@ -2843,17 +2828,12 @@ export default function Home() {
             turn={game.turn}
             rewardGold={battleRewardGold}
             rewardKeys={battleRewardKeys}
-            roulette={battleRewardRoulette}
-            onSpin={spinBattleReward}
-            onSpinFinish={finishBattleRewardSpin}
             rewardCards={battleRewards}
             rewardDecks={battleRewardDecks}
             rewardConsumables={battleRewardConsumables}            consumableDescription={consumableDescription}
             showCardKeywordOnly={showCardKeywordOnly}
             setHoveredDeckCard={setHoveredDeckCard}
             clearCardKeywordHover={clearCardKeywordHover}
-            showConsumablePreview={showConsumablePreview}
-            setHoveredConsumable={setHoveredConsumable}
             onContinue={game.status === "won" ? returnToMap : startNewRun}
           />
         )}
