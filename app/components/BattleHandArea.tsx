@@ -14,7 +14,7 @@ import { attackPreview } from "../game/attackPreview";
 
 type BattleDragHandlers = Pick<
   ReturnType<typeof useBattlePointerInput>,
-  "beginDrag" | "moveDrag" | "finishDrag" | "cancelDrag"
+  "beginDrag" | "beginKeyboardDrag" | "selectKeyboardDragCard" | "moveDrag" | "finishDrag" | "cancelDrag"
 >;
 
 type BattleHandAreaProps = {
@@ -340,10 +340,22 @@ export function BattleHandArea({
 
   useEffect(() => {
     const handleHandKey = (event: KeyboardEvent) => {
-      if (phase !== "playing" || game.status !== "playing" || dragging || event.repeat) return;
+      if (phase !== "playing" || game.status !== "playing" || event.repeat) return;
       if (event.altKey || event.ctrlKey || event.metaKey) return;
       const target = event.target as HTMLElement | null;
       if (target?.closest("input, textarea, select, [contenteditable='true']")) return;
+      if (dragging?.keyboard && /^[1-9]$/.test(event.key)) {
+        const visibleIndex = Number(event.key) - 1;
+        if (visibleIndex >= visibleCardCount) return;
+        const card = displayedHand[clampedWindowStart + visibleIndex];
+        if (!card) return;
+        event.preventDefault();
+        if (card.id === dragging.card.id) dragHandlers.cancelDrag();
+        else dragHandlers.selectKeyboardDragCard(card);
+        setSelectedHandCardId(null);
+        return;
+      }
+      if (dragging) return;
       if (event.code === "Space") {
         event.preventDefault();
         onSortHand();
@@ -367,13 +379,28 @@ export function BattleHandArea({
       if (visibleIndex >= visibleCardCount) return;
       const card = displayedHand[clampedWindowStart + visibleIndex];
       if (!card) return;
-      event.preventDefault();
-      if (selectedHandCardId === card.id) activateSelectedCard(card);
-      else setSelectedHandCardId(card.id);
+      if (game.pendingDiscards > 0) {
+        event.preventDefault();
+        if (selectedHandCardId === card.id) activateSelectedCard(card);
+        else setSelectedHandCardId(card.id);
+        return;
+      }
+      if (controlsLocked) return;
+      const cardBounds = handCardRefs.current.get(card.id)?.getBoundingClientRect();
+      const pointer = lastPointerRef.current ?? (cardBounds
+        ? { x: cardBounds.left + cardBounds.width / 2, y: cardBounds.top + cardBounds.height / 2 }
+        : { x: window.innerWidth / 2, y: window.innerHeight / 2 });
+      const origin = cardBounds
+        ? { x: cardBounds.left + cardBounds.width / 2, y: cardBounds.top + cardBounds.height / 2 }
+        : undefined;
+      if (dragHandlers.beginKeyboardDrag(card, pointer.x, pointer.y, origin)) {
+        event.preventDefault();
+        setSelectedHandCardId(null);
+      }
     };
     window.addEventListener("keydown", handleHandKey);
     return () => window.removeEventListener("keydown", handleHandKey);
-  }, [clampedWindowStart, displayedHand, dragging, game.hand, game.status, onClearCardHover, onPlayHandCardOnDoubleClick, onSortHand, phase, selectedHandCardId, setHoveredHandCardId, setSelectedHandCardId, visibleCardCount]);
+  }, [clampedWindowStart, displayedHand, dragHandlers.beginKeyboardDrag, dragHandlers.cancelDrag, dragHandlers.selectKeyboardDragCard, dragging, controlsLocked, game.hand, game.pendingDiscards, game.status, handCardRefs, onClearCardHover, onPlayHandCardOnDoubleClick, onSortHand, phase, selectedHandCardId, setHoveredHandCardId, setSelectedHandCardId, visibleCardCount]);
 
   const handFanStyle = (index: number) => {
     const distanceFromCenter = index - handCenterIndex;

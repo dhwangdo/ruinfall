@@ -9,7 +9,6 @@ import { RUN_SAVE_POLICY } from "../game/saveGame.ts";
 import {
   recordTelemetryConsumableAcquired,
   recordTelemetryDeckAcquired,
-  recordTelemetryGoldAcquired,
   finishTelemetryRun,
 } from "../game/telemetry.ts";
 import { telemetryConsumableSnapshot, telemetryDeckSnapshot } from "../game/telemetrySnapshots.ts";
@@ -39,7 +38,7 @@ export function createBlessingActions({
 }: Options) {
   const {
     setOwnedDecks, inventoryCards, setInventoryConsumables, inventoryConsumablesRef,
-    setRoomConsumableDrops, setRoomDeckDrops, setGold, nextCardIdRef, nextConsumable,
+    setRoomConsumableDrops, setRoomDeckDrops, nextCardIdRef, nextConsumable,
   } = inventory;
   const { mapPosition, mapSeed, mapEnemyWorld, setMapEnemyWorld, setUsedBlessingRooms } = world;
   const {
@@ -128,11 +127,7 @@ export function createBlessingActions({
     if (blessing === "bombardier") grantConsumables("bombTicket", 8, ticketsAreFree, "blessing");
     if (blessing === "transformer") grantConsumables("transformTicket", 4, ticketsAreFree, "blessing");
     if (blessing === "mirror") grantConsumables("cloneTicket", 2, ticketsAreFree, "blessing");
-    if (blessing === "goldRush") {
-      ensureTelemetryRun();
-      recordTelemetryGoldAcquired(telemetry, 300, "blessing");
-      setGold((current) => current + 300);
-    }
+
   };
 
   const openBlessings = () => {

@@ -5,13 +5,13 @@ import type { RunResetHoldControls } from "../hooks/useRunKeyboardControls";
 type MapTopbarProps = {
   runPlayerHp: number;
   maxPlayerHp: number;
-  gold: number;
   keys: number;
   deckCardCount: number;
   mapTraveling: boolean;
   canEditDeck: boolean;
-  onGoldDebugClick: () => void;
+  onDebugClick: () => void;
   onWait: () => void;
+  onSearch: () => void;
   onEditDeck: () => void;
   onOpenSettings: () => void;
   restartHold: RunResetHoldControls;
@@ -20,13 +20,13 @@ type MapTopbarProps = {
 export function MapTopbar({
   runPlayerHp,
   maxPlayerHp,
-  gold,
   keys,
   deckCardCount,
   mapTraveling,
   canEditDeck,
-  onGoldDebugClick,
+  onDebugClick,
   onWait,
+  onSearch,
   onEditDeck,
   onOpenSettings,
   restartHold,
@@ -63,15 +63,7 @@ export function MapTopbar({
             <span>{runPlayerHp} / {maxPlayerHp}</span>
           </div>
           <span className="map-currencies">
-            <button
-              type="button"
-              className="map-currency-count map-gold map-gold-debug-trigger"
-              onClick={onGoldDebugClick}
-              aria-label={`골드 ${gold}`}
-            >
-              $ {gold}
-            </button>
-            <span className="map-currency-count map-key-count" aria-label={`열쇠 ${keys}개`}>열쇠 {keys}</span>
+            <button type="button" className="map-currency-count map-key-count map-debug-trigger" onClick={onDebugClick} aria-label={`열쇠 ${keys}개`}>열쇠 {keys}</button>
           </span>
         </div>
         <button
@@ -83,6 +75,7 @@ export function MapTopbar({
         >
           한 턴 쉼
         </button>
+        <button type="button" className="map-wait-trigger" onClick={onSearch} disabled={mapTraveling} title="지도 검색 (Ctrl+F)">검색</button>
         <button
           type="button"
           className="map-restart-trigger"

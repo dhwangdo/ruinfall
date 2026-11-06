@@ -32,7 +32,6 @@ export function useBattleSession() {
 
   const [battleRewardConsumables, setBattleRewardConsumables] = useState<Consumable[]>([]);
 
-  const [battleRewardGold, setBattleRewardGold] = useState(0);
   const [battleRewardKeys, setBattleRewardKeys] = useState(0);
 
   const [game, setRenderedGame] = useState<GameState>(waitingState);
@@ -112,8 +111,8 @@ export function useBattleSession() {
     setActiveBattleRoom, mapBattleQueueRef, previousBattleDeckIdRef, pendingBattleStart,
     setPendingBattleStart, battleDeckCheckEnabled, setBattleDeckCheckEnabled, battleDeckPreviewId,
     setBattleDeckPreviewId, battleRewards, setBattleRewards, battleRewardDecks,
-    setBattleRewardDecks, battleRewardConsumables, setBattleRewardConsumables, battleRewardGold,
-    setBattleRewardGold, battleRewardKeys, setBattleRewardKeys, game, setGame, telemetryPreviousGameRef, phase, setPhase,
+    setBattleRewardDecks, battleRewardConsumables, setBattleRewardConsumables, 
+    battleRewardKeys, setBattleRewardKeys, game, setGame, telemetryPreviousGameRef, phase, setPhase,
     attackingEnemyId, setAttackingEnemyId, damagePopup, setDamagePopup, enemyPopups,
     setEnemyPopups, animatedEnemyHp, setAnimatedEnemyHp, enemyPopupKeyRef, battleRewardRegionRef,
     battleRewardIsBossRef, battleRewardIsOutOfDepthRef, dyingEnemyIds, setDyingEnemyIds,
@@ -127,13 +126,13 @@ export type BattleSession = ReturnType<typeof useBattleSession>;
 /** Recovery path for victory transitions that don't directly grant a reward. */
 export function useBattleRewardFallback(battle: BattleSession, grantReward: (region: number) => void) {
   const grant = useEffectEvent(grantReward);
-  const { screen, game, battleRewardGold, battleRewards, battleRewardDecks,
+  const { screen, game, battleRewards, battleRewardDecks,
     battleRewardConsumables, battleRewardRegionRef } = battle;
   useEffect(() => {
-    if (screen === "battle" && game.status === "won" && battleRewardGold === 0
+    if (screen === "battle" && game.status === "won"
       && battleRewards.length === 0 && battleRewardDecks.length === 0 && battleRewardConsumables.length === 0) {
       grant(battleRewardRegionRef.current);
     }
-  }, [screen, game.status, battleRewardGold, battleRewards.length, battleRewardDecks.length,
+  }, [screen, game.status, battleRewards.length, battleRewardDecks.length,
     battleRewardConsumables.length, battleRewardRegionRef]);
 }

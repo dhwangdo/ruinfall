@@ -148,7 +148,7 @@ test("a pending rare card can return only if another rare slot is open", () => {
   }), { allowed: true, action: "restore-removal" });
 });
 
-test("existing rare cards are removal-pending in every area and can be extracted only with plus", () => {
+test("rare cards are removable outside safe areas and ordinary extraction works at every rarity", () => {
   const original = {
     ...baseRequest,
     isRare: true,
@@ -160,13 +160,13 @@ test("existing rare cards are removal-pending in every area and can be extracted
       ...original,
       safeArea,
       target: { area: "floor" },
-    }), { allowed: true, action: "schedule-removal" });
+    }), { allowed: true, action: safeArea ? "move" : "schedule-removal" });
   }
   assert.deepEqual(validateDeckEditorCardMove({
     ...original,
     target: { area: "inventory" },
     viaExtractionTicket: true,
-  }), { allowed: false, reason: "rare-locked" });
+  }), { allowed: true, action: "move" });
   assert.deepEqual(validateDeckEditorCardMove({
     ...original,
     target: { area: "floor" },
@@ -396,4 +396,14 @@ test("inventory and vault deck views share grouping, rarity separation and actua
   assert.equal(view.rareSlotCount, 2);
   assert.equal(view.normalCardCount, 3);
   assert.deepEqual(deck, original);
+});
+
+test("safe areas allow rare cards between decks while enforcing rare-slot capacity", () => {
+  const request = { ...baseRequest, safeArea: true, isRare: true,
+    targetDeckRareCardCount: 0, targetDeckRareSlotCapacity: 1 };
+  assert.deepEqual(validateDeckEditorCardMove(request), { allowed: true, action: "move" });
+  assert.deepEqual(validateDeckEditorCardMove({ ...request, targetDeckRareCardCount: 1 }),
+    { allowed: false, reason: "rare-slots-full" });
+  assert.deepEqual(validateDeckEditorCardMove({ ...request, target: { area: "inventory" } }),
+    { allowed: true, action: "move" });
 });

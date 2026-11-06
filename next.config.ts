@@ -2,7 +2,8 @@ import { execFileSync } from "node:child_process";
 import type { NextConfig } from "next";
 
 const repositoryName = "ruinfall";
-const isGitHubPages = process.env.GITHUB_ACTIONS === "true";
+const isDesktop = process.env.RUINFALL_DESKTOP_BUILD === "true";
+const isGitHubPages = process.env.GITHUB_ACTIONS === "true" && !isDesktop;
 
 function readGitValue(args: string[], fallback: string) {
   try {
@@ -26,7 +27,8 @@ const nextConfig: NextConfig = {
     NEXT_PUBLIC_COMMIT_HASH: commitHash,
     NEXT_PUBLIC_COMMIT_DATE: commitDate,
   },
-  output: isGitHubPages ? "export" : undefined,
+  output: isGitHubPages || isDesktop ? "export" : undefined,
+  distDir: isDesktop ? ".next-desktop" : ".next",
   basePath: isGitHubPages ? `/${repositoryName}` : "",
   assetPrefix: isGitHubPages ? `/${repositoryName}/` : "",
   trailingSlash: isGitHubPages,

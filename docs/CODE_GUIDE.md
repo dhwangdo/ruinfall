@@ -1,6 +1,8 @@
 # Python 사용자를 위한 코드 가이드
 
-마지막 갱신: 2026-11-04
+마지막 갱신: 2026-11-06
+
+로컬 실행기: `desktop/main.cjs`가 Electron 창과 `ruinfall://game/` 내부 파일 경로를 연결한다. `asset-path.cjs`는 게임 폴더 밖 경로를 거부하고, `verify.cjs`는 명시적인 빌드 확인 모드에서만 숨김 창의 로딩 오류를 기록한다. `scripts/build-desktop.mjs`가 Next 정적 내보내기와 Windows 패키징을 담당하며 `desktop-runtime.mjs`가 공식 런타임을 체크섬 검증 후 작업공간에 캐시한다. `Ruinfall.cmd`는 생성된 exe를 열기만 하고 서버를 실행하지 않는다. 자세한 실행·갱신 방법은 `desktop/README.md`를 따른다.
 
 이 문서는 Python 문법에는 익숙하지만 TypeScript·React는 처음인 사람이 현재 DTTS 코드를 읽고 안전하게 수정할 수 있도록 쓴 안내서다.
 
@@ -120,6 +122,8 @@ setGame((current) => ({ ...current, energy: 2 }));
 |---|---|
 | `app/page.tsx` | 앱 상태 연결, 지도·전투 이벤트와 화면 조립 |
 | `app/components/MapBoard.tsx` | 지도 카메라를 연결하고 보이는 방·적·표식을 계산해 지도판 표시 |
+| `app/components/MapMinimap.tsx` | 정사각형 미니맵 표시·안쪽 지도 드래그·휠 확대·축소·모서리 크기 조정 |
+| `app/game/mapMinimap.ts` | 미니맵 표시 범위·탐사 제한·지형과 적의 색상 계산 |
 | `app/components/ExtractionShrineModal.tsx` | 추출 카드 선택·정렬·드래그·결과 표시 |
 | `app/components/CardConversionShrineModal.tsx` | 변환·조합 카드 선택·드래그·결과 상태와 화면 |
 | `app/components/BattleHandArea.tsx` | 손패 배치·카드 입력·버리기·연구 카드 회수 화면 |
@@ -127,7 +131,7 @@ setGame((current) => ({ ...current, energy: 2 }));
 | `app/hooks/useBattleInteractionState.ts` | 전투 카드 선택·드래그·중앙 드롭 상태 |
 | `app/hooks/useBattlePointerInput.ts` | 전투 포인터 드래그·파일 자동 스크롤·손패 키보드 입력 |
 | `app/hooks/useBattleSession.ts` | 전투 상태·조우 대기열·보상·연출 타이머와 최신 상태 읽기 |
-| `app/hooks/useLocationDialogs.ts` | 상점·축복·성소·상자·카드팩 모달 상태 |
+| `app/hooks/useLocationDialogs.ts` | 축복·성소·상자·카드팩 모달 상태 |
 | `app/controllers/battleSessionActions.ts` | 전투 진입·연속 조우·보상 생성·지도 복귀 |
 | `app/controllers/deckVaultActions.ts` | 덱 보관소 미리보기·열쇠 3개 지불·중복 개방 방지·바닥 지급 |
 | `app/controllers/portalActions.ts` | 포탈 경고·이번 런 경고 생략·열쇠 소멸·기존 지역 이동 |
@@ -137,12 +141,12 @@ setGame((current) => ({ ...current, energy: 2 }));
 | `app/components/DeckSlotPlaceholder.tsx` | 인벤토리·덱 미리보기의 빈 일반 슬롯·빈 희귀 슬롯·구분선. 외형은 `item-visuals.css` |
 | `app/components/debugModeContext.ts`, `DeckName.tsx` | 디버그 여부를 공유하여 상세 덱 이름 아래 생성 당시 s/x/y/z를 표시. 작은 이름은 호버 설명으로 제공하고 구버전 기록은 추정하지 않음 |
 | `app/game/deckVaultRules.ts` | 덱 보관소 열쇠 비용과 개방 가능 판정 |
-| `app/controllers/shopActions.ts` | 일반·피의 상점 재고·구매·카드팩 개봉. 피의 상점은 생성 후 골드/15 올림을 체력 가격으로 저장 |
+| `app/controllers/cardPackActions.ts` | 카드팩 개봉·인벤토리/바닥 지급 |
 | `app/controllers/blessingActions.ts` | 축복 선택·리롤·획득 효과와 티켓 지급 |
 | `app/controllers/locationActions.ts` | 포탈·회복·성소·보물 상자 사용 |
 | `app/hooks/useRunWorld.ts` | 탐험 지형·적·발견 기억·파괴/소비 장소 상태와 복원 |
 | `app/hooks/useRunPlayer.ts` | 이름·체력·축복·이동 지속 효과 상태와 복원 |
-| `app/hooks/useRunInventory.ts` | 소지 덱·인벤토리·바닥·상점·골드·ID와 복원 |
+| `app/hooks/useRunInventory.ts` | 소지 덱·인벤토리·바닥·열쇠·ID와 복원 |
 | `app/hooks/useRunMapContent.ts` | 새로 본 방의 적·바닥 물건 생성과 시야 기억 갱신 |
 | `app/hooks/useDebugMapContent.ts` | 디버그 지역 콘텐츠를 512칸씩 준비하고 로딩 상태 반환. 일반 발견 기억은 유지 |
 | `app/game/mapPreparation.ts`, `app/hooks/mapPreparationFrame.ts` | 시작 전 지형 캐시 준비, 진행률·취소·프레임 양보 |
@@ -164,7 +168,7 @@ setGame((current) => ({ ...current, energy: 2 }));
 | `app/components/cardEffectDescription.tsx` | 카드 효과별 설명을 React 텍스트 조각으로 생성 |
 | `app/hooks/useCardEffectLayout.ts` | 카드 설명의 실제 폭 측정, 글자 맞춤과 결과 캐시 |
 | `app/components/DeckName.tsx` | 덱 이름과 에디션을 표시하는 재사용 화면 컴포넌트 |
-| `app/components/MapTopbar.tsx` | 지도 상단 체력·골드·대기·덱 편집 UI |
+| `app/components/MapTopbar.tsx` | 지도 상단 체력·열쇠·검색·대기·덱 편집 UI |
 | `app/components/GameVersion.tsx`, `build/dev-source-version.ts` | 지도·전투 공통 버전 표시. 개발 중 소스 수정 시각 자동 갱신, 배포본은 기존 커밋 시각 유지 |
 | `app/hooks/useMapCamera.ts` | 지도 뷰포트 크기, 확대·축소, 이동과 카메라 포커스 |
 | `app/hooks/mapCameraMotion.ts` | 지도 티켓 안내의 거리별 0.7~4초 감속 이동과 취소. 격자 원점 변경과 독립적으로 카메라 위치를 프레임별 보간 |
@@ -181,7 +185,7 @@ setGame((current) => ({ ...current, energy: 2 }));
 | `app/game/randomNames.ts` | 플레이어·덱 이름 생성. 새 덱 이름은 생성 용량에 따라 2~12글자로 정함 |
 | `app/components/MapDeckSelector.tsx` | 보유 가능한 덱 슬롯 수만큼 펼쳐지는 전투 덱 선택 메뉴 |
 | `app/hooks/useMapDeckSelectorDrag.ts` | 덱 선택 아이콘의 화면 전체 드래그·클릭 구분·위치 기억 |
-| `app/components/MapDebugToolbar.tsx` | 지도 디버그 아이템·덱 생성, 골드 1000·열쇠 10개 추가, 카드 통계와 적 도감 연결 |
+| `app/components/MapDebugToolbar.tsx` | 지도 디버그 아이템·덱 생성, 열쇠 10개 추가, 카드 통계와 적 도감 연결 |
 | `app/components/MapEntityMarkers.tsx` | 지도 폭탄·적·전투 진입·대기 피드백. 플레이어 @ 문자는 표시하지 않음 |
 | `app/components/GameSettingsModal.tsx`, `app/hooks/useGameSettings.ts` | 설정 창·단축키 안내. 잠깐/애니메이션 툴팁을 useSyncExternalStore로 공유하고 별도 localStorage 키에 저장 |
 | `app/components/MapNotices.tsx` | 비용 부족·인벤토리 포화 등 지도 메시지만 표시. 장소 이용·줍기는 타일 클릭과 E/G 단축키로 연결 |
@@ -376,7 +380,7 @@ flowchart LR
 
 1. 편집 시작 때 카드별 원래 덱 ID를 저장한다. 편집 중 새로 덱에 넣는 희귀·전설 카드는 넣기 직전 인벤토리·바닥 위치도 기억한다.
 2. 현재 위치, 목적지, 안전 지대 여부, 희귀 슬롯 수, 추출 티켓 등급을 `deckEditorRules.ts`에 넘긴다.
-3. 규칙이 허용한 경우에만 덱·인벤토리·제거 예정·바닥 상태를 갱신한다. 희귀·전설 카드는 원래 위치 되돌리기, 제거 예정, 추출 티켓+ 경로를 구분한다.
+3. 규칙이 허용한 경우에만 덱·인벤토리·제거 예정·바닥 상태를 갱신한다. 희귀·전설 카드는 원래 위치 되돌리기, 제거 예정, 추출 티켓 경로를 구분한다.
 4. 덱에 넣을 때 덱 용량·희귀 슬롯을 검사하고, 확정할 때 제거 예정 인벤토리 카드를 포함한 인벤토리 용량을 검사한다. 빈 덱도 확정할 수 있다.
 
 ## 7. 게임 상태와 영구 저장은 다르다
@@ -483,3 +487,5 @@ $env:GITHUB_ACTIONS='true'; npm run build:pages
 공개 주소는 `https://dhwangdo.github.io/ruinfall/`다.
 
 최근 배포 실패 중에는 코드가 실행되기 전 GitHub runner가 시작하지 못한 `startup_failure` 사례도 있었다. 배포가 실패하면 먼저 로컬 빌드 결과와 Actions 로그를 나눠서 확인한다.
+
+2026-11-05: 상점·골드 동작은 제거했다. cardPackActions.ts는 기존 카드팩 개봉만 담당한다. 금고 티켓 지급은 deckVaultActions.ts의 중복 개방 방지와 함께 처리한다. 안전구역 희귀 편집은 deckEditorRules.ts에서 용량 검사 후 허용한다.

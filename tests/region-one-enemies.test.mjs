@@ -23,7 +23,7 @@ test("four fixed physical encounters keep retired prisoner and boss IDs stable",
   assert.ok(entries.every(entry => entry.regions[0] === 1 && getEncounterIndicesForRegion(0).includes(entry.encounterIndex)));
   assert.ok(entries.every(entry => entry.enemies.every(({ enemy }) => enemy.actions.every(action => action.attacks.every(hit => hit.type === "physical")))));
   assert.ok(!entries.some(entry => entry.label.includes("사냥꾼")));
-  assert.equal(enemy(14).name, "검은 슬라임");
+  assert.equal(createSewerEncounterByIndex(14, () => 0).length, 4);
 });
 
 test("one dog joins a different family and telegraphs its second action", () => {

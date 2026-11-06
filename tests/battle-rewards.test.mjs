@@ -22,12 +22,11 @@ test("ordinary victories immediately award a card, update pity, leave blood and 
   assert.equal(ctx.inventory.nextCardIdRef.current, 1001);
   assert.equal(ctx.inventory.rareCardDropChanceRef.current, .07);
   assert.ok(ctx.world.bloodstainedRooms.has(key));
-  const gold = ctx.battle.battleRewardGold;
   actions.grantBattleReward(1);
   assert.equal(ctx.inventory.nextCardIdRef.current, 1001);
   const finished = createBattleSessionActions(ctx.options());
   finished.returnToMap(); finished.returnToMap();
-  assert.equal(ctx.inventory.gold, 1000 + gold);
+  assert.equal(ctx.inventory.gold, 1000);
   assert.equal(ctx.inventory.keys, 1);
   assert.equal(ctx.inventory.roomDrops[key].length, 1);
   assert.equal(ctx.battle.screen, "map");

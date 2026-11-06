@@ -16,7 +16,6 @@ type MapDebugToolbarProps = {
   onDeckCountChange: (value: string) => void;
   onSpawnItem: () => void;
   onGenerateDecks: () => void;
-  onAddDebugGold: () => void;
   onAddDebugKeys: () => void;
   onOpenCardStats: () => void;
 };
@@ -30,7 +29,6 @@ export function MapDebugToolbar({
   onDeckCountChange,
   onSpawnItem,
   onGenerateDecks,
-  onAddDebugGold,
   onAddDebugKeys,
   onOpenCardStats,
 }: MapDebugToolbarProps) {
@@ -94,7 +92,6 @@ export function MapDebugToolbar({
           />
         </label>
         <button type="button" onClick={onGenerateDecks}>지역 덱 생성</button>
-        <button type="button" onClick={onAddDebugGold}>골드 1000 추가</button>
         <button type="button" onClick={onAddDebugKeys}>열쇠 10개 추가</button>
       </div>
       <button type="button" className="debug-card-stats-trigger" onClick={onOpenCardStats}>

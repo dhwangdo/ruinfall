@@ -98,12 +98,12 @@ test("extraction uses the inventory slot freed by consuming its ticket", () => {
   assert.equal(ctx.editor.deckEditorReleasedCardIds.has(1), true);
 });
 
-test("a basic extraction ticket cannot consume itself on a rare card", () => {
+test("an extraction ticket extracts rare cards without a rarity restriction", () => {
   const ctx = setup({ target: card(1, RARE_CARD_POOL[0]) });
   ctx.render().applyTicketToCard("ticket", ctx.target, "deck", ctx.inventory.ownedDecks[0]);
-  assert.equal(ctx.inventory.inventoryConsumables.length, 1);
-  assert.equal(ctx.inventory.ownedDecks[0].cards.length, 2);
-  assert.equal(ctx.inventory.inventoryCards.length, 1);
+  assert.equal(ctx.inventory.inventoryConsumables.length, 0);
+  assert.equal(ctx.inventory.ownedDecks[0].cards.length, 1);
+  assert.ok(ctx.inventory.inventoryCards.some(card => card.id === 1));
 });
 
 test("a preserved extraction ticket does not promise an inventory slot", (t) => {

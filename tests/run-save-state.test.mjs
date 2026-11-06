@@ -5,15 +5,15 @@ import { createRunSaveSnapshot, prepareRunRestore } from "../app/game/runSaveSta
 import { RARE_CARD_POOL, SPECIAL_CARD_POOL } from "../app/game/cards.ts";
 
 test("temporarily disabled tickets are removed from inventory, floor and shops on restore", () => {
-  const tickets = ["mindEyeTicket", "darkTicket", "extractTicket"].map(type => ({ id: type, type }));
+  const tickets = ["mindEyeTicket", "darkTicket", "extractPlusTicket", "extractTicket"].map(type => ({ id: type, type }));
   const restored = prepareRunRestore({ mapSeed: 1, mapPosition: { x: 0, y: 0 }, blessings: [],
     inventoryConsumables: tickets, roomConsumableDrops: { "1:1": tickets }, darkTicketTurnsRemaining: 18,
     roomShops: { "2:2": tickets.map(consumable => ({ id: consumable.id, consumable, price: 30, sold: false })) } }, () => false);
   assert.deepEqual(restored.inventoryConsumables.map(item => item.type), ["extractTicket"]);
   assert.deepEqual(restored.roomConsumableDrops["1:1"].map(item => item.type), ["extractTicket"]);
-  assert.deepEqual(restored.roomShops["2:2"].map(item => item.consumable.type), ["extractTicket"]);
+  assert.deepEqual(restored.roomShops, {});
   assert.equal(restored.darkTicketTurnsRemaining, 0);
-  assert.equal(tickets.length, 3);
+  assert.equal(tickets.length, 4);
 });
 
 test("deleted editions are removed from owned decks, ground decks and unopened vaults", () => {
@@ -119,14 +119,14 @@ test("restore preparation fills legacy fields and normalizes saved values", () =
   assert.deepEqual(prepared.openedDeckVaultRooms, []);
 });
 
-test("blood-shop HP prices and sold state survive run restore without being converted again", () => {
+test("removed shop stock is discarded when restoring an old run", () => {
   const offer = { id: "blood", price: 4, currency: "hp", sold: true, consumable: { type: "extractTicket" } };
   const prepared = prepareRunRestore({
     mapPosition: { x: 0, y: 0 }, mapSeed: 5, blessings: [],
     collapsedExtractionShrineRooms: ["9:10"], collapsedShrineRooms: ["7:8"],
     roomShops: { "0:0": [offer] },
   }, () => false);
-  assert.deepEqual(prepared.roomShops["0:0"], [offer]);
+  assert.deepEqual(prepared.roomShops, {});
   assert.deepEqual(prepared.collapsedExtractionShrineRooms, ["9:10"]);
 });
 
@@ -176,7 +176,7 @@ test("restoring old resistance cards removes iron wall and blessing and updates 
     roomDeckDrops: { "1:1": [deck] }, roomShops: { "1:1": deck.cards.map(card => ({ card, id: card.effect, price: 1, sold: false })) },
   }, () => false);
   for (const cards of [restored.ownedDecks[0].cards, restored.inventoryCards, restored.roomDrops["1:1"],
-    restored.roomDeckDrops["1:1"][0].cards, restored.roomShops["1:1"].map(offer => offer.card)]) {
+    restored.roomDeckDrops["1:1"][0].cards]) {
     assert.deepEqual(cards.map(card => [card.effect, card.value, card.forged]), [["plateArmorDefense", 5, true]]);
   }
   assert.deepEqual(restored.ownedDecks[0].editions, ["resistance"]);
@@ -222,7 +222,7 @@ test("old saves discard removed cards and restore changed cards everywhere", () 
   assert.equal(prepared.roomDeckDrops["2:2"][0].rareSlotCapacity, 1);
   assert.deepEqual(prepared.inventoryConsumables, []);
   assert.deepEqual(prepared.roomConsumableDrops["1:1"], []);
-  assert.deepEqual(prepared.roomShops["3:3"].map((offer) => offer.card?.name), ["경제학 연구"]);
+  assert.deepEqual(prepared.roomShops, {});
 });
 
 test("keys, warning preference, opened vaults and their exact contents survive JSON restore", () => {

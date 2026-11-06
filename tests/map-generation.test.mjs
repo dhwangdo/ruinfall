@@ -64,7 +64,8 @@ test("hybrid terrain keeps a dominant continent, protected prefabs and reachable
 test("ordinary location counts stay in range, spread across the map and add to prefab rewards", () => {
   for (const seed of [1, 173, 291, 418]) for (let region = 0; region < 7; region++) {
     const map = getGeneratedDungeonRegion(seed, region);
-    for (const [kind, min, max] of [["deckVault", 40, 46], ["shop", 3, 4], ["bloodShop", 3, 4]]) {
+    assert.ok([...map.ordinarySites.values()].every(kind => kind !== "shop" && kind !== "bloodShop"));
+    for (const [kind, min, max] of [["deckVault", 40, 46]]) {
       const locations = [...map.ordinarySites].filter(([, type]) => type === kind).map(([index]) => index);
       assert.equal(locations.length, map.locationCounts[kind]);
       assert.ok(locations.length >= min && locations.length <= max);

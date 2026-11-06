@@ -17,6 +17,7 @@ type MapRoomButtonProps = {
   mapTraveling: boolean;
   searchHighlighted?: boolean;
   bloodstained?: boolean;
+  wallEdges?: string;
   itemCount: number;
   floorDeck?: MapFloorItemProps["deck"];
   floorCard?: MapFloorItemProps["card"];
@@ -44,6 +45,7 @@ const ROOM_BADGES: Partial<Record<RoomType, string>> = {
   blessing: "축복",
   portal: "포탈",
   heal: "회복",
+  partialHeal: "회복 20%",
   safePortal: "포탈",
 };
 
@@ -60,6 +62,7 @@ function MapRoomButtonView({
   mapTraveling,
   searchHighlighted = false,
   bloodstained = false,
+  wallEdges,
   itemCount,
   floorDeck,
   floorCard,
@@ -79,7 +82,7 @@ function MapRoomButtonView({
       type="button"
       data-search-highlight={searchHighlighted || undefined}
       className={`map-room is-${roomType} ${itemCount > 0 ? "has-floor-items" : ""} ${dungeonRegionIndex === null ? "" : `is-region-${dungeonRegionIndex + 1}`} ${current ? "is-current" : ""} ${interactable ? "is-interactable" : ""} ${inVision ? "is-in-vision" : "is-out-of-vision"} ${adjacent ? "is-adjacent" : ""} ${reachable ? "is-reachable" : ""}`}
-      style={{ gridColumn, gridRow, "--map-tile-color": current ? undefined : mapTileColor(position, roomType, dungeonRegionIndex) } as CSSProperties}
+      style={{ gridColumn, gridRow, "--map-wall-edges": wallEdges || "none", "--map-tile-color": current ? undefined : mapTileColor(position, roomType, dungeonRegionIndex) } as CSSProperties}
       tabIndex={adjacent || reachable || interactable ? 0 : -1}
       aria-disabled={!walkable || mapTraveling || (!adjacent && !reachable && !interactable)}
       title={roomItemsTitle ?? (roomType === "rock" ? ROOM_LABELS.rock : undefined)}

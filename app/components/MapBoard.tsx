@@ -4,6 +4,7 @@ import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, type CSSPrope
 import { MapDebugToolbar } from "./MapDebugToolbar";
 import { MapEntityMarkers } from "./MapEntityMarkers";
 import { MapRoomButton } from "./MapRoomButton";
+import { MapMinimap } from "./MapMinimap";
 import { MapDeckVaultPreview, type MapDeckVaultPreviewControls } from "./MapDeckVaultPreview";
 import {
   MAP_CELL_GAP,
@@ -72,7 +73,6 @@ type MapBoardProps = {
     onDeckCountChange: (value: string) => void;
     onSpawnItem: () => void;
     onGenerateDecks: () => void;
-    onAddDebugGold: () => void;
     onAddDebugKeys: () => void;
     onOpenCardStats: () => void;
   };
@@ -245,6 +245,8 @@ export function MapBoard({
   }, [minX, maxX, minY, maxY, surface.minX, surface.maxX, surface.minY, surface.maxY,
     mapCellMap, debugMode, mapSeed, retainKnownCells]);
   const renderedMapCellKeys = useMemo(() => new Set(mapCells.map(mapRoomKey)), [mapCells]);
+  const hasMinimapItems = useCallback((key: string) => !!(roomDrops[key]?.length
+    || roomConsumableDrops[key]?.length || roomDeckDrops[key]?.length), [roomDrops, roomConsumableDrops, roomDeckDrops]);
   const visibleMapEnemies = mapEnemyWorld.enemies.filter((enemy) =>
     renderedMapCellKeys.has(mapRoomKey(enemy.position))
     && (debugMode || currentVisibleRoomKeys.has(mapRoomKey(enemy.position))));
@@ -290,7 +292,6 @@ export function MapBoard({
           onDeckCountChange={debugTools.onDeckCountChange}
           onSpawnItem={debugTools.onSpawnItem}
           onGenerateDecks={debugTools.onGenerateDecks}
-          onAddDebugGold={debugTools.onAddDebugGold}
           onAddDebugKeys={debugTools.onAddDebugKeys}
           onOpenCardStats={debugTools.onOpenCardStats}
         />
@@ -327,6 +328,15 @@ export function MapBoard({
             const inVision = debugMode || currentVisibleRoomKeys.has(roomKey);
             const distance = chebyshevDistance(position, mapPosition);
             const walkable = isWalkableRoom(roomType);
+            const wallEdges = roomType === "rock" ? [
+              [0, -1, "inset 0 2px 0 #75858d"], [1, 0, "inset -2px 0 0 #75858d"],
+              [0, 1, "inset 0 -2px 0 #75858d"], [-1, 0, "inset 2px 0 0 #75858d"],
+            ].flatMap(([dx, dy, shadow]) => {
+              const neighbor = { x: position.x + Number(dx), y: position.y + Number(dy) };
+              // Outline discovered floor boundaries only, without revealing unexplored terrain.
+              return (debugMode || mapCellMap.has(mapRoomKey(neighbor))) && isWalkableRoom(effectiveRoomType(neighbor))
+                ? [String(shadow)] : [];
+            }).join(", ") : undefined;
             const adjacent = distance === 1 && walkable;
             const reachable = !current && (debugMode ? walkable : knownRoomRoutes.has(roomKey));
             const itemCount = (roomDrops[roomKey]?.length ?? 0)
@@ -352,6 +362,7 @@ export function MapBoard({
                 adjacent={adjacent}
                 reachable={reachable}
                 walkable={walkable}
+                wallEdges={wallEdges}
                 mapTraveling={mapTraveling}
                 searchHighlighted={highlightedRoomKey === roomKey}
                 bloodstained={bloodstainedRooms.has(roomKey)}
@@ -390,6 +401,9 @@ export function MapBoard({
           />
         </div>
         <div className="map-depth-fade" aria-hidden="true" />
+        <MapMinimap viewportRef={mapViewportRef} playerPosition={mapPosition} knownRooms={mapCellMap}
+          visibleRoomKeys={currentVisibleRoomKeys} enemies={mapEnemyWorld.enemies} enemyMemory={mapEnemyCellMemory}
+          roomTypeAt={effectiveRoomType} hasItemsAt={hasMinimapItems} debugMode={debugMode} />
         {!playerVisibleInViewport && mapViewportSize.width > 0 && mapViewportSize.height > 0 && (
           <button
             type="button"

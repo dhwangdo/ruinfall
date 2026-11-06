@@ -56,7 +56,6 @@ test("ticket tiers and base prices match the shop rules", () => {
     paintTicket: 1,
     bombTicket: 1,
     extractTicket: 1,
-    extractPlusTicket: 2,
     mapTicket: 1,
     mindEyeTicket: 1,
     darkTicket: 1,

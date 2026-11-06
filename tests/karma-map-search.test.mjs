@@ -74,7 +74,14 @@ test("map search indexes discovered vault contents and editions without revealin
   for (const query of ["빛의서고", "진화론", "빠른 망치"]) assert.equal(filter(query)[0].deck.name, deck.name);
   assert.equal(filter("비밀").length, 0);
   assert.equal(inspected.includes("100:10"), false);
-  assert.equal(entries.find(entry => entry.card)?.count, 2);
+  assert.equal(entries.find(entry => entry.card && !entry.containerLabel)?.count, 2);
+  const contained = filterMapSearchEntries(entries, { query: "진화론", kind: "item", region: 1, includeOpened: false });
+  assert.equal(contained.length, 1);
+  assert.equal(contained[0].card.name, "진화론");
+  assert.ok(contained[0].containerLabel.includes(deck.name));
+  const openedCards = entries.map(entry => entry.containerLabel ? { ...entry, opened: true } : entry);
+  assert.equal(filterMapSearchEntries(openedCards, { query: "진화론", kind: "item", region: 1, includeOpened: false }).length, 0);
+  assert.equal(filterMapSearchEntries(openedCards, { query: "진화론", kind: "item", region: 1, includeOpened: true }).length, 1);
   assert.equal(entries.find(entry => entry.kind === "place")?.label, "상점");
   const opened = entries.map(entry => entry.kind === "vault" ? { ...entry, opened: true } : entry);
   assert.equal(filterMapSearchEntries(opened, { query: "", kind: "vault", region: "all", includeOpened: false }).length, 0);

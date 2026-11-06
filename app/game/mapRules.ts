@@ -38,6 +38,7 @@ export type RoomType =
   | "boss"
   | "portal"
   | "heal"
+  | "partialHeal"
   | "safePortal";
 
 export const REGION_COUNT = 7;
@@ -45,12 +46,12 @@ export const ROCK_BARRIER_HEIGHT = 5;
 // Keep the definitions available while these locations are temporarily paused.
 export const TEMPORARILY_DISABLED_ROOM_TYPES: ReadonlySet<RoomType> = new Set([
   "extractionShrine", "recoveryShrine", "vitalityShrine", "mindEyeShrine",
-  "transformShrine", "treasureChest", "blessing", "heal",
+  "transformShrine", "treasureChest", "blessing", "heal", "partialHeal", "shop", "bloodShop",
 ]);
 // Historical definition data is retained; active locations now use per-region quotas.
 export const SPECIAL_NODE_DEFINITION_WEIGHTS: ReadonlyArray<{ type: RoomType; weight: number }> = [
-  { type: "shop", weight: 0.5 },
-  { type: "bloodShop", weight: 0.5 },
+  { type: "shop", weight: 0 },
+  { type: "bloodShop", weight: 0 },
   { type: "extractionShrine", weight: 2 },
   { type: "vitalityShrine", weight: 0.5 },
   { type: "mindEyeShrine", weight: 1 },
@@ -70,11 +71,12 @@ export const DUNGEON_MAX_X = 160;
 export const BOSS_REGION_COUNT = 3;
 const SAFE_AREA_HEAL_OFFSET_X = 0;
 const SAFE_AREA_PORTAL_OFFSET_X = 1;
-const SAFE_AREA_LEFT_CROSS_CENTER_OFFSET_X = -4;
 const SAFE_AREA_CONNECTOR_OFFSET_X = -2;
 export const SAFE_AREA_LAYOUT_MIN_OFFSET_X = -6;
 export const SAFE_AREA_LAYOUT_MAX_OFFSET_X = 2;
 const SAFE_AREA_SPAWN_OFFSET_X = SAFE_AREA_LAYOUT_MIN_OFFSET_X + 1;
+const SAFE_AREA_PARTIAL_HEAL_OFFSET_X = SAFE_AREA_SPAWN_OFFSET_X + 1;
+const SAFE_AREA_LEFT_CROSS_CENTER_OFFSET_X = SAFE_AREA_PARTIAL_HEAL_OFFSET_X;
 export const MAP_COLUMNS = DUNGEON_MAX_X - DUNGEON_MIN_X + 1;
 export const REGION_HEIGHT = 31;
 export const MAP_ROWS = REGION_COUNT * REGION_HEIGHT + (REGION_COUNT - 1) * ROCK_BARRIER_HEIGHT;
@@ -150,17 +152,6 @@ export function getSafeAreaRegionIndex(position: MapPosition, seed: number) {
 
 export function isSafeAreaPosition(position: MapPosition, seed: number) {
   return getSafeAreaRegionIndex(position, seed) !== null;
-}
-
-export function isSafeAreaEditAllowed(
-  position: MapPosition,
-  seed: number,
-  defeatedBossRegions: ReadonlySet<number>,
-) {
-  const regionIndex = getSafeAreaRegionIndex(position, seed);
-  return regionIndex === null
-    || regionIndex >= BOSS_REGION_COUNT
-    || defeatedBossRegions.has(regionIndex);
 }
 
 export function isSafeAreaBoundaryPosition(position: MapPosition, regionIndex: number, seed: number) {
@@ -265,9 +256,10 @@ function getFixedRoomType(position: MapPosition, seed: number): RoomType | null 
   if (safeRegion !== null) {
     const centerX = safeAreaCenterX(safeRegion, seed);
     const centerY = safeAreaCenterY(safeRegion, seed);
+    if (position.x === centerX + SAFE_AREA_PARTIAL_HEAL_OFFSET_X && position.y === centerY) return "partialHeal";
     if (position.x === centerX + SAFE_AREA_HEAL_OFFSET_X && position.y === centerY - 1) return "blessing";
     if (position.x === centerX + SAFE_AREA_HEAL_OFFSET_X && position.y === centerY) return "heal";
-    if (position.x === centerX + SAFE_AREA_HEAL_OFFSET_X && position.y === centerY + 1) return "shop";
+    if (position.x === centerX + SAFE_AREA_HEAL_OFFSET_X && position.y === centerY + 1) return "empty";
     if (position.x === centerX + SAFE_AREA_PORTAL_OFFSET_X && position.y === centerY) return "safePortal";
     if (safeRegion < BOSS_REGION_COUNT
       && position.x === centerX + SAFE_AREA_CONNECTOR_OFFSET_X
@@ -308,13 +300,14 @@ export function getRoomType(position: MapPosition, seed: number): RoomType {
 function generateRoomType(position: MapPosition, seed: number): RoomType {
   const fixedType = getFixedRoomType(position, seed);
   // Only fixed safe-area facilities return these types; random nodes stay paused.
-  if (fixedType === "heal" || fixedType === "blessing") return fixedType;
+  if (fixedType === "heal" || fixedType === "partialHeal" || fixedType === "blessing") return fixedType;
   if (fixedType !== null) return TEMPORARILY_DISABLED_ROOM_TYPES.has(fixedType) ? "empty" : fixedType;
   const region = getDungeonRegionIndex(position)!;
   const layout = getGeneratedDungeonRegion(seed, region);
   const index = (position.y - regionStartY(region)) * MAP_COLUMNS + position.x - DUNGEON_MIN_X;
   if (!layout.floor[index]) return "rock";
-  return layout.landmarks.get(index) ?? layout.ordinarySites.get(index) ?? "empty";
+  const type = layout.landmarks.get(index) ?? layout.ordinarySites.get(index) ?? "empty";
+  return type === "shop" || type === "bloodShop" ? "empty" : type;
 }
 
 export function isWalkableRoom(type: RoomType) {
@@ -432,14 +425,6 @@ export function createMapFloorDropsForPositions(
   const cards: Record<string, Card[]> = {};
   const consumables: Record<string, Consumable[]> = {};
   for (const position of positions) {
-    const safeRegion = getSafeAreaRegionIndex(position, seed);
-    if (safeRegion !== null
-      && position.x === safeAreaCenterX(safeRegion, seed) + SAFE_AREA_LEFT_CROSS_CENTER_OFFSET_X
-      && Math.abs(position.y - safeAreaCenterY(safeRegion, seed)) === 1) {
-      const roomKey = mapRoomKey(position);
-      consumables[roomKey] = [createConsumable("extractTicket", `safe-extract-${seed}-${roomKey}`)];
-      continue;
-    }
     if (!isMainDungeonFloor(position, seed) || getRoomType(position, seed) !== "empty"
       || seededRoll(position, seed, 7201) >= FLOOR_CARD_DROP_CHANCE) continue;
     const roomKey = mapRoomKey(position);

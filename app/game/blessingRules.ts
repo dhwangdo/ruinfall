@@ -1,9 +1,9 @@
 import type { Card } from "./cards";
 
 export type BlessingId =
-  | "vision" | "lightStep" | "sturdy" | "greed" | "bag" | "deckSize" | "ninja"
+  | "vision" | "lightStep" | "sturdy" | "bag" | "deckSize" | "ninja"
   | "swordShield" | "binaryStars" | "healingMileage" | "forbiddenKnowledge" | "gambling"
-  | "oneMore" | "bombardier" | "transformer" | "mirror" | "goldRush" | "lightTicket"
+  | "oneMore" | "bombardier" | "transformer" | "mirror" | "lightTicket"
   | "archaeologist" | "highlander" | "clairvoyance" | "blacksmith" | "packInsurance"
   | "bioluminescence" | "oneUp" | "vulnerabilityInsurance" | "thornCoat" | "glassCannon"
   | "oparts" | "backToBasics" | "absorption" | "bloodConversion" | "starlessAge"
@@ -15,7 +15,6 @@ export const BLESSING_INFO: Record<BlessingOfferId, { name: string; description:
   vision: { name: "시야 확장", description: "시야 거리 +1" },
   lightStep: { name: "가벼운 걸음", description: "적의 인식 확률이 절반이 됩니다." },
   sturdy: { name: "튼튼함", description: "최대 체력이 20 증가합니다." },
-  greed: { name: "탐욕스러움", description: "골드 획득량이 2배가 됩니다." },
   bag: { name: "가방 업그레이드", description: "인벤토리 +18칸, 덱 슬롯 +2" },
   deckSize: { name: "덱 크기 +5", description: "모든 덱 최대 장수 +5" },
   ninja: { name: "닌자", description: "잠든 적과 전투 시 아드레날린 1장을 얻습니다." },
@@ -28,7 +27,6 @@ export const BLESSING_INFO: Record<BlessingOfferId, { name: string; description:
   bombardier: { name: "폭탄마", description: "폭탄 티켓 8개를 얻고 폭탄 피해에 면역이 됩니다." },
   transformer: { name: "변환가", description: "변환 티켓 4개를 획득합니다." },
   mirror: { name: "거울상", description: "복제 티켓 2개를 획득합니다." },
-  goldRush: { name: "골드러쉬", description: "즉시 300$를 획득합니다." },
   lightTicket: { name: "가벼운 티켓", description: "티켓이 인벤토리 용량을 소모하지 않습니다." },
   archaeologist: { name: "고고학자", description: "성소 사용 시 20% 확률로 붕괴하지 않습니다." },
   highlander: { name: "하이랜더", description: "덱에 중복 카드가 없으면 매 턴 시작 시 ★ 획득" },
@@ -52,7 +50,7 @@ export const BLESSING_INFO: Record<BlessingOfferId, { name: string; description:
   empty: { name: "빈 축복", description: "아무 효과도 없습니다." },
 };
 
-export const BLESSING_IDS = Object.keys(BLESSING_INFO).filter((id) => id !== "empty") as BlessingId[];
+export const BLESSING_IDS = Object.keys(BLESSING_INFO).filter((id) => !["empty", "greed", "goldRush"].includes(id)) as BlessingId[];
 
 function shuffled<T>(items: readonly T[], random = Math.random) {
   const result = [...items];

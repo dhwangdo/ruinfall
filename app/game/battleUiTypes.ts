@@ -14,4 +14,5 @@ export type DragState = {
   x: number;
   y: number;
   moved: boolean;
+  keyboard?: boolean;
 };

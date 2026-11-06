@@ -1,4 +1,4 @@
-import { REGION_ONE_ENCOUNTERS, REGION_ONE_MIXED_ENCOUNTERS, REGION_ONE_PAIR_INDICES, normalizeRegionOneEncounterIndex } from "./regionOneEnemies.ts";
+import { REGION_ONE_PAIR_CANDIDATES, REGION_ONE_ENCOUNTERS, REGION_ONE_MIXED_ENCOUNTERS, REGION_ONE_PAIR_INDICES, normalizeRegionOneEncounterIndex } from "./regionOneEnemies.ts";
 import { REGION_TWO_ENCOUNTERS, REGION_TWO_MIXED_ENCOUNTERS, REGION_TWO_PAIR_INDICES, normalizeRegionTwoEncounterIndex, WARLOCK } from "./regionTwoEnemies.ts";
 export function normalizeEncounterIndex(index: number) {
   return normalizeRegionOneEncounterIndex(normalizeRegionTwoEncounterIndex(index));
@@ -331,27 +331,7 @@ const SEWER_ENCOUNTERS: Array<EnemyBlueprint[] | null> = [
     thorns: 4,
     trait: "전투 시작 시 가시 4 · 공격받을 때마다 물리 피해 4로 반격",
   })),
-  [
-    {
-      name: "검은 슬라임",
-      hp: 87,
-      maxHp: 87,
-      actions: [
-        { name: "검은 점액 충돌", attacks: [{ type: "physical", value: 10 }], cycle: true },
-        { name: "검은 점액 방어", attacks: [], blockGain: 10, strengthGain: 2, cycle: true },
-      ],
-      strength: 0,
-      physicalBlock: 0,
-      variant: "blackSlime",
-      sturdyThreshold: 0,
-      quicknessReady: false,
-      nextAttackMagic: false,
-      givesToxicSlime: true,
-      toxicSlimeCount: 2,
-      isBoss: true,
-      trait: "전투 시작 시 유독성 점액 2장",
-    },
-  ],
+  REGION_ONE_PAIR_CANDIDATES.slice(0, 4).map(enemy => ({ ...enemy, isBoss: true })),
   [
     {
       name: "광대",
@@ -524,7 +504,7 @@ export function getEnemyCodexEntries(): EnemyCodexEntry[] {
         : []);
     return [{
       encounterIndex,
-      label: encounter.length > 1 && encounter.every((enemy) => enemy.name === encounter[0].name)
+      label: encounterIndex === 14 ? "무작위 약한 적 4마리 (5종 중 중복 없이)" : encounter.length > 1 && encounter.every((enemy) => enemy.name === encounter[0].name)
         ? `${encounter[0].name} ${encounter.length}마리`
         : encounter.map(enemy => enemy.name).join(" + "),
       regions,
@@ -540,7 +520,12 @@ export function createSewerEncounterByIndex(
   random: () => number = Math.random,
 ): EnemyState[] {
   const safeIndex = normalizeEncounterIndex(Math.max(0, Math.min(SEWER_ENCOUNTERS.length - 1, Math.floor(encounterIndex))));
-  const encounter = SEWER_ENCOUNTERS[safeIndex];
+  const encounter = safeIndex === 14
+    ? (() => {
+      const pool = [...REGION_ONE_PAIR_CANDIDATES];
+      return Array.from({ length: 4 }, () => ({ ...pool.splice(Math.min(pool.length - 1, Math.floor(random() * pool.length)), 1)[0], isBoss: true }));
+    })()
+    : SEWER_ENCOUNTERS[safeIndex];
   if (!encounter) return [];
   const enemies: EnemyState[] = encounter.map((enemy, index) => {
     const minimumHp = enemy.name === "쥐"
@@ -574,6 +559,7 @@ export function getSewerEncounterLabel(encounterIndex: number) {
   const safeIndex = normalizeEncounterIndex(Math.max(0, Math.min(SEWER_ENCOUNTERS.length - 1, Math.floor(encounterIndex))));
   const encounter = SEWER_ENCOUNTERS[safeIndex];
   if (!encounter) return "삭제된 조우";
+  if (safeIndex === 14) return "적 무리 + ? + ? + ?";
   if (MIXED_ENCOUNTER_INDICES.has(safeIndex)) return `${encounter[0].name} + ?`;
   return encounter.length > 1 && encounter.every((enemy) => enemy.name === encounter[0].name)
     ? `${encounter[0].name} ${encounter.length}마리`

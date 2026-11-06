@@ -10,7 +10,6 @@ type BattleResultStatus = "won" | "lost";
 type BattleResultOverlayProps = {
   status: BattleResultStatus;
   turn: number;
-  rewardGold: number;
   rewardKeys: number;
   rewardCards: Card[];
   rewardDecks: DeckCase[];
@@ -25,7 +24,6 @@ type BattleResultOverlayProps = {
 export function BattleResultOverlay({
   status,
   turn,
-  rewardGold,
   rewardKeys,
   rewardCards,
   rewardDecks,
@@ -47,9 +45,7 @@ export function BattleResultOverlay({
         {won && (
           <div className="battle-reward-section">
             <div className="battle-reward-currencies">
-              <span className="currency-amount currency-gold">골드 +{rewardGold}</span>
               {rewardKeys > 0 && <>
-                <span className="reward-currency-separator" aria-hidden="true">·</span>
                 <span className="currency-amount currency-keys">열쇠 +{rewardKeys}</span>
               </>}
             </div>

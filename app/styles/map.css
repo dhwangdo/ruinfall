@@ -41,7 +41,7 @@
 .map-run-stats .map-health i { display: block; height: 100%; background: #b34a42; transition: width .2s ease; }
 .map-run-stats .map-health span { position: absolute; inset: 0; display: grid; place-items: center; color: white; font: 800 16px Arial, sans-serif; letter-spacing: 0; text-shadow: 0 1px 2px #000, 0 0 3px #000; }
 .map-run-stats .map-gold { display: block; min-width: 0; padding: 0; border: 0; border-radius: 0; color: var(--currency-gold); background: transparent; text-align: left; }
-.map-run-stats .map-gold-debug-trigger { cursor: pointer; }
+.map-run-stats .map-debug-trigger { cursor: pointer; }
 .game-shell .map-currency-count { font: var(--currency-font); letter-spacing: 0; font-variant-numeric: tabular-nums; white-space: nowrap; }
 .game-shell .map-key-count { color: var(--currency-keys); }
 .map-run-stats .map-currencies { display: flex; align-items: center; gap: 18px; }
@@ -445,7 +445,7 @@
   cursor: grab;
   touch-action: none;
   user-select: none;
-  background: #242727;
+  background: #111516;
 }
 
 .map-viewport:active { cursor: grabbing; }
@@ -726,7 +726,8 @@
   background: #775b98;
   box-shadow: inset 0 0 18px rgba(224,198,255,.26), 0 3px 5px rgba(0,0,0,.24);
 }
-.map-room.is-heal {
+.map-room.is-heal,
+.map-room.is-partialHeal {
   border-color: #356044;
   color: #effff3;
   background: #658a6e;
@@ -736,9 +737,9 @@
   color: #d7e2f2;
   background:
     linear-gradient(135deg, transparent 48%, rgba(168,194,236,.12) 49%, rgba(168,194,236,.12) 52%, transparent 53%),
-    var(--map-tile-color, #25324c);
+    var(--map-tile-color, #303b44);
   background-size: 22px 22px;
-  box-shadow: inset 0 0 18px rgba(5,10,22,.62);
+  box-shadow: var(--map-wall-edges, none);
 }
 .map-room.is-void {
   border-color: transparent;
@@ -761,6 +762,7 @@
 .map-room.is-out-of-vision {
   filter: grayscale(1) contrast(1.05) brightness(.76);
 }
+.map-room.is-rock.is-out-of-vision { filter: saturate(.8) brightness(.88); }
 
 .map-room.is-in-vision::after {
   display: none;

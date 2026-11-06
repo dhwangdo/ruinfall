@@ -45,13 +45,15 @@ export type SavedRunState = {
   roomConsumableDrops: Record<string, Consumable[]>;
   roomDeckDrops: Record<string, DeckCase[]>;
   roomDeckVaults?: Record<string, DeckCase>;
-  roomShops: Record<string, ShopOffer[]>;
+  /** Ignored legacy shop data. */
+  roomShops?: Record<string, ShopOffer[]>;
   blessingOffers?: BlessingOfferId[];
   blessingSeenOfferIds?: BlessingId[];
   blessings: BlessingId[];
   blessingRerollCost: number;
   oneUpUsed: boolean;
-  gold: number;
+  /** Ignored legacy save field. */
+  gold?: number;
   keys?: number;
   skipPortalKeyWarning?: boolean;
   nextCardId: number;

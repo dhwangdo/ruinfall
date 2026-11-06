@@ -219,17 +219,12 @@ test("third-region wyrm shows soil as its current intent", () => {
 });
 
 test("boss encounters have fixed health and the requested repeating patterns", () => {
-  const blackSlime = createSewerEncounterByIndex(14, () => 0)[0];
-  assert.equal(blackSlime.name, "검은 슬라임");
-  assert.equal(blackSlime.hp, 87);
-  assert.equal(blackSlime.isBoss, true);
-  assert.equal(blackSlime.toxicSlimeCount, 2);
-  assert.deepEqual(blackSlime.actions.map((action) => action.attacks), [
-    [{ type: "physical", value: 10 }],
-    [],
-  ]);
-  assert.equal(blackSlime.actions[1].blockGain, 10);
-  assert.equal(blackSlime.actions[1].strengthGain, 2);
+  for (const roll of [0, .3, .7, .999]) {
+    const group = createSewerEncounterByIndex(14, () => roll);
+    assert.equal(group.length, 4);
+    assert.equal(new Set(group.map(enemy => enemy.name)).size, 4);
+    assert.ok(group.every(enemy => enemy.isBoss && enemy.hp === enemy.maxHp));
+  }
 
   const clown = createSewerEncounterByIndex(15, () => 0)[0];
   assert.equal(clown.name, "광대");

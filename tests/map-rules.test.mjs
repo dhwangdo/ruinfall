@@ -82,8 +82,8 @@ test("inactive enemies skip pathfinding while boss collisions are preserved", ()
 
 test("ordinary location quotas replace chance rolls while paused definitions are retained", () => {
   assert.deepEqual(REGION_LOCATION_COUNTS, {
-    deckVault: { min: 40, max: 46 }, shop: { min: 3, max: 4 },
-    bloodShop: { min: 3, max: 4 }, portal: { min: 14, max: 18 },
+    deckVault: { min: 40, max: 46 }, shop: { min: 0, max: 0 },
+    bloodShop: { min: 0, max: 0 }, portal: { min: 14, max: 18 },
   });
   assert.ok(SPECIAL_NODE_DEFINITION_WEIGHTS.some(entry => entry.type === "extractionShrine"));
   assert.ok(SPECIAL_NODE_DEFINITION_WEIGHTS.some(entry => entry.type === "treasureChest"));
@@ -106,7 +106,7 @@ test("paused locations are absent in dungeon terrain and fixed safe-area facilit
         types.push(type);
       }
     }
-    assert.ok(types.includes("shop"));
+    assert.ok(!types.includes("shop") && !types.includes("bloodShop"));
     assert.ok(types.includes("boss"));
     assert.ok(types.includes("safePortal"));
     assert.ok(types.includes("heal"));
@@ -115,21 +115,15 @@ test("paused locations are absent in dungeon terrain and fixed safe-area facilit
   }
 });
 
-test("each safe area has two deterministic extraction tickets on the former shrine floors", () => {
-  const seed = 173, ids = new Set();
+test("safe areas do not generate extraction tickets on their former shrine floors", () => {
+  const seed = 173;
   for (let region = 0; region < 7; region++) {
     const x = safeAreaCenterX(region, seed), y = safeAreaCenterY(region, seed);
     const positions = [-1, 1].map(offset => ({ x: x - 4, y: y + offset }));
     for (const position of positions) assert.equal(getRoomType(position, seed), "empty");
     const drops = createMapFloorDropsForPositions(seed, positions);
     assert.deepEqual(drops, createMapFloorDropsForPositions(seed, positions));
-    const tickets = Object.values(drops.consumables).flat();
-    assert.equal(tickets.length, 2);
-    for (const ticket of tickets) {
-      assert.equal(ticket.type, "extractTicket");
-      assert.equal(ids.has(ticket.id), false);
-      ids.add(ticket.id);
-    }
+    assert.deepEqual(drops, { cards: {}, consumables: {} });
   }
 });
 

@@ -15,7 +15,7 @@ import { karmaStageForWins } from "../game/karmaRules.ts";
 import {
   beginTelemetryBattle, finishTelemetryBattle,
   recordTelemetryCardAcquired, recordTelemetryDeckAcquired, recordTelemetryConsumableAcquired,
-  recordTelemetryGoldAcquired, type createTelemetryRecorder
+  type createTelemetryRecorder
 } from "../game/telemetry.ts";
 import { telemetryCardSnapshot, telemetryDeckSnapshot, telemetryConsumableSnapshot, telemetryEnemySnapshot } from "../game/telemetrySnapshots.ts";
 
@@ -38,11 +38,11 @@ export function createBattleSessionActions({
   clearMapTravel, closeMapOverlays, clearCardPreview,
   drawCards, rememberPlayerVision, queueRunSave,
 }: Options) {
-  const { activeMapEnemyIds, setActiveMapEnemyIds, activeBattleRoom, setActiveBattleRoom, mapBattleQueueRef, previousBattleDeckIdRef, pendingBattleStart, setPendingBattleStart, battleDeckCheckEnabled, setBattleDeckPreviewId, battleRewards, setBattleRewards, battleRewardDecks, setBattleRewardDecks, battleRewardConsumables, setBattleRewardConsumables, battleRewardGold, setBattleRewardGold, battleRewardKeys, setBattleRewardKeys, game, setGame, telemetryPreviousGameRef, setPhase, setAttackingEnemyId, setDamagePopup, setAnimatedEnemyHp, battleRewardRegionRef, battleRewardIsBossRef, setDyingEnemyIds, setBattleCardView, setScreen, clearBattleTimers, later,
+  const { activeMapEnemyIds, setActiveMapEnemyIds, activeBattleRoom, setActiveBattleRoom, mapBattleQueueRef, previousBattleDeckIdRef, pendingBattleStart, setPendingBattleStart, battleDeckCheckEnabled, setBattleDeckPreviewId, battleRewards, setBattleRewards, battleRewardDecks, setBattleRewardDecks, battleRewardConsumables, setBattleRewardConsumables, battleRewardKeys, setBattleRewardKeys, game, setGame, telemetryPreviousGameRef, setPhase, setAttackingEnemyId, setDamagePopup, setAnimatedEnemyHp, battleRewardRegionRef, battleRewardIsBossRef, setDyingEnemyIds, setBattleCardView, setScreen, clearBattleTimers, later,
     pendingEnemyTokenIdsRef, pendingPileTokenSourcesRef, battleRewardIsOutOfDepthRef } = battle;
   const { ownedDecks, activeDeckId, setActiveDeckId, nextCardIdRef, nextConsumable,
     rareCardDropChanceRef, setKeys,
-    roomDrops, setRoomDrops, setRoomDeckDrops, setRoomConsumableDrops, setGold } = inventory;
+    roomDrops, setRoomDrops, setRoomDeckDrops, setRoomConsumableDrops } = inventory;
   const { mapPosition, mapSeed, mapEnemyWorld, setMapEnemyWorld, setDefeatedBossRegions } = world;
   const { blessings, godsLamentChargesRef, setGodsLamentCharges, runPlayerHp, runPlayerHpRef, setRunPlayerHp } = player;
   const { setPileClearNotice, setDragging, setSelectedHandCardId } = interaction;
@@ -75,8 +75,6 @@ export function createBattleSessionActions({
       rareCardDropChanceRef.current = nextRareCardDropChance(rareCardDropChanceRef.current, reward.cards);
     }
     if (activeBattleRoom) world.setBloodstainedRooms(current => new Set([...current, activeBattleRoom]));
-    const rewardGold = reward.gold * (blessings.includes("greed") ? 2 : 1);
-    setBattleRewardGold(rewardGold);
     setBattleRewardKeys(reward.keys);
     setBattleRewards(reward.cards);
     setBattleRewardDecks(reward.decks);
@@ -114,7 +112,7 @@ export function createBattleSessionActions({
     setBattleRewards([]);
     setBattleRewardDecks([]);
     setBattleRewardConsumables([]);
-    setBattleRewardGold(0);
+
     setBattleRewardKeys(0);
     pendingEnemyTokenIdsRef.current.clear();
     pendingPileTokenSourcesRef.current.clear();
@@ -187,7 +185,7 @@ export function createBattleSessionActions({
         [battleRoom]: landingDrops,
       }));
       ensureTelemetryRun();
-      recordTelemetryGoldAcquired(telemetry, battleRewardGold, "battle-reward");
+
       battleRewardDecks.forEach((deck) => recordTelemetryDeckAcquired(
         telemetry,
         telemetryDeckSnapshot(deck),
@@ -198,7 +196,7 @@ export function createBattleSessionActions({
         telemetryConsumableSnapshot(consumable),
         "battle-reward",
       ));
-      setGold((current) => current + battleRewardGold);
+
       setKeys((current) => current + battleRewardKeys);
       if (battleRewardDecks.length > 0) setRoomDeckDrops((current) => ({
         ...current,
@@ -218,7 +216,7 @@ export function createBattleSessionActions({
       setBattleRewards([]);
       setBattleRewardDecks([]);
       setBattleRewardConsumables([]);
-      setBattleRewardGold(0);
+
       setBattleRewardKeys(0);
       battleRewardIsBossRef.current = nextEnemy.isBoss === true;
       battleRewardIsOutOfDepthRef.current = nextEnemy.isBoss !== true
@@ -247,7 +245,7 @@ export function createBattleSessionActions({
     setBattleRewards([]);
     setBattleRewardDecks([]);
     setBattleRewardConsumables([]);
-    setBattleRewardGold(0);
+
     setBattleRewardKeys(0);
     setActiveMapEnemyIds([]);
     setActiveBattleRoom(null);

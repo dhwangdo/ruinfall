@@ -32,6 +32,8 @@ export function createDeckVaultActions({ inventory, world, player, dialogs, queu
     inventory.setRoomDeckDrops((current) => ({
       ...current, [key]: [...(current[key] ?? []), deck],
     }));
+    const ticket = inventory.nextConsumable("extractTicket");
+    inventory.setRoomConsumableDrops(current => ({ ...current, [key]: [...(current[key] ?? []), ticket] }));
     ensureTelemetryRun();
     recordTelemetryDeckAcquired(telemetry, telemetryDeckSnapshot(deck), "deck-vault");
     dialogs.setDeckVaultRoom(null);

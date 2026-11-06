@@ -2,7 +2,7 @@ import type { BlessingId } from "./blessingRules";
 import { ALL_CARD_BLUEPRINTS, RARE_CARD_POOL, SPECIAL_CARD_POOL, type Card } from "./cards.ts";
 import { countRareSlotCards } from "./deckEditorRules.ts";
 import type { Consumable, DeckCase } from "./rewards.ts";
-import { STARTER_DECK_CAPACITY, STARTER_DECK_RARE_SLOT_CAPACITY, isDeckEdition, getDeckEditionColor } from "./rewards.ts";
+import { createConsumable, STARTER_DECK_CAPACITY, STARTER_DECK_RARE_SLOT_CAPACITY, isDeckEdition, getDeckEditionColor } from "./rewards.ts";
 import type { SavedRunState } from "./runTypes";
 import { isEncounterAvailable, normalizeEncounterIndex } from "./enemies.ts";
 import { normalizeBattleWins } from "./karmaRules.ts";
@@ -81,7 +81,8 @@ function isDeletedConsumable(consumable: Consumable) {
 }
 
 function removeDeletedTickets(consumables: readonly Consumable[] = []) {
-  return consumables.filter((consumable) => !isDeletedConsumable(consumable));
+  return consumables.filter((consumable) => !isDeletedConsumable(consumable)).map(item =>
+    item.type === "extractTicket" ? { ...item, ...createConsumable(item.type, item.id) } : item);
 }
 
 type SetBackedRunStateFields =
@@ -199,14 +200,8 @@ export function prepareRunRestore(
     roomConsumableDrops: Object.fromEntries(Object.entries(state.roomConsumableDrops ?? {}).map(([key, consumables]) => [
       key, removeDeletedTickets(consumables),
     ])),
-    roomShops: Object.fromEntries(Object.entries(state.roomShops ?? {}).map(([key, offers]) => [
-      key, offers.flatMap((offer) => {
-        if (offer.consumable && isDeletedConsumable(offer.consumable)) return [];
-        if (!offer.card) return [offer];
-        const card = restoreLegacyCard(offer.card);
-        return card ? [{ ...offer, card }] : [];
-      }),
-    ])),
+    roomShops: {},
+    gold: undefined,
     collapsedExtractionShrineRooms: state.collapsedExtractionShrineRooms ?? state.collapsedShrineRooms ?? [],
     collapsedRecoveryShrineRooms: state.collapsedRecoveryShrineRooms ?? legacyCollapsedHealthShrineRooms,
     collapsedVitalityShrineRooms: state.collapsedVitalityShrineRooms ?? legacyCollapsedHealthShrineRooms,
@@ -222,9 +217,9 @@ export function prepareRunRestore(
     regionBattleWins: normalizeBattleWins(state.regionBattleWins),
     bloodstainedRooms: state.bloodstainedRooms ?? [],
     darkTicketTurnsRemaining: 0,
-    blessingOffers: state.blessingOffers ?? [],
+    blessingOffers: (state.blessingOffers ?? []).filter(id => !["greed", "goldRush"].includes(id)),
     blessingSeenOfferIds: state.blessingSeenOfferIds ?? [],
-    blessings: state.blessings.filter((id) => (id as string) !== "luck"),
+    blessings: state.blessings.filter((id) => !["luck", "greed", "goldRush"].includes(id as string)),
     blessingRerollCost: 5 + 2 * Math.ceil((savedBlessingRerollCost - 5) / 2),
     oneUpUsed: state.oneUpUsed ?? false,
   };

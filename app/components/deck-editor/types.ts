@@ -64,10 +64,10 @@ export type DeckEditorDeckArea = {
   activeDeckId?: string;
   deckEditorDeckId: string;
   setDeckEditorDeckId: Dispatch<SetStateAction<string>>;
-  onSelectActiveDeck: (deckId: string) => void;
   pickUpFloorDeck: (deckId: string) => void;
   swapOwnedDecks: (sourceId: string, targetId: string) => void;
   dropOwnedDeck: (deckId: string) => void;
+  canEditFreely: boolean;
   canMoveDeckCardToInventory: boolean;
   rareSlotCountForDeck: (deck: DeckCase) => number;
 };

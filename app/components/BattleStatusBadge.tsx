@@ -1,15 +1,19 @@
 "use client";
 
-import { useEffect, useId, useLayoutEffect, useRef, useState, type ReactNode } from "react";
+import { useEffect, useId, useLayoutEffect, useRef, useState, type MouseEvent as ReactMouseEvent, type ReactNode } from "react";
 import { createPortal } from "react-dom";
 import { RarityText } from "./RarityText";
 
 type Anchor = { left: number; top: number; bottom: number; width: number };
 
-export function BattleStatusBadge({ children, description, kind = "buff" }: {
+export function BattleStatusBadge({ children, description, kind = "buff", tooltipTitle, className, ariaLabel, onClick }: {
   children: ReactNode;
   description: string;
   kind?: "buff" | "debuff";
+  tooltipTitle?: ReactNode;
+  className?: string;
+  ariaLabel?: string;
+  onClick?: (event: ReactMouseEvent<HTMLSpanElement>) => void;
 }) {
   const [anchor, setAnchor] = useState<Anchor | null>(null);
   const tooltipRef = useRef<HTMLElement>(null);
@@ -46,17 +50,19 @@ export function BattleStatusBadge({ children, description, kind = "buff" }: {
 
   return <>
     <span
-      className={`battle-status-badge is-${kind}`}
+      className={`battle-status-badge is-${kind} ${className ?? ""}`}
       aria-describedby={anchor ? tooltipId : undefined}
+      aria-label={ariaLabel}
       onMouseEnter={event => setAnchor(event.currentTarget.getBoundingClientRect())}
       onMouseLeave={() => setAnchor(null)}
       onFocus={event => setAnchor(event.currentTarget.getBoundingClientRect())}
       onBlur={() => setAnchor(null)}
+      onClick={onClick}
     >{children}</span>
     {anchor && createPortal(
       <aside ref={tooltipRef} id={tooltipId} role="tooltip" className="battle-status-tooltip"
         style={{ left: 0, top: 0, visibility: "hidden" }}>
-        <strong>{children}</strong>
+        <strong>{tooltipTitle ?? children}</strong>
         <div><RarityText>{description}</RarityText></div>
       </aside>, document.body,
     )}

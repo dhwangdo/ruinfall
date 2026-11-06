@@ -135,7 +135,7 @@ test("current card data keeps key balance values and removed systems absent", ()
   const oldCore = SPECIAL_CARD_POOL.find((card) => card.name === "낡은 노심");
   assert.equal(oldCore?.cost, 1);
   assert.equal(oldCore?.exhaust, undefined);
-  assert.equal(RARE_CARD_POOL.find((card) => card.name === "유성우")?.value, 7);
+  assert.equal(RARE_CARD_POOL.find((card) => card.name === "유성우")?.value, 9);
   assert.deepEqual(
     SPECIAL_CARD_POOL.filter((card) => ["빛무리", "대형 프리즘", "성운"].includes(card.name)).map(({ name, cost, value }) => ({ name, cost, value })),
     [

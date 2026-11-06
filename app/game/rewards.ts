@@ -19,7 +19,6 @@ import {
 } from "./cards.ts";
 import { createDeckName } from "./randomNames.ts";
 import { TICKET_TIERS, TICKET_TYPES, type TicketType } from "./shopRules.ts";
-import { rollBattleRewardGold } from "./rewardRules.ts";
 
 export type DeckEdition =
   | "clever"
@@ -64,7 +63,6 @@ export type ConsumableType =
   | "cloneTicket"
   | "expandTicket"
   | "extractTicket"
-  | "extractPlusTicket"
   | "transformTicket"
   | "mapTicket"
   | "cardPack";
@@ -402,10 +400,7 @@ export function createConsumable(type: ConsumableType, id: string): Consumable {
     return { id, type, name: "확장 티켓", description: "덱에 드래그해 희귀 슬롯을 1 늘립니다." };
   }
   if (type === "extractTicket") {
-    return { id, type, name: "추출 티켓", description: "덱에서 희귀도 특별 이하 카드 1장을 추출합니다." };
-  }
-  if (type === "extractPlusTicket") {
-    return { id, type, name: "추출 티켓+", description: "덱에서 희귀도를 가리지 않고 카드 1장을 추출합니다." };
+    return { id, type, name: "추출 티켓", description: "덱에서 희귀도를 가리지 않고 카드 1장을 추출합니다." };
   }
   if (type === "transformTicket") {
     return { id, type, name: "변환 티켓", description: "카드는 같은 희귀도의 다른 카드로, 티켓은 티어와 관계없이 다른 무작위 티켓으로 바꿉니다." };
@@ -431,7 +426,6 @@ export function createBattleReward(
   rareCardChance = 0.05,
   forceDeck = false,
 ) {
-  const gold = rollBattleRewardGold(regionNumber);
   const decks = forceDeck
     ? [createRegionDeck(regionNumber, nextCardId, capacityBonus)]
     : [];
@@ -439,7 +433,6 @@ export function createBattleReward(
     ? consumableTypeFromRoll(Math.random())
     : null;
   return {
-    gold,
     keys: 1,
     cards: decks.length > 0 ? [] : [createBattleRewardCard(nextCardId, rareCardChance)],
     decks,
@@ -457,7 +450,6 @@ export function createBossBattleReward(
     ? []
     : [createRegionDeck(bonusDeckRegion, nextCardId + 1, capacityBonus)];
   return {
-    gold: 80 + Math.floor(Math.random() * 21),
     keys: 0,
     cards: [createBattleRewardCard(nextCardId, 1)],
     decks,

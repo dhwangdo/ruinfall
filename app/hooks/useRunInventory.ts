@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useMemo, useRef, useState, type Dispatch, type SetStateAction } from "react";
 import type { Card } from "../game/cards";
 import { createConsumable, createStarterDeck, createRegionDeck, getDeckEditionColor, isDeckEdition, STARTING_DECK_SIZE, type Consumable,
-  type ConsumableType, type DeckCase, type ShopOffer } from "../game/rewards";
+  type ConsumableType, type DeckCase } from "../game/rewards";
 
 import type { PreparedRunRestore } from "../game/runSaveState";
 
@@ -43,8 +43,6 @@ export function useRunInventory() {
     (roomDropsRef.current[key]?.length ?? 0) + (roomConsumableDropsRef.current[key]?.length ?? 0)
       + (roomDeckDropsRef.current[key]?.length ?? 0) > 0,
   [roomDropsRef, roomConsumableDropsRef, roomDeckDropsRef]);
-  const [roomShops, setRoomShops] = useState<Record<string, ShopOffer[]>>({});
-  const [gold, setGold] = useState(0);
 
   const [keys, setRenderedKeys] = useState(0);
   const keysRef = useRef(0);
@@ -99,10 +97,10 @@ export function useRunInventory() {
 
   const saveState = useMemo(() => ({
     ownedDecks, activeDeckId, inventoryCards, inventoryConsumables, roomDrops, roomConsumableDrops,
-    roomDeckDrops, roomShops, gold, keys, skipPortalKeyWarning, roomDeckVaults,
+    roomDeckDrops, keys, skipPortalKeyWarning, roomDeckVaults,
   }), [
     ownedDecks, activeDeckId, inventoryCards, inventoryConsumables, roomDrops, roomConsumableDrops,
-    roomDeckDrops, roomShops, gold, keys, skipPortalKeyWarning, roomDeckVaults,
+    roomDeckDrops, keys, skipPortalKeyWarning, roomDeckVaults,
   ]);
   const restoreInventory = useCallback((state: PreparedRunRestore) => {
     setOwnedDecks(state.ownedDecks.map(removeDeletedDeckEditions));
@@ -115,8 +113,6 @@ export function useRunInventory() {
     setRoomDeckDrops(Object.fromEntries(Object.entries(state.roomDeckDrops).map(([key, decks]) => [
       key, decks.map(removeDeletedDeckEditions),
     ])));
-    setRoomShops(state.roomShops);
-    setGold(state.gold);
     setKeys(state.keys);
     setSkipPortalKeyWarning(state.skipPortalKeyWarning);
     roomDeckVaultsRef.current = state.roomDeckVaults;
@@ -126,7 +122,7 @@ export function useRunInventory() {
   return { saveState, restoreInventory, ownedDecks, setOwnedDecks, activeDeckId, setActiveDeckId,
     inventoryCards, setInventoryCards, inventoryConsumables, setInventoryConsumables, inventoryConsumablesRef,
     roomDrops, setRoomDrops, roomConsumableDrops, setRoomConsumableDrops, hasFloorItems,
-    roomDeckDrops, setRoomDeckDrops, roomShops, setRoomShops, gold, setGold,
+    roomDeckDrops, setRoomDeckDrops, 
     keys, keysRef, setKeys, skipPortalKeyWarning, setSkipPortalKeyWarning, roomDeckVaults, roomDeckVaultsRef, ensureDeckVault, resetDeckVaults,
     rareCardDropChanceRef,
     nextCardIdRef, nextConsumableIdRef, nextConsumable, updateDeckCards };

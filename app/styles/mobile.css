@@ -393,6 +393,8 @@ html[data-device-mode="mobile"] { --mobile-visual-viewport-height: 100dvh; }
     color: #f5f5f0;
     background: #1b2920;
   }
+  html[data-device-mode="mobile"] .deck-editor-deck-heading.is-edit-locked { padding-right: 32px; }
+  html[data-device-mode="mobile"] .deck-editor-deck-heading > .deck-editor-lock-indicator { color: #c5c3ba; }
   html[data-device-mode="mobile"] .deck-editor-deck-heading > span { flex: 0 0 auto; }
   html[data-device-mode="mobile"] .deck-editor-deck-heading > strong {
     flex: 1 1 auto;

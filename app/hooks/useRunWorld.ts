@@ -78,7 +78,7 @@ export function useRunWorld() {
     if (baseType === "transformShrine" && collapsedTransformShrineRooms.has(roomKey)) return "empty";
     if (baseType === "treasureChest" && collapsedTreasureChestRooms.has(roomKey)) return "empty";
     if (baseType === "deckVault" && openedDeckVaultRooms.has(roomKey)) return "empty";
-    if (baseType === "heal" && usedHealRooms.has(roomKey)) return "empty";
+    if ((baseType === "heal" || baseType === "partialHeal") && usedHealRooms.has(roomKey)) return "empty";
     if (baseType === "blessing" && usedBlessingRooms.has(roomKey)) return "empty";
     if (baseType === "rock" && (rockBombHits[roomKey] ?? 0) >= 3) return "empty";
     return baseType;

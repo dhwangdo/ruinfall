@@ -1,7 +1,7 @@
 import { transformedCard } from "../game/cardTransforms.ts";
 import type { Card } from "../game/cards.ts";
 import { CONSUMABLE_TYPES, type Consumable, type ConsumableType, type DeckCase } from "../game/rewards.ts";
-import { countRareSlotCards, usesRareCardSlot } from "../game/deckEditorRules.ts";
+import { countRareSlotCards } from "../game/deckEditorRules.ts";
 import {
   consumeTicketById as consumeTicketFromAreas,
   findTicketById as findTicketInAreas,
@@ -110,7 +110,7 @@ export function createTicketActions({
   };
 
   const extractionTicketFreesInventorySlot = (ticket: Consumable | null) => Boolean(
-    (ticket?.type === "extractTicket" || ticket?.type === "extractPlusTicket")
+    (ticket?.type === "extractTicket")
     && inventoryConsumablesRef.current.some((item) => item.id === ticket.id)
     && !blessings.includes("lightTicket")
     && !blessings.includes("oneMore"),
@@ -122,11 +122,10 @@ export function createTicketActions({
     area: TicketDropArea,
     deck?: DeckCase,
   ) => {
-    if (!ticket || !["paintTicket", "cloneTicket", "extractTicket", "extractPlusTicket", "transformTicket"].includes(ticket.type)) return false;
+    if (!ticket || !["paintTicket", "cloneTicket", "extractTicket", "transformTicket"].includes(ticket.type)) return false;
     if (ticket.type === "paintTicket") return area === "deck";
-    if (ticket.type === "extractTicket" || ticket.type === "extractPlusTicket") return area === "deck" && Boolean(
+    if (ticket.type === "extractTicket") return area === "deck" && Boolean(
       deck
-      && (ticket.type === "extractPlusTicket" || !usesRareCardSlot(card))
       && originalDeckIdForCard(card.id) !== null
       && effectiveOriginDeckIdForCard(card.id) !== null
       && deck.cards.some((item) => item.id === card.id),
@@ -148,7 +147,7 @@ export function createTicketActions({
       paintDeckCard(targetCardId, ticket.id, deck.id);
     } else if (ticket.type === "cloneTicket") {
       cloneCardWithTicket(targetCard, ticket.id);
-    } else if ((ticket.type === "extractTicket" || ticket.type === "extractPlusTicket") && area === "deck" && deck) {
+    } else if ((ticket.type === "extractTicket") && area === "deck" && deck) {
       extractDeckCardWithTicket(targetCardId, deck.id, ticket.id);
     } else if (ticket.type === "transformTicket") {
       transformCardWithTicket(targetCard, area, deck?.id, ticket.id);
@@ -356,7 +355,7 @@ export function createTicketActions({
       );
       return;
     }
-    if (consumable.type === "extractTicket" || consumable.type === "extractPlusTicket") {
+    if (consumable.type === "extractTicket") {
       const cancelling = pendingExtractTicketId === consumable.id;
       setPendingExtractTicketId(cancelling ? null : consumable.id);
       setPendingPaintTicketId(null);
@@ -452,7 +451,7 @@ export function createTicketActions({
     const card = deck?.cards.find((item) => item.id === cardId);
     if (!deck || !card) return;
     const ticket = findTicketById(ticketId);
-    if (!ticket || (ticket.type !== "extractTicket" && ticket.type !== "extractPlusTicket")) return;
+    if (!ticket || (ticket.type !== "extractTicket")) return;
     const ticketFreesInventorySlot = extractionTicketFreesInventorySlot(ticket);
     const targetArea = deckEditorInventoryItemCount - (ticketFreesInventorySlot ? 1 : 0) < inventoryCapacity
       ? "inventory"
@@ -462,7 +461,7 @@ export function createTicketActions({
       source: { area: "deck", deckId },
       target: { area: targetArea },
       viaExtractionTicket: true,
-      allowsRareExtraction: ticket.type === "extractPlusTicket",
+      allowsRareExtraction: true,
       inventorySlotsFreed: ticketFreesInventorySlot ? 1 : 0,
       beforeCommit: () => consumeTicketById(ticket.id, ticket.type),
     });

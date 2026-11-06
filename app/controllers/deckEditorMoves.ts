@@ -4,7 +4,7 @@ import type { RunPlayer } from "../hooks/useRunPlayer";
 import type { RunDeckEditor } from "../hooks/useRunDeckEditor";
 import type { Card } from "../game/cards.ts";
 import type { DeckCase } from "../game/rewards.ts";
-import { isSafeAreaPosition, isSafeAreaEditAllowed, mapRoomKey } from "../game/mapRules.ts";
+import { isSafeAreaPosition, mapRoomKey } from "../game/mapRules.ts";
 import { countRareSlotCards, usesRareCardSlot, validateDeckEditorCardMove,
   type DeckEditorCardLocation, type DeckEditorMoveBlockReason } from "../game/deckEditorRules.ts";
 import { transitionDeckEditorCardCollections } from "../game/deckEditorTransitions.ts";
@@ -26,13 +26,13 @@ export function createDeckEditorMoves({
   onFloorCardAcquired, clearCardPreview,
 }: Options) {
   const { ownedDecks, inventoryCards, roomDrops, setOwnedDecks, setInventoryCards, setRoomDrops } = inventory;
-  const { mapPosition, mapSeed, defeatedBossRegions } = world;
+  const { mapPosition, mapSeed } = world;
   const { blessings } = player;
   const { pendingRemovedCards, pendingRemovedCardAreas, deckEditorHighRarityInsertionOriginsRef,
     originalDeckIdForCard, effectiveOriginDeckIdForCard, setDeckEditorMessage, setDeckEditorDeckId,
     setPendingRemovedCards, setPendingRemovedCardAreas } = editor;
   const deckEditorMoveErrorMessage = (reason: DeckEditorMoveBlockReason, targetDeck?: DeckCase) => {
-    if (reason === "rare-locked") return "희귀·전설 카드는 덱끼리 직접 옮기거나 일반 이동으로 꺼낼 수 없습니다. 덱에 넣을 때는 인벤토리·바닥에서 옮기고, 추출할 때는 추출 티켓+를 사용하세요.";
+    if (reason === "rare-locked") return "희귀·전설 카드는 덱끼리 직접 옮기거나 일반 이동으로 꺼낼 수 없습니다. 덱에 넣을 때는 인벤토리·바닥에서 옮기고, 추출할 때는 추출 티켓을 사용하세요.";
     if (reason === "inventory-full") return "인벤토리가 가득 찼습니다.";
     if (reason === "deck-full") return `${targetDeck?.name ?? "현재 덱"}에는 더 이상 카드를 넣을 수 없습니다.`;
     if (reason === "rare-slots-full") return `${targetDeck?.name ?? "현재 덱"}의 희귀·전설 슬롯이 가득 찼습니다.`;
@@ -74,6 +74,7 @@ export function createDeckEditorMoves({
     let target = requestedTarget;
     const temporaryRareReturnArea = deckEditorHighRarityInsertionOriginsRef.current[cardId];
     if (!viaExtractionTicket && usesRareCardSlot(card) && source.area === "deck"
+      && !isSafeAreaPosition(mapPosition, mapSeed) && !blessings.includes("forbiddenKnowledge")
       && target.area === "floor" && temporaryRareReturnArea) {
       target = temporaryRareReturnArea === "inventory" && deckEditorInventoryItemCount >= inventoryCapacity
         ? { area: "floor" }
@@ -92,7 +93,7 @@ export function createDeckEditorMoves({
       : 0;
     const positionIsSafeArea = isSafeAreaPosition(mapPosition, mapSeed);
     const safeArea = positionIsSafeArea
-      ? isSafeAreaEditAllowed(mapPosition, mapSeed, defeatedBossRegions)
+      ? true
       : blessings.includes("forbiddenKnowledge");
     const validation = validateDeckEditorCardMove({
       source,

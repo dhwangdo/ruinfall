@@ -7,7 +7,7 @@ import { RarityText } from "./components/RarityText";
 import { blockedPileIndexes } from "./game/enemyPassives.ts";
 
 import { useLocationDialogs } from "./hooks/useLocationDialogs";
-import { createShopActions } from "./controllers/shopActions";
+import { createCardPackActions } from "./controllers/cardPackActions";
 import { createBlessingActions } from "./controllers/blessingActions";
 import { createLocationActions } from "./controllers/locationActions";
 import { createDeckVaultActions } from "./controllers/deckVaultActions";
@@ -69,7 +69,6 @@ import { CardConversionShrineModal } from "./components/CardConversionShrineModa
 import { ExtractionShrineModal } from "./components/ExtractionShrineModal";
 import { DeckEditorModal } from "./components/DeckEditorModal";
 import { TreasureChestRewardModal } from "./components/TreasureChestRewardModal";
-import { ShopModal } from "./components/ShopModal";
 import { BlessingModal } from "./components/BlessingModal";
 import { CardPoolStatsPanel } from "./components/CardPoolStatsPanel";
 import { MapBoard } from "./components/MapBoard";
@@ -142,7 +141,6 @@ import {
   getRoomType,
   getSafeAreaRegionIndex,
   isSafeAreaBoundaryPosition,
-  isSafeAreaEditAllowed,
   isSafeAreaPosition,
   isWalkableRoom,
   mapRoomKey,
@@ -243,7 +241,7 @@ export default function Home() {
   const {
     mapSeed, setMapSeed, mapPosition, setMapPosition, seenRooms, setSeenRooms,
     setSafeAreaEntrySeenRooms, mapEnemyWorld, setMapEnemyWorld,
-    defeatedBossRegions, setDefeatedBossRegions, mapEnemyCellMemory, setMapEnemyCellMemory,
+    setDefeatedBossRegions, mapEnemyCellMemory, setMapEnemyCellMemory,
     mapBombs, mapBombsRef, setDestroyedShopRooms, setCollapsedExtractionShrineRooms,
     setCollapsedRecoveryShrineRooms, setCollapsedVitalityShrineRooms,
     setCollapsedMindEyeShrineRooms, setCollapsedTransformShrineRooms,
@@ -268,7 +266,7 @@ export default function Home() {
   const { ownedDecks, setOwnedDecks, activeDeckId, setActiveDeckId,
     inventoryCards, setInventoryCards, inventoryConsumables, setInventoryConsumables, inventoryConsumablesRef,
     roomDrops, setRoomDrops, roomConsumableDrops, setRoomConsumableDrops,
-    roomDeckDrops, setRoomDeckDrops, roomShops, setRoomShops, gold, setGold,
+    roomDeckDrops, setRoomDeckDrops, 
     nextCardIdRef, nextConsumableIdRef, nextConsumable,
     keys, setKeys, roomDeckVaults, resetDeckVaults, rareCardDropChanceRef } = inventory;
   const dialogs = useLocationDialogs();
@@ -281,12 +279,8 @@ export default function Home() {
     setExtractionShrineOpen,
     transformShrineOpen,
     setTransformShrineOpen,
-    shopOpen,
-    setShopOpen,
     blessingOpen,
     setBlessingOpen,
-    activeShopRoom,
-    setActiveShopRoom,
     openedCardPack,
     setOpenedCardPack,
     } = dialogs;
@@ -295,8 +289,8 @@ export default function Home() {
     screen, setScreen, setActiveMapEnemyIds, setActiveBattleRoom, mapBattleQueueRef, previousBattleDeckIdRef, pendingBattleStart,
     setPendingBattleStart, setBattleDeckCheckEnabled, battleDeckPreviewId,
     setBattleDeckPreviewId, battleRewards, setBattleRewards, battleRewardDecks,
-    setBattleRewardDecks, battleRewardConsumables, setBattleRewardConsumables, battleRewardGold,
-    setBattleRewardGold, battleRewardKeys, setBattleRewardKeys, game, setGame, telemetryPreviousGameRef, phase, setPhase,
+    setBattleRewardDecks, battleRewardConsumables, setBattleRewardConsumables, 
+    battleRewardKeys, setBattleRewardKeys, game, setGame, telemetryPreviousGameRef, phase, setPhase,
     attackingEnemyId, setAttackingEnemyId, damagePopup, setDamagePopup, enemyPopups,
     animatedEnemyHp, setAnimatedEnemyHp, battleRewardRegionRef,
     battleRewardIsBossRef, dyingEnemyIds, setDyingEnemyIds,
@@ -401,7 +395,7 @@ export default function Home() {
     });
   }, [game.piles, game.deckEditions, game.whiteSpaceStrengthBonus, setGame]);
   const [telemetry] = useState(() => createTelemetryRecorder());
-  const debugGoldClicksRef = useRef<number[]>([]);
+  const debugClicksRef = useRef<number[]>([]);
   const debugPreviousActiveDeckIdRef = useRef<string | null>(null);
   const deckSelectorCloseTimerRef = useRef<number | null>(null);
   const [deckPreviewSuppressed, setDeckPreviewSuppressed] = useState(false);
@@ -625,17 +619,17 @@ export default function Home() {
     setActiveDeckId(restoredDeck?.id ?? "");
     setCardPoolStatsOpen(false);
     debugPreviousActiveDeckIdRef.current = null;
-    debugGoldClicksRef.current = [];
+    debugClicksRef.current = [];
     setDebugMode(false);
     resetMapZoom();
     setMapMessage("디버그 모드를 종료했습니다.");
   };
-  const handleGoldDebugClick = () => {
+  const handleDebugClick = () => {
     const now = window.performance.now();
-    const recentClicks = [...debugGoldClicksRef.current, now].filter((time) => now - time <= 1200);
-    debugGoldClicksRef.current = recentClicks;
+    const recentClicks = [...debugClicksRef.current, now].filter((time) => now - time <= 1200);
+    debugClicksRef.current = recentClicks;
     if (recentClicks.length < 5) return;
-    debugGoldClicksRef.current = [];
+    debugClicksRef.current = [];
     if (debugMode) exitDebugMode();
     else enterDebugMode();
   };
@@ -749,7 +743,7 @@ export default function Home() {
   });
   useBattleRewardFallback(battle, grantBattleReward);
 
-  const { openShop, buyShopOffer, openCardPack } = createShopActions({
+  const { openCardPack } = createCardPackActions({
     inventory, world, player, editor, dialogs, telemetry, ensureTelemetryRun, inventoryCapacity, inventoryItemCount, queueRunSave,
   });
   const { grantConsumables, openBlessings, chooseBlessing, rerollBlessings } = createBlessingActions({
@@ -1269,8 +1263,6 @@ export default function Home() {
     nextConsumableIdRef.current = 1;
     setInventoryConsumables([]);
     setRoomDeckDrops({});
-    setRoomShops({});
-    setShopOpen(false);
     setBlessingOpen(false);
     setBlessingOffers([]);
     setBlessingSeenOfferIds(new Set());
@@ -1278,12 +1270,10 @@ export default function Home() {
     setBlessingRerollCost(5);
     setOneUpUsed(false);
     oneUpUsedRef.current = false;
-    setActiveShopRoom(null);
-    setGold(0);
     setBattleRewards([]);
     setBattleRewardDecks([]);
     setBattleRewardConsumables([]);
-    setBattleRewardGold(0);
+
     setBattleRewardKeys(0);
     rareCardDropChanceRef.current = 0.05;
     finishDeckEditorSession();
@@ -1315,7 +1305,6 @@ export default function Home() {
     screen,
     playerNameSetupOpen,
     pendingBattleStart,
-    shopOpen,
     deckVaultRoom,
     portalKeyWarningRoom,
     blessingOpen,
@@ -1524,7 +1513,7 @@ export default function Home() {
       input?.focus(); input?.select();
       return;
     }
-    if (settingsOpen || deckEditorOpen || shopOpen || blessingOpen || extractionShrineOpen
+    if (settingsOpen || deckEditorOpen || blessingOpen || extractionShrineOpen
       || transformShrineOpen || treasureChestReward !== null || deckVaultRoom !== null
       || portalKeyWarningRoom !== null || openedCardPack !== null || pendingBattleStart !== null
       || mapBattleFlash || mapCollisionEnemyIds.length > 0) return;
@@ -1534,8 +1523,6 @@ export default function Home() {
   });
 
   const currentRoomActions: Record<string, (() => void) | undefined> = {
-    bloodShop: () => openShop(mapRoomKey(mapPosition), getRegionNumber(mapPosition, mapSeed), "hp"),
-    shop: () => openShop(mapRoomKey(mapPosition), getRegionNumber(mapPosition, mapSeed)),
     extractionShrine: openExtractionShrine,
     recoveryShrine: useCurrentRecoveryShrine,
     vitalityShrine: useCurrentVitalityShrine,
@@ -1547,6 +1534,7 @@ export default function Home() {
     portal: useCurrentPortal,
     safePortal: useCurrentPortal,
     heal: useCurrentHeal,
+    partialHeal: useCurrentHeal,
   };
 
   useMapKeyboardShortcuts({
@@ -1563,12 +1551,11 @@ export default function Home() {
       { open: extractionShrineOpen, close: () => setExtractionShrineOpen(false) },
       { open: transformShrineOpen, close: () => setTransformShrineOpen(false) },
       { open: blessingOpen, close: () => setBlessingOpen(false) },
-      { open: shopOpen, close: () => setShopOpen(false) },
       { open: openedCardPack !== null, close: () => setOpenedCardPack(null) },
     ],
     screen,
     mapTraveling,
-    handleGoldDebugClick,
+    handleDebugClick,
     openDeckEditor,
     quickPickUpFloorItems,
     waitOnMap,
@@ -1576,7 +1563,7 @@ export default function Home() {
     cancelAutoExplore,
     interactionLocked: mapSearchOpen || settingsOpen || mapLoading || portalKeyWarningRoom !== null || deckVaultRoom !== null
       || cardPoolStatsOpen || treasureChestReward !== null || extractionShrineOpen
-      || transformShrineOpen || blessingOpen || shopOpen || openedCardPack !== null,
+      || transformShrineOpen || blessingOpen || openedCardPack !== null,
     roomType: effectiveRoomType(mapPosition),
     roomActions: currentRoomActions,
     changeMapZoom,
@@ -1844,6 +1831,16 @@ export default function Home() {
     }
   };
 
+  useEffect(() => {
+    if (screen !== "battle" || phase !== "playing" || game.pendingDiscards <= 0 || game.pendingResearchDraw !== null) return;
+    const available = game.hand.filter(card => card.id !== pendingDiscardPlay?.card.id);
+    if (available.length === 0 && !pendingDiscardPlay) {
+      setGame(current => ({ ...current, pendingDiscards: 0 }));
+    } else if (available.length > 0 && available.length <= game.pendingDiscards) {
+      discardSelectedCard(available[0].id);
+    }
+  });
+
   const takeSelectedPile = (pileIndex: number) => {
     if (!game.pendingSweep || game.pendingResearchDraw !== null || phase !== "playing" || game.status !== "playing") return;
     setGame(current => resolvePendingPileOperation(current, pileIndex));
@@ -1892,7 +1889,7 @@ export default function Home() {
     return true;
   };
 
-  const { beginDrag, moveDrag, finishDrag, cancelDrag, dragPreviewRef } = useBattlePointerInput({
+  const { beginDrag, beginKeyboardDrag, selectKeyboardDragCard, moveDrag, finishDrag, cancelDrag, dragPreviewRef } = useBattlePointerInput({
     interaction: battleInteraction,
     game,
     phase,
@@ -1990,7 +1987,7 @@ export default function Home() {
     const currentRoomType = effectiveRoomType(mapPosition);
     const inSafeArea = isSafeAreaPosition(mapPosition, mapSeed);
     const usesSafeAreaDeckRules = inSafeArea
-      ? isSafeAreaEditAllowed(mapPosition, mapSeed, defeatedBossRegions)
+      ? true
       : blessings.includes("forbiddenKnowledge");
     const safeAreaRegionIndex = inSafeArea ? getSafeAreaRegionIndex(mapPosition, mapSeed) : null;
     const safeAreaMemoryRestricted = safeAreaRegionIndex !== null && isSafeAreaSealed(safeAreaRegionIndex);
@@ -2019,7 +2016,6 @@ export default function Home() {
     );
     const inventoryConsumableGroups = sortConsumableGroupsByTier(groupConsumables(inventoryConsumables));
     const floorConsumableGroups = groupConsumables(currentFloorConsumables);
-    const activeShopOffers = activeShopRoom ? roomShops[activeShopRoom] ?? [] : [];
     return (
       <DebugModeContext value={debugMode}>
       <main
@@ -2130,13 +2126,13 @@ export default function Home() {
         <MapTopbar
           runPlayerHp={runPlayerHp}
           maxPlayerHp={maxPlayerHp}
-          gold={gold}
           keys={keys}
           deckCardCount={deckCards.length}
           mapTraveling={mapTraveling}
           canEditDeck={canEditDeck}
-          onGoldDebugClick={handleGoldDebugClick}
+          onDebugClick={handleDebugClick}
           onWait={waitOnMap}
+          onSearch={() => { clearMapTravel(); clearMapKeyboardMovement(); clearFloatingTooltips(); setSearchHighlightedRoom(null); setMapSearchOpen(true); }}
           restartHold={restartHold}
           onOpenSettings={() => {
             clearMapKeyboardMovement();
@@ -2257,7 +2253,6 @@ export default function Home() {
             onDeckCountChange: setDebugDeckCount,
             onSpawnItem: spawnDebugItemOnFloor,
             onGenerateDecks: generateDebugRegionDecksOnFloor,
-            onAddDebugGold: () => setGold((current) => current + 1000),
             onAddDebugKeys: () => setKeys((current) => current + 10),
             onOpenCardStats: () => setCardPoolStatsOpen(true),
           }}
@@ -2309,7 +2304,8 @@ export default function Home() {
           deck={releasedVaultDeck} />}
         <TreasureChestRewardModal
           reward={treasureChestReward}
-          onClose={() => setTreasureChestReward(null)}          showCardKeywordOnly={showCardKeywordOnly}
+          onClose={() => setTreasureChestReward(null)}
+          showCardKeywordOnly={showCardKeywordOnly}
           setHoveredDeckCard={setHoveredDeckCard}
           clearCardKeywordHover={clearCardKeywordHover}
           consumableDescription={consumableDescription}
@@ -2344,22 +2340,7 @@ export default function Home() {
           onChoose={chooseBlessing}
           onReroll={rerollBlessings}
         />
-        <ShopModal
-          open={shopOpen}
-          gold={gold}
-          playerHp={runPlayerHp}
-          offers={activeShopOffers}
-          onClose={() => setShopOpen(false)}
-          onBuy={buyShopOffer}          showCardKeywordOnly={showCardKeywordOnly}
-          setHoveredDeckCard={setHoveredDeckCard}
-          clearCardKeywordHover={clearCardKeywordHover}
-          consumableDescription={consumableDescription}
-          showConsumablePreview={showConsumablePreview}
-          setHoveredConsumable={setHoveredConsumable}
-          hoveredConsumable={hoveredConsumable}
-          consumableDragActive={consumableDragActive}
-          deckPreviewPosition={deckPreviewPosition}
-        />
+
         {deckEditorOpen && <DeckEditorModal
           header={{
             deckEditorErrorMessage,
@@ -2383,13 +2364,13 @@ export default function Home() {
             activeDeckId: activeDeck?.id,
             deckEditorDeckId,
             setDeckEditorDeckId,
-            onSelectActiveDeck: setActiveDeckId,
             pickUpFloorDeck,
             swapOwnedDecks,
             dropOwnedDeck,
+            canEditFreely: usesSafeAreaDeckRules,
             rareSlotCountForDeck: (deck) => countRareSlotCards(deck.cards),
             canMoveDeckCardToInventory: isSafeAreaPosition(mapPosition, mapSeed)
-              && isSafeAreaEditAllowed(mapPosition, mapSeed, defeatedBossRegions),
+              && true,
           }}
           floorArea={{
             currentFloorDecks,
@@ -2807,7 +2788,7 @@ export default function Home() {
             lawResearchCount={lawResearchCount}
             canUseNecromancyResearch={canUseResearchDraw(game, "necromancy")}
             handCardRefs={handCardRefs}
-            dragHandlers={{ beginDrag, moveDrag, finishDrag, cancelDrag }}
+            dragHandlers={{ beginDrag, beginKeyboardDrag, selectKeyboardDragCard, moveDrag, finishDrag, cancelDrag }}
             onClearResearchDrag={clearResearchDrag}
             onRetrieveNecromancyResearchCard={retrieveNecromancyResearchCard}
             onDiscardSelectedCard={discardSelectedCard}
@@ -2826,11 +2807,11 @@ export default function Home() {
           <BattleResultOverlay
             status={game.status}
             turn={game.turn}
-            rewardGold={battleRewardGold}
             rewardKeys={battleRewardKeys}
             rewardCards={battleRewards}
             rewardDecks={battleRewardDecks}
-            rewardConsumables={battleRewardConsumables}            consumableDescription={consumableDescription}
+            rewardConsumables={battleRewardConsumables}
+            consumableDescription={consumableDescription}
             showCardKeywordOnly={showCardKeywordOnly}
             setHoveredDeckCard={setHoveredDeckCard}
             clearCardKeywordHover={clearCardKeywordHover}

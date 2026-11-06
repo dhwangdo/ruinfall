@@ -281,6 +281,24 @@ html:not([data-device-mode="mobile"]) .deck-editor-column.inventory-column {
 .deck-editor-deck-heading > span { color: #706c63; font: 800 9px Arial, sans-serif; letter-spacing: .05em; }
 .deck-editor-deck-heading > strong { max-width: 166px; overflow: visible; font: 800 13px/1.2 Pretendard, sans-serif; white-space: normal; overflow-wrap: anywhere; }
 .deck-editor-deck-heading > small { color: #5e5b54; font: 700 10px Arial, sans-serif; }
+.deck-editor-deck-heading.is-edit-locked { padding-right: 32px; }
+.deck-editor-deck-heading.is-edit-locked > strong { max-width: calc(100% - 18px); }
+.deck-editor-deck-heading > .deck-editor-lock-indicator {
+  position: absolute;
+  right: 7px;
+  bottom: 5px;
+  display: grid;
+  flex: none;
+  place-items: center;
+  width: 25px;
+  height: 25px;
+  color: #c5c3ba;
+  cursor: help;
+  letter-spacing: normal;
+}
+.deck-editor-lock-indicator svg { width: 23px; height: 23px; fill: none; stroke: currentColor; stroke-width: 1.8; stroke-linecap: round; stroke-linejoin: round; }
+.deck-editor-lock-indicator circle { fill: currentColor; stroke: none; }
+.deck-editor-deck-heading > .deck-editor-lock-indicator:hover { color: #e6a04b; }
 .deck-editor-deck-heading .deck-name-with-editions,
 .deck-editor-deck-heading .deck-name-label,
 .deck-editor-deck-heading .deck-name-editions { display: block; }

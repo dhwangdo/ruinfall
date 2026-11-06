@@ -1,4 +1,3 @@
-@import url("https://cdn.jsdelivr.net/gh/orioncactus/pretendard/dist/web/static/pretendard.css");
 @import "tailwindcss";
 
 @import "./styles/base.css";
@@ -18,7 +17,16 @@
 @import "./styles/card-mechanic-examples.css";
 @import "./styles/settings.css";
 @import "./styles/map-search.css";
+@import "./styles/minimap.css";
 @import "./styles/mobile.css";
+
+@font-face {
+  font-family: "Pretendard";
+  font-style: normal;
+  font-weight: 100 900;
+  font-display: swap;
+  src: url("./assets/PretendardVariable.woff2") format("woff2");
+}
 
 /* Import order preserves the original cascade. Keep screen refinements after base rules. */
 

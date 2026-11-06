@@ -76,10 +76,15 @@ export function createLocationActions({
   });
 
   const useCurrentHeal = () => {
-    if (effectiveRoomType(mapPosition) !== "heal") return;
+    const roomType = effectiveRoomType(mapPosition);
+    if (roomType !== "heal" && roomType !== "partialHeal") return;
     const roomKey = mapRoomKey(mapPosition);
-    runPlayerHpRef.current = maxPlayerHp;
-    setRunPlayerHp(maxPlayerHp);
+    const previousHp = runPlayerHpRef.current;
+    const nextHp = roomType === "heal"
+      ? maxPlayerHp
+      : Math.min(maxPlayerHp, previousHp + Math.floor(maxPlayerHp * 0.2));
+    runPlayerHpRef.current = nextHp;
+    setRunPlayerHp(nextHp);
     setUsedHealRooms((current) => new Set(current).add(roomKey));
   };
 

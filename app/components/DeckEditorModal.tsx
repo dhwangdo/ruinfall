@@ -1,4 +1,5 @@
 import { CardVisual } from "./CardVisual";
+import { BattleStatusBadge } from "./BattleStatusBadge";
 import { DeckSlotPlaceholder } from "./DeckSlotPlaceholder";
 import { ConsumableVisual } from "./ConsumableVisual";
 import { DeckEditorPreviews } from "./DeckEditorPreviews";
@@ -37,10 +38,10 @@ export function DeckEditorModal(props: DeckEditorModalProps) {
       ownedDecks,
       deckEditorDeckId,
       setDeckEditorDeckId,
-      onSelectActiveDeck,
       pickUpFloorDeck,
       swapOwnedDecks,
       dropOwnedDeck,
+      canEditFreely,
       canMoveDeckCardToInventory,
     },
     floorArea: {
@@ -167,7 +168,7 @@ export function DeckEditorModal(props: DeckEditorModalProps) {
             suppressTouchClickRef.current = false;
             return;
           }
-          if (area === "inventory" || ["paintTicket", "cloneTicket", "extractTicket", "extractPlusTicket", "transformTicket", "bombTicket", "darkTicket"].includes(consumable.type)) {
+          if (area === "inventory" || ["paintTicket", "cloneTicket", "extractTicket", "transformTicket", "bombTicket", "darkTicket"].includes(consumable.type)) {
             selectExtractionTicket(consumable);
           } else {
             moveFloorConsumableToInventory(consumableId);
@@ -438,7 +439,7 @@ export function DeckEditorModal(props: DeckEditorModalProps) {
                       >
                         <button
                           type="button"
-                          className={`deck-editor-deck-heading ${deckCaseDropSlot === index ? "is-deck-drop-target" : ""}`}
+                          className={`deck-editor-deck-heading ${deckCaseDropSlot === index ? "is-deck-drop-target" : ""} ${canEditFreely ? "" : "is-edit-locked"}`}
                           draggable
                           onDragStart={(event) => beginDeckCaseDrag(event, deck.id, "owned")}
                           onDragEnd={finishDeckCaseDrag}
@@ -476,16 +477,26 @@ export function DeckEditorModal(props: DeckEditorModalProps) {
                             setDeckEditorDeckId(deck.id);
                             applySelectedTicketToDeck(deck);
                           }}
-                          onDoubleClick={() => {
-                            if (deckCaseDragRef.current || touchDrag?.active || suppressTouchClickRef.current) return;
-                            onSelectActiveDeck(deck.id);
-                          }}
-                          title="더블클릭하여 사용할 덱으로 선택"
                           onContextMenu={(event) => {
                             event.preventDefault();
                             dropOwnedDeck(deck.id);
                           }}
                         >
+                          {!canEditFreely && (
+                            <BattleStatusBadge
+                              className="deck-editor-lock-indicator"
+                              description="덱 자유 편집은 안전 구역에서 가능합니다."
+                              tooltipTitle="덱 편집 제한"
+                              ariaLabel="덱 자유 편집 제한"
+                              onClick={(event) => event.stopPropagation()}>
+                              <svg viewBox="0 0 24 24" aria-hidden="true">
+                                <path d="M7.5 10V7a4.5 4.5 0 0 1 9 0v3" />
+                                <rect x="5" y="10" width="14" height="11" rx="2" />
+                                <circle cx="12" cy="15" r="1" />
+                                <path d="M12 16v2" />
+                              </svg>
+                            </BattleStatusBadge>
+                          )}
                           <strong>
                             <DeckName
                               deck={deck}

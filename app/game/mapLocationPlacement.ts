@@ -4,8 +4,8 @@ import type { GeneratedMapRegion } from "./mapRegionGenerator.ts";
 /** Inclusive counts of ordinary locations. Authored prefab locations are additional. */
 export const REGION_LOCATION_COUNTS = {
   deckVault: { min: 40, max: 46 },
-  shop: { min: 3, max: 4 },
-  bloodShop: { min: 3, max: 4 },
+  shop: { min: 0, max: 0 },
+  bloodShop: { min: 0, max: 0 },
   portal: { min: 14, max: 18 },
 } as const;
 export type RegionLocationKind = keyof typeof REGION_LOCATION_COUNTS;
@@ -51,6 +51,7 @@ export function placeRegionLocations(map: GeneratedMapRegion, counts: RegionLoca
   // Give the less frequent facilities a place first; denser vaults fit around them.
   for (const kind of ["shop", "bloodShop", "deckVault"] as const) {
     const count = counts[kind];
+    if (count === 0) continue;
     const sameKind = [...landmarks].filter(([, type]) => type === kind).map(([index]) => index);
     const bands = Array.from({ length: count }, () => [] as number[]);
     for (const index of available) if (!result.has(index)) {

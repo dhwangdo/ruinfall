@@ -10,7 +10,7 @@ export function useMapKeyboardShortcuts({
   screen,
   mapTraveling,
   interactionLocked = false,
-  handleGoldDebugClick,
+  handleDebugClick,
   openDeckEditor,
   quickPickUpFloorItems,
   waitOnMap,
@@ -31,7 +31,7 @@ export function useMapKeyboardShortcuts({
   screen: "map" | "battle";
   mapTraveling: boolean;
   interactionLocked?: boolean;
-  handleGoldDebugClick: () => void;
+  handleDebugClick: () => void;
   openDeckEditor: (message: string) => void;
   quickPickUpFloorItems: () => void;
   waitOnMap: () => void;
@@ -85,7 +85,7 @@ export function useMapKeyboardShortcuts({
       }
       if (event.code === "KeyB" && !event.repeat) {
         event.preventDefault();
-        handleGoldDebugClick();
+        handleDebugClick();
         return;
       }
       if (event.key === "Tab" || event.key.toLowerCase() === "i") {
@@ -145,7 +145,7 @@ export function useMapKeyboardShortcuts({
     screen,
     mapTraveling,
     interactionLocked,
-    handleGoldDebugClick,
+    handleDebugClick,
     openDeckEditor,
     quickPickUpFloorItems,
     waitOnMap,

@@ -9,6 +9,7 @@ export type MapSearchEntry = {
   id: string; position: MapPosition; region: number; kind: MapSearchKind;
   label: string; searchText: string; opened?: boolean;
   deck?: DeckCase; card?: Card; consumable?: Consumable; count?: number;
+  containerLabel?: string;
 };
 export type MapSearchData = {
   seenRooms: ReadonlySet<string>; seed: number;
@@ -19,23 +20,35 @@ export type MapSearchData = {
 };
 
 const normalize = (text: string) => text.normalize("NFKC").toLocaleLowerCase("ko").replace(/\s+/g, "");
-const deckText = (deck: DeckCase) => [deck.name, ...deck.cards.map(card => card.name),
+const deckText = (deck: DeckCase, cardText: (card: Card) => string) => [deck.name, ...deck.cards.map(cardText),
   ...deck.editions.map(edition => DECK_EDITION_INFO[edition]?.name ?? "")].join(" ");
 
 /** Build only when the search opens; never generate content or inspect undiscovered cells. */
-export function buildMapSearchEntries(data: MapSearchData): MapSearchEntry[] {
+export function buildMapSearchEntries(data: MapSearchData, cardText: (card: Card) => string = card => card.name): MapSearchEntry[] {
   const entries: MapSearchEntry[] = [];
   for (const key of data.seenRooms) {
     const position = parseMapRoomKey(key), region = getRegionNumber(position, data.seed);
     const base = { position, region };
+    const addDeckCards = (deck: DeckCase, source: "vault" | "floor", opened = false) => {
+      for (const group of groupAndSortDeckEditorCards(deck.cards, "rarity", new Set())) {
+        entries.push({ ...base, id: `contained:${source}:${key}:${deck.id}:${group.card.id}`,
+          kind: "item", card: group.card, label: group.card.name, count: group.cardIds.length, opened,
+          containerLabel: `${source === "vault" ? opened ? "개방한 금고" : "미개방 금고" : "바닥 덱"} · 덱 「${deck.name}」`,
+          searchText: normalize(`${cardText(group.card)} ${deck.name}`) });
+      }
+    };
     const vault = data.vaults[key];
     if (vault) entries.push({ ...base, id: `vault:${key}`, kind: "vault", deck: vault,
-      label: `덱 「${vault.name}」`, searchText: normalize(deckText(vault)), opened: data.openedVaultRooms.has(key) });
-    for (const deck of data.decks[key] ?? []) entries.push({ ...base, id: `deck:${key}:${deck.id}`, kind: "item", deck,
-      label: `덱 「${deck.name}」`, searchText: normalize(deckText(deck)) });
+      label: `덱 「${vault.name}」`, searchText: normalize(deckText(vault, cardText)), opened: data.openedVaultRooms.has(key) });
+    if (vault) addDeckCards(vault, "vault", data.openedVaultRooms.has(key));
+    for (const deck of data.decks[key] ?? []) {
+      entries.push({ ...base, id: `deck:${key}:${deck.id}`, kind: "item", deck,
+        label: `덱 「${deck.name}」`, searchText: normalize(deckText(deck, cardText)) });
+      addDeckCards(deck, "floor");
+    }
     for (const group of groupAndSortDeckEditorCards(data.cards[key] ?? [], "rarity", new Set())) {
       entries.push({ ...base, id: `card:${key}:${group.card.id}`, kind: "item", card: group.card,
-        label: group.card.name, count: group.cardIds.length, searchText: normalize(group.card.name) });
+        label: group.card.name, count: group.cardIds.length, searchText: normalize(cardText(group.card)) });
     }
     const consumables = new Map<string, { item: Consumable; count: number }>();
     for (const item of data.consumables[key] ?? []) {

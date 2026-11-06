@@ -86,7 +86,7 @@ export function validateDeckEditorCardMove(request: DeckEditorMoveRequest): Deck
   }
 
   if (request.isRare && request.target.area === "deck"
-    && request.source.area !== "deck"
+    && (request.source.area !== "deck" || request.source.deckId !== request.target.deckId)
     && (request.targetDeckRareCardCount ?? 0) >= (request.targetDeckRareSlotCapacity ?? 0)) {
     return { allowed: false, reason: "rare-slots-full" };
   }
@@ -98,10 +98,11 @@ export function validateDeckEditorCardMove(request: DeckEditorMoveRequest): Deck
       || request.effectiveOriginDeckId === null) {
       return { allowed: false, reason: "extract-original-only" };
     }
-    if (request.isRare && !request.allowsRareExtraction) {
-      return { allowed: false, reason: "rare-locked" };
-    }
     return { allowed: true, action: "move" };
+  }
+
+  if (request.safeArea) {
+    return { allowed: true, action: request.source.area === "pendingRemoval" ? "restore-removal" : "move" };
   }
 
   if (request.isRare) {
