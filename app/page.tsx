@@ -248,6 +248,8 @@ function isStarterOrBasicCard(card: Pick<Card, "rarity">) {
   return card.rarity === "starter" || card.rarity === "basic";
 }
 
+const MAP_FLOATING_NOTICE_DURATION_MS = 1200;
+
 export default function Home() {
   const world = useRunWorld();
   const {
@@ -350,6 +352,22 @@ export default function Home() {
   const [mapMessageNonce, setMapMessageNonce] = useState(0);
   const [mapWaitNoticeNonce, setMapWaitNoticeNonce] = useState(0);
   const [mapGoldNotice, setMapGoldNotice] = useState<{ nonce: number; amount: number } | null>(null);
+  const goldNoticeNonce = mapGoldNotice?.nonce;
+  useEffect(() => {
+    if (goldNoticeNonce === undefined) return;
+    const timer = window.setTimeout(() => {
+      setMapGoldNotice((current) => current?.nonce === goldNoticeNonce ? null : current);
+    }, MAP_FLOATING_NOTICE_DURATION_MS);
+    return () => window.clearTimeout(timer);
+  }, [goldNoticeNonce]);
+  useEffect(() => {
+    if (mapWaitNoticeNonce <= 0) return;
+    const nonce = mapWaitNoticeNonce;
+    const timer = window.setTimeout(() => {
+      setMapWaitNoticeNonce((current) => current === nonce ? 0 : current);
+    }, MAP_FLOATING_NOTICE_DURATION_MS);
+    return () => window.clearTimeout(timer);
+  }, [mapWaitNoticeNonce]);
   const [deckSelectorOpen, setDeckSelectorOpen] = useState(false);
   const [deckSelectorClosing, setDeckSelectorClosing] = useState(false);
   const [deckSelectorClosingDeckId, setDeckSelectorClosingDeckId] = useState<string | null>(null);
