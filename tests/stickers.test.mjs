@@ -1,7 +1,7 @@
 import assert from "node:assert/strict";
 import test from "node:test";
 import { ALL_CARD_BLUEPRINTS } from "../app/game/cards.ts";
-import { STICKER_IDS, compatibleStickers, withRandomSticker, occupiedDeckSpace, placeStartingStickers } from "../app/game/stickers.ts";
+import { STICKER_IDS, cardStickerIds, compatibleStickers, withRandomSticker, occupiedDeckSpace, placeStartingStickers } from "../app/game/stickers.ts";
 import { cardEnergyCost, getCardKeywordInfos } from "../app/game/cardEffects.ts";
 import { waitingState, dealtState, buildPiles, prepareDeckForPiles, drawFromPiles, drawFromPileIndexes, drawFromFirstPile, drawOneFromPiles, drawRandomFromPiles } from "../app/game/battleState.ts";
 import { createMoveCardToPile, createDrawSelectedPile, createRetrieveBluebirdFromPile } from "../app/game/pileActions.ts";
@@ -35,7 +35,7 @@ test("ten uniformly chosen compatible stickers exclude ineffective cost and reta
     const candidates = compatibleStickers(c);
     const actual = candidates.map((_, i) => {
       const rolls = [0, (i + .5) / candidates.length];
-      return withRandomSticker(c, 1, () => rolls.shift()).sticker;
+        return cardStickerIds(withRandomSticker(c, 1, () => rolls.shift()))[0];
     });
     assert.deepEqual(actual, candidates);
   }
@@ -45,34 +45,40 @@ test("debug sticker catalog creates one compatible card for every sticker with u
   const { deck, nextCardId } = createDebugStickerDeck(700);
   assert.equal(deck.name, "스티커 도감");
   assert.equal(deck.cards.length, STICKER_IDS.length);
-  assert.deepEqual(deck.cards.map(c => c.sticker).sort(), [...STICKER_IDS].sort());
+    assert.deepEqual(deck.cards.map(c => cardStickerIds(c)[0]).sort(), [...STICKER_IDS].sort());
   assert.equal(new Set(deck.cards.map(c => c.id)).size, deck.cards.length);
-  assert.ok(deck.cards.every(c => compatibleStickers(c).includes(c.sticker)));
+    assert.ok(deck.cards.every(c => compatibleStickers({ ...c, sticker: undefined, stickers: undefined })
+      .includes(cardStickerIds(c)[0])));
   assert.equal(nextCardId, 700 + STICKER_IDS.length);
 });
 
-test("regular reward cards use an independent five-percent sticker roll; boss rares always have one and no tickets", t => {
-  let rolls = [.9, .5, .5, .049, .5];
+test("regular reward cards use an independent thirty-percent sticker roll; boss rares always have one and no tickets", t => {
+  let rolls = [.9, .5, .5, .299, .5];
   t.mock.method(Math, "random", () => rolls.shift() ?? .5);
-  assert.ok(createBattleReward(1, 10).cards[0].sticker);
-  rolls = [.9, .5, .5, .05];
-  assert.equal(createBattleReward(1, 10).cards[0].sticker, undefined);
+  assert.equal(cardStickerIds(createBattleReward(1, 10).cards[0]).length, 1);
+  rolls = [.9, .5, .5, .3];
+  assert.equal(cardStickerIds(createBattleReward(1, 10).cards[0]).length, 0);
   const boss = createBossBattleReward(10, 2);
   assert.deepEqual(boss.cards.map(c => c.id), [10, 11]);
-  assert.ok(boss.cards.every(c => c.rarity === "rare" && compatibleStickers(c).includes(c.sticker)));
+  assert.ok(boss.cards.every(c => c.rarity === "rare" && cardStickerIds(c).length === 1
+    && compatibleStickers({ ...c, sticker: undefined, stickers: undefined }).includes(cardStickerIds(c)[0])));
   assert.deepEqual(boss.consumableTypes, []);
   assert.ok(boss.decks.flatMap(d => d.cards).every(c => c.id >= 12));
 });
 
-test("vault cards independently carry stickers at one percent while starting cards have none", () => {
+test("vault cards independently carry stickers at two percent while starting cards have none", () => {
   let seed = 19397, count = 0, stickerCount = 0;
   const random = () => ((seed = (Math.imul(seed, 1664525) + 1013904223) >>> 0) / 4294967296);
-  for (let i = 0; i < 600; i++) for (const c of createRegionDeck(2, i * 1000, 0, random, .01).cards) {
+    for (let i = 0; i < 600; i++) for (const c of createRegionDeck(2, i * 1000, 0, random, .02).cards) {
     count++;
-    if (c.sticker) { stickerCount++; assert.ok(compatibleStickers(c).includes(c.sticker)); }
+      const sticker = cardStickerIds(c)[0];
+      if (sticker) {
+        stickerCount++;
+        assert.ok(compatibleStickers({ ...c, sticker: undefined, stickers: undefined }).includes(sticker));
+      }
   }
-  assert.ok(Math.abs(stickerCount / count - .01) < .004, String(stickerCount / count));
-  assert.ok(createStarterDeck().cards.every(c => !c.sticker));
+    assert.ok(Math.abs(stickerCount / count - .02) < .004, String(stickerCount / count));
+    assert.ok(createStarterDeck().cards.every(c => cardStickerIds(c).length === 0));
 });
 
 function move(initial, source = { type: "hand" }, target = 0) {
@@ -233,12 +239,12 @@ test("save restore preserves stickers in every card location and removes old pai
     inventoryCards: [c, oldFirefly], roomDrops: { x: [c] }, roomDeckDrops: { x: [deck] }, roomDeckVaults: { x: deck },
     inventoryConsumables: [oldPaint], roomConsumableDrops: { x: [oldPaint] } }, () => false);
   for (const restored of [result.inventoryCards[0], result.ownedDecks[0].cards[0], result.roomDrops.x[0], result.roomDeckDrops.x[0].cards[0], result.roomDeckVaults.x.cards[0]]) {
-    assert.equal(restored.sticker, "moonstone");
+      assert.deepEqual(cardStickerIds(restored), ["moonstone"]);
     assert.equal(Object.hasOwn(restored, "colored"), false);
     assert.equal(restored.clockworkTriggered, undefined);
   }
   assert.deepEqual(result.inventoryConsumables, []);
   assert.deepEqual(result.roomConsumableDrops.x, []);
   assert.equal(TICKET_TYPES.includes("paintTicket"), false);
-  assert.equal(result.inventoryCards[1].sticker, "glowDinosaur");
+    assert.deepEqual(cardStickerIds(result.inventoryCards[1]), ["glowDinosaur"]);
 });

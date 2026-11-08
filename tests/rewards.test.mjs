@@ -258,6 +258,6 @@ test("bosses grant no key but retain the boss-slayer bonus deck", () => {
   assert.equal(reward.keys, 0);
   assert.equal(reward.decks.length, 1);
   assert.equal(reward.cards.length, 2);
-  assert.ok(reward.cards.every(card => card.sticker && card.rarity === "rare"));
+    assert.ok(reward.cards.every(card => card.stickers?.length === 1 && card.rarity === "rare"));
   assert.deepEqual(reward.consumableTypes, []);
 });

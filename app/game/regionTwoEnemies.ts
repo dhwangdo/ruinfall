@@ -26,29 +26,29 @@ export const REGION_TWO_BOSS = enemy("간수", 250, "shackleJailer", [
 
 /** One member from each family may join a pair. The first member leads its map label. */
 export const REGION_TWO_PAIR_CANDIDATES: EnemyBlueprint[] = [
-  enemy("화약 운반병", 30, "powderCarrier", random([
+  enemy("화약 운반병", 40, "powderCarrier", random([
     { name: "강타", attacks: hit(5) },
     { name: "연타", attacks: hit(3, 2) },
     { name: "화약 보충", attacks: hit(4), powderGain: 2 },
   ]), { powder: 6, trait: "사망 시 자신을 제외한 모두에게 화약 수치만큼 물리 피해를 줍니다." }),
-  enemy("수색견", 35, "searchHound", [
+  enemy("수색견", 45, "searchHound", [
     { name: "물어뜯기", attacks: hit(5), cycle: true },
   ], { handStrengthGain: 4, trait: "플레이어 손패에 카드가 남아 있는 동안 임시 힘 4를 얻습니다." }),
-  enemy("대형 망치병", 44, "hammerGuard", [
+  enemy("대형 망치병", 54, "hammerGuard", [
     { name: "망치 내려찍기", attacks: hit(10), cycle: true, loopTo: 0 },
     { name: "휴식", attacks: [], strengthGain: 1, cycle: true, loopTo: 0 },
   ], { restsWhenBlocked: true, trait: "공격이 완전히 막히면 다음 행동은 휴식하며 힘 1을 얻습니다." }),
-  enemy("봉인 파수꾼", 39, "sealWarden", random([
+  enemy("봉인 파수꾼", 49, "sealWarden", random([
     { name: "강타", attacks: hit(5) },
     { name: "연속 타격", attacks: hit(3, 2) },
     { name: "봉인 응축", attacks: [], amplificationGain: 2 },
   ]), { sealsPile: true, trait: "매 플레이어 턴 시작 시 카드가 있는 무작위 파일 하나를 봉인합니다. 그 파일의 모든 드로우를 막지만 솔리테어 이동은 허용합니다." }),
-  enemy("발효 슬라임", 45, "fermentedSlime", random([
+  enemy("발효 슬라임", 55, "fermentedSlime", random([
     { name: "몸통 박치기", attacks: hit(10) },
     { name: "점액 연타", attacks: hit(5, 2) },
     { name: "발효 응축", attacks: [], amplificationGain: 2, resistanceGain: 2 },
   ]), { fermentedSlimeCount: 1, trait: "전투 시작 시 발효 점액 1장을 손패에 넣습니다. 발효 점액은 에너지 1을 주는 보존 토큰입니다." }),
-  enemy("압수관", 35, "confiscator", random([
+  enemy("압수관", 45, "confiscator", random([
     { name: "타격", attacks: hit(7) },
     { name: "엄폐", attacks: [], blockGain: 8 },
     { name: "압수 명령", attacks: [], nextTurnPlayerResistanceChange: -1 },

@@ -21,7 +21,7 @@ function debugEnemyActionText(action: EnemyAction) {
   if (action.nextTurnPlayerResistanceChange) parts.push(`다음 턴 ${statusLabel("resistance", action.nextTurnPlayerResistanceChange)}`);
   if (action.nextTurnPlayerAmplificationChange) parts.push(`다음 턴 ${statusLabel("amplification", action.nextTurnPlayerAmplificationChange)}`);
   if (action.discardCount) parts.push(`버리기 ${action.discardCount}`);
-  if (action.selfDestruct) parts.push("공격 후 자폭");
+  if (action.selfDestruct) parts.push("자폭");
   if (action.summon) parts.push("새끼 바퀴 1마리 소환 (최대 2마리, HP 12, 공격 4)");
   if (action.powderGain) parts.push(`화약 ${action.powderGain} 증가`);
   if (action.allyBlockGain) parts.push(`다른 아군에게 방어 ${action.allyBlockGain}`);

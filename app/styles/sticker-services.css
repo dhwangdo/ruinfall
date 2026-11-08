@@ -1,5 +1,7 @@
 .sticker-service-overlay { z-index: 180; }
 .sticker-service-panel { width: min(1040px, calc(100vw - 28px)); max-height: 90dvh; overflow: hidden; }
+.sticker-service-panel.is-altar { width: min(1540px, calc(100vw - 28px)); }
+.sticker-service-panel.is-transmuter .service-workspace { grid-template-columns: minmax(0, 1fr) 430px; }
 .sticker-service-result-panel { width: min(760px, calc(100vw - 24px)); }
 .sticker-service-header { min-height: 56px; display: flex; align-items: center; justify-content: space-between; gap: 16px; border-bottom: 1px solid #4c4538; }
 .sticker-service-header h2 { margin: 0; font-size: 30px; font-weight: 800; }
@@ -22,8 +24,12 @@
 .service-operation { position: relative; padding: 18px 12px; border-left: 1px solid #4c4538; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 18px; }
 .service-donor-card { width: 100%; min-height: 60px; display: flex; align-items: center; justify-content: center; }
 .service-card-pair { width: 100%; display: flex; align-items: center; justify-content: center; gap: 7px; }
-.service-card-pair.is-altar { gap: 10px; }
-.service-card-slot { width: var(--card-w); height: var(--card-h); flex: 0 0 var(--card-w); display: grid; place-items: center; }
+.service-card-pair.is-transmuter { gap: 12px; }
+.service-card-pair.is-transmuter .service-result-arrow { width: 56px; height: 28px; color: #ffc400; }
+.service-transmuter-result { pointer-events: none; }
+.service-card-slot { position: relative; width: var(--card-w); height: var(--card-h); flex: 0 0 var(--card-w); display: grid; place-items: center; }
+.service-card-slot.is-drop-allowed,
+.service-card-slot:focus-visible { outline: 2px solid #e0ab43; outline-offset: 4px; border-radius: 5px; }
 .service-card-slot .card-visual-full,
 .service-result-cards .card-visual-full {
   /* Full card previews follow the same shared dimensions as cards everywhere else. */
@@ -41,11 +47,23 @@
 .service-result-panel { display: flex; align-items: center; justify-content: center; padding: 26px 24px; }
 .service-result-cards { display: flex; align-items: center; justify-content: center; gap: 30px; padding: 14px 0; }
 .service-result-cards .service-result-arrow { width: 104px; height: 52px; color: #ff9900; }
+.sticker-service-panel.is-altar .service-workspace { grid-template-columns: minmax(260px, 1fr) 660px; }
+.sticker-service-panel.is-altar .service-operation { padding: 24px 18px; gap: 28px; min-width: 0; }
+.service-altar-preview { width: 100%; overflow-x: auto; padding: 8px 0; }
+.service-altar-equation { display: flex; align-items: center; gap: 20px; width: max-content; margin-inline: auto; }
+.service-altar-plus { flex: 0 0 40px; width: 40px; height: 40px; color: #ffc400; }
+.service-altar-equation .service-result-arrow { width: 76px; height: 38px; color: #ffc400; }
+.service-altar-donor::after { content: ""; position: absolute; z-index: 5; pointer-events: none; top: 48%; left: -4px; width: calc(100% + 8px); height: 2px; background: #f03b2f; transform: rotate(-17deg); }
+.sticker-service-panel.is-altar .service-confirm { min-width: 164px; }
 .card-sticker-mark.is-pending { animation: pending-sticker-blink 850ms ease-in-out infinite; }
 @keyframes pending-sticker-blink { 0%, 100% { opacity: .45; } 50% { opacity: 1; } }
 .map-room.is-stickerAltar:not(.is-current) { background: #b54b4b; }
 .map-room.is-tinkerer:not(.is-current) { background: #b48c55; }
 .map-room.is-cardTransmuter:not(.is-current) { background: #4e9199; }
+@media (max-width: 1000px) {
+  .sticker-service-panel.is-altar .service-workspace { height: min(78dvh, 760px); grid-template-columns: minmax(0, 1fr); grid-template-rows: minmax(120px, 1fr) auto; }
+  .sticker-service-panel.is-altar .service-operation { border-left: 0; border-top: 1px solid #4c4538; padding: 16px 12px; gap: 16px; }
+}
 @media (max-width: 700px) {
   .sticker-service-panel { width: calc(100vw - 12px); max-height: 94dvh; }
   .sticker-service-header { padding: 12px; gap: 8px; }
@@ -54,7 +72,8 @@
   .service-card-sources { padding: 8px; }
   .service-card-list { gap: 7px; }
   .service-card-list .service-choice { width: 65px; min-width: 65px; height: 65px; }
-  .service-card-pair.is-altar { gap: 6px; }
   .service-result-cards { gap: 10px; }
   .service-result-cards .service-result-arrow { width: 50px; height: 30px; }
+  .sticker-service-panel.is-transmuter .service-workspace { grid-template-columns: minmax(0, 1fr); grid-template-rows: minmax(120px, 1fr) auto; }
+  .sticker-service-panel.is-transmuter .service-operation { border-left: 0; border-top: 1px solid #4c4538; }
 }

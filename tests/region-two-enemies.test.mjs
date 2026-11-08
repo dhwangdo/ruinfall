@@ -65,7 +65,7 @@ test("a single fermented slime in a mixed pair grants one retained token and bot
   try {
     const slimes = createSewerEncounterByIndex(32, () => .999);
     assert.equal(slimes.length, 2);
-    assert.equal(slimes[0].maxHp, 45);
+      assert.equal(slimes[0].maxHp, 55);
     assert.equal(slimes.filter(slime => slime.fermentedSlimeCount === 1).length, 1);
     assert.deepEqual(slimes[0].actions.map(action => action.attacks[0]?.value), [10, 5, undefined]);
     assert.equal(slimes[0].actions[1].attacks[0].hits, 2);

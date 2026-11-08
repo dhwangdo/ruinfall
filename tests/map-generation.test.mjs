@@ -65,11 +65,11 @@ test("ordinary location counts stay in range, spread across the map and add to p
   for (const seed of [1, 173, 291, 418]) for (let region = 0; region < 7; region++) {
     const map = getGeneratedDungeonRegion(seed, region);
     assert.ok([...map.ordinarySites.values()].every(kind => kind !== "shop" && kind !== "bloodShop"));
-    for (const [kind, min, max] of [["deckVault", 30, 35], ["stickerAltar", 4, 4], ["tinkerer", 8, 8], ["cardTransmuter", 4, 4]]) {
+    for (const [kind, min, max] of [["deckVault", 30, 35], ["stickerAltar", 3, 3], ["tinkerer", 6, 6], ["cardTransmuter", 3, 3]]) {
       const locations = [...map.ordinarySites].filter(([, type]) => type === kind).map(([index]) => index);
       assert.equal(locations.length, map.locationCounts[kind]);
       assert.ok(locations.length >= min && locations.length <= max);
-      // Shops cover their quota's bands; dense vaults may borrow nearby bands to preserve spacing.
+      // Sites cover their quota's bands; dense vaults may borrow nearby bands to preserve spacing.
       const bands = Array(kind === "deckVault" ? 3 : locations.length).fill(0);
       for (const index of locations) bands[Math.floor(index % MAP_COLUMNS * bands.length / MAP_COLUMNS)]++;
       assert.ok(bands.every(count => count > 0), `${kind} covers the region instead of clustering`);

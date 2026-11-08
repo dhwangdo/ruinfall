@@ -35,7 +35,9 @@ const STICKER_ART_ADJUSTMENT: Record<StickerId, { scale: number; x: number }> = 
   comet: { scale: .9, x: 10 },
 };
 
-export function CardStickerMark({ sticker, preview = false }: { sticker?: StickerId; preview?: boolean }) {
+export function CardStickerMark({ sticker, preview = false, disableTooltip = false }: {
+  sticker?: StickerId; preview?: boolean; disableTooltip?: boolean;
+}) {
   const markerRef = useRef<HTMLSpanElement>(null);
   const hoverSourcesRef = useRef<HoverSources>({ pointer: false, focus: false });
   const [tooltipPosition, setTooltipPosition] = useState<TooltipPosition | null>(null);
@@ -57,6 +59,7 @@ export function CardStickerMark({ sticker, preview = false }: { sticker?: Sticke
   };
 
   const showTooltip = () => {
+    if (disableTooltip) return;
     const marker = markerRef.current;
     if (!marker || typeof window === "undefined") return;
     const rect = marker.getBoundingClientRect();
@@ -65,6 +68,7 @@ export function CardStickerMark({ sticker, preview = false }: { sticker?: Sticke
     setTooltipPosition({ left, top: rect.top < 120 ? rect.bottom + 8 : rect.top - 8, below: rect.top < 120 });
   };
   const updateHoverSource = (source: keyof HoverSources, active: boolean) => {
+    if (disableTooltip) return;
     hoverSourcesRef.current[source] = active;
     const isActive = hoverSourcesRef.current.pointer || hoverSourcesRef.current.focus;
     if (isActive) showTooltip();
@@ -76,14 +80,15 @@ export function CardStickerMark({ sticker, preview = false }: { sticker?: Sticke
 
   return <>
     <span ref={markerRef} className={`card-sticker-mark ${preview ? "is-pending" : ""}`} role="img"
-      aria-label={`${info.name}: ${info.description}`} tabIndex={0}
+      aria-label={`${info.name}: ${info.description}`} tabIndex={disableTooltip ? undefined : 0}
+      style={disableTooltip ? { pointerEvents: "none" } : undefined}
       onMouseEnter={() => updateHoverSource("pointer", true)}
       onMouseLeave={() => updateHoverSource("pointer", false)}
       onFocus={() => updateHoverSource("focus", true)}
       onBlur={() => updateHoverSource("focus", false)}>
       <span className="card-sticker-art" data-sticker={sticker} style={stickerArtStyle} aria-hidden="true" />
     </span>
-    {tooltipPosition && typeof document !== "undefined" && createPortal(
+    {!disableTooltip && tooltipPosition && typeof document !== "undefined" && createPortal(
       <aside className={`card-sticker-tooltip ${tooltipPosition.below ? "is-below" : ""}`}
         style={{ left: tooltipPosition.left, top: tooltipPosition.top }} role="tooltip">
         <strong>{info.name}</strong>
@@ -94,15 +99,17 @@ export function CardStickerMark({ sticker, preview = false }: { sticker?: Sticke
   </>;
 }
 
-export function CardStickerMarks({ stickers, previewSticker }: {
+export function CardStickerMarks({ stickers, previewSticker, disableTooltip = false }: {
   stickers: readonly StickerId[];
   previewSticker?: StickerId;
+  disableTooltip?: boolean;
 }) {
   const items = previewSticker
     ? [...stickers.filter(sticker => sticker !== previewSticker), previewSticker]
     : [...stickers];
   if (!items.length) return null;
   return <span className="card-sticker-marks">
-    {items.map(sticker => <CardStickerMark key={sticker} sticker={sticker} preview={sticker === previewSticker} />)}
+    {items.map(sticker => <CardStickerMark key={sticker} sticker={sticker} preview={sticker === previewSticker}
+      disableTooltip={disableTooltip} />)}
   </span>;
 }

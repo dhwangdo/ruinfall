@@ -20,9 +20,9 @@ test("card pools preserve the current content counts", () => {
   assert.equal(STARTER_CARD_POOL.length, 2);
   assert.equal(BASIC_CARD_POOL.length, 8);
   assert.equal(SPECIAL_CARD_POOL.length, 46);
-  assert.equal(RARE_CARD_POOL.length, 25);
+  assert.equal(RARE_CARD_POOL.length, 26);
   assert.equal(LEGENDARY_CARD_POOL.length, 6);
-  assert.equal(ALL_CARD_BLUEPRINTS.length, 88);
+  assert.equal(ALL_CARD_BLUEPRINTS.length, 89);
 });
 
 test("special card pool contains the updated cards and excludes sharpen cards", () => {

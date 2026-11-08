@@ -447,11 +447,11 @@ export function createBattleReward(
   forceDeck = false,
 ) {
   const decks = forceDeck
-    ? [createRegionDeck(regionNumber, nextCardId, capacityBonus)]
+    ? [createRegionDeck(regionNumber, nextCardId, capacityBonus, Math.random, 0.3)]
     : [];
   return {
     keys: 1,
-    cards: decks.length > 0 ? [] : [withRandomSticker(createBattleRewardCard(nextCardId, rareCardChance), 0.05)],
+    cards: decks.length > 0 ? [] : [withRandomSticker(createBattleRewardCard(nextCardId, rareCardChance), 0.3)],
     decks,
     consumableType: null,
     consumableTypes: [],

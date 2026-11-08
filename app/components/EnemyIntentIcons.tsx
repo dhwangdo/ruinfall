@@ -20,7 +20,7 @@ export function enemyIntentEffectDescription(action: EnemyAction, firstActionCom
     action.nextTurnPlayerResistanceChange && `다음 턴 ${statusLabel("resistance", action.nextTurnPlayerResistanceChange)}`,
     action.nextTurnPlayerAmplificationChange && `다음 턴 ${statusLabel("amplification", action.nextTurnPlayerAmplificationChange)}`,
     action.discardCount && `버리기 ${action.discardCount}`,
-    action.selfDestruct && "공격 후 자폭",
+    action.selfDestruct && "자폭",
     action.summon && "새끼 바퀴 1마리 소환 (최대 2마리)",
     action.powderGain && `화약 ${action.powderGain} 증가`,
     action.allyBlockGain && `다른 아군에게 방어 ${action.allyBlockGain}`,

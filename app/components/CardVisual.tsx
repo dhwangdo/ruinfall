@@ -15,11 +15,12 @@ type Props = VisualSurfaceProps & {
   faceProps?: Omit<CardFaceProps, "card">;
   faceDown?: boolean;
   stickerPreview?: StickerId;
+  disableStickerTooltips?: boolean;
 } & ({ variant: "compact"; card: CompactCard } | { variant?: "full"; card: Card });
 
 export function CardVisual(props: Props) {
   const { as, card, variant = "full", count = 1, showNewBadge = false, faceProps, stickerPreview,
-    faceDown = false, className = "", children, style, ...attributes } = props;
+    faceDown = false, disableStickerTooltips = false, className = "", children, style, ...attributes } = props;
   const classes = props.variant === "compact"
     ? `card-visual card-visual-${variant} deck-editor-card rarity-${card.rarity} ${className}`
     : `card-visual card-visual-${variant} ${faceDown ? "face-down" : `card-face ${props.card.kind} ${props.card.damageType}`} ${className}`;
@@ -30,11 +31,14 @@ export function CardVisual(props: Props) {
       {count > 1 && <span className="editor-card-stack-bands" aria-hidden="true" />}
       {cost !== undefined && <span className="editor-card-cost">{cost}</span>}
       <strong className="editor-card-name">{card.name}{card.effect === "obsidianDagger" && cardForgeCount(card) > 0 ? ` +${cardForgeCount(card)}` : card.forged && !["astronomyResearch", "necromancyResearch"].includes(card.effect) ? "+" : ""}</strong>
-      <CardStickerMarks stickers={cardStickerIds(card)} previewSticker={stickerPreview} />
+      <CardStickerMarks stickers={cardStickerIds(card)} previewSticker={stickerPreview}
+        disableTooltip={disableStickerTooltips} />
       {showNewBadge && <em className="deck-card-new">NEW!</em>}
       {count > 1 && <span className="inventory-card-count">x{count}</span>}
-    </> : faceDown ? <><span className="card-back-pattern" /><CardStickerMarks stickers={cardStickerIds(card)} previewSticker={stickerPreview} /></>
-      : <CardFace card={props.card} {...faceProps} stickerPreview={stickerPreview} />}
+    </> : faceDown ? <><span className="card-back-pattern" /><CardStickerMarks stickers={cardStickerIds(card)}
+      previewSticker={stickerPreview} disableTooltip={disableStickerTooltips} /></>
+      : <CardFace card={props.card} {...faceProps} stickerPreview={stickerPreview}
+        disableStickerTooltips={disableStickerTooltips || Boolean(faceProps?.disableStickerTooltips)} />}
     {children}
   </VisualSurface>;
 }

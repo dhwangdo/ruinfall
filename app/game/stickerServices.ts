@@ -26,7 +26,8 @@ export function tinkererStickerAt(position: MapPosition, seed: number): StickerI
 }
 
 export function stickerServicePrice(kind: StickerServiceKind, uses: number, fixedSticker: StickerId | null = null) {
-  const base = kind === "tinkerer" && fixedSticker ? STICKER_PRICES[fixedSticker] : 40;
+  const base = kind === "tinkerer" && fixedSticker ? STICKER_PRICES[fixedSticker]
+    : kind === "stickerAltar" ? 50 : 40;
   return Math.min(Number.MAX_SAFE_INTEGER, Math.ceil(base * 1.5 ** Math.max(0, Math.floor(uses))));
 }
 
@@ -51,13 +52,56 @@ export function serviceTransformCandidates(card: Card) {
   return TRANSFORM_POOL.filter(candidate => candidate.rarity === card.rarity && candidate.name !== card.name);
 }
 
+function transformStickerChoices(source: Card, target: Card) {
+  const stickers = cardStickerIds(source);
+  if (!stickers.length) return [];
+  return compatibleStickers(target).filter(sticker => sticker !== stickers.at(-1));
+}
+
+function transmuterCandidates(card: Card) {
+  const stickers = cardStickerIds(card);
+  return serviceTransformCandidates(card).filter(candidate =>
+    !stickers.length || transformStickerChoices(card, { ...candidate, id: card.id, revealed: false } as Card).length > 0);
+}
+
+/** Produces one possible same-rarity conversion for the live transmuter preview. */
+export function createStickerTransmuterPreview(
+  card: Card,
+  random: () => number = Math.random,
+  previousPreview?: Card,
+): Card | null {
+  const allCandidates = transmuterCandidates(card);
+  const alternateCandidates = previousPreview && allCandidates.length > 1
+    ? allCandidates.filter(candidate => candidate.name !== previousPreview.name)
+    : allCandidates;
+  const candidates = alternateCandidates.length ? alternateCandidates : allCandidates;
+  if (!candidates.length) return null;
+  const pick = <T,>(items: readonly T[]) => items[Math.min(items.length - 1, Math.floor(random() * items.length))];
+  let after: Card = { ...pick(candidates), id: card.id, revealed: card.revealed };
+  const stickers = cardStickerIds(card);
+  if (stickers.length) {
+    let stickerChoices = transformStickerChoices(card, after);
+    const previousSticker = previousPreview && previousPreview.name === after.name
+      ? cardStickerIds(previousPreview).at(-1)
+      : undefined;
+    const alternateStickers = previousSticker && stickerChoices.length > 1
+      ? stickerChoices.filter(sticker => sticker !== previousSticker)
+      : stickerChoices;
+    if (alternateStickers.length) stickerChoices = alternateStickers;
+    after = withCardStickers(after, [pick(stickerChoices)]);
+  }
+  delete after.clockworkTriggered;
+  delete after.bluebirdUsedTurn;
+  return after;
+}
+
 export function serviceCardProblem(kind: StickerServiceKind, card: Card, fixedSticker: StickerId | null): string | null {
   if (kind === "stickerAltar") {
     const stickers = cardStickerIds(card);
     if (stickers.length > 1) return "스티커가 여러 개인 카드는 제물로 낼 수 없습니다.";
     return stickers.length ? null : "옮길 스티커가 없는 카드입니다.";
   }
-  if (kind === "cardTransmuter") return serviceTransformCandidates(card).length ? null : "같은 희귀도의 다른 카드가 없습니다.";
+  if (kind === "cardTransmuter") return transmuterCandidates(card).length ? null : "같은 희귀도의 다른 카드가 없습니다.";
   if (!fixedSticker) return "이 땜장이의 스티커가 정해지지 않았습니다.";
   const current = cardStickerIds(card);
   if (current.length >= maxCardStickerCount(card)) return "스티커를 더 붙일 수 없습니다.";
@@ -73,6 +117,16 @@ export function transferStickerProblem(donor: Card | undefined, target: Card): s
   if (donor.id === target.id) return "서로 다른 카드 두 장을 선택하세요.";
   if (cardStickerIds(target).includes(stickers[0])) return "같은 스티커는 중복해서 붙일 수 없습니다.";
   return compatibleStickers(target).includes(stickers[0]) ? null : "이 카드에는 해당 스티커를 붙일 수 없습니다.";
+}
+
+/** Either altar slot can be filled first; validate the pair once both are present. */
+export function stickerAltarPlacementProblem(card: Card, role: "donor" | "target", other?: Card): string | null {
+  if (role === "donor") {
+    const problem = serviceCardProblem("stickerAltar", card, null);
+    return problem ?? (other ? transferStickerProblem(card, other) : null);
+  }
+  if (other) return transferStickerProblem(other, card);
+  return compatibleStickers(card).length ? null : "스티커를 더 붙일 수 없습니다.";
 }
 
 export type StickerServiceResult = {
@@ -105,13 +159,10 @@ export function resolveStickerService({ kind, cards, primaryCardId, secondaryCar
     attachedSticker = fixedSticker!;
     after = withCardStickers(primary, [...cardStickerIds(primary), attachedSticker]);
   } else {
-    after = { ...pick(serviceTransformCandidates(primary)), id: primary.id, revealed: primary.revealed };
+    after = { ...pick(transmuterCandidates(primary)), id: primary.id, revealed: primary.revealed };
     const existingStickers = cardStickerIds(primary);
     if (existingStickers.length) {
-      const stickerToTransform = existingStickers.at(-1)!;
-      const choices = compatibleStickers(after).filter(sticker => sticker !== stickerToTransform);
-      if (!choices.length) return { ok: false, message: "변환할 수 있는 다른 스티커가 없습니다." };
-      attachedSticker = pick(choices);
+      attachedSticker = pick(transformStickerChoices(primary, after));
       after = withCardStickers(after, [attachedSticker]);
     }
   }

@@ -72,6 +72,7 @@ function cardWatermarkCategory(card: Card) {
 export type CardFaceProps = {
   card: Card;
   stickerPreview?: Card["sticker"];
+  disableStickerTooltips?: boolean;
   starsSpent?: number;
   strength?: number;
   agility?: number;
@@ -98,6 +99,7 @@ type CardFaceRendererProps = CardFaceProps & {
 export const CardFaceView = memo(function CardFaceView({
   card,
   stickerPreview,
+  disableStickerTooltips = false,
   starsSpent = 0,
   strength = 0,
   agility = 0,
@@ -180,7 +182,8 @@ export const CardFaceView = memo(function CardFaceView({
               && (card.forgeCost !== undefined || card.forgeCosts || card.forgeTargetName || card.forgeAny)
               && <strong className="solitaire-rule forge-rule"><span className="effect-keyword">재련</span>: {forgeConditionText(card)}</strong>}
       </>)}</span>
-      <CardStickerMarks stickers={cardStickerIds(card)} previewSticker={stickerPreview} />
+      <CardStickerMarks stickers={cardStickerIds(card)} previewSticker={stickerPreview}
+        disableTooltip={disableStickerTooltips} />
     </>
   );
 });

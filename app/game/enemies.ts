@@ -573,7 +573,7 @@ export function actionSummary(action: EnemyAction, strength: number, forceMagic 
   if (action.nextTurnPlayerResistanceChange) parts.push(`다음 턴 플레이어 ${statusLabel("resistance", action.nextTurnPlayerResistanceChange)}`);
   if (action.nextTurnPlayerAmplificationChange) parts.push(`다음 턴 플레이어 ${statusLabel("amplification", action.nextTurnPlayerAmplificationChange)}`);
   if (action.healGain) parts.push(`체력 ${action.healGain} 회복`);
-  if (action.selfDestruct) parts.push("공격 후 자폭");
+  if (action.selfDestruct) parts.push("자폭");
   if (action.summon) parts.push("새끼 바퀴 1마리 소환 (최대 2마리)");
   if (action.powderGain) parts.push(`화약 ${action.powderGain} 증가`);
   if (action.allyBlockGain) parts.push(`다른 아군 방어 ${action.allyBlockGain}`);

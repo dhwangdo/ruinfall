@@ -4,6 +4,7 @@ import { createBattleSessionActions } from "../app/controllers/battleSessionActi
 import { createRunSaveSnapshot, prepareRunRestore } from "../app/game/runSaveState.ts";
 import { createBattleReward } from "../app/game/rewards.ts";
 import { RARE_CARD_POOL } from "../app/game/cards.ts";
+import { cardStickerIds } from "../app/game/stickers.ts";
 import { resolveCardPlay } from "../app/game/cardPlayResolution.ts";
 import { createSewerEncounterByIndex } from "../app/game/enemies.ts";
 import { waitingState } from "../app/game/battleState.ts";
@@ -52,7 +53,7 @@ test("bosses grant two stickered rare cards without tickets or a key", () => {
   createBattleSessionActions(ctx.options()).grantBattleReward(1);
   assert.equal(ctx.battle.battleRewards[0].rarity, "rare");
   assert.equal(ctx.battle.battleRewards.length, 2);
-  assert.ok(ctx.battle.battleRewards.every(card => card.rarity === "rare" && card.sticker));
+    assert.ok(ctx.battle.battleRewards.every(card => card.rarity === "rare" && cardStickerIds(card).length > 0));
   assert.equal(ctx.battle.battleRewardConsumables.length, 0);
   assert.equal(ctx.battle.battleRewardKeys, 0);
 });

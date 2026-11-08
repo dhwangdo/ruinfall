@@ -92,7 +92,7 @@ export function useRunInventory() {
   const ensureDeckVault = useCallback((roomKey: string, region: number, capacityBonus = 0) => {
     const existing = roomDeckVaultsRef.current[roomKey];
     if (existing) return existing;
-    const deck = createRegionDeck(region, nextCardIdRef.current, capacityBonus, Math.random, 0.01);
+    const deck = createRegionDeck(region, nextCardIdRef.current, capacityBonus, Math.random, 0.02);
     nextCardIdRef.current += deck.cards.length;
     roomDeckVaultsRef.current = { ...roomDeckVaultsRef.current, [roomKey]: deck };
     setRoomDeckVaults(roomDeckVaultsRef.current);

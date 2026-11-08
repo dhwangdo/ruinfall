@@ -85,7 +85,7 @@ test("ordinary location quotas replace chance rolls while paused definitions are
   assert.deepEqual(REGION_LOCATION_COUNTS, {
     deckVault: { min: 30, max: 35 }, shop: { min: 0, max: 0 },
     bloodShop: { min: 0, max: 0 }, portal: { min: 14, max: 18 },
-    stickerAltar: { min: 4, max: 4 }, tinkerer: { min: 8, max: 8 }, cardTransmuter: { min: 4, max: 4 },
+      stickerAltar: { min: 3, max: 3 }, tinkerer: { min: 6, max: 6 }, cardTransmuter: { min: 3, max: 3 },
   });
   assert.ok(SPECIAL_NODE_DEFINITION_WEIGHTS.some(entry => entry.type === "extractionShrine"));
   assert.ok(SPECIAL_NODE_DEFINITION_WEIGHTS.some(entry => entry.type === "treasureChest"));
