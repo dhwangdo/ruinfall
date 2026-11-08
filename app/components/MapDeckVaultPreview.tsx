@@ -1,3 +1,4 @@
+import { occupiedDeckSpace } from "../game/stickers";
 import { useCallback, useEffect, useImperativeHandle, useLayoutEffect, useRef, useState, type Ref } from "react";
 import type { DeckCase } from "../game/rewards";
 import { DECK_VAULT_KEY_COST } from "../game/deckVaultRules";
@@ -96,7 +97,7 @@ export function MapDeckVaultPreview({ controlsRef }: { controlsRef: Ref<MapDeckV
       <header>
         <div>
           <h2><DeckName deck={preview.deck} /></h2>
-          <p>{preview.deck.cards.length} / {preview.deck.capacity}장 · 열쇠 {DECK_VAULT_KEY_COST}개로 개방</p>
+          <p>{occupiedDeckSpace(preview.deck.cards)} / {preview.deck.capacity}장 · 열쇠 {DECK_VAULT_KEY_COST}개로 개방</p>
         </div>
       </header>
       <DeckVaultCards deck={preview.deck} onCardHover={cardActions.moveDeckCardPreview}

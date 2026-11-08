@@ -33,6 +33,7 @@ export type SavedRunState = {
   usedHealRooms: string[];
   usedBlessingRooms: string[];
   rockBombHits: Record<string, number>;
+  roomServiceUses?: Record<string, number>;
   mindEyeMovesRemaining: number;
   godsLamentCharges?: number;
   regionBattleWins?: number;
@@ -44,6 +45,8 @@ export type SavedRunState = {
   roomDrops: Record<string, Card[]>;
   roomConsumableDrops: Record<string, Consumable[]>;
   roomDeckDrops: Record<string, DeckCase[]>;
+  /** Remaining floor gold piles; zero marks a pile already collected. */
+  roomGoldPiles?: Record<string, number>;
   roomDeckVaults?: Record<string, DeckCase>;
   /** Ignored legacy shop data. */
   roomShops?: Record<string, ShopOffer[]>;
@@ -52,7 +55,7 @@ export type SavedRunState = {
   blessings: BlessingId[];
   blessingRerollCost: number;
   oneUpUsed: boolean;
-  /** Ignored legacy save field. */
+  /** Carried run currency; optional for older saves that predate gold. */
   gold?: number;
   keys?: number;
   skipPortalKeyWarning?: boolean;

@@ -7,6 +7,7 @@ import {
   type CardBlueprint,
 } from "./cards.ts";
 import { obsidianDaggerForgesRemaining } from "./forgeRules.ts";
+import { STICKERS, cardStickerIds, retainsCard } from "./stickers.ts";
 
 
 export type CardKeywordInfo = {
@@ -28,7 +29,7 @@ export function forgeConditionText(card: Pick<Card, "forgeCost" | "forgeCosts" |
 }
 
 export function cardEnergyCost(
-  card: Pick<Card, "effect" | "cost" | "rule">,
+  card: Pick<Card, "effect" | "cost" | "rule" | "sticker" | "stickers" | "clockworkTriggered">,
   lawResearchCount = 0,
   forgeCount = 0,
 ): number | undefined {
@@ -36,15 +37,18 @@ export function cardEnergyCost(
   if (baseCost === undefined) return undefined;
   const ruleReduction = card.rule ? lawResearchCount : 0;
   const forgeReduction = card.effect === "odinSpear" ? forgeCount : 0;
-  const adjustedCost = baseCost - ruleReduction - forgeReduction;
-  // 법학 연구를 적용한 룰 카드 비용은 0 아래로 내려갈 수 있다.
+  const stickers = cardStickerIds(card);
+  const stickerReduction = Number(stickers.includes("moonstone"))
+    + Number(stickers.includes("clockwork") && card.clockworkTriggered === true);
+  const adjustedCost = baseCost - ruleReduction - forgeReduction - stickerReduction;
+  // 룰 연구·재련·월석 할인은 비용 0 아래까지 적용하며, 음수 비용은 사용 시 에너지를 돌려준다.
   return adjustedCost;
 }
 
 export function cardPoolCost(card: CardBlueprint) {
   return UNPLAYABLE_CARD_EFFECTS.has(card.effect)
     ? -1
-    : card.cost ?? -1;
+    : cardEnergyCost(card) ?? -1;
 }
 
 export function cardPoolShare(count: number, total: number) {
@@ -52,23 +56,22 @@ export function cardPoolShare(count: number, total: number) {
 }
 
 const CARD_KEYWORD_DESCRIPTIONS: Record<string, string> = {
-  "룰": "전투 동안 지속되는 규칙을 추가합니다. 사용 시 이번 전투 동안 카드가 사라집니다.",
+  "룰": "사용하면 카드가 소멸하고, 그 효과는 이번 전투 동안 지속됩니다.",
   "소멸": "사용 시 이번 전투 동안 사라집니다.",
   "보존": "턴이 끝나도 손패에서 버려지지 않습니다.",
-  "토큰": "전투 도중 생성된 카드입니다. 사용하면 사라지고, 사용하지 않은 채 버려져도 사라집니다.",
-  "재련": "조건을 만족하는 카드 위에 놓으면 강화 효과가 적용됩니다. 강화 효과는 전투 동안 유지됩니다.",
-  "주문": "비용이 1 높은 주문 카드 위에 놓을 수 있습니다.",
+  "토큰": "전투 중 생성되는 임시 카드입니다. 사용하거나 버리면 사라집니다.",
+  "재련": "이 카드를 조건에 맞는 카드 위에 놓으면 이 카드가 강화됩니다. 재련: [조건]은 아래 카드가 만족해야 하는 조건을 나타냅니다. 효과 설명 속 [ ]는 재련 후 적용되는 수치나 효과를 나타냅니다.",
   "사용 불가": "손패에서 사용할 수 없습니다. 옮길 수는 있습니다.",
   "★": "솔리테어 행동 자원입니다. 사용하여 손패에서 파일로, 혹은 파일에서 다른 파일로 카드를 옮길 수 있습니다. 턴이 끝나도 사라지지 않습니다.",
-  "에너지": "카드를 사용하는 데 필요한 자원입니다. 플레이어 턴 시작 시 최대 에너지만큼 회복되며 최대치를 넘지 않습니다.",
+  "에너지": "카드를 사용할 때 소모하는 자원입니다. 턴 시작 시 기본적으로 최대 에너지만큼 회복합니다. 이 회복으로는 최대 에너지를 넘지 않습니다.",
   "버리기 X": "사용 시 손패의 다른 카드 X장을 버립니다. 버릴 카드가 X장보다 적으면 사용할 수 없습니다.",
-  "힘": "힘 X는 피해를 X만큼 증가시킵니다.",
-  "강인함": "강인함 X는 방어와 마법 방어 획득량을 X만큼 증가시킵니다.",
-  "저항": "받는 공격 피해가 30% 감소합니다. 음수라면 30% 증가합니다. 숫자는 남은 턴 수입니다. 추가 턴에는 줄지 않으며 공격 외의 피해에는 적용되지 않습니다.",
-  "면역": "지속 중에는 피해를 받지 않습니다.",
-  "증폭": "가하는 공격 피해가 30% 증가합니다. 숫자는 남은 턴 수이며 약화와 서로 상쇄됩니다.",
-  "취약": "받는 공격 피해가 30% 증가합니다. 숫자는 남은 턴 수이며 저항과 서로 상쇄됩니다.",
-  "약화": "가하는 공격 피해가 30% 감소합니다. 숫자는 남은 턴 수이며 증폭과 서로 상쇄됩니다.",
+  "힘 X": "공격의 각 타격에 피해를 X만큼 추가합니다. 직접 카드를 낼 때만 적용됩니다.",
+  "강인함 X": "방어 또는 마법 방어를 얻을 때 X만큼 추가로 얻습니다. 직접 카드를 낼 때만 적용됩니다.",
+  "저항 X": "적에게 받는 공격 피해가 30% 감소합니다. 취약과 서로 상쇄됩니다.",
+  "취약 X": "적에게 받는 공격 피해가 30% 증가합니다. 저항과 서로 상쇄됩니다.",
+  "증폭 X": "내 공격 피해가 30% 증가합니다. 약화와 서로 상쇄됩니다.",
+  "약화 X": "내 공격 피해가 30% 감소합니다. 증폭과 서로 상쇄됩니다.",
+  "무적": "피해를 받지 않습니다.",
 };
 
 const CARD_KEYWORD_PREVIEWS: Record<string, CardKeywordInfo["preview"]> = {
@@ -83,40 +86,44 @@ export function getCardKeywordInfos(card: Card): CardKeywordInfo[] {
   if (card.rule) add("룰");
   if (card.exhaust && !card.rule) add("소멸");
   if (card.token) add("토큰");
-  if (card.retain) add("보존");
+  if (retainsCard(card)) add("보존");
   if (card.effect === "fermentedSlime") add("에너지");
   if (card.effect === "wish") add("토큰");
   if (["obsidianDagger", "odinSpear", "metallurgyResearch"].includes(card.effect) || (
     !["astronomyResearch", "necromancyResearch", "massDeal"].includes(card.effect)
     && (card.forgeCost !== undefined || card.forgeCosts?.length || card.forgeTargetName || card.forgeAny)
   )) add("재련");
-  if (card.solitaireRule === "spell") add("주문");
-  if (UNPLAYABLE_CARD_EFFECTS.has(card.effect)) add("사용 불가");
+  if (UNPLAYABLE_CARD_EFFECTS.has(card.effect)
+    || (!card.forged && card.forgeTargetName === "사용 불가 카드")) add("사용 불가");
   // 흙은 생성 경로와 무관하게 두 키워드를 항상 노출한다.
   if (card.effect === "soil") {
     add("사용 불가");
     add("토큰");
   }
   if (CARD_POOL_ENERGY_EFFECTS.has(card.effect)) add("에너지");
-  if (card.discardCost !== undefined) add("버리기 X");
+  if (card.discardCost !== undefined || card.effect === "saeongjima") add("버리기 X");
   if (card.effect === "obsidianDagger") add("소멸");
-  if (card.effect === "plateArmorDefense") add("저항");
-  if (["resistanceWard", "fourSeasons", "unyielding"].includes(card.effect)) add("저항");
-  if (["battleCry", "battlePreparation", "fourSeasons"].includes(card.effect)) add("증폭");
-  if (["shatter", "fourSeasons", "demolish"].includes(card.effect)) add("취약");
-  if (["kneeStrike", "scaleArmor", "fourSeasons", "demolish"].includes(card.effect)) add("약화");
-  if (card.effect === "transcend") add("면역");
-  if (CARD_POOL_STAR_EFFECTS.has(card.effect) || ["grimoire", "meteor", "supernova"].includes(card.effect)) add("★");
-  if (["warmUp", "weaponSharpen", "augment", "orion", "combatManual", "relic", "transcend", "evolutionTheory", "strategyBook"].includes(card.effect)) add("힘");
-  if (["augment", "armorSharpen", "combatManual", "evolutionTheory", "strategyBook"].includes(card.effect)) add("강인함");
-  if (["radiance", "lightCluster", "largePrism", "opticsResearch", "nebula", "lightTravelTime"].includes(card.effect)) add("광채");
+  if (card.effect === "plateArmorDefense") add("저항 X");
+  if (["resistanceWard", "fourSeasons", "unyielding"].includes(card.effect)) add("저항 X");
+  if (["battleCry", "battlePreparation", "fourSeasons", "atField", "photonCannon", "overcharge", "criticalReaction"].includes(card.effect)) add("증폭 X");
+  if (["shatter", "fourSeasons", "demolish"].includes(card.effect)) add("취약 X");
+  if (["kneeStrike", "scaleArmor", "fourSeasons", "demolish"].includes(card.effect)) add("약화 X");
+  if (card.effect === "transcend") add("무적");
+  if (CARD_POOL_STAR_EFFECTS.has(card.effect) || ["grimoire", "meteor", "supernova", "osirisSun"].includes(card.effect)) add("★");
+  if (["warmUp", "weaponSharpen", "augment", "orion", "combatManual", "relic", "evolutionTheory", "strategyBook", "beastification", "wolfTalisman"].includes(card.effect)) add("힘 X");
+  if (["augment", "armorSharpen", "combatManual", "evolutionTheory", "strategyBook", "metalization", "turtleTalisman"].includes(card.effect)) add("강인함 X");
+  if (card.effect === "sandToss") add("약화 X");
+  if (["radiance", "lightCluster", "largePrism", "opticsResearch", "nebula", "lightTravelTime", "parallelMirror"].includes(card.effect)) add("광채");
   return keywords
     .map((name) => ({
       name,
       description: CARD_KEYWORD_DESCRIPTIONS[name],
       preview: CARD_KEYWORD_PREVIEWS[name],
     }))
-    .filter((keyword) => Boolean(keyword.description || keyword.preview));
+    .filter((keyword) => Boolean(keyword.description || keyword.preview))
+    .concat(cardStickerIds(card).map(sticker => ({
+      name: STICKERS[sticker].name, description: STICKERS[sticker].description, preview: undefined,
+    })));
 }
 
 export function isRuleMatchedPlacement(movingCard: Card, targetCard?: Card) {
@@ -144,10 +151,15 @@ export function canForgeCardOnto(movingCard: Card, targetCard?: Card, lawResearc
   }
   const targetCost = cardEnergyCost(targetCard, lawResearchCount, forgeCount);
   if (movingCard.forged) return false;
+  const forgeTargetMatches = movingCard.forgeTargetName === "소멸 카드"
+    ? targetCard.exhaust === true
+    : movingCard.forgeTargetName === "사용 불가 카드"
+      ? UNPLAYABLE_CARD_EFFECTS.has(targetCard.effect)
+      : movingCard.forgeTargetName === targetCard.name;
   return (targetCost !== undefined && movingCard.forgeCost !== undefined && movingCard.forgeCost === targetCost)
     || (targetCost !== undefined && movingCard.forgeCosts?.includes(targetCost))
     || movingCard.forgeAny === true
-    || (movingCard.forgeTargetName !== undefined && movingCard.forgeTargetName === targetCard.name);
+    || forgeTargetMatches;
 }
 
 // A spell straight is read from the top of a pile: X, X+1, X+2.

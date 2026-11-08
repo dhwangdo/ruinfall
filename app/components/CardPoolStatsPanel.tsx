@@ -155,7 +155,7 @@ export function CardPoolStatsPanel({ onClose }: { onClose: () => void }) {
               <CardVisual
                 variant="compact"
                 card={card}
-                className={`${card.rarity === "legendary" ? "is-painted" : ""}`}
+                className={`${card.rarity === "legendary" ? "is-legendary" : ""}`}
                 key={`${card.name}-${card.effect}-${index}`}
               />
             ))}

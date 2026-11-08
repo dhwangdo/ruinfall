@@ -24,8 +24,12 @@ export function createCardOriginDeckIds(
   return origins;
 }
 
-export function usesRareCardSlot(card: { rarity: string }) {
+export function isHighRarityCard(card: { rarity: string }) {
   return card.rarity === "rare" || card.rarity === "legendary";
+}
+
+export function usesRareCardSlot(card: { rarity: string }) {
+  return isHighRarityCard(card);
 }
 
 export function countRareSlotCards(cards: readonly { rarity: string }[]) {
@@ -54,6 +58,8 @@ export type DeckEditorMoveRequest = {
   originalOriginDeckId: string | null;
   effectiveOriginDeckId: string | null;
   targetDeckCardCount?: number;
+  incomingCardSpace?: number;
+  consumesRareSlot?: boolean;
   targetDeckCapacity?: number;
   targetDeckRareCardCount?: number;
   targetDeckRareSlotCapacity?: number;
@@ -81,11 +87,12 @@ export function validateDeckEditorCardMove(request: DeckEditorMoveRequest): Deck
   }
   if (request.target.area === "deck"
     && (request.source.area !== "deck" || request.source.deckId !== request.target.deckId)
-    && (request.targetDeckCardCount ?? 0) >= (request.targetDeckCapacity ?? 0)) {
+    && (request.incomingCardSpace ?? 1) > 0
+    && (request.targetDeckCardCount ?? 0) + (request.incomingCardSpace ?? 1) > (request.targetDeckCapacity ?? 0)) {
     return { allowed: false, reason: "deck-full" };
   }
 
-  if (request.isRare && request.target.area === "deck"
+  if ((request.consumesRareSlot ?? request.isRare) && request.target.area === "deck"
     && (request.source.area !== "deck" || request.source.deckId !== request.target.deckId)
     && (request.targetDeckRareCardCount ?? 0) >= (request.targetDeckRareSlotCapacity ?? 0)) {
     return { allowed: false, reason: "rare-slots-full" };

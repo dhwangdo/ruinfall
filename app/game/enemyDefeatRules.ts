@@ -27,7 +27,8 @@ export function resolveEnemyDefeats(state: GameState, {
       hand: [...next.hand, ...(dead.confiscatedCards ?? []).map(card => ({ ...card, revealed: true }))] };
     if (!dead.powder) continue;
     const hit = resolveEnemyHitAgainstPlayer({ damage: dead.powder, damageType: "physical",
-      block: next.playerPhysicalBlock, isAttack: false, invulnerable: next.invulnerable });
+      block: next.playerPhysicalBlock, isAttack: false,
+      invulnerable: next.invulnerable || next.invulnerabilityTurns > 0 });
     const life = resolveLethalDamage(next.playerHp, hit.damageTaken, maxPlayerHp,
       blessings.includes("oneUp") && !oneUpUsed);
     oneUpUsed ||= life.usedOneUp;

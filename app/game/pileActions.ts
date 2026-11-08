@@ -12,6 +12,7 @@ import { applySolitaireEnemyPassives, blockedPileIndexes } from "./enemyPassives
 
 import { resolveEnemyDefeats } from "./enemyDefeatRules.ts";
 import { recyclingStars } from "./discardRules.ts";
+import { BLUEBIRD_RETRIEVAL_STAR_COST, cardStickerIds, hasSticker, takePileCards } from "./stickers.ts";
 
 type ResearchDrawKind = "astronomy" | "necromancy";
 
@@ -145,6 +146,7 @@ export function createMoveCardToPile(context: MoveCardToPileContext) {
           : card.baseCost;
         const placedCard = {
           ...card,
+          clockworkTriggered: card.clockworkTriggered || (drag.source.type === "hand" && hasSticker(card, "clockwork")),
           baseCost,
           cost: cardCostAfterForgePlacement(
             card,
@@ -157,7 +159,7 @@ export function createMoveCardToPile(context: MoveCardToPileContext) {
           revealed: drag.source.type === "hand" ? true : card.revealed,
           forged: card.forged || becomesForged,
         };
-        if (placedCard.forged) battleLongCardUpdates.set(placedCard.id, placedCard);
+        if (placedCard.forged || cardStickerIds(placedCard).length > 0) battleLongCardUpdates.set(placedCard.id, placedCard);
         return placedCard;
       });
       nextPiles[targetPileIndex].push(...placedCards);
@@ -289,6 +291,43 @@ export function createMoveCardToPile(context: MoveCardToPileContext) {
   }
 }
 
+export function createRetrieveBluebirdFromPile(context: Pick<MoveCardToPileContext, "setGame" | "phase" | "blessings">) {
+  const { setGame, phase, blessings } = context;
+  return (pileIndex: number) => {
+    setGame((current) => {
+      if (
+        current.status !== "playing" || phase !== "playing" ||
+        current.pendingDraws > 0 || current.pendingPileDrawCount > 0 ||
+        current.pendingDiscards > 0 || current.pendingSweep ||
+        current.pendingResearchDraw !== null
+      ) return current;
+      if (blessings.includes("starlessAge")) {
+        return { ...current, message: "별이 없는 시대: 솔리테어 행동을 할 수 없습니다." };
+      }
+      if (!Number.isInteger(pileIndex) || !current.piles[pileIndex]) return current;
+      if (blockedPileIndexes(current.enemies).includes(pileIndex)) {
+        return { ...current, message: "봉인된 파일에서는 카드를 손패로 가져올 수 없습니다." };
+      }
+      const card = current.piles[pileIndex].at(-1);
+      if (!card || !hasSticker(card, "bluebird")) return current;
+      if (current.stars < BLUEBIRD_RETRIEVAL_STAR_COST) {
+        return { ...current, message: "파랑새: 손패로 가져오려면 ★★가 필요합니다." };
+      }
+      const piles = current.piles.map((pile) => [...pile]);
+      const drawnCards = takePileCards(piles[pileIndex]);
+      if (drawnCards.length === 0) return current;
+      return {
+        ...current,
+        piles,
+        hand: [...current.hand, ...drawnCards],
+        stars: current.stars - BLUEBIRD_RETRIEVAL_STAR_COST,
+        starsSpent: current.starsSpent + BLUEBIRD_RETRIEVAL_STAR_COST,
+        message: `파랑새: ${card.name} 카드를 손패로 가져왔습니다.`,
+      };
+    });
+  };
+}
+
 /** Discard/rotate the chosen top card before allowing any queued draw. */
 export function resolvePendingPileOperation(current: GameState, pileIndex: number): GameState {
   if (current.status !== "playing" || !current.pendingSweep || current.pendingResearchDraw !== null || !current.piles[pileIndex]?.length) return current;
@@ -346,7 +385,7 @@ export function createDrawSelectedPile(context: DrawSelectedPileContext) {
     let dashRandomResult: ReturnType<typeof drawRandomFromPiles> | null = null;
     if (dashRandomCount > 0) {
       const previewPiles = game.piles.map((currentPile) => [...currentPile]);
-      for (let index = 0; index < drawCount; index += 1) previewPiles[pileIndex]?.pop();
+      for (let index = 0; index < drawCount; index += 1) takePileCards(previewPiles[pileIndex]);
       dashRandomResult = drawRandomFromPiles(previewPiles, dashRandomCount, Math.random, blockedPileIndexes(game.enemies));
     }
     const originIds = new Set([card.id, ...(dashRandomResult?.hand.map((drawnCard) => drawnCard.id) ?? [])]);
@@ -380,9 +419,9 @@ export function createDrawSelectedPile(context: DrawSelectedPileContext) {
       const drawCount = current.pendingPileDrawCount || 1;
       const drawnCards: Card[] = [];
       for (let index = 0; index < drawCount; index += 1) {
-        const drawnCard = nextPiles[pileIndex].pop();
-        if (!drawnCard) break;
-        drawnCards.push({ ...drawnCard, revealed: true });
+        const draw = takePileCards(nextPiles[pileIndex]);
+        if (draw.length === 0) break;
+        drawnCards.push(...draw);
       }
       if (drawnCards.length === 0) {
         return {
@@ -482,7 +521,8 @@ export function createDrawAstronomyResearchCard(context: DrawAstronomyResearchCa
         return current;
       }
       const nextPiles = current.piles.map((pile) => [...pile]);
-      const card = nextPiles[pileIndex]?.pop();
+      const drawn = takePileCards(nextPiles[pileIndex]);
+      const card = drawn[0];
       if (!card) return current;
       if (nextPiles[pileIndex].length > 0) {
         const topIndex = nextPiles[pileIndex].length - 1;
@@ -492,7 +532,7 @@ export function createDrawAstronomyResearchCard(context: DrawAstronomyResearchCa
       return {
         ...current,
         piles: nextPiles,
-        hand: [...current.hand, { ...card, revealed: true }],
+        hand: [...current.hand, ...drawn],
         stars: current.stars - (isDirectResearch ? 2 : 0),
         pendingResearchDraw: null,
         astronomyResearchUses: current.astronomyResearchUses + 1,

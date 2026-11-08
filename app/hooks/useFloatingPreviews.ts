@@ -1,4 +1,5 @@
-import { useCallback, useEffect, useLayoutEffect, useState, type MouseEvent as ReactMouseEvent } from "react";
+import { useCallback, useEffect, useLayoutEffect, useRef, useState, type MouseEvent as ReactMouseEvent } from "react";
+import { CARD_STICKER_HOVER_EVENT } from "../components/CardStickerMark";
 import type { BlessingTooltipState, CardKeywordPopoverState, DeckEditionTooltipState } from "../components/overlayTypes";
 import type { Card } from "../game/cards";
 import { getCardKeywordInfos } from "../game/cardEffects";
@@ -26,6 +27,7 @@ export function useFloatingPreviews({
   const [hoveredBlessingTooltip, setHoveredBlessingTooltip] = useState<BlessingTooltipState | null>(null);
   const [hoveredConsumable, setHoveredConsumable] = useState<Consumable | null>(null);
   const [deckPreviewPosition, setDeckPreviewPosition] = useState({ x: 0, y: 0 });
+  const stickerHoveringRef = useRef(false);
 
   const clearCardKeywordHover = useCallback(() => {
     setKeywordHoverRequest(null);
@@ -41,8 +43,18 @@ export function useFloatingPreviews({
   }, [clearCardKeywordHover]);
 
   useEffect(() => {
+    const updateStickerHover = (event: Event) => {
+      stickerHoveringRef.current = (event as CustomEvent<boolean>).detail === true;
+      if (stickerHoveringRef.current) clearFloatingTooltips();
+    };
+    window.addEventListener(CARD_STICKER_HOVER_EVENT, updateStickerHover);
+    return () => window.removeEventListener(CARD_STICKER_HOVER_EVENT, updateStickerHover);
+  }, [clearFloatingTooltips]);
+
+  useEffect(() => {
     if (!keywordHoverRequest) return;
     const timer = window.setTimeout(() => {
+      if (stickerHoveringRef.current) return;
       const margin = 12;
       const left = keywordHoverRequest.right + KEYWORD_POPOVER_GAP;
       const anchorTop = Math.max(margin, keywordHoverRequest.top);
@@ -72,6 +84,7 @@ export function useFloatingPreviews({
   }, [hoveredCardKeywords, cardKeywordPopoverRef]);
 
   const scheduleCardKeywordHover = (card: Card, cardRight: number, cardTop: number) => {
+    if (stickerHoveringRef.current) return;
     if (getCardKeywordInfos(card).length === 0) {
       clearCardKeywordHover();
       return;
@@ -89,6 +102,7 @@ export function useFloatingPreviews({
   };
 
   const showCardKeywordOnly = (card: Card, cardRight: number, cardTop: number) => {
+    if (stickerHoveringRef.current) return;
     if (deckCardPreviewsSuppressed) {
       clearCardKeywordHover();
       setHoveredDeckCard(null);
@@ -107,6 +121,7 @@ export function useFloatingPreviews({
     placement: "right" | "left" = "right",
     anchorLeft?: number,
   ) => {
+    if (stickerHoveringRef.current) return;
     if (deckCardPreviewsSuppressed) {
       clearCardKeywordHover();
       setHoveredDeckCard(null);
@@ -134,6 +149,7 @@ export function useFloatingPreviews({
   };
 
   const showConsumablePreview = (consumable: Consumable, anchorRight: number, anchorTop: number) => {
+    if (stickerHoveringRef.current) return;
     if (consumablePreviewSuppressed) {
       clearCardKeywordHover();
       setHoveredDeckCard(null);
@@ -158,6 +174,7 @@ export function useFloatingPreviews({
     card: Card,
     placement: "right" | "left" = "right",
   ) => {
+    if (stickerHoveringRef.current) return;
     // Static previews need no layout reads until their card or hover state changes.
     if (hoveredDeckCard === card
       && (keywordHoverRequest?.card === card || getCardKeywordInfos(card).length === 0)) return;
@@ -166,6 +183,7 @@ export function useFloatingPreviews({
   };
 
   const showDeckEditionTooltip = (event: ReactMouseEvent<HTMLElement>, edition: DeckEdition) => {
+    if (stickerHoveringRef.current) return;
     const bounds = event.currentTarget.getBoundingClientRect();
     const viewportMargin = 12;
     const gap = 10;
@@ -186,6 +204,7 @@ export function useFloatingPreviews({
     event: { currentTarget: HTMLElement },
     blessing: BlessingId | { name: string; description: string },
   ) => {
+    if (stickerHoveringRef.current) return;
     const bounds = event.currentTarget.getBoundingClientRect();
     const viewportMargin = 12;
     const gap = 10;

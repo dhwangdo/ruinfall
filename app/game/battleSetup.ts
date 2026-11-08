@@ -8,6 +8,7 @@ import { hasUniqueCardEffects } from "./blessingRules.ts";
 import { enemyEnergyRecoveryPenalty } from "./enemyPassives.ts";
 import { resolveEnemyDeathStuns } from "./enemyDefeatRules.ts";
 import { applyKarmaToEnemy } from "./karmaRules.ts";
+import { occupiedDeckSpace } from "./stickers.ts";
 
 /** Prepares the game data for an encounter, independently of UI and telemetry. */
 export function prepareBattleStart({
@@ -31,6 +32,7 @@ export function prepareBattleStart({
         ...enemy,
         isBoss: encounter.isBoss,
         hp: godsLamentApplies ? Math.floor(currentHp * 0.7) : currentHp,
+        ...(godsLamentApplies ? { summonHpMultiplier: 0.7 } : {}),
         strength: blessings.includes("absorption") ? enemy.strength - 1 : enemy.strength,
       };
     })));
@@ -62,7 +64,7 @@ export function prepareBattleStart({
   );
   const highlanderActive = blessings.includes("highlander") && hasUniqueCardEffects(battleDeck.cards);
   const deckHighlanderActive = battleDeck.editions.includes("deckHighlander")
-    && battleDeck.cards.length >= battleDeck.capacity
+    && occupiedDeckSpace(battleDeck.cards) >= battleDeck.capacity
     && hasUniqueCardEffects(battleDeck.cards);
   const startingResistance = !blessings.includes("glassCannon") && battleDeck.editions.includes("resistance") ? 2 : 0;
   const startingBlacksmith = dealtGame.forgeCount > 0 && blessings.includes("blacksmith");

@@ -24,6 +24,7 @@ type MapEntityMarkersProps = {
   battleFlash: boolean;
   playerPosition: MapPosition;
   waitNoticeNonce: number;
+  goldNotice: { nonce: number; amount: number } | null;
   showPlayer?: boolean;
   layout: {
     originX: number;
@@ -43,6 +44,7 @@ export function MapEntityMarkers({
   battleFlash,
   playerPosition,
   waitNoticeNonce,
+  goldNotice,
   showPlayer = true,
   layout,
 }: MapEntityMarkersProps) {
@@ -119,6 +121,14 @@ export function MapEntityMarkers({
           style={playerMarkerStyle}
           aria-live="polite"
         >한 턴 쉼</span>
+      )}
+      {showPlayer && goldNotice && goldNotice.nonce > 0 && (
+        <span
+          key={goldNotice.nonce}
+          className="map-gold-notice"
+          style={playerMarkerStyle}
+          aria-live="polite"
+        >+{goldNotice.amount}</span>
       )}
     </>
   );

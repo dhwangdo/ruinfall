@@ -10,8 +10,8 @@ export const MAP_PREFAB_DEFINITIONS: readonly MapPrefabDefinition[] = [
   },
   {
     id: "pillar-vault", name: "기둥 금고",
-    grid: ["#########", "#.#.#.#.#", "##.#.#.##", "#.#.#.#.#", "....#...V", "#.#.#.#.#", "##.#.#.##", "#.#.#.#.#", "#########"],
-    entrances: [{ x: 0, y: 4, direction: "W" }, { x: 8, y: 4, direction: "E" }],
+    grid: ["#########", "#.#.#.#.#", "##.#.#.##", "#.#.#.#.#", ".#.#V#.##", "#.#.#.#.#", "##.#.#.##", "#.#.#.#.#", "#########"],
+    entrances: [{ x: 0, y: 4, direction: "W" }],
     rotations: [0, 90, 180, 270], mirror: true, padding: 1, weight: 1, maxPerRegion: 1,
   },
 ];

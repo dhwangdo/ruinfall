@@ -1,5 +1,7 @@
 "use client";
 
+import { cardStickerIds, occupiedDeckSpace } from "./game/stickers";
+
 import { CardVisual } from "./components/CardVisual";
 import { DebugModeContext } from "./components/debugModeContext";
 import { RarityText } from "./components/RarityText";
@@ -7,6 +9,8 @@ import { RarityText } from "./components/RarityText";
 import { blockedPileIndexes } from "./game/enemyPassives.ts";
 
 import { useLocationDialogs } from "./hooks/useLocationDialogs";
+import { useStickerServices } from "./hooks/useStickerServices";
+import { StickerServiceModal } from "./components/StickerServiceModal";
 import { createCardPackActions } from "./controllers/cardPackActions";
 import { createBlessingActions } from "./controllers/blessingActions";
 import { createLocationActions } from "./controllers/locationActions";
@@ -35,6 +39,7 @@ import {
   createDrawAstronomyResearchCard,
   createDrawSelectedPile,
   createMoveCardToPile,
+  createRetrieveBluebirdFromPile,
   resolvePendingPileOperation,
 } from "./game/pileActions";
 import { createResolvePlayedCard } from "./game/cardPlayAction";
@@ -80,7 +85,8 @@ import { useMapKeyboardMovement } from "./hooks/useMapKeyboardMovement";
 import { useMapKeyboardShortcuts } from "./hooks/useMapKeyboardShortcuts";
 import { RESET_HOLD_DURATION_MS, useRunKeyboardControls } from "./hooks/useRunKeyboardControls";
 import { useRunMapContent } from "./hooks/useRunMapContent";
-import { findAutoExploreRoute, hasAutoExploreDiscovery } from "./game/mapAutoExplore";
+import { createRememberedAutoExploreBlockedRooms, createAutoExploreProgress, findAutoExploreRoute,
+  type AutoExploreProgress } from "./game/mapAutoExplore";
 import { useDebugMapContent } from "./hooks/useDebugMapContent";
 import { createTicketActions } from "./controllers/ticketActions";
 import { createDeckEditorMoves } from "./controllers/deckEditorMoves";
@@ -113,9 +119,11 @@ import { attackPreview } from "./game/attackPreview";
 import {
   CONSUMABLE_TYPES,
   DEBUG_ALL_CARDS_DECK_ID,
+  DEBUG_STICKER_DECK_ID,
   DECK_EDITION_INFO,
   createConsumable,
   createDebugAllCardsDeck,
+  createDebugStickerDeck,
   createRegionDeck,
   createStarterDeck,
   type Consumable,
@@ -153,12 +161,15 @@ import {
 import { type EnemyState } from "./game/enemies";
 import {
   chebyshevDistance,
+  forgetEnemyCellMemory,
+  updateEnemyCellMemory,
   MAP_ENEMY_DISTANCE_FIELD_RADIUS,
   MAP_PLAYER_VISION_HORIZONTAL_RADIUS,
   MAP_PLAYER_VISION_VERTICAL_RADIUS,
   type MapEnemyWorld,
 } from "./game/mapEnemies";
 import { resolveMapTurn as resolveMapTurnRules } from "./game/mapTurn";
+import { collectMapGoldPile } from "./game/mapGold";
 import { advanceBombs, applyBombDamage, positionsInSquare, type MapBomb } from "./game/mapEffects";
 import { RUN_SAVE_POLICY, clearRunSave } from "./game/saveGame";
 import { countRareSlotCards } from "./game/deckEditorRules";
@@ -175,6 +186,7 @@ import {
   recordTelemetryCardPlayed,
   recordTelemetryConsumableAcquired,
   recordTelemetryDeckAcquired,
+  recordTelemetryGoldAcquired,
   resetTelemetryRecorder,
 } from "./game/telemetry";
 import {
@@ -241,7 +253,7 @@ export default function Home() {
   const {
     mapSeed, setMapSeed, mapPosition, setMapPosition, seenRooms, setSeenRooms,
     setSafeAreaEntrySeenRooms, mapEnemyWorld, setMapEnemyWorld,
-    setDefeatedBossRegions, mapEnemyCellMemory, setMapEnemyCellMemory,
+    setDefeatedBossRegions, mapEnemyCellMemory, mapEnemyCellMemoryRef, setMapEnemyCellMemory,
     mapBombs, mapBombsRef, setDestroyedShopRooms, setCollapsedExtractionShrineRooms,
     setCollapsedRecoveryShrineRooms, setCollapsedVitalityShrineRooms,
     setCollapsedMindEyeShrineRooms, setCollapsedTransformShrineRooms,
@@ -249,6 +261,14 @@ export default function Home() {
     setUsedBlessingRooms, setRockBombHits, generatedMapRoomKeysRef, setMapBombsSynced,
     effectiveRoomType, bloodstainedRooms, setBloodstainedRooms,
   } = world;
+  const safeAreaUnlockTrackingRef = useRef({
+    initialized: false,
+    seed: 0,
+    wasInSafeArea: false,
+    pendingAnimation: false,
+  });
+  const safeAreaUnlockAnimationTimeoutRef = useRef<number | null>(null);
+  const [animateSafeAreaUnlock, setAnimateSafeAreaUnlock] = useState(false);
   const player = useRunPlayer();
   const {
     playerName, setPlayerName, playerNameSetupOpen, setPlayerNameSetupOpen, runPlayerHp,
@@ -266,7 +286,7 @@ export default function Home() {
   const { ownedDecks, setOwnedDecks, activeDeckId, setActiveDeckId,
     inventoryCards, setInventoryCards, inventoryConsumables, setInventoryConsumables, inventoryConsumablesRef,
     roomDrops, setRoomDrops, roomConsumableDrops, setRoomConsumableDrops,
-    roomDeckDrops, setRoomDeckDrops, 
+    roomDeckDrops, setRoomDeckDrops, roomGoldPiles, roomGoldPilesRef, setRoomGoldPiles, gold, setGold,
     nextCardIdRef, nextConsumableIdRef, nextConsumable,
     keys, setKeys, roomDeckVaults, resetDeckVaults, rareCardDropChanceRef } = inventory;
   const dialogs = useLocationDialogs();
@@ -289,13 +309,13 @@ export default function Home() {
     screen, setScreen, setActiveMapEnemyIds, setActiveBattleRoom, mapBattleQueueRef, previousBattleDeckIdRef, pendingBattleStart,
     setPendingBattleStart, setBattleDeckCheckEnabled, battleDeckPreviewId,
     setBattleDeckPreviewId, battleRewards, setBattleRewards, battleRewardDecks,
-    setBattleRewardDecks, battleRewardConsumables, setBattleRewardConsumables, 
+    setBattleRewardDecks, battleRewardConsumables, setBattleRewardConsumables,
     battleRewardKeys, setBattleRewardKeys, game, setGame, telemetryPreviousGameRef, phase, setPhase,
     attackingEnemyId, setAttackingEnemyId, damagePopup, setDamagePopup, enemyPopups,
     animatedEnemyHp, setAnimatedEnemyHp, battleRewardRegionRef,
     battleRewardIsBossRef, dyingEnemyIds, setDyingEnemyIds,
     battleCardView, setBattleCardView, pendingOriginsRef, pendingEnemyTokenIdsRef,
-    pendingPileTokenSourcesRef, handCardRefs, pendingDiscardPlay, setPendingDiscardPlay, getGame, later, clearBattleTimers, showEnemyPopup,
+    pendingPileTokenSourcesRef, pendingParachuteSourcesRef, handCardRefs, pendingDiscardPlay, setPendingDiscardPlay, getGame, later, clearBattleTimers, showEnemyPopup,
     afterAnimations, trackAnimation,
   } = battle;
   const [mapTraveling, setMapTraveling] = useState(false);
@@ -329,6 +349,7 @@ export default function Home() {
   const [mapMessage, setMapMessage] = useState("");
   const [mapMessageNonce, setMapMessageNonce] = useState(0);
   const [mapWaitNoticeNonce, setMapWaitNoticeNonce] = useState(0);
+  const [mapGoldNotice, setMapGoldNotice] = useState<{ nonce: number; amount: number } | null>(null);
   const [deckSelectorOpen, setDeckSelectorOpen] = useState(false);
   const [deckSelectorClosing, setDeckSelectorClosing] = useState(false);
   const [deckSelectorClosingDeckId, setDeckSelectorClosingDeckId] = useState<string | null>(null);
@@ -348,7 +369,7 @@ export default function Home() {
     deckEditorHighRarityInsertionOriginsRef, deckEditorDeckId, setDeckEditorDeckId,
     pendingRemovedCards, setPendingRemovedCards, pendingRemovedCardAreas,
     setPendingRemovedCardAreas, setDeckEditorReleasedCardIds, pendingRemovalBlinkDim,
-    pendingPaintTicketId, setPendingPaintTicketId, pendingCloneTicketId, setPendingCloneTicketId,
+    pendingCloneTicketId, setPendingCloneTicketId,
     pendingExtractTicketId, setPendingExtractTicketId, pendingTransformTicketId,
     setPendingTransformTicketId, setArmedBombTicketIds, deckEditorMessage, setDeckEditorMessage,
     transformedCardNewIds, setTransformedCardNewIds, deckEditorSort, setDeckEditorSort,
@@ -425,9 +446,7 @@ export default function Home() {
   });
 
   const activeDeck = ownedDecks.find((deck) => deck.id === activeDeckId) ?? ownedDecks[0];
-  const consumableDescription = (consumable: Consumable) => consumable.type === "mapTicket" && blessings.includes("cartographer")
-    ? "같은 지역에서 아직 드러나지 않은 특수 지형 4곳을 밝힙니다."
-    : consumable.description;
+  const consumableDescription = (consumable: Consumable) => consumable.description;
   const deckCards = activeDeck?.cards ?? [];
   const inventoryCapacity = INVENTORY_CAPACITY + (blessings.includes("bag") ? 18 : 0);
   const maxOwnedDecks = debugMode
@@ -491,13 +510,45 @@ export default function Home() {
     materializeMapContent,
   });
   const mapLoading = !saveReady || preparingMap || debugPreparation.loading;
+  useLayoutEffect(() => {
+    const isInSafeArea = isSafeAreaPosition(mapPosition, mapSeed);
+    const tracking = safeAreaUnlockTrackingRef.current;
+    if (!saveReady) {
+      tracking.initialized = false;
+      tracking.seed = mapSeed;
+      tracking.wasInSafeArea = isInSafeArea;
+      tracking.pendingAnimation = false;
+      return;
+    }
+    if (!tracking.initialized || tracking.seed !== mapSeed) {
+      tracking.initialized = true;
+      tracking.seed = mapSeed;
+      tracking.wasInSafeArea = isInSafeArea;
+      tracking.pendingAnimation = false;
+      return;
+    }
+    if (!tracking.wasInSafeArea && isInSafeArea) tracking.pendingAnimation = true;
+    else if (!isInSafeArea) tracking.pendingAnimation = false;
+    tracking.wasInSafeArea = isInSafeArea;
+  }, [mapPosition, mapSeed, saveReady]);
+  useEffect(() => {
+    if (deckEditorOpen) return;
+    if (safeAreaUnlockAnimationTimeoutRef.current !== null) {
+      window.clearTimeout(safeAreaUnlockAnimationTimeoutRef.current);
+      safeAreaUnlockAnimationTimeoutRef.current = null;
+    }
+  }, [deckEditorOpen]);
+  useEffect(() => () => {
+    if (safeAreaUnlockAnimationTimeoutRef.current !== null) {
+      window.clearTimeout(safeAreaUnlockAnimationTimeoutRef.current);
+    }
+  }, []);
   const mapCamera = useMapCamera({ enabled: screen === "map" && !mapLoading,
     position: mapPosition, travelLocked: mapTraveling, debugMode });
   const {
     isFocusing: mapCameraFocusing,
     centerOn: centerMapOn,
     focusOn: focusMapOn,
-    startTicketCameraTour: startMapTicketCameraTour,
     changeZoom: changeMapZoom,
     resetZoom: resetMapZoom,
     stopFocus: stopMapCameraFocus,
@@ -604,7 +655,8 @@ export default function Home() {
     nextCardIdRef.current = nextCardId;
     setOwnedDecks((current) => [
       deck,
-      ...current.filter((currentDeck) => currentDeck.id !== DEBUG_ALL_CARDS_DECK_ID),
+      ...current.filter((currentDeck) => currentDeck.id !== DEBUG_ALL_CARDS_DECK_ID
+        && currentDeck.id !== DEBUG_STICKER_DECK_ID),
     ]);
     setActiveDeckId(deck.id);
     setMapMessage(`디버그 덱 ALL 생성: 모든 카드 ${deck.cards.length}장`);
@@ -613,9 +665,12 @@ export default function Home() {
   const exitDebugMode = () => {
     if (!debugMode) return;
     const previousDeckId = debugPreviousActiveDeckIdRef.current;
-    const restoredDeck = ownedDecks.find((deck) => deck.id === previousDeckId && deck.id !== DEBUG_ALL_CARDS_DECK_ID)
-      ?? ownedDecks.find((deck) => deck.id !== DEBUG_ALL_CARDS_DECK_ID);
-    setOwnedDecks((current) => current.filter((deck) => deck.id !== DEBUG_ALL_CARDS_DECK_ID));
+    const isTemporaryDebugDeck = (deckId: string) => (
+      deckId === DEBUG_ALL_CARDS_DECK_ID || deckId === DEBUG_STICKER_DECK_ID
+    );
+    const restoredDeck = ownedDecks.find((deck) => deck.id === previousDeckId && !isTemporaryDebugDeck(deck.id))
+      ?? ownedDecks.find((deck) => !isTemporaryDebugDeck(deck.id));
+    setOwnedDecks((current) => current.filter((deck) => !isTemporaryDebugDeck(deck.id)));
     setActiveDeckId(restoredDeck?.id ?? "");
     setCardPoolStatsOpen(false);
     debugPreviousActiveDeckIdRef.current = null;
@@ -725,6 +780,17 @@ export default function Home() {
     }
     setMapMessage(`디버그 ${regionNumber}지역 덱 ${decks.length}개를 바닥에 생성했습니다.`);
   };
+  const createDebugStickerTestDeck = () => {
+    if (!debugMode) return;
+    const { deck, nextCardId } = createDebugStickerDeck(nextCardIdRef.current);
+    nextCardIdRef.current = nextCardId;
+    setOwnedDecks((current) => [
+      deck,
+      ...current.filter((currentDeck) => currentDeck.id !== DEBUG_STICKER_DECK_ID),
+    ]);
+    setActiveDeckId(deck.id);
+    setMapMessage(`스티커 도감 덱 생성: 스티커 ${deck.cards.length}종을 확인할 수 있습니다.`);
+  };
   const { grantBattleReward,
     confirmBattleDeck, returnToMap, beginMapEnemyBattle } = createBattleSessionActions({
     battle, inventory, world, player, interaction: battleInteraction, telemetry, ensureTelemetryRun,
@@ -761,6 +827,7 @@ export default function Home() {
   });
 
   const { openDeckVault, unlockDeckVault } = createDeckVaultActions({ inventory, world, player, dialogs, queueRunSave, telemetry, ensureTelemetryRun });
+  const stickerServices = useStickerServices({ inventory, world, queueRunSave });
 
   const researchDragImageRef = useRef<HTMLCanvasElement | null>(null);
   const researchDragActiveRef = useRef(false);
@@ -957,11 +1024,12 @@ export default function Home() {
         setScreen("battle");
       }
     }
+    const survivingEnemies = applyBombDamage(world.enemies, explosions);
+    const survivingIds = new Set(survivingEnemies.map((enemy) => enemy.id));
+    const defeatedIds = world.enemies.filter((enemy) => !survivingIds.has(enemy.id)).map((enemy) => enemy.id);
+    if (defeatedIds.length > 0) setMapEnemyCellMemory((memory) => forgetEnemyCellMemory(memory, defeatedIds));
     return {
-      world: {
-        ...world,
-        enemies: applyBombDamage(world.enemies, explosions),
-      },
+      world: { ...world, enemies: survivingEnemies },
       playerDefeated,
     };
   };
@@ -1012,8 +1080,17 @@ export default function Home() {
     }, MAP_COLLISION_OVERLAP_MS);
   };
 
+  const collectGoldAt = (position: MapPosition) => {
+    const result = collectMapGoldPile(roomGoldPilesRef.current, mapRoomKey(position));
+    if (result.amount <= 0) return;
+    setRoomGoldPiles(result.piles);
+    setGold((current) => current + result.amount);
+    setMapGoldNotice((current) => ({ nonce: (current?.nonce ?? 0) + 1, amount: result.amount }));
+    recordTelemetryGoldAcquired(telemetry, result.amount, "floor");
+  };
+
   const moveOnMap = (deltaX: number, deltaY: number) => {
-    if (screen !== "map" || playerNameSetupOpen || mapTraveling || mapLoading) return;
+    if (screen !== "map" || playerNameSetupOpen || mapTraveling || mapLoading || stickerServices.isOpen) return;
     if (Math.max(Math.abs(deltaX), Math.abs(deltaY)) !== 1) return;
     const nextPosition = {
       x: mapPosition.x + deltaX,
@@ -1028,6 +1105,7 @@ export default function Home() {
     const collisionIds = new Set(result.collisionEnemies.map((enemy) => enemy.id));
     const collisionEnemies = bombWorld.enemies.filter((enemy) => collisionIds.has(enemy.id));
     setMapPosition(nextPosition);
+    collectGoldAt(nextPosition);
     centerMapOn(nextPosition);
     rememberPlayerVision(nextPosition, mapSeed, bombWorld.enemies, revealedWorld.enemies);
     consumeMindEyeMove();
@@ -1048,7 +1126,7 @@ export default function Home() {
   } = useMapKeyboardMovement(moveOnMap);
 
   const spendMapTurn = () => {
-    if (screen !== "map" || playerNameSetupOpen || mapTraveling || mapLoading) return;
+    if (screen !== "map" || playerNameSetupOpen || mapTraveling || mapLoading || stickerServices.isOpen) return;
     centerMapOn(mapPosition);
     setMapWaitNoticeNonce((current) => current + 1);
     const roomKey = mapRoomKey(mapPosition);
@@ -1070,13 +1148,48 @@ export default function Home() {
     spendMapTurn();
   };
 
-  const travelSafePath = (path: MapPosition[], autoExplore = false) => {
-    if (screen !== "map" || playerNameSetupOpen || mapTraveling || mapLoading || path.length < 2) return;
+  const currentAutoExploreVision = () => {
+    const bonus = blessingVisionBonus + (mindEyeMovesRemainingRef.current > 0 ? 2 : 0);
+    return { horizontalRadius: MAP_PLAYER_VISION_HORIZONTAL_RADIUS + bonus,
+      verticalRadius: MAP_PLAYER_VISION_VERTICAL_RADIUS + bonus };
+  };
+
+  const findSafeAutoExploreRoute = (
+    position: MapPosition, world: MapEnemyWorld, explored: ReadonlySet<string>,
+    progress?: AutoExploreProgress,
+  ) => {
+    const vision = currentAutoExploreVision();
+    const visible = visibleMapRoomKeys(position, mapSeed, vision.horizontalRadius, vision.verticalRadius);
+    const observedMemory = updateEnemyCellMemory(mapEnemyCellMemoryRef.current, world.enemies, visible);
+    setMapEnemyCellMemory(observedMemory);
+    const blockedRooms = createRememberedAutoExploreBlockedRooms(
+      observedMemory, explored, effectiveRoomType, progress, darkTicketTurnsRemainingRef.current > 0 ? 1 : 0,
+      candidate => !isSafeAreaPosition(candidate, mapSeed),
+    );
+    return findAutoExploreRoute(position, explored, effectiveRoomType, {
+      blockedRooms, goldPiles: roomGoldPilesRef.current, progress, ...vision,
+    });
+  };
+
+  const reportAutoExploreStop = (progress: AutoExploreProgress) => showMapMessage(progress.stopReason === "unsafe"
+    ? "적에게 인식될 위험이 있어 자동 여행을 멈췄습니다."
+    : progress.stopReason === "blocked"
+      ? "적 때문에 접근할 수 없는 탐사 구역이나 골드가 남아 있습니다."
+      : "안전한 구역의 탐사와 골드 수집을 마쳤습니다.");
+
+  const isSpecialTerrain = (roomKey: string) => {
+    const type = effectiveRoomType(parseMapRoomKey(roomKey));
+    return type !== "empty" && type !== "rock" && type !== "void";
+  };
+
+  const travelSafePath = (path: MapPosition[], autoExplore = false, progress?: AutoExploreProgress) => {
+    if (screen !== "map" || playerNameSetupOpen || mapTraveling || mapLoading || stickerServices.isOpen || path.length < 2) return;
     if (debugMode && !autoExplore) {
       const destination = path.at(-1)!;
       clearMapTravel();
       const revealedWorld = materializeVisibleMapContent(destination, mapSeed, mapEnemyWorld);
       setMapPosition(destination);
+      collectGoldAt(destination);
       centerMapOn(destination);
       setMapEnemyWorld(revealedWorld);
       rememberPlayerVision(destination, mapSeed, revealedWorld.enemies, mapEnemyWorld.enemies);
@@ -1090,23 +1203,40 @@ export default function Home() {
     const explored = new Set([...seenRooms, ...initiallyVisible]);
     const knownEnemyIds = new Set(mapEnemyWorld.enemies
       .filter(enemy => initiallyVisible.has(mapRoomKey(enemy.position))).map(enemy => enemy.id));
-    const stepDuration = Math.max(70, Math.round(MAP_TRAVEL_STEP_MS / Math.sqrt(path.length - 1)));
+    const stepDuration = autoExplore
+      ? Math.max(1, Math.round(Math.max(45, Math.round((MAP_TRAVEL_STEP_MS * 0.5) / Math.sqrt(path.length - 1))) / 2))
+      : Math.max(70, Math.round(MAP_TRAVEL_STEP_MS / Math.sqrt(path.length - 1)));
     setMapTravelStepMs(stepDuration);
     setMapTraveling(true);
     let currentPosition = mapPosition;
     let currentWorld = mapEnemyWorld;
     let route = path;
     let stepIndex = 1;
+    const explorationProgress = progress ?? createAutoExploreProgress();
     const stopTravel = () => {
       mapTravelTimerRef.current = null;
       autoExploringRef.current = false;
       setMapTraveling(false);
     };
     const advance = () => {
+      // Read temporary-effect refs on the next tick, after the previous move consumed a turn.
+      if (autoExplore) {
+        const nextRoute = findSafeAutoExploreRoute(currentPosition, currentWorld, explored, explorationProgress);
+        if (!nextRoute) {
+          stopTravel();
+          reportAutoExploreStop(explorationProgress);
+          return;
+        }
+        route = nextRoute;
+        stepIndex = 1;
+      }
       const nextPosition = route[stepIndex];
       const roomKey = mapRoomKey(nextPosition);
       const previousWorld = currentWorld;
-      const revealedWorld = materializeVisibleMapContent(nextPosition, mapSeed, currentWorld);
+      const vision = autoExplore ? currentAutoExploreVision()
+        : { horizontalRadius: visionHorizontalRadius, verticalRadius: visionVerticalRadius };
+      const revealedWorld = materializeVisibleMapContent(nextPosition, mapSeed, currentWorld,
+        vision.horizontalRadius, vision.verticalRadius);
       const result = resolveMapStep(currentPosition, nextPosition, revealedWorld);
       const bombResult = advanceBombsAfterMovement(nextPosition, result.world);
       const bombWorld = bombResult.world;
@@ -1115,6 +1245,7 @@ export default function Home() {
       currentPosition = nextPosition;
       currentWorld = bombWorld;
       setMapPosition(nextPosition);
+      collectGoldAt(nextPosition);
       centerMapOn(nextPosition);
       rememberPlayerVision(nextPosition, mapSeed, bombWorld.enemies, previousWorld.enemies);
       consumeMindEyeMove();
@@ -1131,28 +1262,22 @@ export default function Home() {
         animateMapCollision(collisionEnemies, roomKey);
         return;
       }
-      const visible = visibleMapRoomKeys(nextPosition, mapSeed, visionHorizontalRadius, visionVerticalRadius);
-      if (bombWorld.enemies.some(enemy => !knownEnemyIds.has(enemy.id) && visible.has(mapRoomKey(enemy.position)))) {
+      const visible = visibleMapRoomKeys(nextPosition, mapSeed, vision.horizontalRadius, vision.verticalRadius);
+      if (!autoExplore && bombWorld.enemies.some(enemy => !knownEnemyIds.has(enemy.id) && visible.has(mapRoomKey(enemy.position)))) {
         stopTravel();
-        showMapMessage(`새로운 적을 발견해 ${autoExplore ? "자동 여행" : "빠른 이동"}을 멈췄습니다.`);
+        showMapMessage("새로운 적을 발견해 빠른 이동을 멈췄습니다.");
         return;
       }
-      if (autoExplore && hasAutoExploreDiscovery(visible, explored, effectiveRoomType, inventory.hasFloorItems)) {
+      if (autoExplore && [...visible].some(key => !explored.has(key) && isSpecialTerrain(key))) {
         stopTravel();
-        showMapMessage("새로운 아이템이나 장소를 발견해 자동 여행을 멈췄습니다.");
+        showMapMessage("새로운 특수 지형을 발견해 자동 여행을 멈췄습니다.");
         return;
       }
       if (autoExplore) visible.forEach(key => explored.add(key));
       stepIndex += 1;
-      if (autoExplore && stepIndex >= route.length) {
-        const nextRoute = findAutoExploreRoute(currentPosition, explored, effectiveRoomType);
-        if (!nextRoute) {
-          stopTravel();
-          showMapMessage("이동할 수 있는 미탐사 지역이 없습니다.");
-          return;
-        }
-        route = nextRoute;
-        stepIndex = 1;
+      if (autoExplore) {
+        mapTravelTimerRef.current = window.setTimeout(advance, stepDuration);
+        return;
       }
       if (stepIndex < route.length) {
         mapTravelTimerRef.current = window.setTimeout(advance, stepDuration);
@@ -1165,15 +1290,17 @@ export default function Home() {
   };
 
   const startAutoExplore = () => {
-    if (screen !== "map" || mapTraveling || mapLoading) return;
+    if (screen !== "map" || mapTraveling || mapLoading || stickerServices.isOpen) return;
+    collectGoldAt(mapPosition);
+    const progress = createAutoExploreProgress();
     const visible = visibleMapRoomKeys(mapPosition, mapSeed, visionHorizontalRadius, visionVerticalRadius);
-    if (mapEnemyWorld.enemies.some(enemy => visible.has(mapRoomKey(enemy.position)))) {
-      showMapMessage("시야에 적이 있어 자동 여행을 시작할 수 없습니다.");
+    if ([...visible].some(key => !seenRooms.has(key) && isSpecialTerrain(key))) {
+      showMapMessage("새로운 특수 지형을 발견해 자동 여행을 멈췄습니다.");
       return;
     }
-    const route = findAutoExploreRoute(mapPosition, new Set([...seenRooms, ...visible]), effectiveRoomType);
-    if (route) travelSafePath(route, true);
-    else showMapMessage("이동할 수 있는 미탐사 지역이 없습니다.");
+    const route = findSafeAutoExploreRoute(mapPosition, mapEnemyWorld, new Set([...seenRooms, ...visible]), progress);
+    if (route) travelSafePath(route, true, progress);
+    else reportAutoExploreStop(progress);
   };
 
   const cancelAutoExplore = () => {
@@ -1196,6 +1323,8 @@ export default function Home() {
     if (!await prepareMap(nextSeed)) return;
     const starterDeck = createStarterDeck();
     resetDeckVaults();
+    world.setRoomServiceUses({});
+    stickerServices.close();
     nextCardIdRef.current = starterDeck.cards.length;
     setOpenedDeckVaultRooms(new Set());
     setDeckVaultRoom(null);
@@ -1212,6 +1341,8 @@ export default function Home() {
     mindEyeMovesRemainingRef.current = 0;
     setGodsLamentCharges(3);
     setRegionBattleWins(0);
+    setGold(0);
+    setRoomGoldPiles({});
     setBloodstainedRooms(new Set());
     setMapSearchOpen(false);
     setSearchHighlightedRoom(null);
@@ -1273,13 +1404,11 @@ export default function Home() {
     setBattleRewards([]);
     setBattleRewardDecks([]);
     setBattleRewardConsumables([]);
-
     setBattleRewardKeys(0);
     rareCardDropChanceRef.current = 0.05;
     finishDeckEditorSession();
     setHoveredDeckCard(null);
     clearCardKeywordHover();
-    setPendingPaintTicketId(null);
     setPendingCloneTicketId(null);
     setPendingExtractTicketId(null);
     setPendingTransformTicketId(null);
@@ -1310,6 +1439,7 @@ export default function Home() {
     blessingOpen,
     extractionShrineOpen,
     transformShrineOpen,
+    stickerServices.isOpen,
     deckSelectorOpen,
     deckEditorOpen,
     openedCardPack,
@@ -1349,7 +1479,7 @@ export default function Home() {
   const ticketActions = createTicketActions({
     inventory, world, player, editor, inventoryCapacity, inventoryItemCount, deckEditorInventoryItemCount,
     maxPlayerHp, editingDeck, moveDeckEditorCard, queueRunSave, showMapMessage,
-    activateMindEye, grantConsumables, openCardPack, materializeMapContent, startMapTicketCameraTour,
+    activateMindEye, grantConsumables, openCardPack,
     clearCardPreview: () => {
       setHoveredDeckCard(null);
       clearCardKeywordHover();
@@ -1456,9 +1586,24 @@ export default function Home() {
   };
 
   const openDeckEditor = (message: string) => {
+    const tracking = safeAreaUnlockTrackingRef.current;
+    const shouldAnimateUnlock = tracking.pendingAnimation
+      && isSafeAreaPosition(mapPosition, mapSeed)
+      && !blessings.includes("forbiddenKnowledge");
+    tracking.pendingAnimation = false;
+    if (safeAreaUnlockAnimationTimeoutRef.current !== null) {
+      window.clearTimeout(safeAreaUnlockAnimationTimeoutRef.current);
+      safeAreaUnlockAnimationTimeoutRef.current = null;
+    }
+    setAnimateSafeAreaUnlock(shouldAnimateUnlock);
+    if (shouldAnimateUnlock) {
+      safeAreaUnlockAnimationTimeoutRef.current = window.setTimeout(() => {
+        setAnimateSafeAreaUnlock(false);
+        safeAreaUnlockAnimationTimeoutRef.current = null;
+      }, 1400);
+    }
     const roomKey = mapRoomKey(mapPosition);
     deckEditorHighRarityInsertionOriginsRef.current = {};
-    setPendingPaintTicketId(null);
     setPendingCloneTicketId(null);
     setPendingExtractTicketId(null);
     setPendingTransformTicketId(null);
@@ -1499,7 +1644,6 @@ export default function Home() {
     setDeckEditorReleasedCardIds(new Set());
     setTransformedCardNewIds(new Set());
     clearFloatingTooltips();
-    setPendingPaintTicketId(null);
     setPendingCloneTicketId(null);
     setPendingExtractTicketId(null);
     setPendingTransformTicketId(null);
@@ -1514,7 +1658,7 @@ export default function Home() {
       return;
     }
     if (settingsOpen || deckEditorOpen || blessingOpen || extractionShrineOpen
-      || transformShrineOpen || treasureChestReward !== null || deckVaultRoom !== null
+      || transformShrineOpen || stickerServices.isOpen || treasureChestReward !== null || deckVaultRoom !== null
       || portalKeyWarningRoom !== null || openedCardPack !== null || pendingBattleStart !== null
       || mapBattleFlash || mapCollisionEnemyIds.length > 0) return;
     clearMapTravel(); clearMapKeyboardMovement(); clearFloatingTooltips();
@@ -1522,7 +1666,14 @@ export default function Home() {
     setMapSearchOpen(true);
   });
 
+  const openStickerService = () => {
+    clearMapTravel(); clearMapKeyboardMovement(); clearFloatingTooltips();
+    stickerServices.open();
+  };
   const currentRoomActions: Record<string, (() => void) | undefined> = {
+    stickerAltar: openStickerService,
+    tinkerer: openStickerService,
+    cardTransmuter: openStickerService,
     extractionShrine: openExtractionShrine,
     recoveryShrine: useCurrentRecoveryShrine,
     vitalityShrine: useCurrentVitalityShrine,
@@ -1550,6 +1701,7 @@ export default function Home() {
       { open: treasureChestReward !== null, close: () => setTreasureChestReward(null) },
       { open: extractionShrineOpen, close: () => setExtractionShrineOpen(false) },
       { open: transformShrineOpen, close: () => setTransformShrineOpen(false) },
+      { open: stickerServices.isOpen, close: stickerServices.close },
       { open: blessingOpen, close: () => setBlessingOpen(false) },
       { open: openedCardPack !== null, close: () => setOpenedCardPack(null) },
     ],
@@ -1563,7 +1715,7 @@ export default function Home() {
     cancelAutoExplore,
     interactionLocked: mapSearchOpen || settingsOpen || mapLoading || portalKeyWarningRoom !== null || deckVaultRoom !== null
       || cardPoolStatsOpen || treasureChestReward !== null || extractionShrineOpen
-      || transformShrineOpen || blessingOpen || openedCardPack !== null,
+      || transformShrineOpen || stickerServices.isOpen || blessingOpen || openedCardPack !== null,
     roomType: effectiveRoomType(mapPosition),
     roomActions: currentRoomActions,
     changeMapZoom,
@@ -1824,7 +1976,14 @@ export default function Home() {
     if (pendingDiscardPlay?.card.id === cardId) return;
     if (!game.hand.some((card) => card.id === cardId)) return;
     const resumePlay = game.pendingDiscards === 1 ? pendingDiscardPlay : null;
-    setGame(current => phase === "playing" ? discardHandCard(current, cardId) : current);
+    setGame(current => {
+      if (phase !== "playing") return current;
+      const next = discardHandCard(current, cardId);
+      const movedToPile = next !== current && next.piles.some(pile => pile.some(card => card.id === cardId));
+      const source = movedToPile ? handCardRefs.current.get(cardId)?.getBoundingClientRect() : null;
+      if (source) pendingParachuteSourcesRef.current.set(cardId, source);
+      return next;
+    });
     if (resumePlay) {
       setPendingDiscardPlay(null);
       playCard(resumePlay.card, resumePlay.targetEnemyId, true);
@@ -1835,7 +1994,7 @@ export default function Home() {
     if (screen !== "battle" || phase !== "playing" || game.pendingDiscards <= 0 || game.pendingResearchDraw !== null) return;
     const available = game.hand.filter(card => card.id !== pendingDiscardPlay?.card.id);
     if (available.length === 0 && !pendingDiscardPlay) {
-      setGame(current => ({ ...current, pendingDiscards: 0 }));
+      setGame(current => ({ ...current, pendingDiscards: 0, pendingDiscardIsDiscardX: false, pendingSaeongjimaTriggers: 0 }));
     } else if (available.length > 0 && available.length <= game.pendingDiscards) {
       discardSelectedCard(available[0].id);
     }
@@ -1857,6 +2016,12 @@ export default function Home() {
     battleRewardRegionRef,
     lowestHealthEnemy,
   })(drag, targetPileIndex);
+
+  const retrieveBluebirdFromPile = (pileIndex: number) => createRetrieveBluebirdFromPile({
+    setGame,
+    phase,
+    blessings,
+  })(pileIndex);
 
   const moveSelectedHandCardToPile = (targetPileIndex: number) => {
     if (
@@ -1904,12 +2069,14 @@ export default function Home() {
     onMoveCardToPile: moveCardToPile,
     onPlayCard: playCard,
     onResearchDraw: drawAstronomyResearchCard,
+    onRetrieveBluebirdFromPile: retrieveBluebirdFromPile,
   });
 
   const endTurn = () => createEndTurn({
     game,
     phase,
     handCardRefs,
+    pendingParachuteSourcesRef,
     setPhase,
     setDragging,
     later,
@@ -2008,8 +2175,7 @@ export default function Home() {
       transformedCardNewIds,
     );
     const isConsumableSelected = (consumable: Consumable) => (
-      pendingPaintTicketId === consumable.id
-      || pendingCloneTicketId === consumable.id
+      pendingCloneTicketId === consumable.id
       || pendingExtractTicketId === consumable.id
       || pendingTransformTicketId === consumable.id
       || consumable.armedMovesRemaining !== undefined
@@ -2126,8 +2292,9 @@ export default function Home() {
         <MapTopbar
           runPlayerHp={runPlayerHp}
           maxPlayerHp={maxPlayerHp}
+          gold={gold}
           keys={keys}
-          deckCardCount={deckCards.length}
+          deckCardCount={occupiedDeckSpace(deckCards)}
           mapTraveling={mapTraveling}
           canEditDeck={canEditDeck}
           onDebugClick={handleDebugClick}
@@ -2229,6 +2396,7 @@ export default function Home() {
             collisionEnemyIds: mapCollisionEnemyIds,
             battleFlash: mapBattleFlash,
             waitNoticeNonce: mapWaitNoticeNonce,
+            goldNotice: mapGoldNotice,
             travelLocked: mapTraveling,
             travelStepMs: mapTravelStepMs,
             highlightedRoomKey: searchHighlightedRoom,
@@ -2241,6 +2409,7 @@ export default function Home() {
             roomDrops,
             roomConsumableDrops,
             roomDeckDrops,
+            roomGoldPiles,
             roomDeckVaults,
           }}
           camera={mapCamera}
@@ -2253,7 +2422,9 @@ export default function Home() {
             onDeckCountChange: setDebugDeckCount,
             onSpawnItem: spawnDebugItemOnFloor,
             onGenerateDecks: generateDebugRegionDecksOnFloor,
+            onCreateStickerDeck: createDebugStickerTestDeck,
             onAddDebugKeys: () => setKeys((current) => current + 10),
+            onAddDebugGold: () => setGold((current) => current + 999),
             onOpenCardStats: () => setCardPoolStatsOpen(true),
           }}
           effectiveRoomType={effectiveRoomType}
@@ -2265,6 +2436,7 @@ export default function Home() {
           onDebugTeleport={(position) => {
             setMapPosition(position);
             const revealedWorld = materializeVisibleMapContent(position, mapSeed, mapEnemyWorld);
+            collectGoldAt(position);
             setMapEnemyWorld(revealedWorld);
             rememberPlayerVision(position, mapSeed, revealedWorld.enemies, mapEnemyWorld.enemies);
             focusMapOn(position);
@@ -2323,6 +2495,9 @@ export default function Home() {
           />
         )}
 
+        {stickerServices.site && <StickerServiceModal key={stickerServices.site.roomKey}
+          site={stickerServices.site} gold={gold} inventoryCards={inventoryCards} decks={ownedDecks}
+            onClose={stickerServices.close} onSubmit={stickerServices.submit} />}
         <CardConversionShrineModal
           key={`transform-${transformShrineOpen}`}
           open={transformShrineOpen}
@@ -2368,6 +2543,8 @@ export default function Home() {
             swapOwnedDecks,
             dropOwnedDeck,
             canEditFreely: usesSafeAreaDeckRules,
+            isSafeArea: inSafeArea,
+              animateSafeAreaUnlock,
             rareSlotCountForDeck: (deck) => countRareSlotCards(deck.cards),
             canMoveDeckCardToInventory: isSafeAreaPosition(mapPosition, mapSeed)
               && true,
@@ -2447,7 +2624,7 @@ export default function Home() {
   };
   const battleCardViewCards = battleCardView ? battleCardCollections[battleCardView] : [];
   const battleCardViewGroups = Array.from(battleCardViewCards.reduce((groups, card) => {
-    const key = `${card.name}:${card.effect}:${card.value}:${card.forgeCostsCompleted?.join(",") ?? ""}:${card.forged ? "forged" : "normal"}:${card.colored ? "colored" : "plain"}`;
+    const key = `${card.name}:${card.effect}:${card.value}:${card.forgeCostsCompleted?.join(",") ?? ""}:${card.forged ? "forged" : "normal"}:${cardStickerIds(card).join(",") || "plain"}:${card.clockworkTriggered ?? false}:${card.bluebirdUsedTurn ?? "unused"}`;
     const current = groups.get(key);
     if (current) {
       current.count += 1;
@@ -2543,7 +2720,7 @@ export default function Home() {
               card={researchDragPreview.card}
               variant="compact"
               count={researchDragPreview.count}
-              className={`battle-ledger-card ${researchDragPreview.card.rarity === "legendary" ? "is-painted" : ""}`}
+              className={`battle-ledger-card ${researchDragPreview.card.rarity === "legendary" ? "is-legendary" : ""}`}
               style={{ width: "74px", height: "76px", margin: 0 }}
             />
           </div>
@@ -2609,7 +2786,7 @@ export default function Home() {
                     variant="compact"
                     count={count}
                     aria-label={`${card.name} ${count}장`}
-                    className={`battle-ledger-card ${card.rarity === "legendary" ? "is-painted" : ""}`}
+                    className={`battle-ledger-card ${card.rarity === "legendary" ? "is-legendary" : ""}`}
                     draggable={battleCardView === "discard"
                       && (game.pendingResearchDraw === "necromancy" || canUseResearchDraw(game, "necromancy"))}
                     onDragStart={(event) => {

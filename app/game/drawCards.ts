@@ -4,7 +4,8 @@ import type { GameState } from "./battleState";
 import { createRadianceCard, createRockCard, createSlimeCard, createSoilCard, createFermentedSlimeCard, type Card } from "./cards.ts";
 import { drawFromPiles, drawRandomFromPiles } from "./battleState.ts";
 import { preparePileSeals, blockedPileIndexes } from "./enemyPassives.ts";
-import { applyScheduledPreparation } from "./cardStatusEffects.ts";
+import { applyScheduledPreparation, resolveAmplificationThresholdEffects } from "./cardStatusEffects.ts";
+import { calculateDefenseGain } from "./defenseRules.ts";
 
 const CARD_RARITY_PRIORITY: Record<Card["rarity"], number> = {
   status: 0,
@@ -74,9 +75,37 @@ export function createDrawCards(context: DrawCardsContext) {
     pendingOriginsRef.current = origins;
     setPhase("drawing");
     setGame((current) => {
-      current = applyScheduledPreparation(current);
+      const turnStart = {
+        ...current,
+        overchargeTriggeredThisTurn: false,
+        criticalReactionTriggeredThisTurn: false,
+      };
+      current = applyScheduledPreparation(turnStart);
+      const thresholdEffects = resolveAmplificationThresholdEffects(turnStart, current);
+      current = thresholdEffects.state;
       current = { ...current, enemies: preparePileSeals(current.enemies, current.piles, current.turn) };
       const blocked = blockedPileIndexes(current.enemies);
+      let thresholdDrawnCards: Card[] = [];
+      let thresholdDrawnCount = 0;
+      if (thresholdEffects.randomDrawCount > 0) {
+        const sourcePiles = current.clearPlan?.pilesAfterDraw ?? current.piles;
+        const thresholdDraw = drawRandomFromPiles(sourcePiles, thresholdEffects.randomDrawCount, Math.random, blocked);
+        thresholdDrawnCount = thresholdDraw.hand.length;
+        if (current.clearPlan) {
+          current = { ...current, clearPlan: {
+            ...current.clearPlan,
+            pilesAfterDraw: thresholdDraw.piles,
+            hand: [...current.clearPlan.hand, ...thresholdDraw.hand],
+          } };
+        } else {
+          current = { ...current, piles: thresholdDraw.piles };
+          thresholdDrawnCards = thresholdDraw.hand;
+        }
+      }
+      const thresholdNotice = [
+        thresholdEffects.overchargeTriggered && `과충전: 카드를 무작위로 ${thresholdDrawnCount}장 뽑음`,
+        thresholdEffects.criticalReactionTriggered && "임계 반응: 에너지 2 획득",
+      ].filter(Boolean).join(" · ");
       // 현재 화면에 보이는 의도가 흙이면, 적 행동을 기다리지 않고
       // 이번 턴 드로우 직후 각 파일에 흙을 놓는다.
       const soilSourceEnemyIds = current.enemies.flatMap((enemy) => {
@@ -131,8 +160,7 @@ export function createDrawCards(context: DrawCardsContext) {
       const drawPiles = additionalStartDraw.piles;
       const topSlotByCardId = new Map<number, number>();
       current.piles.forEach((pile, index) => {
-        const top = pile.at(-1);
-        if (top) topSlotByCardId.set(top.id, index);
+        pile.forEach(card => topSlotByCardId.set(card.id, index));
       });
       const initialDraw = clearedAllPiles
         ? draw.hand.map((card) => ({
@@ -184,8 +212,11 @@ export function createDrawCards(context: DrawCardsContext) {
                 piles,
                 hand: [...latest.hand, ...uniquePlannedHand],
                 clearPlan: null,
-                pendingDraws: librarianDrawCount(latest, piles),
-                message: `새 파일에서 ${uniquePlannedHand.length}장을 가져왔습니다.`,
+                pendingDraws: Math.min(
+                  librarianDrawCount(latest, piles) + (planned.pendingDraws ?? 0),
+                  piles.reduce((count, pile, index) => count + (blockedPileIndexes(latest.enemies).includes(index) ? 0 : pile.length), 0),
+                ),
+                message: `새 파일에서 ${uniquePlannedHand.length}장을 가져왔습니다.${thresholdNotice ? ` · ${thresholdNotice}` : ""}`,
               };
             });
             if (origins.size === 0) {
@@ -248,7 +279,14 @@ export function createDrawCards(context: DrawCardsContext) {
         { length: nextTurnRadianceCount },
         () => createRadianceCard(nextCardIdRef.current++),
       );
-      const drawnCards = [...initialDraw, ...toxicSlimes, ...fermentedSlimes, ...opticalRadiances];
+      const drawnCards = [...thresholdDrawnCards, ...initialDraw, ...toxicSlimes, ...fermentedSlimes, ...opticalRadiances];
+      const pendingIronSong = current.pendingIronSong
+        .map((effect) => ({ ...effect, turns: effect.turns - 1 }))
+        .filter((effect) => effect.turns > 0);
+      const ironSongDefense = current.pendingIronSong.reduce((total, effect) => total + calculateDefenseGain(
+        { effect: "ironSong", value: effect.amount },
+        { agility: current.agility, baseValue: effect.amount, defenseMultiplier: current.defenseMultiplier },
+      ), 0);
       // Confiscation/sealing can leave no drawable card, or a newly exposed top
       // may not have a rendered origin yet. No flight means no animation callback
       // will unlock input; finish explicitly, using the battle's cancellable timer.
@@ -274,18 +312,25 @@ export function createDrawCards(context: DrawCardsContext) {
           ...soilCardsForDeck,
           ...rockCardsForDeck,
         ],
-        pendingDraws: clearedAllPiles ? 0 : librarianDrawCount(current, piles),
+        pendingDraws: clearedAllPiles ? 0 : Math.min(
+          librarianDrawCount(current, piles) + current.pendingForesightDraws,
+          piles.reduce((count, pile, index) => count + (blocked.includes(index) ? 0 : pile.length), 0),
+        ),
         pendingPileDrawCount: 0,
         pendingDashRandomDraws: 0,
         pendingRadiance: pendingRadianceAfterTurn.filter((radiance) => radiance.turns > 0),
+        pendingForesightDraws: 0,
+        pendingIronSong,
         pendingResearchDraw: null,
         pendingDiscards: 0,
+        pendingDiscardIsDiscardX: false,
+        pendingSaeongjimaTriggers: 0,
         pendingSweep: false,
-        playerPhysicalBlock: current.preserveDefenseOnTurnEnd
+        playerPhysicalBlock: (current.preserveDefenseOnTurnEnd
           ? current.playerPhysicalBlock
           : current.turn === 1 && current.deckEditions.includes("defensiveStance")
             ? 5
-            : 0,
+            : 0) + ironSongDefense,
         playerMagicBlock: current.preserveDefenseOnTurnEnd ? current.playerMagicBlock : 0,
         energy: current.energy
           + (blessings.includes("starlessAge") ? 1 : 0)
@@ -300,10 +345,10 @@ export function createDrawCards(context: DrawCardsContext) {
         damageTakenMultiplier: 1,
         invulnerable: current.turn === 1 && current.deckEditions.includes("invincible"),
         toxicSlimeAdded: true,
-        message: clearedAllPiles ? "CLEAR! 새 파일을 배치합니다."
+        message: `${clearedAllPiles ? "CLEAR! 새 파일을 배치합니다."
           : toxicSlimes.length > 0
           ? `${draw.hand.length}장을 가져왔습니다. 주황 슬라임이 유독성 점액을 손패에 넣었습니다.`
-          : `${draw.hand.length}장을 각 파일에서 가져왔습니다.`,
+          : `${draw.hand.length}장을 각 파일에서 가져왔습니다.`}${thresholdNotice ? ` · ${thresholdNotice}` : ""}`,
       };
     });
   };

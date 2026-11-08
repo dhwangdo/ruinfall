@@ -49,6 +49,7 @@ type MapBoardProps = {
     collisionEnemyIds: string[];
     battleFlash: boolean;
     waitNoticeNonce: number;
+    goldNotice: { nonce: number; amount: number } | null;
     travelLocked: boolean;
     travelStepMs: number;
     debugMode: boolean;
@@ -59,6 +60,7 @@ type MapBoardProps = {
     roomDrops: Record<string, Card[]>;
     roomConsumableDrops: Record<string, Consumable[]>;
     roomDeckDrops: Record<string, DeckCase[]>;
+    roomGoldPiles: Record<string, number>;
     roomDeckVaults: Record<string, DeckCase>;
     highlightedRoomKey?: string | null;
     bloodstainedRooms: ReadonlySet<string>;
@@ -73,7 +75,9 @@ type MapBoardProps = {
     onDeckCountChange: (value: string) => void;
     onSpawnItem: () => void;
     onGenerateDecks: () => void;
+    onCreateStickerDeck: () => void;
     onAddDebugKeys: () => void;
+      onAddDebugGold: () => void;
     onOpenCardStats: () => void;
   };
   effectiveRoomType: (position: MapPosition) => RoomType;
@@ -109,6 +113,7 @@ export function MapBoard({
     collisionEnemyIds: mapCollisionEnemyIds,
     battleFlash: mapBattleFlash,
     waitNoticeNonce: mapWaitNoticeNonce,
+    goldNotice: mapGoldNotice,
     travelLocked: mapTraveling,
     travelStepMs: mapTravelStepMs,
     debugMode,
@@ -119,6 +124,7 @@ export function MapBoard({
     roomDrops,
     roomConsumableDrops,
     roomDeckDrops,
+    roomGoldPiles,
     roomDeckVaults,
     highlightedRoomKey,
     bloodstainedRooms,
@@ -128,7 +134,6 @@ export function MapBoard({
     zoom: mapZoom,
     viewportSize: mapViewportSize,
     isFocusing: mapCameraFocusing,
-    isTicketTouring,
     viewportRef: mapViewportRef,
     wasDraggedRef: mapWasDraggedRef,
     focusOnPlayer: focusMapOnPlayer,
@@ -246,7 +251,8 @@ export function MapBoard({
     mapCellMap, debugMode, mapSeed, retainKnownCells]);
   const renderedMapCellKeys = useMemo(() => new Set(mapCells.map(mapRoomKey)), [mapCells]);
   const hasMinimapItems = useCallback((key: string) => !!(roomDrops[key]?.length
-    || roomConsumableDrops[key]?.length || roomDeckDrops[key]?.length), [roomDrops, roomConsumableDrops, roomDeckDrops]);
+    || roomConsumableDrops[key]?.length || roomDeckDrops[key]?.length || (roomGoldPiles[key] ?? 0) > 0),
+  [roomDrops, roomConsumableDrops, roomDeckDrops, roomGoldPiles]);
   const visibleMapEnemies = mapEnemyWorld.enemies.filter((enemy) =>
     renderedMapCellKeys.has(mapRoomKey(enemy.position))
     && (debugMode || currentVisibleRoomKeys.has(mapRoomKey(enemy.position))));
@@ -292,7 +298,9 @@ export function MapBoard({
           onDeckCountChange={debugTools.onDeckCountChange}
           onSpawnItem={debugTools.onSpawnItem}
           onGenerateDecks={debugTools.onGenerateDecks}
+          onCreateStickerDeck={debugTools.onCreateStickerDeck}
           onAddDebugKeys={debugTools.onAddDebugKeys}
+            onAddDebugGold={debugTools.onAddDebugGold}
           onOpenCardStats={debugTools.onOpenCardStats}
         />
       )}
@@ -307,7 +315,7 @@ export function MapBoard({
       >
         <div
           ref={canvasRef}
-          className={`map-canvas ${mapTraveling ? "is-traveling" : ""} ${mapCameraFocusing && !isTicketTouring ? "is-camera-focusing" : ""}`}
+            className={`map-canvas ${mapTraveling ? "is-traveling" : ""} ${mapCameraFocusing ? "is-camera-focusing" : ""}`}
           style={{
             width: surfaceColumns * mapStrideX,
             height: surfaceRows * mapStrideY,
@@ -341,11 +349,13 @@ export function MapBoard({
             const reachable = !current && (debugMode ? walkable : knownRoomRoutes.has(roomKey));
             const itemCount = (roomDrops[roomKey]?.length ?? 0)
               + (roomConsumableDrops[roomKey]?.length ?? 0)
-              + (roomDeckDrops[roomKey]?.length ?? 0);
+              + (roomDeckDrops[roomKey]?.length ?? 0)
+              + Number((roomGoldPiles[roomKey] ?? 0) > 0);
             const roomItemNames = [
               ...(roomDrops[roomKey] ?? []).map((card) => card.name),
               ...(roomConsumableDrops[roomKey] ?? []).map((consumable) => consumable.name),
               ...(roomDeckDrops[roomKey] ?? []).map((deck) => `덱 '${deck.name}'`),
+              ...((roomGoldPiles[roomKey] ?? 0) > 0 ? ["골드"] : []),
             ];
             const roomItemsTitle = roomItemNames.length > 0
               ? `떨어진 아이템: ${roomItemNames.join(", ")}`
@@ -370,6 +380,7 @@ export function MapBoard({
                 floorDeck={roomDeckDrops[roomKey]?.[0]}
                 floorCard={roomDrops[roomKey]?.[0]}
                 floorTicket={roomConsumableDrops[roomKey]?.[0]}
+                floorGold={roomGoldPiles[roomKey]}
                 roomItemsTitle={roomItemsTitle}
                 deckName={roomType === "deckVault" ? roomDeckVaults[roomKey]?.name : undefined}
                 onPreview={roomType === "deckVault" && roomDeckVaults[roomKey] ? showVaultPreview : undefined}
@@ -389,6 +400,7 @@ export function MapBoard({
             battleFlash={mapBattleFlash}
             playerPosition={mapPosition}
             waitNoticeNonce={mapWaitNoticeNonce}
+            goldNotice={mapGoldNotice}
             showPlayer={mapPosition.x >= surface.minX && mapPosition.x <= surface.maxX
               && mapPosition.y >= surface.minY && mapPosition.y <= surface.maxY}
             layout={{

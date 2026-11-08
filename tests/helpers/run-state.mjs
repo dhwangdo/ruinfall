@@ -27,7 +27,7 @@ export function makeRunFixture() {
   inventory.ensureDeckVault = key => inventory.roomDeckVaults[key];
   const world = { roomType: "empty" };
   for (const [name, value] of Object.entries({
-    mapPosition: MAP_START, mapSeed: 1, mapEnemyWorld: { enemies: [] }, seenRooms: new Set(),
+    mapPosition: MAP_START, mapSeed: 1, mapEnemyWorld: { enemies: [] }, mapEnemyCellMemory: {}, seenRooms: new Set(),
     safeAreaEntrySeenRooms: null, defeatedBossRegions: new Set(), usedHealRooms: new Set(),
     usedBlessingRooms: new Set(), collapsedExtractionShrineRooms: new Set(), collapsedRecoveryShrineRooms: new Set(),
     collapsedVitalityShrineRooms: new Set(), collapsedMindEyeShrineRooms: new Set(),
@@ -35,6 +35,7 @@ export function makeRunFixture() {
     collapsedTreasureChestRooms: new Set(), openedDeckVaultRooms: new Set(), bloodstainedRooms: new Set(),
   })) field(world, name, value);
   world.openedDeckVaultRoomsRef = { get current() { return world.openedDeckVaultRooms; } };
+  world.mapEnemyCellMemoryRef = { get current() { return world.mapEnemyCellMemory; } };
   world.effectiveRoomType = () => world.roomType;
   const player = {};
   for (const [name, value] of Object.entries({
@@ -51,7 +52,7 @@ export function makeRunFixture() {
   for (const [name, value] of Object.entries({
     screen: "map", game: waitingState(40, []), phase: "playing", activeMapEnemyIds: [], activeBattleRoom: null,
     pendingBattleStart: null, battleDeckCheckEnabled: true, battleDeckPreviewId: null,
-    battleRewards: [], battleRewardDecks: [], battleRewardConsumables: [], battleRewardGold: 0, battleRewardKeys: 0,
+    battleRewards: [], battleRewardDecks: [], battleRewardConsumables: [], battleRewardKeys: 0,
     battleCardView: null, dyingEnemyIds: new Set(), animatedEnemyHp: {}, attackingEnemyId: null, damagePopup: null,
   })) field(battle, name, value);
   for (const [name, value] of Object.entries({

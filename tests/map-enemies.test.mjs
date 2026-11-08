@@ -22,14 +22,15 @@ test("Chebyshev distance uses the larger axis difference", () => {
   assert.equal(chebyshevDistance({ x: 0, y: 0 }, { x: 3, y: -2 }), 3);
 });
 
-test("player vision has a 7 by 7 square with 49 cells", () => {
+test("player vision has a 9 by 9 square with 81 cells", () => {
   const center = { x: 0, y: 0 };
-  const visible = Array.from({ length: 7 }, (_, y) => y - 3).flatMap((y) =>
-    Array.from({ length: 7 }, (_, x) => x - 3).filter((x) =>
+  const visible = Array.from({ length: 9 }, (_, y) => y - 4).flatMap((y) =>
+    Array.from({ length: 9 }, (_, x) => x - 4).filter((x) =>
       isInPlayerVision({ x, y }, center)));
-  assert.equal(visible.length, 49);
-  assert.equal(isInPlayerVision({ x: 0, y: 4 }, center), false);
-  assert.equal(isInPlayerVision({ x: 4, y: 0 }, center), false);
+  assert.equal(visible.length, 81);
+  assert.equal(isInPlayerVision({ x: 0, y: 5 }, center), false);
+  assert.equal(isInPlayerVision({ x: 5, y: 0 }, center), false);
+  assert.equal(isInPlayerVision({ x: -4, y: 4 }, center), true);
   assert.equal(isInPlayerVision({ x: -3, y: 3 }, center), true);
   assert.equal(isInPlayerVision({ x: 1, y: 1 }, center), true);
   assert.equal(isInPlayerVision({ x: 2, y: 1 }, center), true);
@@ -50,7 +51,7 @@ test("enemy memory follows observed cells instead of enemy identities", () => {
     [enemy],
   );
 
-  assert.deepEqual(movedMemory["0:0"], { encounterIndex: 2, awareness: "awake" });
+  assert.deepEqual(movedMemory["0:0"], { id: "wanderer", encounterIndex: 2, awareness: "awake" });
 
   const revisitedMemory = updateEnemyCellMemory(movedMemory, [], new Set(["0:0"]));
   assert.equal(revisitedMemory["0:0"], undefined);
@@ -72,7 +73,7 @@ test("an enemy entering vision removes the echo from the cell it just left", () 
   );
 
   assert.equal(enteredVision["0:0"], undefined);
-  assert.deepEqual(enteredVision["1:0"], { encounterIndex: 3, awareness: "alerted" });
+  assert.deepEqual(enteredVision["1:0"], { id: "returning-wanderer", encounterIndex: 3, awareness: "alerted" });
 });
 
 test("pre-generation can reserve the start cell and its eight neighbors from spawning", () => {

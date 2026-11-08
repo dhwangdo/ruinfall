@@ -1,3 +1,5 @@
+import { occupiedDeckSpace } from "../game/stickers";
+import { useId } from "react";
 import { CardVisual } from "./CardVisual";
 import { BattleStatusBadge } from "./BattleStatusBadge";
 import { DeckSlotPlaceholder } from "./DeckSlotPlaceholder";
@@ -14,6 +16,7 @@ import { useDeckEditorPreviews } from "../hooks/useDeckEditorPreviews";
 export type { DeckEditorModalProps } from "./deck-editor/types";
 
 export function DeckEditorModal(props: DeckEditorModalProps) {
+  const lockBodyMaskId = useId();
   const { controlsRef, actions: cardPreview } = useDeckEditorPreviews();
   const { consumablePreview, moveDeckCardPreview, clearCardPreview, editionTooltip, showDeckCardPreview } = cardPreview;
   const { deckEditorDrag, deckEditorDragRef, deckEditorDropTarget, setDeckEditorDropTarget,
@@ -42,6 +45,8 @@ export function DeckEditorModal(props: DeckEditorModalProps) {
       swapOwnedDecks,
       dropOwnedDeck,
       canEditFreely,
+      isSafeArea,
+      animateSafeAreaUnlock,
       canMoveDeckCardToInventory,
     },
     floorArea: {
@@ -68,6 +73,7 @@ export function DeckEditorModal(props: DeckEditorModalProps) {
 
   const mapMessage = mapFeedback.message;
   const mapMessageNonce = mapFeedback.nonce;
+  const lockIsOpen = isSafeArea || animateSafeAreaUnlock;
   const applySelectedTicketToDeck = (deck: DeckCase) => {
     const ticket = [...inventoryConsumableGroups, ...floorConsumableGroups]
       .find(({ consumable }) => isConsumableSelected(consumable));
@@ -89,7 +95,7 @@ export function DeckEditorModal(props: DeckEditorModalProps) {
         count={cardIds.length}
         showNewBadge={cardIds.some((id) => transformedCardNewIds.has(id))}
         type="button"
-        className={`deck-list-entry ${card.rarity === "legendary" ? "is-painted" : ""} ${isTemporary ? `is-temporary ${pendingRemovalBlinkDim ? "is-blink-dim" : ""}` : ""} ${deckEditorDrag?.cardId === cardId ? "is-dragging" : ""} ${touchDrag?.active && touchDrag.kind === "card" && touchDrag.id === cardId && touchDrag.source === "deck" && touchDrag.deckId === deck.id ? "is-touch-drag-origin" : ""} ${ticketDropTarget === ticketDropKey("deck", cardId, deck.id) ? "is-ticket-drop-target" : ""}`}
+        className={`deck-list-entry ${card.rarity === "legendary" ? "is-legendary" : ""} ${isTemporary ? `is-temporary ${pendingRemovalBlinkDim ? "is-blink-dim" : ""}` : ""} ${deckEditorDrag?.cardId === cardId ? "is-dragging" : ""} ${touchDrag?.active && touchDrag.kind === "card" && touchDrag.id === cardId && touchDrag.source === "deck" && touchDrag.deckId === deck.id ? "is-touch-drag-origin" : ""} ${ticketDropTarget === ticketDropKey("deck", cardId, deck.id) ? "is-ticket-drop-target" : ""}`}
         key={item.key}
         data-ticket-card-id={cardId}
         data-ticket-card-area="deck"
@@ -168,7 +174,7 @@ export function DeckEditorModal(props: DeckEditorModalProps) {
             suppressTouchClickRef.current = false;
             return;
           }
-          if (area === "inventory" || ["paintTicket", "cloneTicket", "extractTicket", "transformTicket", "bombTicket", "darkTicket"].includes(consumable.type)) {
+          if (area === "inventory" || ["cloneTicket", "extractTicket", "transformTicket", "bombTicket", "darkTicket"].includes(consumable.type)) {
             selectExtractionTicket(consumable);
           } else {
             moveFloorConsumableToInventory(consumableId);
@@ -195,7 +201,7 @@ export function DeckEditorModal(props: DeckEditorModalProps) {
           variant="compact"
           count={cardIds.length}
           showNewBadge={cardIds.some((id) => transformedCardNewIds.has(id))}
-          className={`is-pending-removal ${pendingRemovalBlinkDim ? "is-blink-dim" : ""} ${card.rarity === "legendary" ? "is-painted" : ""} ${deckEditorDrag?.cardId === cardId ? "is-dragging" : ""} ${touchDrag?.active && touchDrag.kind === "card" && touchDrag.id === cardId && touchDrag.source === "pendingRemoval" ? "is-touch-drag-origin" : ""}`}
+          className={`is-pending-removal ${pendingRemovalBlinkDim ? "is-blink-dim" : ""} ${card.rarity === "legendary" ? "is-legendary" : ""} ${deckEditorDrag?.cardId === cardId ? "is-dragging" : ""} ${touchDrag?.active && touchDrag.kind === "card" && touchDrag.id === cardId && touchDrag.source === "pendingRemoval" ? "is-touch-drag-origin" : ""}`}
           key={item.key}
           draggable
           onPointerDown={(event) => beginTouchPointerDrag(event, "card", cardId, "pendingRemoval", undefined, item.key)}
@@ -243,7 +249,7 @@ export function DeckEditorModal(props: DeckEditorModalProps) {
         count={cardIds.length}
         showNewBadge={cardIds.some((id) => transformedCardNewIds.has(id))}
         type="button"
-        className={`${card.rarity === "legendary" ? "is-painted" : ""} ${deckEditorDrag?.cardId === cardId ? "is-dragging" : ""} ${touchDrag?.active && touchDrag.kind === "card" && touchDrag.id === cardId && touchDrag.source === area ? "is-touch-drag-origin" : ""} ${ticketDropTarget === location ? "is-ticket-drop-target" : ""}`}
+        className={`${card.rarity === "legendary" ? "is-legendary" : ""} ${deckEditorDrag?.cardId === cardId ? "is-dragging" : ""} ${touchDrag?.active && touchDrag.kind === "card" && touchDrag.id === cardId && touchDrag.source === area ? "is-touch-drag-origin" : ""} ${ticketDropTarget === location ? "is-ticket-drop-target" : ""}`}
         key={item.key}
         data-ticket-card-id={cardId}
         data-ticket-card-area={area}
@@ -318,7 +324,7 @@ export function DeckEditorModal(props: DeckEditorModalProps) {
       >
         <span className="floor-deck-icon" aria-hidden="true" />
         <strong><DeckName deck={deck} showEditions={false} showEditionTooltips={false} showGenerationDebug={false} /></strong>
-        <span>{deck.cards.length} / {deck.capacity}</span>
+        <span>{occupiedDeckSpace(deck.cards)} / {deck.capacity}</span>
         <small>눌러서 줍기</small>
       </button>
     );
@@ -439,7 +445,7 @@ export function DeckEditorModal(props: DeckEditorModalProps) {
                       >
                         <button
                           type="button"
-                          className={`deck-editor-deck-heading ${deckCaseDropSlot === index ? "is-deck-drop-target" : ""} ${canEditFreely ? "" : "is-edit-locked"}`}
+                          className={`deck-editor-deck-heading ${deckCaseDropSlot === index ? "is-deck-drop-target" : ""} ${canEditFreely && !animateSafeAreaUnlock ? "" : "is-edit-locked"}`}
                           draggable
                           onDragStart={(event) => beginDeckCaseDrag(event, deck.id, "owned")}
                           onDragEnd={finishDeckCaseDrag}
@@ -482,15 +488,31 @@ export function DeckEditorModal(props: DeckEditorModalProps) {
                             dropOwnedDeck(deck.id);
                           }}
                         >
-                          {!canEditFreely && (
+                          {(!canEditFreely || animateSafeAreaUnlock || isSafeArea) && (
                             <BattleStatusBadge
-                              className="deck-editor-lock-indicator"
-                              description="덱 자유 편집은 안전 구역에서 가능합니다."
-                              tooltipTitle="덱 편집 제한"
-                              ariaLabel="덱 자유 편집 제한"
+                              className={`deck-editor-lock-indicator ${lockIsOpen ? "is-open" : ""} ${animateSafeAreaUnlock ? "is-unlocking" : ""}`}
+                              description={animateSafeAreaUnlock
+                                ? "안전 구역에 도착해 덱을 자유롭게 편집할 수 있습니다."
+                                : lockIsOpen
+                                ? "안전 구역에서 덱을 자유롭게 편집할 수 있습니다."
+                                : "덱 자유 편집은 안전 구역에서 가능합니다."}
+                              tooltipTitle={lockIsOpen ? "덱 편집 제한 해제" : "덱 편집 제한"}
+                              ariaLabel={lockIsOpen ? "덱 편집 제한 해제" : "덱 자유 편집 제한"}
                               onClick={(event) => event.stopPropagation()}>
                               <svg viewBox="0 0 24 24" aria-hidden="true">
-                                <path d="M7.5 10V7a4.5 4.5 0 0 1 9 0v3" />
+                                <defs>
+                                  <mask id={`${lockBodyMaskId}-${index}`} maskUnits="userSpaceOnUse"
+                                    x="-24" y="-24" width="72" height="72" style={{ maskType: "luminance" }}>
+                                    <rect x="-24" y="-24" width="72" height="72" fill="white" stroke="none" />
+                                    <rect x="5" y="10" width="14" height="11" rx="2" fill="black" stroke="black" strokeWidth="1.8" />
+                                  </mask>
+                                </defs>
+                                {/* The body stays in front while the shackle moves behind it. */}
+                                <g mask={`url(#${lockBodyMaskId}-${index})`}>
+                                  <g className="deck-editor-lock-shackle">
+                                    <path d="M7.5 13.5V7a4.5 4.5 0 0 1 9 0v6.5" />
+                                  </g>
+                                </g>
                                 <rect x="5" y="10" width="14" height="11" rx="2" />
                                 <circle cx="12" cy="15" r="1" />
                                 <path d="M12 16v2" />
@@ -504,7 +526,7 @@ export function DeckEditorModal(props: DeckEditorModalProps) {
                               onEditionTooltipLeave={editionTooltip.clear}
                             />
                           </strong>
-                          <small>{deck.cards.length} / {deck.capacity}</small>
+                          <small>{occupiedDeckSpace(deck.cards)} / {deck.capacity}</small>
                         </button>
                         <VirtualizedHorizontalList
                           className="deck-editor-deck-list"

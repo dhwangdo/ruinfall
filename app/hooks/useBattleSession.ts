@@ -74,6 +74,8 @@ export function useBattleSession() {
 
   const pendingPileTokenSourcesRef = useRef(new Map<number, string>());
 
+  const pendingParachuteSourcesRef = useRef(new Map<number, DOMRect>());
+
   const handCardRefs = useRef(new Map<number, HTMLButtonElement>());
 
   const [pendingDiscardPlay, setPendingDiscardPlay] = useState<{ card: Card; targetEnemyId?: string } | null>(null);
@@ -111,13 +113,13 @@ export function useBattleSession() {
     setActiveBattleRoom, mapBattleQueueRef, previousBattleDeckIdRef, pendingBattleStart,
     setPendingBattleStart, battleDeckCheckEnabled, setBattleDeckCheckEnabled, battleDeckPreviewId,
     setBattleDeckPreviewId, battleRewards, setBattleRewards, battleRewardDecks,
-    setBattleRewardDecks, battleRewardConsumables, setBattleRewardConsumables, 
+    setBattleRewardDecks, battleRewardConsumables, setBattleRewardConsumables,
     battleRewardKeys, setBattleRewardKeys, game, setGame, telemetryPreviousGameRef, phase, setPhase,
     attackingEnemyId, setAttackingEnemyId, damagePopup, setDamagePopup, enemyPopups,
     setEnemyPopups, animatedEnemyHp, setAnimatedEnemyHp, enemyPopupKeyRef, battleRewardRegionRef,
     battleRewardIsBossRef, battleRewardIsOutOfDepthRef, dyingEnemyIds, setDyingEnemyIds,
     battleCardView, setBattleCardView, pendingOriginsRef, pendingEnemyTokenIdsRef,
-    pendingPileTokenSourcesRef, handCardRefs, pendingDiscardPlay, setPendingDiscardPlay, timersRef,
+    pendingPileTokenSourcesRef, pendingParachuteSourcesRef, handCardRefs, pendingDiscardPlay, setPendingDiscardPlay, timersRef,
     rewardGrantedRef, rewardCollectedRef, getGame, later, clearBattleTimers, showEnemyPopup, trackAnimation, afterAnimations,
   };
 }

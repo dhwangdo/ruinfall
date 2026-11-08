@@ -36,6 +36,7 @@ export function EnemyIntentIcons({
   forceMagic,
   resistance,
   amplification,
+  amplificationEffectiveness,
   ignoreNegativeResistance,
 }: {
   action: EnemyAction;
@@ -44,6 +45,7 @@ export function EnemyIntentIcons({
   forceMagic: boolean;
   resistance: number;
   amplification: number;
+  amplificationEffectiveness: number;
   ignoreNegativeResistance: boolean;
 }) {
   const effectDescriptions = enemyIntentEffectDescription(action, firstActionCompleted);
@@ -60,7 +62,12 @@ export function EnemyIntentIcons({
     })
     .flatMap((attack, attackIndex) => {
       const damageType = forceMagic ? "magic" : attack.type;
-      const damage = calculateAttackDamage(attack.value + strength, { resistance, amplification, ignoreNegativeResistance });
+      const damage = calculateAttackDamage(attack.value + strength, {
+        resistance,
+        amplification,
+        amplificationEffectiveness,
+        ignoreNegativeResistance,
+      });
       return Array.from({ length: attack.hits ?? 1 }, (_, hitIndex) => (
         <span
           className={`intent-icon intent-icon-${damageType}`}

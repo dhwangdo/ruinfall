@@ -10,31 +10,28 @@ test("one encounter grants rewards only once even when victory paths overlap", (
   t.mock.method(Math, "random", () => .9);
   const ctx = makeRunFixture(), actions = createBattleSessionActions(ctx.options());
   actions.grantBattleReward(1);
-  const first = { gold: ctx.battle.battleRewardGold, nextId: ctx.inventory.nextCardIdRef.current,
+  const first = { nextId: ctx.inventory.nextCardIdRef.current,
     keys: ctx.battle.battleRewardKeys };
   actions.grantBattleReward(1);
-  assert.ok(first.gold > 0);
-  assert.deepEqual({ gold: ctx.battle.battleRewardGold, nextId: ctx.inventory.nextCardIdRef.current,
+  assert.deepEqual({ nextId: ctx.inventory.nextCardIdRef.current,
     keys: ctx.battle.battleRewardKeys }, first);
 });
 
 test("returning from chained encounters deposits rewards and carries HP into the next battle", () => {
   const ctx = makeRunFixture(), key = mapRoomKey(MAP_START);
   ctx.battle.setActiveBattleRoom(key);
-  ctx.battle.setBattleRewardGold(12);
   ctx.battle.setBattleRewardKeys(1);
   ctx.battle.setBattleRewards([{ id: 999, name: "reward" }]);
   ctx.battle.setGame({ ...ctx.battle.game, playerHp: 23, status: "won" });
   ctx.battle.mapBattleQueueRef.current = [{ id: "next", encounterIndex: 2 }];
   createBattleSessionActions(ctx.options()).returnToMap();
-  assert.equal(ctx.inventory.gold, 1012);
+  assert.equal(ctx.inventory.gold, 1000);
   assert.equal(ctx.inventory.keys, 1);
   assert.equal(ctx.inventory.roomDrops[key][0].id, 999);
   assert.equal(ctx.battle.game.playerHp, 23);
   assert.equal(ctx.player.runPlayerHpRef.current, 23);
   assert.equal(ctx.battle.screen, "battle");
   assert.equal(ctx.battle.mapBattleQueueRef.current.length, 0);
-  assert.equal(ctx.battle.battleRewardGold, 0);
 });
 
 test("finishing the last encounter removes the fought enemies and unlocks the boss region", () => {
@@ -42,9 +39,13 @@ test("finishing the last encounter removes the fought enemies and unlocks the bo
   ctx.battle.setActiveBattleRoom(key);
   ctx.battle.setActiveMapEnemyIds(["boss"]);
   ctx.world.setMapEnemyWorld({ enemies: [{ id: "boss", encounterIndex: 5, isBoss: true }, { id: "survivor" }] });
+  ctx.world.setMapEnemyCellMemory({ "20:20": { id: "boss", encounterIndex: 5, awareness: "alerted", isBoss: true },
+    "21:20": { id: "survivor", encounterIndex: 1, awareness: "sleeping" } });
   ctx.battle.setGame({ ...ctx.battle.game, playerHp: 31, status: "won" });
   createBattleSessionActions(ctx.options()).returnToMap();
   assert.deepEqual(ctx.world.mapEnemyWorld.enemies.map(enemy => enemy.id), ["survivor"]);
+  assert.equal(ctx.world.mapEnemyCellMemory["20:20"], undefined);
+  assert.equal(ctx.world.mapEnemyCellMemory["21:20"].id, "survivor");
   assert.equal(ctx.world.defeatedBossRegions.size, 1);
   assert.equal(ctx.battle.screen, "map");
   assert.equal(ctx.player.runPlayerHp, 31);

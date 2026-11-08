@@ -75,6 +75,7 @@ test("run save snapshots serialize set-backed state without changing the source"
     skipPortalKeyWarning: true,
     roomDeckVaults: {},
     openedDeckVaultRooms: new Set(["5:9"]),
+    roomGoldPiles: { "2:3": 11, "4:5": 0 },
     rareCardDropChance: 0.05,
   });
 
@@ -82,6 +83,7 @@ test("run save snapshots serialize set-backed state without changing the source"
   assert.equal(snapshot.keys, 4);
   assert.equal(snapshot.skipPortalKeyWarning, true);
   assert.deepEqual(snapshot.openedDeckVaultRooms, ["5:9"]);
+  assert.deepEqual(snapshot.roomGoldPiles, { "2:3": 11, "4:5": 0 });
   assert.equal(snapshot.safeAreaEntrySeenRooms, null);
   assert.deepEqual(snapshot.defeatedBossRegions, [0, 2]);
   assert.deepEqual(snapshot.blessingSeenOfferIds, ["ironWill"]);
@@ -117,6 +119,23 @@ test("restore preparation fills legacy fields and normalizes saved values", () =
   assert.equal(prepared.skipPortalKeyWarning, false);
   assert.deepEqual(prepared.roomDeckVaults, {});
   assert.deepEqual(prepared.openedDeckVaultRooms, []);
+});
+
+test("restored floor gold piles keep uncollected amounts and pickup markers", () => {
+  const prepared = prepareRunRestore({
+    mapPosition: { x: 0, y: 0 }, mapSeed: 5, blessings: [],
+    roomGoldPiles: { "1:1": 10.8, "2:2": 0, "3:3": -1, "4:4": "bad" },
+  }, () => false);
+  assert.deepEqual(prepared.roomGoldPiles, { "1:1": 10, "2:2": 0 });
+});
+
+test("saved pruning cards use the current one-card discard cost", () => {
+  const blueprint = SPECIAL_CARD_POOL.find(card => card.effect === "pruning");
+  const oldCard = { ...blueprint, id: 900, revealed: false, discardCost: 2 };
+  const prepared = prepareRunRestore({ mapPosition: { x: 0, y: 0 }, mapSeed: 5, blessings: [],
+    inventoryCards: [oldCard] }, () => false);
+  assert.equal(prepared.inventoryCards[0].discardCost, 1);
+  assert.equal(oldCard.discardCost, 2);
 });
 
 test("removed shop stock is discarded when restoring an old run", () => {

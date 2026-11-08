@@ -1,6 +1,6 @@
 import type { MapPosition, RoomType } from "../game/mapRules";
 
-const FLOOR_COLORS = [[145, 173, 129], [168, 120, 82], [222, 197, 139], [171, 216, 230]];
+const FLOOR_COLORS = [[145, 173, 129], [129, 143, 150], [222, 197, 139], [171, 216, 230]];
 
 /** Stable paint colors: no random changes on movement and no per-tile filter layers. */
 export function mapTileColor(position: MapPosition, roomType: RoomType, region: number | null) {

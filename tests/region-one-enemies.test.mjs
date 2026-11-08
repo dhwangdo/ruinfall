@@ -23,7 +23,7 @@ test("four fixed physical encounters keep retired prisoner and boss IDs stable",
   assert.ok(entries.every(entry => entry.regions[0] === 1 && getEncounterIndicesForRegion(0).includes(entry.encounterIndex)));
   assert.ok(entries.every(entry => entry.enemies.every(({ enemy }) => enemy.actions.every(action => action.attacks.every(hit => hit.type === "physical")))));
   assert.ok(!entries.some(entry => entry.label.includes("사냥꾼")));
-  assert.equal(createSewerEncounterByIndex(14, () => 0).length, 4);
+  assert.equal(createSewerEncounterByIndex(14, () => 0).length, 1);
 });
 
 test("one dog joins a different family and telegraphs its second action", () => {
@@ -32,14 +32,14 @@ test("one dog joins a different family and telegraphs its second action", () => 
   assert.notEqual(pair[0].variant, pair[1].variant);
   assert.equal(pair[0].maxHp, 24);
   let game = { ...waitingState(500, [pair[0]]), energy: 3 };
-  assert.match(game.enemies[0].actions[0].preview, /다음 턴.*10/);
+  assert.match(game.enemies[0].actions[0].preview, /다음 턴.*12/);
   const damage = [];
   for (let turn = 0; turn < 5; turn += 1) {
     const next = advance(game);
     damage.push(game.playerHp - next.playerHp);
     game = next;
   }
-  assert.deepEqual(damage, [5, 10, 5, 5, 5]);
+  assert.deepEqual(damage, [5, 12, 5, 5, 5]);
   game = { ...game, enemies: [{ ...game.enemies[0], hp: 0 }] };
   assert.equal(game.playerHp - advance(game).playerHp, 0);
 });
@@ -90,7 +90,7 @@ test("killing the puppeteer cancels its colossus attack and status gain exactly 
     { ...attackCard, value: 1 }, pair[1].id, [], []);
   assert.equal(killed.nextEnemies[1].hp, 0);
   assert.equal(killed.nextEnemies[0].stunned, true);
-  assert.equal(killed.nextEnemies[0].hp, 54);
+  assert.equal(killed.nextEnemies[0].hp, 62);
   assert.equal(pair[1].hp, 12);
   const game = { ...initial, enemies: killed.nextEnemies };
   assert.equal(resolveEnemyTurn({ ...game, extraTurns: 1 }, options).nextEnemies[0].stunned, true);
@@ -99,7 +99,7 @@ test("killing the puppeteer cancels its colossus attack and status gain exactly 
   assert.equal(skipped.enemies[0].amplification ?? 0, 0);
   assert.equal(skipped.enemies[0].stunned, false);
   const resumed = advance(skipped);
-  assert.equal(skipped.playerHp - resumed.playerHp, 9);
+  assert.equal(skipped.playerHp - resumed.playerHp, 11);
   assert.equal(resumed.enemies[0].amplification, 1);
   assert.equal(resolveEnemyDefeats(resumed).state.enemies[0].stunned, false);
 });
@@ -118,7 +118,7 @@ test("explosions can kill the puppeteer and trigger the same one-time cancellati
   const pair = createSewerEncounterByIndex(20, () => 1);
   const carrier = { ...enemy(26), hp: 0, powder: 12 };
   const result = resolveEnemyDefeats(waitingState(500, [carrier, ...pair]));
-  assert.equal(result.state.enemies[1].hp, 42);
+  assert.equal(result.state.enemies[1].hp, 50);
   assert.equal(result.state.enemies[1].stunned, true);
   assert.equal(result.state.enemies[2].hp, 0);
 });
@@ -176,8 +176,8 @@ test("spider passive is triggered by a valid move only and cannot rearm in the s
 });
 
 test("toad explodes on action three, consumes physical defense and dies after the hit", () => {
-  assert.match(enemy(23).actions[0].preview, /폭발 12/);
-  assert.match(enemy(23).actions[1].preview, /폭발 12/);
+  assert.match(enemy(23).actions[0].preview, /자폭/);
+  assert.match(enemy(23).actions[1].preview, /자폭/);
   let game = advance(advance(gameFor(23)));
   const result = resolveEnemyTurn({ ...game, playerPhysicalBlock: 3, playerMagicBlock: 30 }, options);
   assert.equal(game.playerHp - result.remainingHp, 9);

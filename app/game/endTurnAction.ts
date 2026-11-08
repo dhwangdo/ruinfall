@@ -5,10 +5,11 @@ import type { Card } from "./cards.ts";
 import type { DamagePopup, DragState, Phase } from "./battleUiTypes.ts";
 import type { TelemetryRecorder } from "./telemetry.ts";
 import { recoverBattleEnergy } from "./combatEconomy.ts";
+import { hasSticker, retainsCard } from "./stickers.ts";
 import { recordTelemetryEnemyDamage, registerTelemetryEnemies } from "./telemetry.ts";
 import { telemetryEnemySnapshot } from "./telemetrySnapshots.ts";
 import { cardsForNextShuffle } from "./cardRules.ts";
-import { buildPiles, drawFromPileIndexes, drawRandomFromPiles, prepareDeckForPiles } from "./battleState.ts";
+import { buildPiles, drawFromPiles, drawFromPileIndexes, drawRandomFromPiles, prepareDeckForPiles } from "./battleState.ts";
 import { applyPlayerTurnStart, retainBlockAfterEnemyTurn } from "./enemies.ts";
 
 import { blockedPileIndexes, preparePileSeals, enemyEnergyRecoveryPenalty } from "./enemyPassives.ts";
@@ -20,6 +21,7 @@ type EndTurnContext = {
   game: GameState;
   phase: Phase;
   handCardRefs: RefObject<Map<number, HTMLButtonElement>>;
+  pendingParachuteSourcesRef: RefObject<Map<number, DOMRect>>;
   setPhase: Dispatch<SetStateAction<Phase>>;
   setDragging: Dispatch<SetStateAction<DragState | null>>;
   later: (callback: () => void, delay: number) => number;
@@ -47,6 +49,7 @@ export function createEndTurn(context: EndTurnContext) {
     game,
     phase,
     handCardRefs,
+    pendingParachuteSourcesRef,
     setPhase,
     setDragging,
     later,
@@ -85,7 +88,7 @@ export function createEndTurn(context: EndTurnContext) {
     });
     const discardAnimations = animateDiscardedCards?.(game.hand.flatMap(card => {
       const element = handCardRefs.current.get(card.id);
-      return !card.retain && card.effect !== "slime" && element ? [element] : [];
+      return !retainsCard(card) && card.effect !== "slime" && !hasSticker(card, "parachute") && element ? [element] : [];
     })) ?? [];
     setPhase("discarding");
     setDragging(null);
@@ -95,6 +98,12 @@ export function createEndTurn(context: EndTurnContext) {
         blessings, maxPlayerHp, oneUpUsed: oneUpUsedRef.current,
         randomRolls: game.enemies.map(() => Math.random()),
       });
+      const cardsMovedToPiles = new Set(result.pilesAfterSlime.flat().map(card => card.id));
+      for (const card of game.hand) {
+        if (!cardsMovedToPiles.has(card.id)) continue;
+        const source = handCardRefs.current.get(card.id)?.getBoundingClientRect();
+        if (source) pendingParachuteSourcesRef.current.set(card.id, source);
+      }
       const {
         enemiesAfterBlockDecay,
         toxicSlimeDamage,
@@ -102,9 +111,9 @@ export function createEndTurn(context: EndTurnContext) {
         retainedHand,
         pilesAfterSlime,
         remainingPhysicalBlock,
-        remainingMagicBlock,
         nextPlayerResistance,
         nextPlayerAmplification,
+        nextPlayerInvulnerability,
         remainingStrength,
         remainingAgility,
         toxicSlimeDamageTaken,
@@ -140,7 +149,7 @@ export function createEndTurn(context: EndTurnContext) {
           turn: game.turn + 1,
           playerHp: remainingHp,
           playerPhysicalBlock: retainBlockAfterEnemyTurn(remainingPhysicalBlock, game.preserveDefenseOnTurnEnd),
-          playerMagicBlock: retainBlockAfterEnemyTurn(remainingMagicBlock, game.preserveDefenseOnTurnEnd),
+          playerMagicBlock: 0,
           strength: Math.max(0, game.strength - game.temporaryStrength),
           temporaryStrength: 0,
           defenseMultiplier: 1,
@@ -244,9 +253,10 @@ export function createEndTurn(context: EndTurnContext) {
             discard: discarded,
             playerHp: 0,
             playerPhysicalBlock: retainBlockAfterEnemyTurn(remainingPhysicalBlock, game.preserveDefenseOnTurnEnd),
-            playerMagicBlock: retainBlockAfterEnemyTurn(remainingMagicBlock, game.preserveDefenseOnTurnEnd),
+            playerMagicBlock: 0,
             playerResistance: nextPlayerResistance,
             playerAmplification: nextPlayerAmplification,
+            invulnerabilityTurns: nextPlayerInvulnerability,
             enemies: nextEnemies,
             status: "lost",
             message: "적의 공격을 받고 쓰러졌습니다.",
@@ -263,9 +273,10 @@ export function createEndTurn(context: EndTurnContext) {
             discard: discarded,
             playerHp: remainingHp,
             playerPhysicalBlock: retainBlockAfterEnemyTurn(remainingPhysicalBlock, game.preserveDefenseOnTurnEnd),
-            playerMagicBlock: retainBlockAfterEnemyTurn(remainingMagicBlock, game.preserveDefenseOnTurnEnd),
+            playerMagicBlock: 0,
             playerResistance: nextPlayerResistance,
             playerAmplification: nextPlayerAmplification,
+            invulnerabilityTurns: nextPlayerInvulnerability,
             enemies: nextEnemies,
             status: "won",
             message: "모든 적을 쓰러뜨렸습니다.",
@@ -277,7 +288,7 @@ export function createEndTurn(context: EndTurnContext) {
 
         const enemiesAtPlayerTurnStart = preparePileSeals(nextEnemies.map(applyPlayerTurnStart), pilesAfterSlime, game.turn + 1);
         const blocked = blockedPileIndexes(enemiesAtPlayerTurnStart);
-        const willClearAfterNextDraw = pilesAfterSlime.every((pile, index) => pile.length === 0 || (pile.length === 1 && !blocked.includes(index)));
+        const willClearAfterNextDraw = drawFromPiles(pilesAfterSlime, blocked).piles.every(pile => pile.length === 0);
         const turnStartExtraDrawCount = (game.deckEditions.includes("persistentDraw") ? 1 : 0)
           + (blessings.includes("starlessAge") ? 1 : 0);
         const clearPlan = willClearAfterNextDraw
@@ -311,6 +322,7 @@ export function createEndTurn(context: EndTurnContext) {
               pilesBeforeDraw: rebuilt,
               pilesAfterDraw: additionalDraw.piles,
               hand: [...redraw.hand, ...additionalDraw.hand],
+              pendingDraws: game.pendingForesightDraws,
             };
           })()
           : null;
@@ -319,6 +331,7 @@ export function createEndTurn(context: EndTurnContext) {
           ...game,
           piles: pilesAfterSlime,
           clearPlan,
+          pendingForesightDraws: clearPlan ? 0 : game.pendingForesightDraws,
           hand: retainedHand,
           discard: discarded,
           energy: recoverBattleEnergy(game.energy, maximumEnergyForGame(game, blessings.includes("glassCannon")), enemyEnergyRecoveryPenalty(nextEnemies)),
@@ -333,9 +346,10 @@ export function createEndTurn(context: EndTurnContext) {
           turn: game.turn + 1,
           playerHp: remainingHp,
           playerPhysicalBlock: retainBlockAfterEnemyTurn(remainingPhysicalBlock, game.preserveDefenseOnTurnEnd),
-          playerMagicBlock: retainBlockAfterEnemyTurn(remainingMagicBlock, game.preserveDefenseOnTurnEnd),
+          playerMagicBlock: 0,
           playerResistance: nextPlayerResistance,
           playerAmplification: nextPlayerAmplification,
+          invulnerabilityTurns: nextPlayerInvulnerability,
           strength: remainingStrength,
           temporaryStrength: 0,
           agility: remainingAgility,

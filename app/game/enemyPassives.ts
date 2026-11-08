@@ -65,13 +65,18 @@ export function spawnEnemyMinions(enemies: EnemyState[], summoningEnemyIds: Read
     const count = (parent.summonsCreated ?? 0) + 1;
     const index = next.findIndex(enemy => enemy.id === parent.id);
     next[index] = { ...next[index], summonsCreated: count };
-    next.push(applyKarmaToEnemy({
+    const minion = applyKarmaToEnemy({
       ...ROACH_HATCHLING,
       id: `${parent.id}-hatchling-${count}`,
       intentIndex: 0,
       summonerId: parent.id,
+      summonHpMultiplier: parent.summonHpMultiplier,
       actions: ROACH_HATCHLING.actions.map(action => ({ ...action, attacks: action.attacks.map(attack => ({ ...attack })) })),
-    }, parent.karmaStage ?? 0));
+    }, parent.karmaStage ?? 0);
+    next.push({
+      ...minion,
+      hp: Math.floor(minion.hp * (parent.summonHpMultiplier ?? 1)),
+    });
   }
   return next;
 }

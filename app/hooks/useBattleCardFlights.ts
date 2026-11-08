@@ -7,7 +7,7 @@ import type { Card } from "../game/cards";
 /** New hand slots are laid out first; ghosts land at those exact fan poses. */
 export function useBattleCardFlights(battle: BattleSession) {
   const { screen, game, pendingOriginsRef, pendingEnemyTokenIdsRef, handCardRefs,
-    pendingPileTokenSourcesRef, setPhase, afterAnimations, trackAnimation } = battle;
+    pendingPileTokenSourcesRef, pendingParachuteSourcesRef, setPhase, afterAnimations, trackAnimation } = battle;
   const finishDraw = useEffectEvent(() => {
     if (!game.clearPlan) setPhase("playing");
   });
@@ -54,4 +54,19 @@ export function useBattleCardFlights(battle: BattleSession) {
       pendingPileTokenSourcesRef.current.delete(cardId);
     });
   }, [screen, game.piles, pendingPileTokenSourcesRef, trackAnimation]);
+
+  useLayoutEffect(() => {
+    const sources = pendingParachuteSourcesRef.current;
+    if (screen !== "battle") { sources.clear(); return; }
+    sources.forEach((source, cardId) => {
+      const target = document.querySelector<HTMLElement>(`.battlefield .solitaire-pile [data-card-id="${cardId}"]`);
+      if (!target) {
+        const stillInPiles = game.piles.some(pile => pile.some(card => card.id === cardId));
+        if (!stillInPiles) sources.delete(cardId);
+        return;
+      }
+      trackAnimation(animateDrawnCardToHand(target, source));
+      sources.delete(cardId);
+    });
+  }, [screen, game.piles, pendingParachuteSourcesRef, trackAnimation]);
 }

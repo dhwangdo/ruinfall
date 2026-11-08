@@ -3,10 +3,13 @@ import type { GeneratedMapRegion } from "./mapRegionGenerator.ts";
 
 /** Inclusive counts of ordinary locations. Authored prefab locations are additional. */
 export const REGION_LOCATION_COUNTS = {
-  deckVault: { min: 40, max: 46 },
+  deckVault: { min: 30, max: 35 },
   shop: { min: 0, max: 0 },
   bloodShop: { min: 0, max: 0 },
   portal: { min: 14, max: 18 },
+  stickerAltar: { min: 3, max: 3 },
+  tinkerer: { min: 6, max: 6 },
+  cardTransmuter: { min: 3, max: 3 },
 } as const;
 export type RegionLocationKind = keyof typeof REGION_LOCATION_COUNTS;
 export type RegionLocationCounts = Record<RegionLocationKind, number>;
@@ -49,7 +52,7 @@ export function placeRegionLocations(map: GeneratedMapRegion, counts: RegionLoca
   const available = Array.from({ length: main.length }, (_, index) => index)
     .filter(index => main[index] && !protectedCells[index] && !landmarks.has(index) && index !== Math.floor(width / 2));
   // Give the less frequent facilities a place first; denser vaults fit around them.
-  for (const kind of ["shop", "bloodShop", "deckVault"] as const) {
+  for (const kind of ["shop", "bloodShop", "deckVault", "stickerAltar", "tinkerer", "cardTransmuter"] as const) {
     const count = counts[kind];
     if (count === 0) continue;
     const sameKind = [...landmarks].filter(([, type]) => type === kind).map(([index]) => index);

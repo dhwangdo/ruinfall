@@ -189,12 +189,12 @@ test("renamed cards migrate in every saved location while keeping identities and
     roomShops: { here: cards.map(card => ({ id: String(card.id), card, price: 2, currency: "hp", sold: false })) },
   }, () => false);
   for (const list of [restored.ownedDecks[0].cards, restored.inventoryCards, restored.roomDrops.here,
-    restored.roomDeckDrops.here[0].cards, restored.roomShops.here.map(offer => offer.card)]) {
+    restored.roomDeckDrops.here[0].cards]) {
     assert.deepEqual(list.map(card => card.name), names.map(([, name]) => name));
     assert.deepEqual(list.map(card => card.id), cards.map(card => card.id));
     assert.ok(list.every(card => card.forged));
   }
-  assert.equal(restored.roomShops.here[0].currency, "hp");
+  assert.deepEqual(restored.roomShops, {});
 });
 
 test("old saves update changed cards in every location and upgrade starter capacity without adding cards", () => {
@@ -211,10 +211,10 @@ test("old saves update changed cards in every location and upgrade starter capac
     roomShops: { here: oldCards.map((card, i) => ({ id: String(i), price: 1, sold: false, card })) },
   }, () => false);
   for (const restored of [state.ownedDecks[0].cards, state.inventoryCards, state.roomDrops.here,
-    state.roomDeckDrops.here[0].cards, state.roomShops.here.map(offer => offer.card)]) {
+    state.roomDeckDrops.here[0].cards]) {
     assert.deepEqual(restored.map(card => [card.name, card.cost, card.value, card.draw, card.discardPileTop]),
       oldCards.map(old => { const current = card(old.name); return [current.name, current.cost, current.value, current.draw, current.discardPileTop]; }));
-    assert.ok(restored.every(card => card.colored));
+    assert.ok(restored.every(card => !Object.hasOwn(card, "colored")));
     assert.equal(restored.find(card => card.name === "몸 사리기").rarity, "basic");
   }
   assert.equal(state.ownedDecks[0].capacity, 25);

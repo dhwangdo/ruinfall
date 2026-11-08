@@ -4,11 +4,11 @@ export { rollRegionDeckShape } from "./regionDeckRules.ts";
 export type { RegionDeckShape } from "./regionDeckRules.ts";
 import {
   BASIC_CARD_POOL,
+  ALL_CARD_BLUEPRINTS,
   DEBUG_ALL_CARD_BLUEPRINTS,
   RARE_CARD_POOL,
   SPECIAL_CARD_POOL,
   STARTER_CARD_POOL,
-  createAdrenalineCard,
   createRadianceCard,
   createRelicCard,
   createRockCard,
@@ -19,6 +19,7 @@ import {
 } from "./cards.ts";
 import { createDeckName } from "./randomNames.ts";
 import { TICKET_TIERS, TICKET_TYPES, type TicketType } from "./shopRules.ts";
+import { STICKER_IDS, compatibleStickers, withRandomSticker } from "./stickers.ts";
 
 export type DeckEdition =
   | "clever"
@@ -56,7 +57,6 @@ export type DeckCase = {
 };
 
 export type ConsumableType =
-  | "paintTicket"
   | "mindEyeTicket"
   | "darkTicket"
   | "bombTicket"
@@ -64,7 +64,6 @@ export type ConsumableType =
   | "expandTicket"
   | "extractTicket"
   | "transformTicket"
-  | "mapTicket"
   | "cardPack";
 
 export type Consumable = {
@@ -89,6 +88,7 @@ export const STARTING_DECK_SIZE = STARTER_CARD_POOL.length * STARTER_CARD_COPIES
 export const STARTER_DECK_CAPACITY = 25;
 export const STARTER_DECK_RARE_SLOT_CAPACITY = 1;
 export const DEBUG_ALL_CARDS_DECK_ID = "debug-all-cards";
+export const DEBUG_STICKER_DECK_ID = "debug-sticker-catalog";
 
 export const CONSUMABLE_TYPES: TicketType[] = [...TICKET_TYPES];
 
@@ -138,7 +138,6 @@ export function createDebugAllCardsDeck(startId: number): { deck: DeckCase; next
   let nextCardId = startId;
   const cards = [
     ...DEBUG_ALL_CARD_BLUEPRINTS.map((blueprint) => ({ ...blueprint, id: nextCardId++, revealed: false })),
-    { ...createAdrenalineCard(), id: nextCardId++, revealed: false },
     createRadianceCard(nextCardId++),
     createSlimeCard(nextCardId++),
     createSoilCard(nextCardId++),
@@ -149,6 +148,33 @@ export function createDebugAllCardsDeck(startId: number): { deck: DeckCase; next
     deck: {
       id: DEBUG_ALL_CARDS_DECK_ID,
       name: "ALL",
+      capacity: cards.length,
+      rareSlotCapacity: cards.filter((card) => card.rarity === "rare" || card.rarity === "legendary").length,
+      cards,
+      editions: [],
+      editionColors: {},
+    },
+    nextCardId,
+  };
+}
+
+export function createDebugStickerDeck(startId: number): { deck: DeckCase; nextCardId: number } {
+  let nextCardId = startId;
+  const availableBlueprints = [...ALL_CARD_BLUEPRINTS];
+  const cards = STICKER_IDS.map((sticker) => {
+    const blueprintIndex = availableBlueprints.findIndex((blueprint) => (
+      compatibleStickers({ ...blueprint, id: -1, revealed: false }).includes(sticker)
+    ));
+    if (blueprintIndex < 0) {
+      throw new Error(`No compatible debug card found for sticker: ${sticker}`);
+    }
+    const [blueprint] = availableBlueprints.splice(blueprintIndex, 1);
+    return { ...blueprint, id: nextCardId++, revealed: false, sticker };
+  });
+  return {
+    deck: {
+      id: DEBUG_STICKER_DECK_ID,
+      name: "스티커 도감",
       capacity: cards.length,
       rareSlotCapacity: cards.filter((card) => card.rarity === "rare" || card.rarity === "legendary").length,
       cards,
@@ -374,10 +400,12 @@ export function createRegionDeck(
   startId: number,
   capacityBonus = 0,
   random: () => number = Math.random,
+  stickerChance = 0,
 ): DeckCase {
   const { deck } = generateRegionDeck(regionNumber, startId, random);
   return {
     ...deck,
+    cards: stickerChance > 0 ? deck.cards.map(card => withRandomSticker(card, stickerChance, random)) : deck.cards,
     id: `found-r${regionNumber}-${startId}-${Math.random().toString(36).slice(2, 8)}`,
     capacity: deck.capacity + capacityBonus,
   };
@@ -405,18 +433,10 @@ export function createConsumable(type: ConsumableType, id: string): Consumable {
   if (type === "transformTicket") {
     return { id, type, name: "변환 티켓", description: "카드는 같은 희귀도의 다른 카드로, 티켓은 티어와 관계없이 다른 무작위 티켓으로 바꿉니다." };
   }
-  if (type === "mapTicket") {
-    return { id, type, name: "지도 티켓", description: "같은 지역에서 아직 드러나지 않은 특수 지형 2곳을 밝힙니다." };
-  }
   if (type === "cardPack") {
     return { id, type, name: "카드 팩", description: "카드 5개를 얻습니다." };
   }
-  return {
-    id,
-    type,
-    name: "색칠 티켓",
-    description: "카드 앞면은 유지하고 뒷면을 무지개색으로 칠합니다.",
-  };
+  throw new Error(`Unknown consumable: ${type}`);
 }
 
 export function createBattleReward(
@@ -429,15 +449,12 @@ export function createBattleReward(
   const decks = forceDeck
     ? [createRegionDeck(regionNumber, nextCardId, capacityBonus)]
     : [];
-  const consumableType = decks.length === 0 && Math.random() < 0.5
-    ? consumableTypeFromRoll(Math.random())
-    : null;
   return {
     keys: 1,
-    cards: decks.length > 0 ? [] : [createBattleRewardCard(nextCardId, rareCardChance)],
+    cards: decks.length > 0 ? [] : [withRandomSticker(createBattleRewardCard(nextCardId, rareCardChance), 0.05)],
     decks,
-    consumableType,
-    consumableTypes: consumableType ? [consumableType] : [],
+    consumableType: null,
+    consumableTypes: [],
   };
 }
 
@@ -448,12 +465,12 @@ export function createBossBattleReward(
 ) {
   const decks = bonusDeckRegion === undefined
     ? []
-    : [createRegionDeck(bonusDeckRegion, nextCardId + 1, capacityBonus)];
+    : [createRegionDeck(bonusDeckRegion, nextCardId + 2, capacityBonus)];
   return {
     keys: 0,
-    cards: [createBattleRewardCard(nextCardId, 1)],
+    cards: [0, 1].map(offset => withRandomSticker(createBattleRewardCard(nextCardId + offset, 1), 1)),
     decks,
     consumableType: null,
-    consumableTypes: Array.from({ length: 2 }, () => consumableTypeFromRoll(Math.random())),
+    consumableTypes: [],
   };
 }

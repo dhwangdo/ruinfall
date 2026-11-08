@@ -14,6 +14,9 @@ import {
 } from "../game/cardEffects";
 import { calculateDefenseGain, getDefenseBaseValue } from "../game/defenseRules";
 import { calculateCardDamage } from "../game/combatEconomy";
+import { retainsCard } from "../game/stickers";
+import { CardStickerMarks } from "./CardStickerMark";
+import { cardStickerIds } from "../game/stickers";
 import { calculateAttackDamage, type AttackModifiers } from "../game/statuses";
 import { obsidianDaggerForgesRemaining } from "../game/forgeRules";
 import {
@@ -57,6 +60,7 @@ const DEFENSE_WATERMARK_EFFECTS = new Set<CardEffect>([
   "plateArmorDefense",
   "starGuard",
   "starArk",
+  "atField",
 ]);
 
 function cardWatermarkCategory(card: Card) {
@@ -67,6 +71,7 @@ function cardWatermarkCategory(card: Card) {
 
 export type CardFaceProps = {
   card: Card;
+  stickerPreview?: Card["sticker"];
   starsSpent?: number;
   strength?: number;
   agility?: number;
@@ -92,6 +97,7 @@ type CardFaceRendererProps = CardFaceProps & {
 
 export const CardFaceView = memo(function CardFaceView({
   card,
+  stickerPreview,
   starsSpent = 0,
   strength = 0,
   agility = 0,
@@ -120,20 +126,19 @@ export const CardFaceView = memo(function CardFaceView({
         : card.cost < card.baseCost ? "is-positive" : card.cost > card.baseCost ? "is-negative" : "";
   const effectText = emphasizeRarityText(cardEffectDescription(card, damageNumber, defenseNumber));
   const effectSentences = splitEffectSentences(effectText);
-  const unplayableLabel = ["slime", "soil", "rock", "combatManual", "grimoire"].includes(card.effect)
+  const ruleStartsAfterFirstSentence = ["massDeal", "evolutionTheory", "sturdyStance", "steelStorm"].includes(card.effect);
+  const ruleEffectSentenceIndex = ruleStartsAfterFirstSentence ? 1 : 0;
+  const unplayableLabel = UNPLAYABLE_CARD_EFFECTS.has(card.effect)
     ? <span className="effect-keyword-unit"><strong className="effect-keyword">사용 불가</strong>.</span>
-      : ["wolfTalisman", "turtleTalisman"].includes(card.effect)
-        ? <span className="effect-keyword-unit"><strong className="effect-keyword">사용 불가.</strong></span>
-        : null;
+    : null;
   const effectPrefix = <>
-    {card.rule && card.effect !== "massDeal" && <><span className="effect-keyword-unit"><strong className="solitaire-rule effect-prefix effect-keyword rule-keyword">룰.</strong></span>{" "}</>}
     {card.solitaireRule && <><span className="effect-keyword-unit"><strong className="solitaire-rule effect-prefix solitaire-keyword">{card.solitaireRule === "top" ? "윗패" : card.solitaireRule === "bottom" ? "밑패" : "주문"}</strong></span>{" "}</>}
     {unplayableLabel}
     {unplayableLabel && effectSentences.length > 0 ? " " : null}
   </>;
   const effectSuffix = <>
     {card.token && <span className="effect-keyword-unit"><strong className="solitaire-rule token-rule effect-keyword">토큰.</strong></span>}
-    {card.retain && <span className="effect-keyword-unit"><strong className="solitaire-rule effect-keyword">보존.</strong></span>}
+    {retainsCard(card) && <span className="effect-keyword-unit"><strong className="solitaire-rule effect-keyword">보존.</strong></span>}
     {card.exhaust && !card.rule && <span className="effect-keyword-unit"><strong className="solitaire-rule effect-keyword">소멸.</strong></span>}
   </>;
   return (
@@ -146,7 +151,7 @@ export const CardFaceView = memo(function CardFaceView({
         />
       )}
       {!UNPLAYABLE_CARD_EFFECTS.has(card.effect) && <span className={`card-cost ${costChangeClass}`}>{displayedCost}</span>}
-      <strong className={`card-name rarity-${card.rarity} watermark-category-${cardWatermarkCategory(card)} ${UNPLAYABLE_CARD_EFFECTS.has(card.effect) ? "is-unplayable" : ""} ${card.rarity === "legendary" ? "is-painted is-legendary" : ""}`}>
+      <strong className={`card-name rarity-${card.rarity} watermark-category-${cardWatermarkCategory(card)} ${UNPLAYABLE_CARD_EFFECTS.has(card.effect) ? "is-unplayable" : ""} ${card.rarity === "legendary" ? "is-legendary" : ""}`}>
         {card.name}{card.effect === "obsidianDagger" && cardForgeCount(card) > 0 ? ` +${cardForgeCount(card)}` : card.forged && !["astronomyResearch", "necromancyResearch", "massDeal"].includes(card.effect) ? "+" : ""}
       </strong>
       <span ref={cardEffectRef} className="card-effect">{emphasizeEffectNumbers(<>
@@ -155,8 +160,10 @@ export const CardFaceView = memo(function CardFaceView({
           {effectSentences.map((sentence, index) => <Fragment key={index}>
             <span className="effect-sentence">
               {index === 0 && effectPrefix}
-              {index === 1 && card.effect === "massDeal" && card.rule && <span className="effect-keyword-unit"><strong className="solitaire-rule effect-keyword rule-keyword">룰.</strong></span>}
-              <span className="effect-sentence-body">{sentence}</span>
+              <span className="effect-sentence-body">
+                {card.rule && index === ruleEffectSentenceIndex && <><strong className="solitaire-rule effect-prefix effect-keyword rule-keyword">룰.</strong>{"\u00a0"}</>}
+                {sentence}
+              </span>
               {index === effectSentences.length - 1 && effectSuffix}
             </span>
             {index < effectSentences.length - 1 ? " " : null}
@@ -173,6 +180,7 @@ export const CardFaceView = memo(function CardFaceView({
               && (card.forgeCost !== undefined || card.forgeCosts || card.forgeTargetName || card.forgeAny)
               && <strong className="solitaire-rule forge-rule"><span className="effect-keyword">재련</span>: {forgeConditionText(card)}</strong>}
       </>)}</span>
+      <CardStickerMarks stickers={cardStickerIds(card)} previewSticker={stickerPreview} />
     </>
   );
 });

@@ -1,14 +1,16 @@
 import type { DeckCase } from "./rewards.ts";
-import { countRareSlotCards, usesRareCardSlot } from "./deckEditorRules.ts";
+import { countRareSlotCards, isHighRarityCard } from "./deckEditorRules.ts";
 import type { Card } from "./cards.ts";
 import { CARD_RARITY_SORT_RANK, UNPLAYABLE_CARD_EFFECTS } from "./cards.ts";
+import { cardEnergyCost } from "./cardEffects.ts";
+import { cardStickerIds } from "./stickers.ts";
 
 export type DeckEditorCardGroup = { card: Card; cardIds: number[] };
 
 function cardSortCost(card: Card) {
   return UNPLAYABLE_CARD_EFFECTS.has(card.effect)
     ? -1
-    : card.cost ?? -1;
+    : cardEnergyCost(card) ?? -1;
 }
 
 export function groupAndSortDeckEditorCards(
@@ -25,7 +27,7 @@ export function groupAndSortDeckEditorCards(
       card.cost,
       card.value,
       card.rarity,
-      card.colored ? "painted" : "plain",
+      cardStickerIds(card).join(",") || "plain",
       card.forged ? "forged" : "normal",
       card.enemyToken ? "token" : "card",
       card.forgeCostsCompleted?.join(",") ?? "",
@@ -70,9 +72,9 @@ export function createDeckCardView(
   const groups = groupAndSortDeckEditorCards(deck.cards, sort, transformedCardNewIds);
   const rareSlotCapacity = Math.max(deck.rareSlotCapacity ?? 0, rareSlotCount);
   const normalSlotCapacity = Math.max(0, deck.capacity - rareSlotCapacity);
-  const normalCardCount = deck.cards.filter((card) => !usesRareCardSlot(card)).length;
+  const normalCardCount = deck.cards.filter((card) => !isHighRarityCard(card)).length;
   const cardItems = (rare: boolean): DeckCardViewItem[] => groups
-    .filter(({ card }) => usesRareCardSlot(card) === rare)
+    .filter(({ card }) => isHighRarityCard(card) === rare)
     .map((group) => ({
       kind: "card", key: `deck-card:${deck.id}:${group.cardIds.at(-1)}`,
       width: 82 + Math.min(5, Math.max(0, group.cardIds.length - 1)) * 7, group,

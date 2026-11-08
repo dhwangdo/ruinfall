@@ -24,14 +24,18 @@ export type GridBounds = {
 };
 
 export type MapEnemyCellMemory = Record<string, {
+  id?: string;
   encounterIndex: number;
   awareness: MapEnemyAwareness;
+  isBoss?: boolean;
+  permanentSleep?: boolean;
 }>;
 
 export const MAP_ENEMY_ACTIVE_RADIUS = 4;
+export const MAP_ENEMY_ALERT_RESET_DISTANCE = 5;
 export const MAP_ENEMY_DISTANCE_FIELD_RADIUS = 6;
-export const MAP_PLAYER_VISION_HORIZONTAL_RADIUS = 3;
-export const MAP_PLAYER_VISION_VERTICAL_RADIUS = 3;
+export const MAP_PLAYER_VISION_HORIZONTAL_RADIUS = 4;
+export const MAP_PLAYER_VISION_VERTICAL_RADIUS = 4;
 export const MAP_ENEMY_SAFE_RADIUS = 2;
 export const MAP_ENEMY_START_SAFE_RADIUS = 4;
 export const MAP_ENEMY_SPAWN_CHANCE = 0.045;
@@ -78,8 +82,14 @@ export function updateEnemyCellMemory(
   previousEnemies: MapEnemy[] = [],
 ) {
   const next = { ...memory };
+  const visibleEnemies = enemies.filter((enemy) => visibleCellKeys.has(positionKey(enemy.position)));
+  const observedById = new Map(visibleEnemies.map((enemy) => [enemy.id, enemy]));
+  for (const [cellKey, remembered] of Object.entries(memory)) {
+    const observed = remembered.id ? observedById.get(remembered.id) : undefined;
+    if (observed && positionKey(observed.position) !== cellKey) delete next[cellKey];
+  }
   const previousEnemyById = new Map(previousEnemies.map((enemy) => [enemy.id, enemy]));
-  for (const enemy of enemies) {
+  for (const enemy of visibleEnemies) {
     const currentCellKey = positionKey(enemy.position);
     if (!visibleCellKeys.has(currentCellKey)) continue;
     const previousEnemy = previousEnemyById.get(enemy.id);
@@ -94,13 +104,34 @@ export function updateEnemyCellMemory(
     const enemy = enemyByCell.get(cellKey);
     if (enemy) {
       next[cellKey] = {
+        id: enemy.id,
         encounterIndex: enemy.encounterIndex,
         awareness: enemy.awareness,
+        ...(enemy.isBoss ? { isBoss: true } : {}),
+        ...(enemy.permanentSleep ? { permanentSleep: true } : {}),
       };
     } else {
       delete next[cellKey];
     }
   }
+  return next;
+}
+
+/** Only last observed positions and states enter exploration planning. */
+export function rememberedMapEnemies(memory: MapEnemyCellMemory): MapEnemy[] {
+  return Object.entries(memory).map(([cellKey, enemy]) => {
+    const [x, y] = cellKey.split(":").map(Number);
+    return { ...enemy, id: enemy.id ?? `remembered-${cellKey}`, position: { x, y } };
+  });
+}
+
+/** Confirmed defeats can clear an old observation outside the current view. */
+export function forgetEnemyCellMemory(memory: MapEnemyCellMemory, defeatedIds: readonly string[]) {
+  const ids = new Set(defeatedIds);
+  const forgotten = Object.keys(memory).filter((key) => memory[key].id && ids.has(memory[key].id!));
+  if (forgotten.length === 0) return memory;
+  const next = { ...memory };
+  forgotten.forEach((key) => { delete next[key]; });
   return next;
 }
 
@@ -302,6 +333,10 @@ export function clearMapEnemiesNear(
   };
 }
 
+export function mapEnemyDetectionRadius(distanceReduction = 0) {
+  return Math.max(0, MAP_ENEMY_DETECTION_CHANCES.length - 1 - distanceReduction);
+}
+
 function awarenessAfterDetection(
   awareness: MapEnemyAwareness,
   distance: number,
@@ -309,9 +344,9 @@ function awarenessAfterDetection(
   detectionMultiplier: number,
   detectionDistanceReduction: number,
 ) {
-  if (awareness === "alerted" && distance >= 5) return "awake";
+  if (awareness === "alerted" && distance >= MAP_ENEMY_ALERT_RESET_DISTANCE) return "awake";
   if (awareness === "awake" && distance >= 4 && random() < 0.10) return "sleeping";
-  const maximumDetectionDistance = MAP_ENEMY_DETECTION_CHANCES.length - 1 - detectionDistanceReduction;
+  const maximumDetectionDistance = mapEnemyDetectionRadius(detectionDistanceReduction);
   const detectionChance = distance <= maximumDetectionDistance
     ? MAP_ENEMY_DETECTION_CHANCES[distance] ?? 0
     : 0;

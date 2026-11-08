@@ -27,7 +27,6 @@ export function BattlePlayerPanel({
   playerName,
   maxPlayerHp,
   combatManualBonus,
-  ignoreNegativeResistance = false,
   damagePopup,
   onMoveDeckCardPreview,
   onClearCardPreview,
@@ -71,7 +70,9 @@ export function BattlePlayerPanel({
           {game.agility + combatManualBonus > 0 && <BattleStatusBadge description={STATUS.agility}>강인함 {game.agility + combatManualBonus}</BattleStatusBadge>}
           {game.defenseMultiplier > 1 && <BattleStatusBadge description={STATUS.defenseMultiplier}>방어 ×{game.defenseMultiplier}</BattleStatusBadge>}
           {game.damageTakenMultiplier > 1 && <BattleStatusBadge kind="debuff" description={STATUS.damageTakenMultiplier}>받는 피해 ×{game.damageTakenMultiplier}</BattleStatusBadge>}
-          {game.invulnerable && <BattleStatusBadge description={STATUS.invulnerable}>피해 면역</BattleStatusBadge>}
+    {(game.invulnerable || game.invulnerabilityTurns > 0) && <BattleStatusBadge description={STATUS.invulnerable}>
+      {game.invulnerabilityTurns > 0 ? `무적 ${game.invulnerabilityTurns}` : "무적"}
+    </BattleStatusBadge>}
           {game.doubleNextAttack && <BattleStatusBadge description={STATUS.doubleNextAttack}>다음 공격 2회</BattleStatusBadge>}
           {(game.pendingBattlePreparation ?? 0) > 0 && <BattleStatusBadge description={`다음 플레이어 턴 시작 시 증폭과 에너지를 각각 ${game.pendingBattlePreparation} 얻습니다. 추가 턴도 포함합니다.`}>싸움 준비 {game.pendingBattlePreparation}</BattleStatusBadge>}
           {game.pendingRadiance.map(({ turns, count }, index) => (
@@ -79,7 +80,7 @@ export function BattlePlayerPanel({
               광행시간 {turns}턴 · 광채 {count}장
             </BattleStatusBadge>
           ))}
-          {(game.playerResistance ?? 0) !== 0 && <BattleStatusBadge kind={game.playerResistance < 0 ? "debuff" : "buff"} description={STATUS.resistance(game.playerResistance, ignoreNegativeResistance)}>{statusLabel("resistance", game.playerResistance)}</BattleStatusBadge>}
+          {(game.playerResistance ?? 0) !== 0 && <BattleStatusBadge kind={game.playerResistance < 0 ? "debuff" : "buff"} description={STATUS.resistance(game.playerResistance)}>{statusLabel("resistance", game.playerResistance)}</BattleStatusBadge>}
           {(game.playerAmplification ?? 0) !== 0 && <BattleStatusBadge kind={game.playerAmplification < 0 ? "debuff" : "buff"} description={STATUS.amplification(game.playerAmplification)}>{statusLabel("amplification", game.playerAmplification)}</BattleStatusBadge>}
           {game.activeRuleCards.map((ruleCard) => (
             <span

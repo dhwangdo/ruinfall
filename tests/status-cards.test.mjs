@@ -17,7 +17,7 @@ const play = (name, extra = {}, options = {}) => {
 };
 
 test("new cards resolve exact costs, damage, defense, and durations", () => {
-  assert.equal(play("기합").state.playerAmplification, 1);
+  assert.equal(play("기합").state.playerAmplification, 2);
   assert.equal(play("기합").state.energy, 10);
   const shatter = play("파쇄").state;
   assert.equal(shatter.enemies[0].hp, 194);
@@ -34,13 +34,14 @@ test("new cards resolve exact costs, damage, defense, and durations", () => {
   assert.equal(unyielding.playerResistance, 5);
   assert.ok(unyielding.removedFromReshuffleIds.includes(100));
   const demolish = play("개박살").state;
-  assert.equal(demolish.enemies[0].hp, 185);
+  assert.equal(demolish.enemies[0].hp, 175);
   assert.equal(demolish.enemies[0].resistance, -3);
   assert.equal(demolish.enemies[0].amplification, -3);
 });
 
-test("four seasons requires three other cards and applies to every living enemy", () => {
-  assert.equal(play("사계절").played, false);
+test("four seasons exhausts without a discard cost and applies to every living enemy", () => {
+  assert.equal(play("사계절").played, true);
+  assert.ok(play("사계절").state.removedFromReshuffleIds.includes(100));
   const enemy2 = { ...target(), id: "other" };
   const state = play("사계절", { enemies: [target(), enemy2] }, { paid: true }).state;
   assert.equal(state.pendingDiscards, 0);

@@ -6,7 +6,9 @@ export function CardKeywordSections({ keywords }: { keywords: CardKeywordInfo[] 
   return <>
     {keywords.map((keyword) => (
       <section
-        className={keyword.preview ? "card-keyword-preview-section" : undefined}
+        className={keyword.name.endsWith("스티커")
+          ? "card-keyword-sticker-section"
+          : keyword.preview ? "card-keyword-preview-section" : undefined}
         key={keyword.name}
       >
         {keyword.preview === "radiance" ? (

@@ -30,15 +30,6 @@
   overflow-y: hidden;
 }
 
-.deck-card-painted {
-  flex: none;
-  padding: 2px 5px;
-  border: 1px solid #b5742c;
-  border-radius: 9px;
-  color: #55321b;
-  background: #f4cf80;
-  font: 800 9px Arial, sans-serif;
-}
 
 .enemies-row {
   display: flex;
@@ -203,7 +194,7 @@
   color: #111;
   background: #fff;
   box-shadow: 0 2px 5px rgba(0,0,0,.28);
-  font: 700 12px/1.45 "Malgun Gothic", sans-serif;
+  font: 700 13px/1.45 "Malgun Gothic", sans-serif;
   pointer-events: none;
 }
 .intent-effect-icon.is-superscript {

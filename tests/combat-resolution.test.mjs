@@ -83,7 +83,7 @@ test("thorn and grimoire damage ignore the new modifiers while health costs rema
   const grimoire = resolve(played, { hand: [played, card("grimoire", { id: 2 })], playerResistance: 2, playerAmplification: 2 });
   assert.equal(grimoire.state.playerHp, 49);
   const paid = resolve({ ...createAdrenalineCard(), id: 1 }, { playerResistance: 2, playerAmplification: 2, invulnerable: true });
-  assert.equal(paid.state.playerHp, 48);
+  assert.equal(paid.state.playerHp, 47);
 });
 
 test("generated cards use explicit consecutive identities", () => {

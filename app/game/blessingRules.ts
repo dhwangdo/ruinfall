@@ -7,7 +7,7 @@ export type BlessingId =
   | "archaeologist" | "highlander" | "clairvoyance" | "blacksmith" | "packInsurance"
   | "bioluminescence" | "oneUp" | "vulnerabilityInsurance" | "thornCoat" | "glassCannon"
   | "oparts" | "backToBasics" | "absorption" | "bloodConversion" | "starlessAge"
-  | "cartographer" | "bossSlayer" | "lightLightLight" | "shrinePilgrim";
+  | "bossSlayer" | "lightLightLight" | "shrinePilgrim";
 
 export type BlessingOfferId = BlessingId | "empty";
 
@@ -43,7 +43,6 @@ export const BLESSING_INFO: Record<BlessingOfferId, { name: string; description:
   absorption: { name: "흡수", description: "전투 시작 시 모든 적의 힘 1을 빼앗습니다. 적마다 힘 -1, 내 힘 +1." },
   bloodConversion: { name: "혈기 전환", description: "내 턴 시작 시 체력 1을 에너지 1로 전환합니다. 체력이 1이면 전환하지 않습니다." },
   starlessAge: { name: "별이 없는 시대", description: "솔리테어 행동을 할 수 없습니다. 매 턴 시작 시 에너지 1과 무작위 파일 카드 1장을 얻습니다." },
-  cartographer: { name: "지도 제작자", description: "지도 티켓 2개를 얻습니다. 지도 티켓이 특수 지형 4곳을 밝힙니다." },
   bossSlayer: { name: "보스 학살자", description: "보스에게 2배의 피해를 줍니다. 보스 처치 시 다음 지역 덱을 추가로 얻습니다." },
   lightLightLight: { name: "빛 빛 빛", description: "내 3번째 턴 시작 시 광채 2장을 얻습니다." },
   shrinePilgrim: { name: "성소 순례자", description: "성소를 사용할 때마다 최대 체력과 현재 체력이 2 증가합니다." },

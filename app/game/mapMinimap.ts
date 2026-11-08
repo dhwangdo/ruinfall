@@ -16,6 +16,9 @@ function roomColor(type: RoomType): string {
     case "empty": return MINIMAP_COLORS.floor;
     case "rock": return MINIMAP_COLORS.wall;
     case "deckVault": return MINIMAP_COLORS.vault;
+    case "stickerAltar": return "#79658b";
+    case "tinkerer": return "#b48c55";
+    case "cardTransmuter": return "#4e9199";
     case "portal": case "safePortal": return MINIMAP_COLORS.portal;
     case "heal": case "partialHeal": case "recoveryShrine": case "vitalityShrine":
       return MINIMAP_COLORS.recovery;

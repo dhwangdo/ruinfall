@@ -68,6 +68,8 @@ export type DeckEditorDeckArea = {
   swapOwnedDecks: (sourceId: string, targetId: string) => void;
   dropOwnedDeck: (deckId: string) => void;
   canEditFreely: boolean;
+  isSafeArea: boolean;
+  animateSafeAreaUnlock: boolean;
   canMoveDeckCardToInventory: boolean;
   rareSlotCountForDeck: (deck: DeckCase) => number;
 };

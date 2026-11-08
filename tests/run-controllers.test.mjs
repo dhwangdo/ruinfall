@@ -2,7 +2,7 @@ import assert from "node:assert/strict";
 import test from "node:test";
 import { BASIC_CARD_POOL, RARE_CARD_POOL, LEGENDARY_CARD_POOL } from "../app/game/cards.ts";
 import { createConsumable } from "../app/game/rewards.ts";
-import { MAP_START, mapRoomKey, safeAreaCenterX, safeAreaCenterY } from "../app/game/mapRules.ts";
+import { MAP_START, mapRoomKey } from "../app/game/mapRules.ts";
 import { createDeckEditorMoves } from "../app/controllers/deckEditorMoves.ts";
 import { createTicketActions } from "../app/controllers/ticketActions.ts";
 
@@ -65,29 +65,12 @@ function setup({ type = "extractTicket", blessings = [], capacity = 2, target = 
       deckEditorInventoryItemCount: inventoryItemCount, maxPlayerHp: 50,
       editingDeck: inventory.ownedDecks[0], moveDeckEditorCard, clearCardPreview: noop,
       queueRunSave: noop, showMapMessage: noop, activateMindEye: noop, grantConsumables: noop,
-      openCardPack: noop, materializeMapContent: (_positions, _seed, existing) => existing,
-      startMapTicketCameraTour: noop,
+      openCardPack: noop,
       ...overrides,
     });
   };
   return { inventory, player, world, editor, render, target, ticket };
 }
-
-test("map tickets reveal field facilities and exclude even undiscovered safe-area facilities", () => {
-  const ctx = setup({ type: "mapTicket" });
-  const safe = { x: safeAreaCenterX(0, ctx.world.mapSeed), y: safeAreaCenterY(0, ctx.world.mapSeed) };
-  const field = { x: 10, y: 10 };
-  ctx.world.effectiveRoomType = position => [safe, field].some(target => mapRoomKey(target) === mapRoomKey(position)) ? "shop" : "empty";
-  let revealed = [];
-  ctx.render({ materializeMapContent: (positions, _seed, world) => { revealed = positions; return world; } })
-    .selectExtractionTicket(ctx.ticket);
-  assert.deepEqual(revealed, [field]);
-  assert.equal(ctx.inventory.inventoryConsumables.length, 0);
-  const onlySafe = setup({ type: "mapTicket" });
-  onlySafe.world.effectiveRoomType = position => mapRoomKey(position) === mapRoomKey(safe) ? "shop" : "empty";
-  onlySafe.render().selectExtractionTicket(onlySafe.ticket);
-  assert.equal(onlySafe.inventory.inventoryConsumables.length, 1);
-});
 
 test("extraction uses the inventory slot freed by consuming its ticket", () => {
   const ctx = setup();
@@ -116,19 +99,19 @@ test("a preserved extraction ticket does not promise an inventory slot", (t) => 
 });
 
 test("cloning consumes the ticket before filling the inventory slot", () => {
-  const ctx = setup({ type: "cloneTicket" });
+  const ctx = setup({ type: "cloneTicket", target: { ...card(1, BASIC_CARD_POOL[0]), sticker: "moonstone" } });
   ctx.render().applyTicketToCard("ticket", ctx.target, "deck", ctx.inventory.ownedDecks[0]);
   assert.equal(ctx.inventory.inventoryConsumables.length, 0);
   assert.deepEqual(ctx.inventory.inventoryCards.map((item) => item.id), [3, 4]);
   assert.equal(ctx.inventory.inventoryCards[1].revealed, false);
+  assert.equal(ctx.inventory.inventoryCards[1].sticker, "moonstone");
   assert.equal(ctx.inventory.roomDrops[mapRoomKey(MAP_START)], undefined);
 });
 
-test("painting retains the card identity and caps ticket healing at maximum HP", () => {
-  const ctx = setup({ type: "paintTicket", blessings: ["healingMileage"] });
+test("ticket healing is capped at maximum HP", () => {
+  const ctx = setup({ type: "cloneTicket", blessings: ["healingMileage"] });
   ctx.render().applyTicketToCard("ticket", ctx.target, "deck", ctx.inventory.ownedDecks[0]);
   assert.equal(ctx.inventory.ownedDecks[0].cards[0].id, 1);
-  assert.equal(ctx.inventory.ownedDecks[0].cards[0].colored, true);
   assert.equal(ctx.player.runPlayerHp, 50);
   assert.equal(ctx.player.runPlayerHpRef.current, 50);
 });

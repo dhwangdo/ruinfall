@@ -1,11 +1,9 @@
 const ALL_TICKET_TYPES = [
-  "paintTicket",
   "mindEyeTicket",
   "darkTicket",
   "bombTicket",
   "extractTicket",
   "transformTicket",
-  "mapTicket",
   "cloneTicket",
   "expandTicket",
 ] as const;
@@ -17,10 +15,8 @@ export const TEMPORARILY_DISABLED_TICKETS: ReadonlySet<string> = new Set(["mindE
 export const TICKET_TYPES: readonly TicketType[] = ALL_TICKET_TYPES.filter(type => !TEMPORARILY_DISABLED_TICKETS.has(type));
 
 export const TICKET_TIERS: Record<TicketType, 1 | 2 | 3> = {
-  paintTicket: 1,
   bombTicket: 1,
   extractTicket: 1,
-  mapTicket: 1,
   mindEyeTicket: 1,
   darkTicket: 1,
   transformTicket: 2,

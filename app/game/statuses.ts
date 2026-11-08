@@ -17,15 +17,24 @@ export function addResistance(value = 0, amount: number, gainBlocked = false) {
 export type AttackModifiers = {
   amplification?: number;
   resistance?: number;
+  amplificationEffectiveness?: number;
+  resistanceEffectiveness?: number;
   ignoreNegativeResistance?: boolean;
   multiplier?: number;
 };
 
-/** Integer tenths avoid intermediate rounding and floating-point errors at integer boundaries. */
+/** Integer hundredths avoid intermediate rounding at integer damage boundaries. */
 export function calculateAttackDamage(damage: number, {
-  amplification = 0, resistance = 0, ignoreNegativeResistance = false, multiplier = 1,
+  amplification = 0,
+  resistance = 0,
+  amplificationEffectiveness = 30,
+  resistanceEffectiveness = 30,
+  ignoreNegativeResistance = false,
+  multiplier = 1,
 }: AttackModifiers = {}) {
-  const outgoing = amplification > 0 ? 13 : amplification < 0 ? 7 : 10;
-  const incoming = resistance > 0 ? 7 : resistance < 0 && !ignoreNegativeResistance ? 13 : 10;
-  return Math.max(0, Math.floor(damage * outgoing * incoming * multiplier / 100));
+  const outgoing = amplification > 0 ? 100 + amplificationEffectiveness
+    : amplification < 0 ? 100 - amplificationEffectiveness : 100;
+  const incoming = resistance > 0 ? 100 - resistanceEffectiveness
+    : resistance < 0 && !ignoreNegativeResistance ? 100 + resistanceEffectiveness : 100;
+  return Math.max(0, Math.floor(damage * outgoing * incoming * multiplier / 10_000));
 }

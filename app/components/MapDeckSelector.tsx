@@ -1,3 +1,4 @@
+import { occupiedDeckSpace } from "../game/stickers";
 import type { CSSProperties } from "react";
 import { DeckName } from "./DeckName";
 import type { DeckCase } from "../game/rewards";
@@ -64,7 +65,7 @@ export function MapDeckSelector({
                   onClick={() => onSelectDeck(deck)}
                 >
                   <strong><DeckName deck={deck} showEditions={false} showGenerationDebug={false} /></strong>
-                  <small>{deck.cards.length} / {deck.capacity}</small>
+                  <small>{occupiedDeckSpace(deck.cards)} / {deck.capacity}</small>
                 </button>
               );
             })}
@@ -88,7 +89,7 @@ export function MapDeckSelector({
           <strong>{activeDeck?.name
             ? <DeckName deck={activeDeck} showEditions={false} showGenerationDebug={false} />
             : "덱 준비 중"}</strong>
-          <small>({activeDeck?.cards.length ?? 0}/{activeDeck?.capacity ?? 0})</small>
+          <small>({occupiedDeckSpace(activeDeck?.cards ?? [])}/{activeDeck?.capacity ?? 0})</small>
         </button>
       </div>
     </div>

@@ -217,14 +217,14 @@
   gap: 1.78px;
   padding: 3.56px .89px;
 }
-.card-style-simple .solitaire-pile .card-face:not(:has(.card-name.is-painted))::after,
-.card-style-simple .drag-stack-preview .card-face:not(:has(.card-name.is-painted))::after {
+.card-style-simple .solitaire-pile .card-face:not(:has(.card-name.is-legendary))::after,
+.card-style-simple .drag-stack-preview .card-face:not(:has(.card-name.is-legendary))::after {
   top: 0;
   height: 32.89px;
   border-radius: 5.33px 5.33px 0 0;
 }
-.card-style-simple .solitaire-pile .card-face:not(:has(.card-name.is-painted)) .card-name,
-.card-style-simple .drag-stack-preview .card-face:not(:has(.card-name.is-painted)) .card-name {
+.card-style-simple .solitaire-pile .card-face:not(:has(.card-name.is-legendary)) .card-name,
+.card-style-simple .drag-stack-preview .card-face:not(:has(.card-name.is-legendary)) .card-name {
   top: -7.11px;
   right: -7.11px;
   left: -7.11px;
@@ -232,8 +232,8 @@
   padding: 2.67px 24.89px 2.67px 35.56px;
   border-radius: 5.33px 5.33px 0 0;
 }
-.card-style-simple .solitaire-pile .card-face:not(:has(.card-name.is-painted)) .card-name.is-unplayable,
-.card-style-simple .drag-stack-preview .card-face:not(:has(.card-name.is-painted)) .card-name.is-unplayable {
+.card-style-simple .solitaire-pile .card-face:not(:has(.card-name.is-legendary)) .card-name.is-unplayable,
+.card-style-simple .drag-stack-preview .card-face:not(:has(.card-name.is-legendary)) .card-name.is-unplayable {
   padding: 2.67px;
 }
 

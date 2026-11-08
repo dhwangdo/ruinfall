@@ -8,7 +8,6 @@ import {
   type WheelEvent,
 } from "react";
 import { DUNGEON_MIN_X, MAP_COLUMNS, MAP_ROWS, type MapPosition } from "../game/mapRules";
-import { animateTicketCamera, ticketCameraDuration, MAP_TICKET_CAMERA_HOLD_MS } from "./mapCameraMotion";
 
 export const MAP_WORLD_MARGIN_X = 5;
 export const MAP_WORLD_MARGIN_Y = 5;
@@ -56,8 +55,6 @@ export function useMapCamera({ enabled, position, travelLocked, debugMode = fals
   const [zoom, setZoom] = useState(MAP_DEFAULT_ZOOM);
   const [viewportSize, setViewportSize] = useState({ width: 0, height: 0 });
   const [isFocusing, setIsFocusing] = useState(false);
-  const [isTicketTouring, setIsTicketTouring] = useState(false);
-  const cancelTicketMotionRef = useRef<(() => void) | null>(null);
   const viewportRef = useRef<HTMLDivElement | null>(null);
   const focusTimerRef = useRef<number | null>(null);
   const focusFrameRef = useRef<number | null>(null);
@@ -108,16 +105,12 @@ export function useMapCamera({ enabled, position, travelLocked, debugMode = fals
   useEffect(() => () => {
     if (focusTimerRef.current !== null) window.clearTimeout(focusTimerRef.current);
     if (focusFrameRef.current !== null) window.cancelAnimationFrame(focusFrameRef.current);
-    cancelTicketMotionRef.current?.();
     cancelDragFrame();
   }, [cancelDragFrame]);
 
   const clearFocusTimer = useCallback(() => {
     if (focusFrameRef.current !== null) window.cancelAnimationFrame(focusFrameRef.current);
     focusFrameRef.current = null;
-    cancelTicketMotionRef.current?.();
-    cancelTicketMotionRef.current = null;
-    setIsTicketTouring(false);
     if (focusTimerRef.current !== null) {
       window.clearTimeout(focusTimerRef.current);
       focusTimerRef.current = null;
@@ -169,34 +162,6 @@ export function useMapCamera({ enabled, position, travelLocked, debugMode = fals
       focusTimerRef.current = null;
     }, 360);
   }, [clearFocusTimer, focusOn, position, travelLocked]);
-
-  const startTicketCameraTour = useCallback((origin: MapPosition, revealed: MapPosition[]) => {
-    clearFocusTimer();
-    cancelDragFrame();
-    const route = [...revealed, origin];
-    let stepIndex = 0;
-    setIsFocusing(true);
-    setIsTicketTouring(true);
-    const advance = () => {
-      const destination = route[stepIndex];
-      if (!destination) {
-        setIsFocusing(false);
-        setIsTicketTouring(false);
-        cancelTicketMotionRef.current = null;
-        focusTimerRef.current = null;
-        return;
-      }
-      const targetPan = centeredPan(destination);
-      if (!targetPan) { stopFocus(); return; }
-      const isRevealedLocation = stepIndex < route.length - 1;
-      stepIndex += 1;
-      const distance = Math.hypot(targetPan.x - panRef.current.x, targetPan.y - panRef.current.y) / (zoom * MAP_ROOM_WIDTH);
-      cancelTicketMotionRef.current = animateTicketCamera(panRef.current, targetPan, setPan, () => {
-        focusTimerRef.current = window.setTimeout(advance, isRevealedLocation ? MAP_TICKET_CAMERA_HOLD_MS : 0);
-      }, ticketCameraDuration(distance));
-    };
-    advance();
-  }, [clearFocusTimer, cancelDragFrame, centeredPan, stopFocus, zoom]);
 
   const zoomAt = useCallback((direction: number, focalPoint?: { x: number; y: number }) => {
     if (travelLocked) return;
@@ -359,13 +324,11 @@ export function useMapCamera({ enabled, position, travelLocked, debugMode = fals
     zoom,
     viewportSize,
     isFocusing,
-    isTicketTouring,
     viewportRef,
     wasDraggedRef,
     centerOn,
     focusOn,
     focusOnPlayer,
-    startTicketCameraTour,
     changeZoom,
     resetZoom,
     onWheel,

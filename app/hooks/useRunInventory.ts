@@ -17,6 +17,17 @@ function useFloorDrops<T>() {
   return [drops, setDrops, ref] as const;
 }
 
+function useFloorGoldPiles() {
+  const [piles, setRenderedPiles] = useState<Record<string, number>>({});
+  const ref = useRef(piles);
+  const setPiles = useCallback<Dispatch<SetStateAction<Record<string, number>>>>((update) => {
+    const next = typeof update === "function" ? update(ref.current) : update;
+    ref.current = next;
+    setRenderedPiles(next);
+  }, []);
+  return [piles, setPiles, ref] as const;
+}
+
 function removeDeletedDeckEditions(deck: DeckCase): DeckCase {
   const editions = deck.editions.filter(isDeckEdition);
   return {
@@ -39,6 +50,8 @@ export function useRunInventory() {
   const [roomDrops, setRoomDrops, roomDropsRef] = useFloorDrops<Card>();
   const [roomConsumableDrops, setRoomConsumableDrops, roomConsumableDropsRef] = useFloorDrops<Consumable>();
   const [roomDeckDrops, setRoomDeckDrops, roomDeckDropsRef] = useFloorDrops<DeckCase>();
+  const [roomGoldPiles, setRoomGoldPiles, roomGoldPilesRef] = useFloorGoldPiles();
+  const [gold, setGold] = useState(0);
   const hasFloorItems = useCallback((key: string) =>
     (roomDropsRef.current[key]?.length ?? 0) + (roomConsumableDropsRef.current[key]?.length ?? 0)
       + (roomDeckDropsRef.current[key]?.length ?? 0) > 0,
@@ -79,7 +92,7 @@ export function useRunInventory() {
   const ensureDeckVault = useCallback((roomKey: string, region: number, capacityBonus = 0) => {
     const existing = roomDeckVaultsRef.current[roomKey];
     if (existing) return existing;
-    const deck = createRegionDeck(region, nextCardIdRef.current, capacityBonus);
+    const deck = createRegionDeck(region, nextCardIdRef.current, capacityBonus, Math.random, 0.01);
     nextCardIdRef.current += deck.cards.length;
     roomDeckVaultsRef.current = { ...roomDeckVaultsRef.current, [roomKey]: deck };
     setRoomDeckVaults(roomDeckVaultsRef.current);
@@ -97,10 +110,10 @@ export function useRunInventory() {
 
   const saveState = useMemo(() => ({
     ownedDecks, activeDeckId, inventoryCards, inventoryConsumables, roomDrops, roomConsumableDrops,
-    roomDeckDrops, keys, skipPortalKeyWarning, roomDeckVaults,
+    roomDeckDrops, roomGoldPiles, gold, keys, skipPortalKeyWarning, roomDeckVaults,
   }), [
     ownedDecks, activeDeckId, inventoryCards, inventoryConsumables, roomDrops, roomConsumableDrops,
-    roomDeckDrops, keys, skipPortalKeyWarning, roomDeckVaults,
+    roomDeckDrops, roomGoldPiles, gold, keys, skipPortalKeyWarning, roomDeckVaults,
   ]);
   const restoreInventory = useCallback((state: PreparedRunRestore) => {
     setOwnedDecks(state.ownedDecks.map(removeDeletedDeckEditions));
@@ -113,16 +126,18 @@ export function useRunInventory() {
     setRoomDeckDrops(Object.fromEntries(Object.entries(state.roomDeckDrops).map(([key, decks]) => [
       key, decks.map(removeDeletedDeckEditions),
     ])));
+    setRoomGoldPiles(state.roomGoldPiles);
+    setGold(state.gold);
     setKeys(state.keys);
     setSkipPortalKeyWarning(state.skipPortalKeyWarning);
     roomDeckVaultsRef.current = state.roomDeckVaults;
     setRoomDeckVaults(state.roomDeckVaults);
-  }, [setKeys, setRoomDrops, setRoomConsumableDrops, setRoomDeckDrops]);
+  }, [setKeys, setRoomDrops, setRoomConsumableDrops, setRoomDeckDrops, setRoomGoldPiles]);
 
   return { saveState, restoreInventory, ownedDecks, setOwnedDecks, activeDeckId, setActiveDeckId,
     inventoryCards, setInventoryCards, inventoryConsumables, setInventoryConsumables, inventoryConsumablesRef,
     roomDrops, setRoomDrops, roomConsumableDrops, setRoomConsumableDrops, hasFloorItems,
-    roomDeckDrops, setRoomDeckDrops, 
+    roomDeckDrops, setRoomDeckDrops, roomGoldPiles, roomGoldPilesRef, setRoomGoldPiles, gold, setGold,
     keys, keysRef, setKeys, skipPortalKeyWarning, setSkipPortalKeyWarning, roomDeckVaults, roomDeckVaultsRef, ensureDeckVault, resetDeckVaults,
     rareCardDropChanceRef,
     nextCardIdRef, nextConsumableIdRef, nextConsumable, updateDeckCards };

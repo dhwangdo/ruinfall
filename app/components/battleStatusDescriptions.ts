@@ -1,18 +1,17 @@
 export const BATTLE_STATUS_DESCRIPTION = {
-  strength: "공격의 각 타격에 이 수치만큼 피해를 추가합니다.",
-  agility: "카드로 방어 또는 마법 방어를 얻을 때 이 수치만큼 추가로 얻습니다.",
+  strength: "공격의 각 타격에 피해를 X만큼 추가합니다. 직접 카드를 낼 때만 적용됩니다.",
+  agility: "방어 또는 마법 방어를 얻을 때 X만큼 추가로 얻습니다. 직접 카드를 낼 때만 적용됩니다.",
   defenseMultiplier: "카드로 얻는 방어와 마법 방어의 양이 표시된 배수만큼 증가합니다.",
   damageTakenMultiplier: "방어로 막지 못한 피해가 표시된 배수만큼 증가합니다.",
-  invulnerable: "받는 피해를 막습니다. 체력을 지불하는 비용과는 별개입니다.",
+  invulnerable: "피해를 받지 않습니다.",
   doubleNextAttack: "다음 공격 카드의 타격 횟수가 두 배가 됩니다. 공격할 때까지 턴이 지나도 유지됩니다.",
-  resistance: (value: number, ignoreNegative = false) => {
-    const effect = value < 0 && ignoreNegative
-      ? "취약 보험으로 공격 피해 증가 효과를 받지 않습니다."
-      : `받는 공격 피해가 30% ${value > 0 ? "감소" : "증가"}합니다.`;
-    return `${effect}\n남은 시간: ${Math.abs(value)}턴. 추가 턴에는 줄지 않습니다.\n공격 외의 피해에는 적용되지 않습니다.`;
-  },
+  resistance: (value: number) => value < 0
+    ? "적에게 받는 공격 피해가 30% 증가합니다. 저항과 서로 상쇄됩니다."
+    : "적에게 받는 공격 피해가 30% 감소합니다. 취약과 서로 상쇄됩니다.",
   amplification: (value: number) =>
-    `가하는 공격 피해가 30% ${value > 0 ? "증가" : "감소"}합니다.\n남은 시간: ${Math.abs(value)}턴. 추가 턴에는 줄지 않습니다.\n공격 외의 피해에는 적용되지 않습니다.`,
+    value < 0
+      ? "내 공격 피해가 30% 감소합니다. 증폭과 서로 상쇄됩니다."
+      : "내 공격 피해가 30% 증가합니다. 약화와 서로 상쇄됩니다.",
   enemyBlock: "받는 피해를 먼저 흡수합니다. 다음 적 행동이 시작될 때 남은 방어는 사라집니다.",
   stunned: "다음 행동을 한 번 건너뜁니다. 그 행동의 공격과 강화 효과도 발동하지 않습니다.",
   temporaryStrength: "이번 적 행동에만 추가되는 힘입니다. 영구적으로 누적되지 않습니다.",

@@ -1,12 +1,19 @@
 import assert from "node:assert/strict";
 import test from "node:test";
-import { getRoomType, regionStartY, REGION_HEIGHT, DUNGEON_MIN_X, DUNGEON_MAX_X } from "../app/game/mapRules.ts";
+import { getRoomType, regionStartY, REGION_HEIGHT, MAP_COLUMNS, DUNGEON_MIN_X, DUNGEON_MAX_X } from "../app/game/mapRules.ts";
 import { SPECIAL_NODE_DEFINITION_WEIGHTS, TEMPORARILY_DISABLED_ROOM_TYPES, safeAreaCenterX, safeAreaCenterY, isMapEnemySpawnCell, createMapFloorDropsForPositions } from "../app/game/mapRules.ts";
 import { advanceMapEnemies } from "../app/game/mapEnemies.ts";
 import { getGeneratedDungeonRegion } from "../app/game/mapRules.ts";
 import { REGION_LOCATION_COUNTS } from "../app/game/mapLocationPlacement.ts";
 import { createMapEnemyWorldForPositions } from "../app/game/mapRules.ts";
 import { getEncounterRegionNumber } from "../app/game/enemies.ts";
+
+test("region proportions gain roughly half the height while keeping the same area", () => {
+  assert.ok(Math.abs(REGION_HEIGHT / 31 - 1.5) < .02);
+  assert.ok(Math.abs(MAP_COLUMNS / 321 - 2 / 3) < .01);
+  assert.ok(Math.abs(MAP_COLUMNS * REGION_HEIGHT / (321 * 31) - 1) < .002);
+  assert.equal(MAP_COLUMNS, DUNGEON_MAX_X - DUNGEON_MIN_X + 1);
+});
 
 test("every region start reserves its centered nine-by-nine square from enemy spawning", () => {
   for (let region = 0; region < 3; region++) {
@@ -37,7 +44,7 @@ test("every region keeps at least one portal, including after cache eviction", (
       const map = getGeneratedDungeonRegion(seed, region);
       const portals = [...map.landmarks]
         .filter(([, kind]) => kind === "portal").map(([index]) => ({
-          x: index % 321 + DUNGEON_MIN_X, y: regionStartY(region) + Math.floor(index / 321),
+          x: index % MAP_COLUMNS + DUNGEON_MIN_X, y: regionStartY(region) + Math.floor(index / MAP_COLUMNS),
         }));
       assert.ok(portals.length > 0, `region ${region}, seed ${seed}`);
       assert.equal(portals.length, map.locationCounts.portal);
@@ -53,19 +60,13 @@ test("every region keeps at least one portal, including after cache eviction", (
   assert.ok(lowerHalf / count > .7, "portals favor the lower half");
 });
 
-test("future-region encounters are created with permanent sleep", () => {
-  const positions = Array.from({ length: 321 * REGION_HEIGHT }, (_, index) => ({
-    x: index % 321 + DUNGEON_MIN_X, y: Math.floor(index / 321),
+test("future-region encounters do not spawn", () => {
+  const positions = Array.from({ length: MAP_COLUMNS * REGION_HEIGHT }, (_, index) => ({
+    x: index % MAP_COLUMNS + DUNGEON_MIN_X, y: Math.floor(index / MAP_COLUMNS),
   }));
   const world = createMapEnemyWorldForPositions(173, positions);
-  let futureCount = 0;
-  for (const enemy of world.enemies) {
-    if (enemy.isBoss) continue;
-    const future = getEncounterRegionNumber(enemy.encounterIndex) > 1;
-    assert.equal(enemy.permanentSleep, future);
-    if (future) { futureCount++; assert.equal(enemy.awareness, "sleeping"); }
-  }
-  assert.ok(futureCount > 0);
+  assert.ok(world.enemies.filter(enemy => !enemy.isBoss)
+    .every(enemy => getEncounterRegionNumber(enemy.encounterIndex) <= 1));
 });
 
 test("inactive enemies skip pathfinding while boss collisions are preserved", () => {
@@ -82,8 +83,9 @@ test("inactive enemies skip pathfinding while boss collisions are preserved", ()
 
 test("ordinary location quotas replace chance rolls while paused definitions are retained", () => {
   assert.deepEqual(REGION_LOCATION_COUNTS, {
-    deckVault: { min: 40, max: 46 }, shop: { min: 0, max: 0 },
+    deckVault: { min: 30, max: 35 }, shop: { min: 0, max: 0 },
     bloodShop: { min: 0, max: 0 }, portal: { min: 14, max: 18 },
+    stickerAltar: { min: 4, max: 4 }, tinkerer: { min: 8, max: 8 }, cardTransmuter: { min: 4, max: 4 },
   });
   assert.ok(SPECIAL_NODE_DEFINITION_WEIGHTS.some(entry => entry.type === "extractionShrine"));
   assert.ok(SPECIAL_NODE_DEFINITION_WEIGHTS.some(entry => entry.type === "treasureChest"));
@@ -102,7 +104,7 @@ test("paused locations are absent in dungeon terrain and fixed safe-area facilit
     for (let x = center.x - 10; x <= center.x + 10; x++) {
       for (let y = center.y - 3; y <= center.y + 3; y++) {
         const type = getRoomType({ x, y }, seed);
-        assert.ok(!TEMPORARILY_DISABLED_ROOM_TYPES.has(type) || ["heal", "blessing"].includes(type));
+        assert.ok(!TEMPORARILY_DISABLED_ROOM_TYPES.has(type) || ["heal", "partialHeal", "blessing"].includes(type));
         types.push(type);
       }
     }
@@ -127,10 +129,18 @@ test("safe areas do not generate extraction tickets on their former shrine floor
   }
 });
 
+test("field cards and tickets do not spawn naturally on generated regions", () => {
+  const positions = Array.from({ length: MAP_COLUMNS * REGION_HEIGHT }, (_, index) =>
+    ({ x: index % MAP_COLUMNS + DUNGEON_MIN_X, y: Math.floor(index / MAP_COLUMNS) }));
+  for (const seed of [1, 7, 173]) {
+    assert.deepEqual(createMapFloorDropsForPositions(seed, positions), { cards: {}, consumables: {} });
+  }
+});
+
 test("vault terrain is deterministic and cannot also spawn an enemy or loose loot", () => {
   let vaultCount = 0;
-  for (let index = 0; index < 321 * REGION_HEIGHT; index++) {
-    const position = { x: index % 321 - 160, y: Math.floor(index / 321) };
+  for (let index = 0; index < MAP_COLUMNS * REGION_HEIGHT; index++) {
+    const position = { x: index % MAP_COLUMNS + DUNGEON_MIN_X, y: Math.floor(index / MAP_COLUMNS) };
     if (getRoomType(position, 173) !== "deckVault") continue;
     vaultCount++;
     assert.equal(getRoomType(position, 173), "deckVault");

@@ -5,6 +5,7 @@ import type { RunResetHoldControls } from "../hooks/useRunKeyboardControls";
 type MapTopbarProps = {
   runPlayerHp: number;
   maxPlayerHp: number;
+  gold: number;
   keys: number;
   deckCardCount: number;
   mapTraveling: boolean;
@@ -20,6 +21,7 @@ type MapTopbarProps = {
 export function MapTopbar({
   runPlayerHp,
   maxPlayerHp,
+  gold,
   keys,
   deckCardCount,
   mapTraveling,
@@ -63,6 +65,7 @@ export function MapTopbar({
             <span>{runPlayerHp} / {maxPlayerHp}</span>
           </div>
           <span className="map-currencies">
+            <span className="map-currency-count map-gold" aria-label={`골드 ${gold}`}>$ {gold}</span>
             <button type="button" className="map-currency-count map-key-count map-debug-trigger" onClick={onDebugClick} aria-label={`열쇠 ${keys}개`}>열쇠 {keys}</button>
           </span>
         </div>

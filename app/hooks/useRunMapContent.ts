@@ -7,6 +7,7 @@ import { positionsInSquare } from "../game/mapEffects";
 import { MAP_PLAYER_VISION_HORIZONTAL_RADIUS, MAP_PLAYER_VISION_VERTICAL_RADIUS,
   updateEnemyCellMemory, type MapEnemyWorld } from "../game/mapEnemies";
 import { createRandomSeed as createRandomMapSeed } from "../game/randomNames";
+import { createMapGoldPilesForPositions } from "../game/mapGold";
 
 type Options = {
   world: RunWorld;
@@ -20,7 +21,7 @@ type Options = {
 export function useRunMapContent({ world, inventory, player, visionHorizontalRadius, visionVerticalRadius }: Options) {
   const { mapSeed, mapEnemyWorld, generatedMapRoomKeysRef, setSeenRooms,
     setMapEnemyCellMemory, setMapSeed, setMapEnemyWorld } = world;
-  const { setRoomDrops, setRoomConsumableDrops, ensureDeckVault } = inventory;
+  const { setRoomDrops, setRoomConsumableDrops, setRoomGoldPiles, ensureDeckVault } = inventory;
   const { blessings, mindEyeMovesRemainingRef } = player;
   const materializeMapContent = (
     positions: readonly MapPosition[],
@@ -40,6 +41,16 @@ export function useRunMapContent({ world, inventory, player, visionHorizontalRad
       if (getRoomType(position, seed) === "deckVault") {
         ensureDeckVault(mapRoomKey(position), getRegionNumber(position, seed), deckCapacityBonus);
       }
+    });
+    const goldPiles = createMapGoldPilesForPositions(seed, uniquePositions);
+    if (Object.keys(goldPiles).length > 0) setRoomGoldPiles((current) => {
+      let next = current;
+      Object.entries(goldPiles).forEach(([roomKey, amount]) => {
+        if (current[roomKey] !== undefined) return;
+        if (next === current) next = { ...current };
+        next[roomKey] = amount;
+      });
+      return next;
     });
     if (freshPositions.length === 0) return world;
 

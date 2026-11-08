@@ -49,14 +49,19 @@ test("out-of-depth battle rewards always include a deck", () => {
   assert.deepEqual(reward.consumableTypes, []);
 });
 
+test("enemy and boss battle rewards no longer grant gold", () => {
+  const regular = createBattleReward(1, 0);
+  const boss = createBossBattleReward(1);
+  assert.equal(Object.hasOwn(regular, "gold"), false);
+  assert.equal(Object.hasOwn(boss, "gold"), false);
+});
+
 test("ticket tiers and base prices match the shop rules", () => {
   assert.ok(!TICKET_TYPES.includes("mindEyeTicket"));
   assert.ok(!TICKET_TYPES.includes("darkTicket"));
   assert.deepEqual(TICKET_TIERS, {
-    paintTicket: 1,
     bombTicket: 1,
     extractTicket: 1,
-    mapTicket: 1,
     mindEyeTicket: 1,
     darkTicket: 1,
     transformTicket: 2,
@@ -252,5 +257,7 @@ test("bosses grant no key but retain the boss-slayer bonus deck", () => {
   const reward = createBossBattleReward(100, 2);
   assert.equal(reward.keys, 0);
   assert.equal(reward.decks.length, 1);
-  assert.equal(reward.cards.length, 1);
+  assert.equal(reward.cards.length, 2);
+  assert.ok(reward.cards.every(card => card.sticker && card.rarity === "rare"));
+  assert.deepEqual(reward.consumableTypes, []);
 });

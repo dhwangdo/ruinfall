@@ -16,7 +16,7 @@ import { drawFromFirstPile, drawFromPiles, drawRandomFromPiles } from "./battleS
 import { resolveCardAttack, type CardHit } from "./cardAttackResolution.ts";
 import { blockedPileIndexes } from "./enemyPassives.ts";
 import { resolveEnemyDefeats } from "./enemyDefeatRules.ts";
-import { applyCardStatuses } from "./cardStatusEffects.ts";
+import { applyCardStatuses, resolveAmplificationThresholdEffects } from "./cardStatusEffects.ts";
 
 export type CardPlayRequest = { card: Card; targetEnemyId?: string; discardCostPaid?: boolean };
 export type CardPlayOptions = {
@@ -100,6 +100,7 @@ export function resolveCardPlay(
   const isPlateArmorDefense = card.effect === "plateArmorDefense";
   const isMassDeal = card.effect === "massDeal";
   const isSturdyStance = card.effect === "sturdyStance";
+  const nextInvulnerabilityTurns = current.invulnerabilityTurns + (card.effect === "transcend" ? card.value : 0);
   const isDamageCard = isAttackCard(card);
   const isBlockCard = cardGivesPhysicalDefense(card) || cardGivesMagicDefense(card);
   const isWave = card.effect === "ironWave" || card.effect === "waterWave";
@@ -140,7 +141,7 @@ export function resolveCardPlay(
       block: thornsPhysicalBlock,
       isAttack: false,
       damageTakenMultiplier: current.damageTakenMultiplier,
-      invulnerable: current.invulnerable,
+      invulnerable: current.invulnerable || nextInvulnerabilityTurns > 0,
     });
     thornsPhysicalBlock = resolvedHit.remainingBlock;
     thornsDamageTaken += resolvedHit.damageTaken;
@@ -162,7 +163,7 @@ export function resolveCardPlay(
   }
   const selfDamageLife = resolveLethalDamage(
     thornLife.hp,
-    card.effect === "adrenaline" ? 2 : 0,
+    card.effect === "adrenaline" ? 3 : 0,
     maxPlayerHp,
     blessings.includes("oneUp") && !oneUpUsed,
   );
@@ -182,7 +183,7 @@ export function resolveCardPlay(
       block: grimoireMagicBlock,
       isAttack: false,
       damageTakenMultiplier: current.damageTakenMultiplier,
-      invulnerable: current.invulnerable,
+      invulnerable: current.invulnerable || nextInvulnerabilityTurns > 0,
     });
     grimoireMagicBlock = resolvedHit.remainingBlock;
     grimoireDamageTaken += resolvedHit.damageTaken;
@@ -228,7 +229,7 @@ export function resolveCardPlay(
     ? Math.min(card.draw, availableCardCount)
     : 0;
   const pendingDashRandomDraws = 0;
-  const drawsAdded = !won && availableCardCount > 0 && !drawEachPileResult && pendingPileDrawCount === 0
+  const drawsAdded = card.effect !== "foresight" && !won && availableCardCount > 0 && !drawEachPileResult && pendingPileDrawCount === 0
     ? Math.min(card.draw * repetitions, availableCardCount)
     : 0;
   const remainingHand = current.hand.filter((item) => item.id !== card.id);
@@ -239,6 +240,10 @@ export function resolveCardPlay(
     { length: radianceCount },
     () => createRadianceCard(nextCardId++),
   );
+  const generatedParallelRadiances = card.effect === "parallelMirror"
+    ? remainingHand.filter((item) => item.effect === "radiance")
+      .map((radiance) => ({ ...radiance, id: nextCardId++, revealed: true }))
+    : [];
   const generatedWishCards: Card[] = card.effect === "wish"
     ? Array.from({ length: card.value }, () => ({
       ...RARE_CARD_POOL[Math.floor(effectRandom() * RARE_CARD_POOL.length)],
@@ -255,6 +260,7 @@ export function resolveCardPlay(
   const action = (() => {
     if (isShockwave || isSweepAttack) return `${card.name}: 적 전체 공격`;
     if (isOdinSpear) return `오딘의 창: 적 전체에게 피해 ${damage} · 방어 ${blockGained}`;
+    if (card.effect === "photonCannon") return `${targetEnemy?.name}에게 총 피해 ${damage} (${repetitions}회 공격)`;
     if (isMeteor) return `${card.name}: ★를 모두 소모해 무작위 공격`;
     if (isHydra) return `${card.name}: 무작위 공격 ${repetitions}회`;
     if (isMagicStrike) return "마법 타격 발동";
@@ -267,6 +273,17 @@ export function resolveCardPlay(
     if (card.effect === "astronomyResearch") return "천문학 연구: ★★로 파일 드로우";
     if (card.effect === "necromancyResearch") return "강령학 연구: ★★★로 버린 카드 드로우";
     if (card.effect === "metallurgyResearch") return "금속학 연구: 재련된 카드 가져옴";
+    if (card.effect === "beastification") return `힘 ${card.value * (card.forged ? 2 : 1)} 획득`;
+    if (card.effect === "metalization") return `강인함 ${card.value * (card.forged ? 2 : 1)} 획득`;
+    if (card.effect === "sandToss") return `${targetEnemy?.name}에게 약화 ${card.value} 부여`;
+    if (card.effect === "saeongjima") return "버리기 X 효과를 기다립니다.";
+    if (card.effect === "ironSong") return `방어 ${blockGained} 획득 · 다음 2턴 시작 시 반복`;
+    if (card.effect === "atField") return `방어 ${blockGained} · 증폭 2 획득`;
+    if (card.effect === "overcharge") return "과충전 룰 활성화";
+    if (card.effect === "criticalReaction") return "임계 반응 룰 활성화";
+    if (card.effect === "foresight") return `다음 턴 시작 시 카드 ${card.draw}장 드로우`;
+    if (card.effect === "steelStorm") return `방어 ${blockGained} 획득 · 강철의 폭풍 발동`;
+    if (card.effect === "parallelMirror") return `광채 ${generatedParallelRadiances.length}장 복사`;
     if (card.effect === "economicsResearch") return "경제학 연구: 에너지 하한 -3 추가";
     if (card.effect === "opticsResearch") return "광학 연구: 턴 시작마다 광채 생성";
     if (card.effect === "lightCluster") return "빛무리: 광채 1장 획득";
@@ -285,12 +302,12 @@ export function resolveCardPlay(
     if (card.effect === "prepare") return canDraw ? "드로우할 파일을 선택하세요." : "버릴 카드를 선택하세요.";
     if (card.effect === "focus") return "에너지를 1 얻습니다 · 버릴 카드를 선택하세요.";
     if (card.effect === "pruning") return `과감한 결단: 에너지 ${card.discardEnergyGain ?? card.value} 획득`;
-    if (card.effect === "adrenaline") return `체력 2 감소 · 에너지 ${card.value} 획득 · 카드 ${card.draw}장 드로우`;
+    if (card.effect === "adrenaline") return `체력 3 감소 · 에너지 ${card.value} 획득 · 카드 ${card.draw}장 드로우`;
     if (card.effect === "sweep") return canDraw ? "가져올 파일을 선택하세요." : "가져올 카드가 없습니다.";
     if (card.effect === "drawEachPile") return `모든 파일에서 ${drawEachPileResult?.hand.length ?? 0}장 뽑음`;
     if (card.effect === "wish") return `소원: 무작위 희귀 카드 ${generatedWishCards.length}장 획득`;
-    if (card.effect === "dash") return `질주: 무작위 파일에서 ${dashRandomResult?.hand.length ?? 0}장 뽑음`;
-    if (card.effect === "transcend") return "이번 턴 피해 면역 · 힘 5 획득";
+    if (card.effect === "dash") return `질주: 카드를 무작위로 ${dashRandomResult?.hand.length ?? 0}장 뽑음`;
+    if (card.effect === "transcend") return `무적 ${card.value} 획득`;
     if (card.effect === "rapidFire") return "다음 공격 카드가 2회 발동";
     if (card.effect === "ventilate") return "환기: 에너지 획득";
     if (card.effect === "fileDraw") return card.forged ? "모든 파일에서 1장씩 뽑음" : "드로우할 파일을 선택하세요.";
@@ -307,14 +324,14 @@ export function resolveCardPlay(
   })();
   const drawMessage = pendingSweep
     ? " · 효과를 적용할 파일을 선택하세요."
-    : card.draw > 0
+    : card.draw > 0 && card.effect !== "foresight"
     ? canDraw
       ? " · 드로우할 파일을 선택하세요."
       : " · 드로우할 카드가 없습니다."
     : "";
   let state: GameState = {
     ...current,
-    hand: [...remainingHand, ...(automaticDrawnCards ?? []), ...generatedRadiances, ...generatedWishCards],
+    hand: [...remainingHand, ...(automaticDrawnCards ?? []), ...generatedRadiances, ...generatedWishCards, ...generatedParallelRadiances],
     // 강화는 사용 후에도 다음 셔플 전까지 유지된다. 셔플 때 prepareDeckForPiles가 해제한다.
     discard: card.exhaust || card.token
       ? current.discard
@@ -353,15 +370,21 @@ export function resolveCardPlay(
       ? [...current.pendingRadiance, { turns: 2, count: card.value }]
       : current.pendingRadiance,
     pendingDiscards,
+    pendingDiscardIsDiscardX: pendingDiscards > 0 && !discardCostPaid && card.discardCost !== undefined,
+    pendingSaeongjimaTriggers: pendingDiscards > 0 && !discardCostPaid ? 0 : current.pendingSaeongjimaTriggers,
+    pendingForesightDraws: current.pendingForesightDraws + (card.effect === "foresight" ? card.draw : 0),
+    pendingIronSong: card.effect === "ironSong"
+      ? [...current.pendingIronSong, { turns: 2, amount: card.value }]
+      : current.pendingIronSong,
     pendingSweep,
     pendingPileOperation,
     enemies: nextEnemies,
     playerPhysicalBlock: nextPhysicalBlock,
     playerMagicBlock: grimoireMagicBlock,
     playerResistance: nextResistance,
-    strength: current.strength + (card.effect === "orion" ? 10 : card.effect === "evolutionTheory" ? 1 : card.effect === "warmUp" ? card.value + 1 : card.effect === "augment" || card.effect === "weaponSharpen" || card.effect === "strategyBook" ? card.value : 0),
+    strength: current.strength + (card.effect === "orion" ? 10 : card.effect === "evolutionTheory" ? 1 : card.effect === "warmUp" ? card.value + 1 : card.effect === "augment" || card.effect === "weaponSharpen" || card.effect === "strategyBook" ? card.value : card.effect === "beastification" ? card.value * (card.forged ? 2 : 1) : 0),
     temporaryStrength: current.temporaryStrength + (card.effect === "warmUp" ? card.value : 0),
-    agility: current.agility + (card.effect === "evolutionTheory" ? 1 : card.effect === "augment" || card.effect === "armorSharpen" || card.effect === "strategyBook" ? card.value : 0),
+    agility: current.agility + (card.effect === "evolutionTheory" ? 1 : card.effect === "augment" || card.effect === "armorSharpen" || card.effect === "strategyBook" ? card.value : card.effect === "metalization" ? card.value * (card.forged ? 2 : 1) : 0),
     piles: massDealPiles,
     reflectDamage: card.effect === "counter" ? 1 : current.reflectDamage,
     defenseMultiplier: current.defenseMultiplier,
@@ -372,6 +395,7 @@ export function resolveCardPlay(
       : current.activeRuleCards,
     damageTakenMultiplier: current.damageTakenMultiplier,
     invulnerable: current.invulnerable,
+    invulnerabilityTurns: nextInvulnerabilityTurns,
     extraTurns: current.extraTurns + (card.effect === "horologium" ? 1 : 0),
     playerHp: resolvedPlayerHp,
     doubleNextAttack: card.effect === "rapidFire"
@@ -393,6 +417,24 @@ export function resolveCardPlay(
   if (!["shatter", "kneeStrike", "demolish"].includes(card.effect)) {
     state = applyCardStatuses(state, card, targetEnemyId, blessings.includes("glassCannon"));
   }
+  const thresholdEffects = resolveAmplificationThresholdEffects(current, state);
+  state = thresholdEffects.state;
+  let thresholdDrawnCards: Card[] = [];
+  if (thresholdEffects.randomDrawCount > 0) {
+    const thresholdDraw = drawRandomFromPiles(
+      state.piles,
+      thresholdEffects.randomDrawCount,
+      effectRandom,
+      blockedPileIndexes(state.enemies),
+    );
+    thresholdDrawnCards = thresholdDraw.hand;
+    state = { ...state, piles: thresholdDraw.piles, hand: [...state.hand, ...thresholdDraw.hand] };
+  }
+  const thresholdMessages = [
+    thresholdEffects.overchargeTriggered && `과충전: 카드를 무작위로 ${thresholdDrawnCards.length}장 뽑음`,
+    thresholdEffects.criticalReactionTriggered && "임계 반응: 에너지 2 획득",
+  ].filter(Boolean);
+  if (thresholdMessages.length > 0) state = { ...state, message: `${state.message} · ${thresholdMessages.join(" · ")}` };
   const deaths = resolveEnemyDefeats(state, { blessings, maxPlayerHp, oneUpUsed });
   state = deaths.state;
   oneUpUsed = deaths.oneUpUsed;
@@ -401,7 +443,7 @@ export function resolveCardPlay(
   if (state.playerHp === 0) state = { ...state, status: "lost", message: "폭발 피해로 쓰러졌습니다." };
   else if (state.enemies.every(enemy => enemy.hp === 0) && !waitForLethalHitPopups) state = { ...state, status: "won" };
   return {
-    state, played: true, nextCardId, oneUpUsed, automaticDrawnCards, hitPopups, defeatedEnemyIds,
+    state, played: true, nextCardId, oneUpUsed, automaticDrawnCards: [...automaticDrawnCards, ...thresholdDrawnCards], hitPopups, defeatedEnemyIds,
     victoryDelay: state.playerHp > 0 && waitForLethalHitPopups ? Math.max(500, (hitPopups.length - 1) * 220 + 500) : null,
   };
 

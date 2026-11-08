@@ -607,10 +607,10 @@
   display: none;
   width: min(310px, calc(100vw - 24px));
   padding: 8px 10px;
-  border: 2px solid rgba(170,108,117,.9);
+  border: 2px solid #81b5e7;
   border-radius: 6px;
-  color: #f5eee8;
-  background: rgba(58,31,37,.96);
+  color: #f4f8ff;
+  background: rgba(27,75,120,.98);
   box-shadow: 0 5px 16px rgba(0,0,0,.42);
   font: var(--tooltip-copy-font);
   white-space: normal;
@@ -622,13 +622,13 @@
 .deck-edition-tooltip > strong {
   display: block;
   margin-bottom: 3px;
-  color: #f8d4aa;
+  color: #fff3c7;
   font: var(--tooltip-title-font);
 }
 .deck-edition-tooltip > span {
   display: block;
   margin: 0;
-  color: #f5eee8;
+  color: #f4f8ff;
   font: var(--tooltip-copy-font);
 }
 .deck-edition-tooltip-floating {
@@ -638,10 +638,10 @@
   max-height: calc(100vh - 24px);
   padding: 8px 10px;
   overflow: auto;
-  border: 2px solid rgba(170,108,117,.9);
+  border: 2px solid #81b5e7;
   border-radius: 6px;
-  color: #f5eee8;
-  background: rgba(58,31,37,.96);
+  color: #f4f8ff;
+  background: rgba(27,75,120,.98);
   box-shadow: 0 5px 16px rgba(0,0,0,.42);
   font: var(--tooltip-copy-font);
   text-align: left;
@@ -651,12 +651,12 @@
 .deck-edition-tooltip-floating > strong {
   display: block;
   margin-bottom: 3px;
-  color: #f8d4aa;
+  color: #fff3c7;
   font: var(--tooltip-title-font);
 }
 .deck-edition-tooltip-floating > span {
   display: block;
-  color: #f5eee8;
+  color: #f4f8ff;
   font: var(--tooltip-copy-font);
 }
 .deck-edition-name:hover .deck-edition-tooltip,

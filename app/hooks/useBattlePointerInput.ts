@@ -6,6 +6,7 @@ import type { GameState } from "../game/battleState";
 import type { ActiveBattleDrag } from "./useBattleInteractionState";
 import { useBattleInteractionState } from "./useBattleInteractionState";
 import { handCardAtPointer } from "../components/handHitTest";
+import { hasSticker } from "../game/stickers";
 
 type BattleInteractionState = ReturnType<typeof useBattleInteractionState>;
 
@@ -19,6 +20,7 @@ type BattlePointerInputOptions = {
   onMoveCardToPile: (drag: DragState, targetPileIndex: number) => void;
   onPlayCard: (card: Card, targetEnemyId?: string) => void;
   onResearchDraw: (pileIndex: number, allowAutoPay?: boolean) => void;
+  onRetrieveBluebirdFromPile: (pileIndex: number) => void;
 };
 
 export function useBattlePointerInput({
@@ -31,6 +33,7 @@ export function useBattlePointerInput({
   onMoveCardToPile,
   onPlayCard,
   onResearchDraw,
+  onRetrieveBluebirdFromPile,
 }: BattlePointerInputOptions) {
   const {
     centerDropZoneRef,
@@ -457,8 +460,10 @@ export function useBattlePointerInput({
         const sourcePile = game.piles[current.source.pileIndex];
         const isTopCard = current.cards.length === 1
           && current.source.cardIndex === (sourcePile?.length ?? 0) - 1;
-        if (isTopCard) onResearchDraw(current.source.pileIndex, true);
-        else setGame((state) => ({ ...state, message: "연구 드로우는 파일 맨 위 카드만 손패로 가져올 수 있습니다." }));
+        if (isTopCard && hasSticker(current.card, "bluebird") && game.pendingResearchDraw === null) {
+          onRetrieveBluebirdFromPile(current.source.pileIndex);
+        } else if (isTopCard) onResearchDraw(current.source.pileIndex, true);
+        else setGame((state) => ({ ...state, message: "파일 맨 위 카드만 손패로 가져올 수 있습니다." }));
         dragRef.current = null;
         setDragging(null);
         return;

@@ -101,10 +101,10 @@
   flex: none;
   width: min(310px, calc(100vw - 24px));
   padding: 8px 10px;
-  border: 2px solid rgba(170,108,117,.9);
+  border: 2px solid #81b5e7;
   border-radius: 6px;
-  color: #f5eee8;
-  background: rgba(58,31,37,.96);
+  color: #f4f8ff;
+  background: rgba(27,75,120,.98);
   box-shadow: 0 5px 16px rgba(0,0,0,.42);
   white-space: normal;
   overflow-wrap: break-word;

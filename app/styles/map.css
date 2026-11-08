@@ -133,6 +133,46 @@
 
 .debug-spawn-controls button:hover { background: #fff8e8; }
 
+.debug-quick-actions { position: relative; }
+.debug-quick-actions summary {
+  min-height: 31px;
+  box-sizing: border-box;
+  padding: 7px 11px;
+  border: 1px solid rgba(255,255,255,.42);
+  border-radius: 3px;
+  color: #111;
+  background: #f5f1e7;
+  cursor: pointer;
+  font: 700 12px Arial, sans-serif;
+}
+.debug-quick-actions summary:hover { background: #fff8e8; }
+.debug-quick-actions > div {
+  position: absolute;
+  z-index: 120;
+  top: calc(100% + 4px);
+  left: 0;
+  min-width: max-content;
+  display: grid;
+  gap: 5px;
+  padding: 6px;
+  border: 1px solid #746b59;
+  border-radius: 4px;
+  background: #211f1a;
+  box-shadow: 0 5px 14px #0009;
+}
+.debug-quick-actions button {
+  min-height: 30px;
+  padding: 5px 9px;
+  border: 1px solid rgba(255,255,255,.42);
+  border-radius: 3px;
+  color: #111;
+  background: #f5f1e7;
+  cursor: pointer;
+  font: 700 12px Arial, sans-serif;
+  text-align: left;
+}
+.debug-quick-actions button:hover { background: #fff8e8; }
+
 .debug-score-controls {
   display: flex;
   align-items: center;
@@ -825,6 +865,23 @@
 .map-floor-item .floor-deck-item strong { font-size: 12px; }
 .map-room.is-current .map-floor-item > * { pointer-events: auto; }
 .map-floor-item .floor-deck-item > span { font-size: 12px; }
+.floor-gold-pile {
+  position: absolute;
+  z-index: 2;
+  display: grid;
+  width: 94%;
+  height: 94%;
+  place-items: center;
+  pointer-events: none;
+}
+.floor-gold-pile.is-secondary { right: 3px; bottom: 3px; width: 54px; height: 54px; }
+.map-floor-item.has-primary-gold > .floor-gold-pile { left: 50%; top: 50%; transform: translate(-50%, -50%); }
+.floor-gold-art {
+  display: block;
+  width: 100%;
+  height: 100%;
+  overflow: visible;
+}
 .map-room.has-floor-items > .map-room-label {
   position: absolute;
   z-index: 1;
@@ -897,6 +954,25 @@
   white-space: nowrap;
   transform: translate(-50%, calc(-100% - 16px));
   animation: map-wait-notice-rise-fade 1.2s ease-out both;
+}
+
+.map-gold-notice {
+  position: absolute;
+  z-index: 13;
+  color: #ffdc55;
+  text-shadow: 0 2px 5px rgba(0,0,0,.8), 0 0 8px rgba(255,194,38,.75);
+  font: 900 32px/1 Arial, sans-serif;
+  pointer-events: none;
+  white-space: nowrap;
+  transform: translate(-50%, calc(-100% - 16px));
+  animation: map-gold-notice-pop 1.2s cubic-bezier(.2,.8,.25,1) both;
+}
+
+@keyframes map-gold-notice-pop {
+  0% { opacity: 0; transform: translate(-50%, calc(-100% + 1px)) scale(.58); }
+  14% { opacity: 1; transform: translate(-50%, calc(-100% - 22px)) scale(1.18); }
+  28% { opacity: 1; transform: translate(-50%, calc(-100% - 16px)) scale(1); }
+  100% { opacity: 0; transform: translate(-50%, calc(-100% - 34px)) scale(.94); }
 }
 
 @keyframes map-wait-notice-rise-fade {

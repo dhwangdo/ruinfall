@@ -73,7 +73,6 @@
   transform: translateY(-50%);
 }
 .card-visual-compact .deck-card-new,
-.card-visual-compact .deck-card-painted { z-index: 1; font-size: 8.8px; }
 .card-visual-compact .inventory-card-count,
 .consumable-visual .inventory-card-count {
   position: absolute;
@@ -109,7 +108,6 @@
   font-family: Pretendard,Arial,sans-serif;
 }
 .consumable-visual.swiftTicket { --ticket-fill: #cfdfea; --ticket-border: #526f82; }
-.consumable-visual.paintTicket { --ticket-fill: #f3b6ca; --ticket-border: #914b64; }
 .consumable-visual.mindEyeTicket { --ticket-fill: #bcd9ee; --ticket-border: #436f8c; }
 .consumable-visual.darkTicket { --ticket-fill: #a9a7c8; --ticket-border: #4b4770; }
 .consumable-visual.bombTicket { --ticket-fill: #e8b09d; --ticket-border: #8b503d; }
@@ -121,7 +119,6 @@
 .consumable-visual.extractTicket,
 .consumable-visual.extractPlusTicket { --ticket-fill: #ead8aa; --ticket-border: #87703d; }
 .consumable-visual.transformTicket { --ticket-fill: #d8c1eb; --ticket-border: #704f87; }
-.consumable-visual.mapTicket { --ticket-fill: #c9ab88; --ticket-border: #735239; }
 .consumable-visual.cardPack { --ticket-fill: #e7c884; --ticket-border: #85691f; }
 .consumable-visual.expandTicket {
   --ticket-fill: hsl(30,88%,32%);
@@ -190,4 +187,73 @@ html[data-device-mode="mobile"] {
   line-height: 1.25;
   text-align: center;
   pointer-events: none;
+}
+.card-sticker-mark {
+  position: absolute;
+  left: 4px;
+  bottom: 4px;
+  z-index: 4;
+  display: block;
+  width: 35px;
+  height: 35px;
+  box-sizing: border-box;
+  cursor: help;
+}
+.card-sticker-marks {
+  position: absolute;
+  left: 4px;
+  bottom: 4px;
+  z-index: 4;
+  display: flex;
+  align-items: flex-end;
+  gap: 0;
+}
+.card-sticker-marks > .card-sticker-mark {
+  position: relative;
+  left: auto;
+  bottom: auto;
+  flex: 0 0 35px;
+}
+.card-sticker-mark svg {
+  display: block;
+  width: 100%;
+  height: 100%;
+  overflow: visible;
+}
+.card-sticker-art {
+  display: block;
+  width: 100%;
+  height: 100%;
+  transform-origin: center;
+  background-repeat: no-repeat;
+}
+.card-sticker-art[data-sticker="parachute"] { clip-path: inset(0 8% 0 0); }
+.card-visual-compact .card-sticker-marks { left: 0; bottom: 0; }
+.card-visual-compact .card-sticker-marks > .card-sticker-mark { width: 25px; height: 25px; flex-basis: 25px; }
+.card-sticker-tooltip {
+  position: fixed;
+  z-index: 260;
+  box-sizing: border-box;
+  width: min(260px, calc(100vw - 24px));
+  padding: 8px 10px;
+  border: 2px solid #81b5e7;
+  border-radius: 6px;
+  color: #f4f8ff;
+  background: rgba(27,75,120,.98);
+  box-shadow: 0 5px 16px rgba(0,0,0,.42);
+  text-align: left;
+  pointer-events: none;
+  transform: translateY(-100%);
+}
+.card-sticker-tooltip.is-below { transform: none; }
+.card-sticker-tooltip > strong,
+.card-sticker-tooltip > span { display: block; }
+.card-sticker-tooltip > strong {
+  margin-bottom: 3px;
+  color: #fff3c7;
+  font: var(--tooltip-title-font);
+}
+.card-sticker-tooltip > span {
+  color: #f4f8ff;
+  font: var(--tooltip-copy-font);
 }

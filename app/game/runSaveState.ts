@@ -7,10 +7,12 @@ import type { SavedRunState } from "./runTypes";
 import { isEncounterAvailable, normalizeEncounterIndex } from "./enemies.ts";
 import { normalizeBattleWins } from "./karmaRules.ts";
 import { TEMPORARILY_DISABLED_TICKETS } from "./shopRules.ts";
+import { isStickerId } from "./stickers.ts";
+import { normalizeRoomServiceUses } from "./stickerServices.ts";
 
 const REMOVED_EFFECTS = new Set(["sacrifice", "magicCrystal", "delay", "boneArmor", "steelHeart", "ironWall", "blessing", "berserk"]);
 const REMOVED_CARD_NAMES = new Set(["불티", "잔바위", "유예", "뼈 갑옷", "환기"]);
-const UPDATED_CARD_NAMES = new Set(["몸 사리기", "기회 창출", "기회 포착", "정리 타격", "과감한 회피", "싸움 준비", "대전략가"]);
+const UPDATED_CARD_NAMES = new Set(["몸 사리기", "기회 창출", "기회 포착", "정리 타격", "과감한 결단", "과감한 회피", "싸움 준비", "대전략가", "기합", "휩쓸기", "청동 철퇴", "사계절", "개박살", "견고한 태세", "아드레날린"]);
 const RENAMED_CARD_NAMES: Readonly<Record<string, string>> = {
   "비늘 갑옷": "위압",
   "갈라치기": "돌파구",
@@ -20,11 +22,25 @@ const RENAMED_CARD_NAMES: Readonly<Record<string, string>> = {
 };
 const RESTORED_EFFECTS = new Set([
   "rapidFire", "supernova", "meteor", "wish", "sturdyStance", "lawResearch", "economicsResearch", "lightTravelTime", "wolfTalisman", "turtleTalisman", "obsidianDagger", "plateArmorDefense",
+  "battleCry", "sweep", "doubleHit", "fourSeasons", "demolish", "adrenaline",
 ]);
 
 function restoreLegacyCard(card: Card): Card | null {
   if (REMOVED_EFFECTS.has(card.effect) || REMOVED_CARD_NAMES.has(card.name)) return null;
-  const restored = { ...card } as Card & { ritualCost?: number; spellRank?: number; magicCrystalStage?: number };
+  const restored = { ...card } as Card & { colored?: boolean; ritualCost?: number; spellRank?: number; magicCrystalStage?: number };
+  delete restored.colored;
+  delete restored.clockworkTriggered;
+  delete restored.bluebirdUsedTurn;
+  const stickerState = restored as unknown as { sticker?: unknown; stickers?: unknown };
+  const savedStickers = Array.isArray(stickerState.stickers)
+    ? stickerState.stickers
+    : stickerState.sticker === undefined ? [] : [stickerState.sticker];
+  const normalizedStickers = [...new Set(savedStickers
+    .map(sticker => sticker === "firefly" ? "glowDinosaur" : sticker)
+    .filter(isStickerId))].slice(0, restored.effect === "diy" ? 3 : 1);
+  delete restored.sticker;
+  if (normalizedStickers.length) restored.stickers = normalizedStickers;
+  else delete restored.stickers;
   restored.name = RENAMED_CARD_NAMES[restored.name] ?? restored.name;
   delete restored.ritualCost;
   delete restored.spellRank;
@@ -77,6 +93,8 @@ function restoreLegacyDeck(deck: DeckCase): DeckCase {
 
 function isDeletedConsumable(consumable: Consumable) {
   return (consumable as { type: string }).type === "swapTicket"
+    || (consumable as { type: string }).type === "mapTicket"
+    || (consumable as { type: string }).type === "paintTicket"
     || TEMPORARILY_DISABLED_TICKETS.has(consumable.type);
 }
 
@@ -162,6 +180,9 @@ type NormalizedRunRestoreFields =
   | "oneUpUsed"
   | "openedDeckVaultRooms"
   | "roomDeckVaults"
+  | "roomGoldPiles"
+  | "roomServiceUses"
+  | "gold"
   | "keys"
   | "skipPortalKeyWarning";
 
@@ -200,8 +221,10 @@ export function prepareRunRestore(
     roomConsumableDrops: Object.fromEntries(Object.entries(state.roomConsumableDrops ?? {}).map(([key, consumables]) => [
       key, removeDeletedTickets(consumables),
     ])),
+    roomGoldPiles: Object.fromEntries(Object.entries(state.roomGoldPiles ?? {}).flatMap(([key, amount]) =>
+      typeof amount === "number" && Number.isFinite(amount) && amount >= 0 ? [[key, Math.floor(amount)]] : [])),
     roomShops: {},
-    gold: undefined,
+    roomServiceUses: normalizeRoomServiceUses(state.roomServiceUses),
     collapsedExtractionShrineRooms: state.collapsedExtractionShrineRooms ?? state.collapsedShrineRooms ?? [],
     collapsedRecoveryShrineRooms: state.collapsedRecoveryShrineRooms ?? legacyCollapsedHealthShrineRooms,
     collapsedVitalityShrineRooms: state.collapsedVitalityShrineRooms ?? legacyCollapsedHealthShrineRooms,
@@ -210,6 +233,7 @@ export function prepareRunRestore(
     collapsedTreasureChestRooms: state.collapsedTreasureChestRooms ?? [],
     openedDeckVaultRooms: state.openedDeckVaultRooms ?? [],
     roomDeckVaults: Object.fromEntries(Object.entries(state.roomDeckVaults ?? {}).map(([key, deck]) => [key, restoreLegacyDeck(deck)])),
+    gold: typeof state.gold === "number" && Number.isFinite(state.gold) ? Math.max(0, Math.floor(state.gold)) : 0,
     keys: Number.isFinite(state.keys) ? Math.max(0, Math.floor(state.keys!)) : 0,
     skipPortalKeyWarning: state.skipPortalKeyWarning === true,
     vitalityShrineMaxHpBonus: state.vitalityShrineMaxHpBonus ?? state.healthShrineMaxHpBonus ?? 0,
@@ -217,9 +241,9 @@ export function prepareRunRestore(
     regionBattleWins: normalizeBattleWins(state.regionBattleWins),
     bloodstainedRooms: state.bloodstainedRooms ?? [],
     darkTicketTurnsRemaining: 0,
-    blessingOffers: (state.blessingOffers ?? []).filter(id => !["greed", "goldRush"].includes(id)),
-    blessingSeenOfferIds: state.blessingSeenOfferIds ?? [],
-    blessings: state.blessings.filter((id) => !["luck", "greed", "goldRush"].includes(id as string)),
+    blessingOffers: (state.blessingOffers ?? []).filter(id => !["greed", "goldRush", "cartographer"].includes(id as string)),
+    blessingSeenOfferIds: (state.blessingSeenOfferIds ?? []).filter(id => (id as string) !== "cartographer"),
+    blessings: state.blessings.filter((id) => !["luck", "greed", "goldRush", "cartographer"].includes(id as string)),
     blessingRerollCost: 5 + 2 * Math.ceil((savedBlessingRerollCost - 5) / 2),
     oneUpUsed: state.oneUpUsed ?? false,
   };

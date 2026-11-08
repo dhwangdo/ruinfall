@@ -13,6 +13,17 @@ export const WARLOCK = enemy("저주술사", 68, "warlock", [
   { name: "저주의 일격", attacks: hit(20), cycle: true, loopTo: 1 },
 ]);
 
+export const REGION_TWO_BOSS = enemy("간수", 250, "shackleJailer", [
+  { name: "저항과 증폭", attacks: [], resistanceGain: 2, amplificationGain: 2, cycle: true },
+  { name: "강타", attacks: hit(20), cycle: true },
+  { name: "강타", attacks: hit(20), cycle: true },
+  { name: "힘 모으기", attacks: [], strengthGain: 5, cycle: true },
+], {
+  isBoss: true,
+  statusEffectiveness: 40,
+  trait: "강화됨: 저항과 증폭의 효율이 30%에서 40%로 증가함.",
+});
+
 /** One member from each family may join a pair. The first member leads its map label. */
 export const REGION_TWO_PAIR_CANDIDATES: EnemyBlueprint[] = [
   enemy("화약 운반병", 30, "powderCarrier", random([

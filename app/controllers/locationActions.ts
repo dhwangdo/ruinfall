@@ -82,7 +82,7 @@ export function createLocationActions({
     const previousHp = runPlayerHpRef.current;
     const nextHp = roomType === "heal"
       ? maxPlayerHp
-      : Math.min(maxPlayerHp, previousHp + Math.floor(maxPlayerHp * 0.2));
+      : Math.min(maxPlayerHp, previousHp + Math.floor(maxPlayerHp * 0.3));
     runPlayerHpRef.current = nextHp;
     setRunPlayerHp(nextHp);
     setUsedHealRooms((current) => new Set(current).add(roomKey));

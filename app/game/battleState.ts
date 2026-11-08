@@ -4,10 +4,11 @@ import { createSewerEncounter, type EnemyState } from "./enemies.ts";
 import { createDeck, type DeckEdition } from "./rewards.ts";
 import { blockedPileIndexes, preparePileSeals, confiscatePileCards } from "./enemyPassives.ts";
 import { forgeRandomStartingCard } from "./startingForge.ts";
+import { hasSticker, placeStartingStickers, takePileCards } from "./stickers.ts";
 
 export const MAX_PLAYER_HP = 50;
 
-export type ClearPlan = { pilesBeforeDraw: Card[][]; pilesAfterDraw: Card[][]; hand: Card[] };
+export type ClearPlan = { pilesBeforeDraw: Card[][]; pilesAfterDraw: Card[][]; hand: Card[]; pendingDraws?: number };
 
 export type GameState = {
   piles: Card[][];
@@ -30,11 +31,22 @@ export type GameState = {
   pendingRadiance: Array<{ turns: number; count: number }>;
   /** Amplification and extra energy waiting for the next player turn. */
   pendingBattlePreparation: number;
+  /** Whether the amplification threshold rules have already triggered this player turn. */
+  overchargeTriggeredThisTurn: boolean;
+  criticalReactionTriggeredThisTurn: boolean;
   /** 연구 룰 카드의 추가 드로우 선택 상태. */
   pendingResearchDraw: "astronomy" | "necromancy" | null;
   astronomyResearchUses: number;
   necromancyResearchUses: number;
   pendingDiscards: number;
+  /** Whether the current discard selection comes from a "discard X" card keyword. */
+  pendingDiscardIsDiscardX: boolean;
+  /** Saeongjima cards queued to trigger after the full discard-X selection resolves. */
+  pendingSaeongjimaTriggers: number;
+  /** Cards scheduled to be drawn at the next player turn start. */
+  pendingForesightDraws: number;
+  /** Iron Song's remaining turn-start defense repetitions. */
+  pendingIronSong: Array<{ turns: number; amount: number }>;
   pendingSweep: boolean;
   pendingPileOperation: "discardTop" | "moveTopToBottom" | null;
   turn: number;
@@ -59,6 +71,7 @@ export type GameState = {
   forgeCount: number;
   damageTakenMultiplier: number;
   invulnerable: boolean;
+  invulnerabilityTurns: number;
   doubleNextAttack: boolean;
   starsSpent: number;
   reflectDamage: number;
@@ -101,7 +114,7 @@ export function buildPiles(
   return dealtPiles.map((sourcePile, pileIndex) => {
     const pile = sourcePile.map((card) => ({
       ...card,
-      revealed: (firstPileFaceUp && pileIndex === 0) || (rareCardsFaceUp && card.rarity === "rare") || Math.random() < randomFaceUpChance,
+      revealed: hasSticker(card, "glowDinosaur") || (firstPileFaceUp && pileIndex === 0) || (rareCardsFaceUp && card.rarity === "rare") || Math.random() < randomFaceUpChance,
     }));
     if (pile.length > 0) pile[pile.length - 1].revealed = true;
     return pile;
@@ -117,9 +130,7 @@ export function drawFromPiles(piles: Card[][], blocked: readonly number[] = []) 
   const hand: Card[] = [];
   nextPiles.forEach((pile, index) => {
     if (blocked.includes(index)) return;
-    const card = pile.pop();
-    if (card) hand.push({ ...card, revealed: true });
-    if (pile.length > 0) pile[pile.length - 1] = { ...pile[pile.length - 1], revealed: true };
+    hand.push(...takePileCards(pile));
   });
   return { piles: nextPiles, hand };
 }
@@ -131,9 +142,7 @@ export function drawFromPileIndexes(piles: Card[][], indexes: number[], blocked:
     if (blocked.includes(index)) continue;
     const pile = nextPiles[index];
     if (!pile) continue;
-    const card = pile.pop();
-    if (card) hand.push({ ...card, revealed: true, drawSlot: index, drawSlotCount: piles.length });
-    if (pile.length > 0) pile[pile.length - 1] = { ...pile[pile.length - 1], revealed: true };
+    hand.push(...takePileCards(pile, index, piles.length));
   }
   return { piles: nextPiles, hand };
 }
@@ -141,20 +150,14 @@ export function drawFromPileIndexes(piles: Card[][], indexes: number[], blocked:
 export function drawFromFirstPile(piles: Card[][], blocked: readonly number[] = []) {
   const nextPiles = piles.map((pile) => [...pile]);
   const pile = nextPiles[0];
-  const card = blocked.includes(0) ? undefined : pile?.pop();
-  if (!card) return { piles: nextPiles, hand: [] as Card[] };
-  if (pile.length > 0) pile[pile.length - 1] = { ...pile[pile.length - 1], revealed: true };
-  return { piles: nextPiles, hand: [{ ...card, revealed: true }] };
+  return { piles: nextPiles, hand: !pile || blocked.includes(0) ? [] : takePileCards(pile) };
 }
 
 export function drawOneFromPiles(piles: Card[][]) {
   const nextPiles = piles.map((pile) => [...pile]);
   const pile = nextPiles.find((candidate) => candidate.length > 0);
   if (!pile) return { piles: nextPiles, hand: [] as Card[] };
-  const card = pile.pop();
-  if (!card) return { piles: nextPiles, hand: [] as Card[] };
-  if (pile.length > 0) pile[pile.length - 1] = { ...pile[pile.length - 1], revealed: true };
-  return { piles: nextPiles, hand: [{ ...card, revealed: true }] };
+  return { piles: nextPiles, hand: takePileCards(pile) };
 }
 
 export function drawRandomFromPiles(piles: Card[][], count: number, random = Math.random, blocked: readonly number[] = []) {
@@ -167,9 +170,7 @@ export function drawRandomFromPiles(piles: Card[][], count: number, random = Mat
     if (availableIndexes.length === 0) break;
     const pileIndex = availableIndexes[Math.floor(random() * availableIndexes.length)];
     const pile = nextPiles[pileIndex];
-    const card = pile.pop();
-    if (card) hand.push({ ...card, revealed: true });
-    if (pile.length > 0) pile[pile.length - 1] = { ...pile[pile.length - 1], revealed: true };
+    hand.push(...takePileCards(pile));
   }
   return { piles: nextPiles, hand };
 }
@@ -193,10 +194,16 @@ export function waitingState(
     pendingDashRandomDraws: 0,
     pendingRadiance: [],
     pendingBattlePreparation: 0,
+    overchargeTriggeredThisTurn: false,
+    criticalReactionTriggeredThisTurn: false,
     pendingResearchDraw: null,
     astronomyResearchUses: 0,
     necromancyResearchUses: 0,
     pendingDiscards: 0,
+    pendingDiscardIsDiscardX: false,
+    pendingSaeongjimaTriggers: 0,
+    pendingForesightDraws: 0,
+    pendingIronSong: [],
     pendingSweep: false,
     pendingPileOperation: null,
     turn: 1,
@@ -216,6 +223,7 @@ export function waitingState(
     forgeCount: 0,
     damageTakenMultiplier: 1,
     invulnerable: false,
+    invulnerabilityTurns: 0,
     doubleNextAttack: false,
     starsSpent: 0,
     reflectDamage: 0,
@@ -240,10 +248,11 @@ export function dealtState(
   deckEditions: DeckEdition[] = [],
   randomFaceUpChance = 0,
 ): GameState {
+  deck = deck.map(card => ({ ...card, clockworkTriggered: false, bluebirdUsedTurn: undefined }));
   const startingForge = deckEditions.includes("quickHammer")
     ? forgeRandomStartingCard(deck) : { cards: deck, forged: false };
   const preparedDeck = prepareDeckForPiles(startingForge.cards);
-  const initialPiles = buildPiles(
+  const initialPlacement = placeStartingStickers(buildPiles(
     preparedDeck,
     deckEditions.includes("fantastic") ? 4 : 5,
     false,
@@ -251,8 +260,9 @@ export function dealtState(
     false,
     undefined,
     false,
-    randomFaceUpChance,
-  );
+    0,
+  ), Math.random, randomFaceUpChance);
+  const initialPiles = initialPlacement.piles;
   const encounterTokens = enemies.some((enemy) => enemy.variant === "goblin")
     ? [createRelicCard(-10000)]
     : [];
@@ -266,6 +276,7 @@ export function dealtState(
     ...waitingState(playerHp, enemies),
     piles: startingDraw.piles,
     hand: [
+      ...initialPlacement.hand,
       ...startingDraw.hand,
       ...(deckEditions.includes("lively") ? [createAdrenalineCard()] : []),
     ],

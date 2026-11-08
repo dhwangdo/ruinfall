@@ -19,10 +19,10 @@ import { getCardKeywordInfos } from "../app/game/cardEffects.ts";
 test("card pools preserve the current content counts", () => {
   assert.equal(STARTER_CARD_POOL.length, 2);
   assert.equal(BASIC_CARD_POOL.length, 8);
-  assert.equal(SPECIAL_CARD_POOL.length, 38);
-  assert.equal(RARE_CARD_POOL.length, 19);
+  assert.equal(SPECIAL_CARD_POOL.length, 46);
+  assert.equal(RARE_CARD_POOL.length, 25);
   assert.equal(LEGENDARY_CARD_POOL.length, 6);
-  assert.equal(ALL_CARD_BLUEPRINTS.length, 74);
+  assert.equal(ALL_CARD_BLUEPRINTS.length, 88);
 });
 
 test("special card pool contains the updated cards and excludes sharpen cards", () => {
@@ -79,8 +79,8 @@ test("new rare cards and the discard keyword carry their intended rules", () => 
     { cost: 2, value: 4, exhaust: true },
   );
   const strategyKeywords = getCardKeywordInfos({ ...strategyBook, id: 3, revealed: true }).map((keyword) => keyword.name);
-  assert.equal(strategyKeywords.includes("힘"), true);
-  assert.equal(strategyKeywords.includes("강인함"), true);
+  assert.equal(strategyKeywords.includes("힘 X"), true);
+  assert.equal(strategyKeywords.includes("강인함 X"), true);
   assert.deepEqual(
     ["과감한 돌진", "과감한 회피"].map((name) => {
       const card = SPECIAL_CARD_POOL.find((item) => item.name === name);
@@ -113,7 +113,7 @@ test("current card data keeps key balance values and removed systems absent", ()
       const card = SPECIAL_CARD_POOL.find((item) => item.name === "과감한 결단");
       return { cost: card.cost, value: card.value, rarity: card.rarity, discardCost: card.discardCost, discardEnergyGain: card.discardEnergyGain };
     })(),
-    { cost: 0, value: 2, rarity: "special", discardCost: 2, discardEnergyGain: 2 },
+    { cost: 0, value: 2, rarity: "special", discardCost: 1, discardEnergyGain: 2 },
   );
   const quickStep = SPECIAL_CARD_POOL.find((card) => card.name === "퀵스텝");
   assert.deepEqual(
@@ -156,7 +156,7 @@ test("current card data keeps key balance values and removed systems absent", ()
   assert.equal(RARE_CARD_POOL.some((card) => card.name === "강철심장"), false);
   assert.equal(RARE_CARD_POOL.find((card) => card.name === "연사")?.exhaust, true);
   assert.equal(RARE_CARD_POOL.find((card) => card.name === "견고한 태세")?.cost, 2);
-  assert.equal(RARE_CARD_POOL.find((card) => card.name === "견고한 태세")?.value, 10);
+  assert.equal(RARE_CARD_POOL.find((card) => card.name === "견고한 태세")?.value, 15);
   assert.equal(createAdrenalineCard().value, 2);
   const radiance = createRadianceCard(99);
   assert.deepEqual(

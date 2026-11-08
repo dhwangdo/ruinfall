@@ -336,6 +336,13 @@
   color: #f5eee8;
   font: var(--tooltip-copy-font);
 }
+.card-keyword-popover > .card-keyword-sticker-section {
+  border-color: #81b5e7;
+  color: #f4f8ff;
+  background: rgba(27,75,120,.98);
+}
+.card-keyword-popover > .card-keyword-sticker-section > strong { color: #fff3c7; }
+.card-keyword-popover > .card-keyword-sticker-section > p { color: #f4f8ff; }
 .deck-card-preview-floating,
 .card-keyword-popover .card-keyword-preview-section {
   display: flex;
@@ -418,9 +425,6 @@
   border-color: #8fc7ed !important;
 }
 .deck-editor-panel .deck-card-new,
-.deck-editor-panel .deck-card-painted {
-  z-index: 1;
-}
 .pending-removal-icon {
   position: absolute;
   top: auto;

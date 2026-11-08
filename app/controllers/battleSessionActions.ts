@@ -9,12 +9,14 @@ import { prepareBattleStart } from "../game/battleSetup.ts";
 import { createBattleReward, createBossBattleReward } from "../game/rewards.ts";
 import { nextRareCardDropChance } from "../game/rewardRules.ts";
 import { isHigherRegionMapEnemy } from "../game/mapRules.ts";
+import { forgetEnemyCellMemory } from "../game/mapEnemies.ts";
 import { getEncounterRegionNumber } from "../game/enemies.ts";
 import { RUN_SAVE_POLICY } from "../game/saveGame.ts";
 import { karmaStageForWins } from "../game/karmaRules.ts";
 import {
   beginTelemetryBattle, finishTelemetryBattle,
-  recordTelemetryCardAcquired, recordTelemetryDeckAcquired, recordTelemetryConsumableAcquired,
+  recordTelemetryCardAcquired, recordTelemetryDeckAcquired,
+  recordTelemetryConsumableAcquired,
   type createTelemetryRecorder
 } from "../game/telemetry.ts";
 import { telemetryCardSnapshot, telemetryDeckSnapshot, telemetryConsumableSnapshot, telemetryEnemySnapshot } from "../game/telemetrySnapshots.ts";
@@ -112,7 +114,6 @@ export function createBattleSessionActions({
     setBattleRewards([]);
     setBattleRewardDecks([]);
     setBattleRewardConsumables([]);
-
     setBattleRewardKeys(0);
     pendingEnemyTokenIdsRef.current.clear();
     pendingPileTokenSourcesRef.current.clear();
@@ -216,7 +217,6 @@ export function createBattleSessionActions({
       setBattleRewards([]);
       setBattleRewardDecks([]);
       setBattleRewardConsumables([]);
-
       setBattleRewardKeys(0);
       battleRewardIsBossRef.current = nextEnemy.isBoss === true;
       battleRewardIsOutOfDepthRef.current = nextEnemy.isBoss !== true
@@ -238,6 +238,7 @@ export function createBattleSessionActions({
       }
       const remainingEnemies = mapEnemyWorld.enemies.filter((enemy) => !activeMapEnemyIds.includes(enemy.id));
       setMapEnemyWorld({ ...mapEnemyWorld, enemies: remainingEnemies });
+      world.setMapEnemyCellMemory((memory) => forgetEnemyCellMemory(memory, activeMapEnemyIds));
       rememberPlayerVision(mapPosition, mapSeed, remainingEnemies);
     }
     runPlayerHpRef.current = game.playerHp;
@@ -245,7 +246,6 @@ export function createBattleSessionActions({
     setBattleRewards([]);
     setBattleRewardDecks([]);
     setBattleRewardConsumables([]);
-
     setBattleRewardKeys(0);
     setActiveMapEnemyIds([]);
     setActiveBattleRoom(null);

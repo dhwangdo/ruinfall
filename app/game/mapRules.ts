@@ -35,6 +35,9 @@ export type RoomType =
   | "bloodShop"
   | "treasureChest"
   | "deckVault"
+  | "stickerAltar"
+  | "tinkerer"
+  | "cardTransmuter"
   | "boss"
   | "portal"
   | "heal"
@@ -59,15 +62,17 @@ export const SPECIAL_NODE_DEFINITION_WEIGHTS: ReadonlyArray<{ type: RoomType; we
   { type: "treasureChest", weight: 0.5 },
   { type: "blessing", weight: 0.01 },
 ];
-export const FLOOR_CARD_DROP_CHANCE = 0.005;
+// Field cards and tickets are currently disabled; rewards and player-dropped items use separate paths.
+export const FLOOR_CARD_DROP_CHANCE = 0;
 export const FLOOR_CARD_ITEM_CHANCE = 0.8;
 export const FLOOR_CARD_RARITY_CHANCES = {
   rare: 0.05,
   basic: 0.3,
   special: 0.65,
 } as const;
-export const DUNGEON_MIN_X = -160;
-export const DUNGEON_MAX_X = 160;
+// 212 x 47 keeps the former 321 x 31 area within 0.14%, with roughly 1.5x the height.
+export const DUNGEON_MIN_X = -106;
+export const DUNGEON_MAX_X = 105;
 export const BOSS_REGION_COUNT = 3;
 const SAFE_AREA_HEAL_OFFSET_X = 0;
 const SAFE_AREA_PORTAL_OFFSET_X = 1;
@@ -78,7 +83,7 @@ const SAFE_AREA_SPAWN_OFFSET_X = SAFE_AREA_LAYOUT_MIN_OFFSET_X + 1;
 const SAFE_AREA_PARTIAL_HEAL_OFFSET_X = SAFE_AREA_SPAWN_OFFSET_X + 1;
 const SAFE_AREA_LEFT_CROSS_CENTER_OFFSET_X = SAFE_AREA_PARTIAL_HEAL_OFFSET_X;
 export const MAP_COLUMNS = DUNGEON_MAX_X - DUNGEON_MIN_X + 1;
-export const REGION_HEIGHT = 31;
+export const REGION_HEIGHT = 47;
 export const MAP_ROWS = REGION_COUNT * REGION_HEIGHT + (REGION_COUNT - 1) * ROCK_BARRIER_HEIGHT;
 export const MAP_START: MapPosition = { x: 0, y: 0 };
 
@@ -307,7 +312,7 @@ function generateRoomType(position: MapPosition, seed: number): RoomType {
   const index = (position.y - regionStartY(region)) * MAP_COLUMNS + position.x - DUNGEON_MIN_X;
   if (!layout.floor[index]) return "rock";
   const type = layout.landmarks.get(index) ?? layout.ordinarySites.get(index) ?? "empty";
-  return type === "shop" || type === "bloodShop" ? "empty" : type;
+  return TEMPORARILY_DISABLED_ROOM_TYPES.has(type) ? "empty" : type;
 }
 
 export function isWalkableRoom(type: RoomType) {
@@ -424,6 +429,7 @@ export function createMapFloorDropsForPositions(
 ) {
   const cards: Record<string, Card[]> = {};
   const consumables: Record<string, Consumable[]> = {};
+  if (FLOOR_CARD_DROP_CHANCE <= 0) return { cards, consumables };
   for (const position of positions) {
     if (!isMainDungeonFloor(position, seed) || getRoomType(position, seed) !== "empty"
       || seededRoll(position, seed, 7201) >= FLOOR_CARD_DROP_CHANCE) continue;

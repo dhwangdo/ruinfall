@@ -22,6 +22,7 @@ type MapRoomButtonProps = {
   floorDeck?: MapFloorItemProps["deck"];
   floorCard?: MapFloorItemProps["card"];
   floorTicket?: MapFloorItemProps["ticket"];
+  floorGold?: MapFloorItemProps["gold"];
   roomItemsTitle?: string;
   deckName?: string;
   onPreview?: (element: HTMLElement, position: MapPosition) => void;
@@ -41,11 +42,14 @@ const ROOM_BADGES: Partial<Record<RoomType, string>> = {
   transformShrine: "변환의 성소",
   treasureChest: "보물 상자",
   deckVault: "덱 보관소",
+  stickerAltar: "제단",
+  tinkerer: "땜장이",
+  cardTransmuter: "변환기",
   boss: "보스",
   blessing: "축복",
   portal: "포탈",
   heal: "회복",
-  partialHeal: "회복 20%",
+  partialHeal: "회복 30%",
   safePortal: "포탈",
 };
 
@@ -67,6 +71,7 @@ function MapRoomButtonView({
   floorDeck,
   floorCard,
   floorTicket,
+  floorGold,
   roomItemsTitle,
   deckName,
   onPreview,
@@ -99,7 +104,7 @@ function MapRoomButtonView({
     >
       {bloodstained && !current && roomType === "empty" && <i className="map-bloodstain" aria-hidden="true"
         style={{ transform: `rotate(${((position.x * 13 + position.y * 7) % 8) * 45}deg)` }} />}
-      {itemCount > 0 && <MapFloorItem deck={floorDeck} card={floorCard} ticket={floorTicket} />}
+      {itemCount > 0 && <MapFloorItem deck={floorDeck} card={floorCard} ticket={floorTicket} gold={floorGold} />}
       {ROOM_BADGES[roomType] && <span className="map-room-label">{roomType === "deckVault" ? deckName ?? ROOM_BADGES[roomType] : ROOM_BADGES[roomType]}</span>}
       {itemCount > 1 && <span className="room-item-indicator" aria-label="추가 아이템 있음" />}
     </button>

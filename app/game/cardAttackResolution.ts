@@ -28,7 +28,9 @@ export function resolveCardAttack(
       : state.enemies.find(enemy => enemy.id === targetEnemyId);
   if (isDamageCard && !isAttackAll && !targetEnemy) return null;
   if (isDamageCard && !isAttackAll && targetEnemy!.hp === 0) return null;
+  const photonCannonOvercharged = card.effect === "photonCannon" && state.playerAmplification >= 4;
   const repetitions = (card.effect === "hydra" ? 9 : card.effect === "meteor" ? state.stars
+    : card.effect === "photonCannon" && photonCannonOvercharged ? 3
     : card.effect === "fourHit" ? 5 : card.effect === "doubleHit" && card.forged ? 2 : 1)
     * (isDamageCard && state.doubleNextAttack ? 2 : 1);
   const combatManualBonus = state.hand
@@ -36,7 +38,7 @@ export function resolveCardAttack(
     .reduce((sum, item) => sum + item.value, 0)
     + (blessings.includes("backToBasics") && ["starter", "basic"].includes(card.rarity) ? 4 : 0);
   const rawDamagePerHit = isDamageCard
-    ? calculateCardDamage(card, state.strength, combatManualBonus, state.radiancePlayedThisTurn) : 0;
+    ? calculateCardDamage(photonCannonOvercharged ? { ...card, value: 8 } : card, state.strength, combatManualBonus, state.radiancePlayedThisTurn) : 0;
   const preview = attackPreview(state.playerAmplification, targetEnemy, blessings.includes("bossSlayer"));
   const damagePerHit = isDamageCard
     ? calculateAttackDamage(rawDamagePerHit, preview.attackModifiers) : 0;

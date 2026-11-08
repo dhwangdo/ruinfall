@@ -123,7 +123,6 @@ export function createBlessingActions({
       setMapMessage(`오파츠의 힘으로 ${currentRegion + 2}지역 덱이 바닥에 나타났습니다.`);
     }
     const ticketsAreFree = blessings.includes("lightTicket") || acquiredTogether.includes("lightTicket");
-    if (blessing === "cartographer") grantConsumables("mapTicket", 2, ticketsAreFree, "blessing");
     if (blessing === "bombardier") grantConsumables("bombTicket", 8, ticketsAreFree, "blessing");
     if (blessing === "transformer") grantConsumables("transformTicket", 4, ticketsAreFree, "blessing");
     if (blessing === "mirror") grantConsumables("cloneTicket", 2, ticketsAreFree, "blessing");

@@ -1,6 +1,6 @@
 export const RUN_SAVE_KEY = "down-to-the-stars:run-save";
 // Development map overhaul: old exploration layouts are deliberately discarded.
-export const RUN_SAVE_VERSION = 6;
+export const RUN_SAVE_VERSION = 7;
 
 export const RUN_SAVE_POLICY = {
   afterEveryMapMove: true,

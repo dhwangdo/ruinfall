@@ -2,6 +2,7 @@ import { transformedCard } from "../game/cardTransforms.ts";
 import type { Card } from "../game/cards.ts";
 import { CONSUMABLE_TYPES, type Consumable, type ConsumableType, type DeckCase } from "../game/rewards.ts";
 import { countRareSlotCards } from "../game/deckEditorRules.ts";
+import { occupiedDeckSpace } from "../game/stickers.ts";
 import {
   consumeTicketById as consumeTicketFromAreas,
   findTicketById as findTicketInAreas,
@@ -9,17 +10,7 @@ import {
 } from "../game/ticketRules.ts";
 import { shouldPreserveTicket } from "../game/blessingRules.ts";
 import { RUN_SAVE_POLICY } from "../game/saveGame.ts";
-import { chebyshevDistance, type MapEnemyWorld } from "../game/mapEnemies.ts";
-import {
-  DUNGEON_MIN_X,
-  DUNGEON_MAX_X,
-  mapRoomKey,
-  isSafeAreaPosition,
-  getDungeonRegionIndex,
-  regionStartY,
-  regionHeight,
-  type MapPosition,
-} from "../game/mapRules.ts";
+import { mapRoomKey } from "../game/mapRules.ts";
 import type { RunInventory } from "../hooks/useRunInventory";
 import type { RunWorld } from "../hooks/useRunWorld";
 import type { RunPlayer } from "../hooks/useRunPlayer";
@@ -44,29 +35,25 @@ type Options = {
   activateMindEye: () => void;
   grantConsumables: (type: ConsumableType, count: number) => void;
   openCardPack: (id: string) => void;
-  materializeMapContent: (positions: readonly MapPosition[], seed?: number, world?: MapEnemyWorld,
-    seenPositions?: readonly MapPosition[]) => MapEnemyWorld;
-  startMapTicketCameraTour: (start: MapPosition, positions: MapPosition[]) => void;
 };
 
 /** Ticket controller: selection, validation, consumption, and effects share the same current state. */
 export function createTicketActions({
   inventory, world, player, editor, inventoryCapacity, inventoryItemCount, deckEditorInventoryItemCount,
-  maxPlayerHp, editingDeck, moveDeckEditorCard, clearCardPreview, queueRunSave, showMapMessage,
-  activateMindEye, grantConsumables, openCardPack, materializeMapContent, startMapTicketCameraTour,
+  maxPlayerHp, moveDeckEditorCard, clearCardPreview, queueRunSave, showMapMessage,
+  activateMindEye, grantConsumables, openCardPack,
 }: Options) {
   const { ownedDecks, setOwnedDecks, inventoryCards, setInventoryCards,
     inventoryConsumables, setInventoryConsumables, inventoryConsumablesRef,
     roomDrops, setRoomDrops, roomConsumableDrops, setRoomConsumableDrops,
     nextCardIdRef, nextConsumable, updateDeckCards } = inventory;
-  const { mapPosition, mapSeed, seenRooms, mapEnemyWorld, setMapEnemyWorld, effectiveRoomType,
-    setMapBombsSynced, mapBombsRef } = world;
+  const { mapPosition, setMapBombsSynced, mapBombsRef } = world;
   const { blessings, runPlayerHpRef, setRunPlayerHp, setDarkTicketTurnsRemaining,
     darkTicketTurnsRemainingRef } = player;
   const {
     finishDeckEditorSession, deckEditorHighRarityInsertionOriginsRef, setPendingRemovedCards,
-    setPendingRemovedCardAreas, setDeckEditorReleasedCardIds, pendingPaintTicketId,
-    setPendingPaintTicketId, pendingCloneTicketId, setPendingCloneTicketId, pendingExtractTicketId,
+    setPendingRemovedCardAreas, setDeckEditorReleasedCardIds,
+    pendingCloneTicketId, setPendingCloneTicketId, pendingExtractTicketId,
     setPendingExtractTicketId, pendingTransformTicketId, setPendingTransformTicketId,
     setArmedBombTicketIds, setDeckEditorMessage, setTransformedCardNewIds, originalDeckIdForCard,
     effectiveOriginDeckIdForCard,
@@ -122,8 +109,7 @@ export function createTicketActions({
     area: TicketDropArea,
     deck?: DeckCase,
   ) => {
-    if (!ticket || !["paintTicket", "cloneTicket", "extractTicket", "transformTicket"].includes(ticket.type)) return false;
-    if (ticket.type === "paintTicket") return area === "deck";
+    if (!ticket || !["cloneTicket", "extractTicket", "transformTicket"].includes(ticket.type)) return false;
     if (ticket.type === "extractTicket") return area === "deck" && Boolean(
       deck
       && originalDeckIdForCard(card.id) !== null
@@ -143,9 +129,7 @@ export function createTicketActions({
     const ticket = findTicketById(ticketId);
     if (!ticket || !canApplyTicketToCard(ticket, card, area, deck)) return;
     const targetCard = card.id === targetCardId ? card : { ...card, id: targetCardId };
-    if (ticket.type === "paintTicket" && area === "deck" && deck) {
-      paintDeckCard(targetCardId, ticket.id, deck.id);
-    } else if (ticket.type === "cloneTicket") {
+    if (ticket.type === "cloneTicket") {
       cloneCardWithTicket(targetCard, ticket.id);
     } else if ((ticket.type === "extractTicket") && area === "deck" && deck) {
       extractDeckCardWithTicket(targetCardId, deck.id, ticket.id);
@@ -173,13 +157,12 @@ export function createTicketActions({
     queueRunSave(RUN_SAVE_POLICY.stateChangeDelayMs);
   };
 
-  const closeDeckEditorAfterMapTicket = () => {
+  const closeDeckEditorAfterUtilityTicket = () => {
     finishDeckEditorSession();
     setPendingRemovedCards([]);
     setPendingRemovedCardAreas({});
     setDeckEditorReleasedCardIds(new Set());
     clearCardPreview();
-    setPendingPaintTicketId(null);
     setPendingCloneTicketId(null);
     setPendingExtractTicketId(null);
     setPendingTransformTicketId(null);
@@ -190,7 +173,7 @@ export function createTicketActions({
   const consumeMindEyeTicket = (consumableId: string) => {
     const ticket = findTicketById(consumableId, "mindEyeTicket");
     if (!ticket || !consumeTicketById(ticket.id, "mindEyeTicket")) return;
-    closeDeckEditorAfterMapTicket();
+    closeDeckEditorAfterUtilityTicket();
     activateMindEye();
     showMapMessage("심안: 20번 이동 동안 시야 거리 +2를 얻었습니다.");
     queueRunSave(RUN_SAVE_POLICY.stateChangeDelayMs);
@@ -199,7 +182,7 @@ export function createTicketActions({
   const consumeDarkTicket = (consumableId: string) => {
     const ticket = findTicketById(consumableId, "darkTicket");
     if (!ticket || !consumeTicketById(ticket.id, "darkTicket")) return;
-    closeDeckEditorAfterMapTicket();
+    closeDeckEditorAfterUtilityTicket();
     setDarkTicketTurnsRemaining((current) => {
       const next = current + 20;
       darkTicketTurnsRemainingRef.current = next;
@@ -325,7 +308,6 @@ export function createTicketActions({
           floor: current[roomKey] ?? [],
         }).floor,
       }));
-      setPendingPaintTicketId(null);
       setPendingCloneTicketId(null);
       setPendingExtractTicketId(null);
       setPendingTransformTicketId(null);
@@ -338,27 +320,14 @@ export function createTicketActions({
       setArmedBombTicketIds(new Set());
       const cancelling = pendingCloneTicketId === consumable.id;
       setPendingCloneTicketId(cancelling ? null : consumable.id);
-      setPendingPaintTicketId(null);
       setPendingExtractTicketId(null);
       setPendingTransformTicketId(null);
       setDeckEditorMessage(cancelling ? "복제를 취소했습니다." : "복제할 카드나 티켓을 클릭하세요.");
       return;
     }
-    if (consumable.type === "paintTicket") {
-      setArmedBombTicketIds(new Set());
-      setPendingPaintTicketId((current) => current === consumable.id ? null : consumable.id);
-      setPendingCloneTicketId(null);
-      setPendingExtractTicketId(null);
-      setPendingTransformTicketId(null);
-      setDeckEditorMessage(
-        pendingPaintTicketId === consumable.id ? "색칠을 취소했습니다." : "색칠할 덱 카드 1장을 클릭하세요.",
-      );
-      return;
-    }
     if (consumable.type === "extractTicket") {
       const cancelling = pendingExtractTicketId === consumable.id;
       setPendingExtractTicketId(cancelling ? null : consumable.id);
-      setPendingPaintTicketId(null);
       setPendingCloneTicketId(null);
       setPendingTransformTicketId(null);
       setDeckEditorMessage(cancelling ? "추출을 취소했습니다." : `${consumable.name}을(를) 사용할 덱 카드를 클릭하세요.`);
@@ -367,83 +336,13 @@ export function createTicketActions({
     if (consumable.type === "transformTicket") {
       const cancelling = pendingTransformTicketId === consumable.id;
       setPendingTransformTicketId(cancelling ? null : consumable.id);
-      setPendingPaintTicketId(null);
       setPendingCloneTicketId(null);
       setPendingExtractTicketId(null);
       setDeckEditorMessage(cancelling ? "변환을 취소했습니다." : "변환할 카드나 티켓을 클릭하세요.");
       return;
     }
-    if (consumable.type === "mapTicket") {
-      if (isSafeAreaPosition(mapPosition, mapSeed)) {
-        setDeckEditorMessage("안전 구역에서는 지도 티켓을 사용할 수 없습니다.");
-        return;
-      }
-      const regionIndex = getDungeonRegionIndex(mapPosition);
-      if (regionIndex === null) {
-        setDeckEditorMessage("던전 지역 안에서만 사용할 수 있습니다.");
-        return;
-      }
-      const candidates: MapPosition[] = [];
-      const specialRoomTypes = new Set([
-        "shop",
-        "bloodShop",
-        "extractionShrine",
-        "vitalityShrine",
-        "mindEyeShrine",
-        "transformShrine",
-        "treasureChest",
-        "blessing",
-      ]);
-      for (let y = regionStartY(regionIndex); y < regionStartY(regionIndex) + regionHeight(regionIndex); y += 1) {
-        for (let x = DUNGEON_MIN_X; x <= DUNGEON_MAX_X; x += 1) {
-          const position = { x, y };
-          const type = effectiveRoomType(position);
-          if (specialRoomTypes.has(type) && !isSafeAreaPosition(position, mapSeed)
-            && !seenRooms.has(mapRoomKey(position))) candidates.push(position);
-        }
-      }
-      candidates.sort((left, right) => chebyshevDistance(left, mapPosition) - chebyshevDistance(right, mapPosition));
-      const revealed = candidates.slice(0, blessings.includes("cartographer") ? 4 : 2);
-      const nearest = revealed[0];
-      if (!nearest) {
-        setDeckEditorMessage("같은 지역에 아직 밝히지 않은 특수 지형이 없습니다.");
-        return;
-      }
-      const mapTicket = findTicketById(consumable.id, "mapTicket");
-      if (!mapTicket || !consumeTicketById(mapTicket.id, "mapTicket")) return;
-      closeDeckEditorAfterMapTicket();
-      const revealedWorld = materializeMapContent(revealed, mapSeed, mapEnemyWorld);
-      setMapEnemyWorld(revealedWorld);
-      startMapTicketCameraTour(mapPosition, revealed);
-      const revealedNames = revealed.map((position) => {
-        const type = effectiveRoomType(position);
-        if (type === "shop") return "상점";
-        if (type === "bloodShop") return "피의 상점";
-        if (type === "extractionShrine") return "추출의 성소";
-        if (type === "vitalityShrine") return "건강의 성소";
-        if (type === "mindEyeShrine") return "심안의 성소";
-        if (type === "transformShrine") return "변환의 성소";
-        if (type === "treasureChest") return "보물 상자";
-        return "축복";
-      });
-      setDeckEditorMessage(`${revealedNames.join(", ")} ${revealed.length}곳의 위치를 밝혔습니다.`);
-      queueRunSave(RUN_SAVE_POLICY.stateChangeDelayMs);
-      return;
-    }
   };
 
-  const paintDeckCard = (cardId: number, ticketId = pendingPaintTicketId, deckId = editingDeck?.id) => {
-    if (!ticketId) return;
-    const deck = ownedDecks.find((item) => item.id === deckId);
-    const card = deck?.cards.find((item) => item.id === cardId);
-    if (!card) return;
-    const ticket = findTicketById(ticketId, "paintTicket");
-    if (!ticket) return;
-    if (!consumeTicketById(ticket.id, "paintTicket")) return;
-    updateDeckCards(deck?.id, (current) => current.map((item) => item.id === cardId ? { ...item, colored: true } : item));
-    setPendingPaintTicketId(null);
-    setDeckEditorMessage(`${card.name}을(를) 색칠했습니다.`);
-  };
 
   const extractDeckCardWithTicket = (cardId: number, deckId: string, ticketId = pendingExtractTicketId) => {
     if (!ticketId) return;
@@ -486,6 +385,14 @@ export function createTicketActions({
       setDeckEditorMessage(targetCard.rarity === "legendary" ? "전설 카드는 변화시킬 수 없습니다." : "변환할 다른 카드가 없습니다.");
       return;
     }
+    const targetDeck = area === "deck" ? ownedDecks.find(item => item.id === deckId) : undefined;
+    if (targetDeck) {
+      const cards = targetDeck.cards.map(item => item.id === targetCard.id ? transformed : item);
+      if (occupiedDeckSpace(cards) > targetDeck.capacity || countRareSlotCards(cards) > targetDeck.rareSlotCapacity) {
+        setDeckEditorMessage("변환 후 카드가 들어갈 덱 용량 또는 희귀 슬롯이 부족합니다.");
+        return;
+      }
+    }
     if (!consumeTicketById(ticket.id, "transformTicket")) return;
     if (area === "deck" && deckId) {
       updateDeckCards(deckId, (current) => current.map((item) => item.id === targetCard.id ? transformed : item));
@@ -511,10 +418,6 @@ export function createTicketActions({
   ) => {
     if (pendingCloneTicketId) {
       cloneCardWithTicket(card);
-      return true;
-    }
-    if (pendingPaintTicketId && area === "deck" && deckId) {
-      paintDeckCard(targetCardId, pendingPaintTicketId, deckId);
       return true;
     }
     if (pendingExtractTicketId && area === "deck" && deckId) {
@@ -603,7 +506,6 @@ export function createTicketActions({
       ...current,
       [roomKey]: [...(current[roomKey] ?? []), consumable],
     }));
-    if (pendingPaintTicketId === consumableId) setPendingPaintTicketId(null);
     if (pendingCloneTicketId === consumableId) setPendingCloneTicketId(null);
     if (pendingExtractTicketId === consumableId) setPendingExtractTicketId(null);
     if (pendingTransformTicketId === consumableId) setPendingTransformTicketId(null);

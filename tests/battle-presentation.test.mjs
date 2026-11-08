@@ -121,3 +121,33 @@ test("ending a turn waits for discard and allows every hit to return before the 
     }
   } finally { globalThis.window = previousWindow; }
 });
+
+test("sturdy stance preserves physical defense but clears magic defense on normal and extra turns", () => {
+  const previousWindow = globalThis.window;
+  globalThis.window = { matchMedia: () => ({ matches: false }) };
+  try {
+    for (const { preserve, extraTurns, expectedPhysical } of [
+      { preserve: true, extraTurns: 0, expectedPhysical: 5 },
+      { preserve: true, extraTurns: 1, expectedPhysical: 5 },
+      { preserve: false, extraTurns: 0, expectedPhysical: 0 },
+    ]) {
+      const enemy = { ...createSewerEncounterByIndex(3, () => .999)[0],
+        actions: [{ name: "대기", attacks: [] }], intentIndex: 0 };
+      let state = { ...waitingState(50, [enemy]), playerPhysicalBlock: 11,
+        playerMagicBlock: 9, preserveDefenseOnTurnEnd: preserve, extraTurns };
+      const callbacks = [];
+      createEndTurn({ game: state, phase: "playing", handCardRefs: { current: new Map() },
+        setPhase() {}, setDragging() {}, later: callback => { callbacks.push(callback); return callbacks.length; },
+        blessings: [], oneUpUsedRef: { current: false }, maxPlayerHp: 50, setOneUpUsed() {},
+        setGame: update => { state = typeof update === "function" ? update(state) : update; }, drawCards() {},
+        telemetry: createTelemetryRecorder(), setDamagePopup() {}, showEnemyPopup() {}, setAttackingEnemyId() {},
+        grantBattleReward() {}, battleRewardRegionRef: { current: 1 }, maximumEnergyForGame: () => 3,
+        animateCardToPlayer: () => null,
+      })();
+      while (callbacks.length > 0) callbacks.shift()();
+      assert.equal(state.turn, 2);
+      assert.equal(state.playerPhysicalBlock, expectedPhysical);
+      assert.equal(state.playerMagicBlock, 0);
+    }
+  } finally { globalThis.window = previousWindow; }
+});

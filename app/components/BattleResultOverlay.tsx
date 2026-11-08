@@ -1,3 +1,4 @@
+import { occupiedDeckSpace } from "../game/stickers";
 import { CardVisual } from "./CardVisual";
 import { ConsumableVisual } from "./ConsumableVisual";
 import type { Dispatch, SetStateAction } from "react";
@@ -46,6 +47,7 @@ export function BattleResultOverlay({
           <div className="battle-reward-section">
             <div className="battle-reward-currencies">
               {rewardKeys > 0 && <>
+                <span className="reward-currency-separator" aria-hidden="true">·</span>
                 <span className="currency-amount currency-keys">열쇠 +{rewardKeys}</span>
               </>}
             </div>
@@ -73,7 +75,7 @@ export function BattleResultOverlay({
                 <div className="battle-reward-deck" key={deck.id}>
                   <span className="floor-deck-icon" aria-hidden="true" />
                   <strong><DeckName deck={deck} /></strong>
-                  <span>{deck.cards.length} / {deck.capacity}</span>
+                  <span>{occupiedDeckSpace(deck.cards)} / {deck.capacity}</span>
                 </div>
               ))}
               {rewardConsumables.map((item) => (

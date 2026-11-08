@@ -1,3 +1,5 @@
+import { occupiedDeckSpace } from "../game/stickers";
+import { cardEnergyCost } from "../game/cardEffects";
 import { CardVisual } from "./CardVisual";
 import { useState, type ComponentProps, type MouseEvent } from "react";
 import { DeckName } from "./DeckName";
@@ -45,7 +47,7 @@ export function ExtractionShrineModal({
   const cardRarityRank = (card: Card) => CARD_RARITY_SORT_RANK[card.rarity];
   const cardSortCost = (card: Card) => UNPLAYABLE_CARD_EFFECTS.has(card.effect)
     ? -1
-    : card.cost ?? -1;
+    : cardEnergyCost(card) ?? -1;
   const deckCards = [...(deck?.cards ?? [])].sort((left, right) => {
     const primary = cardRarityRank(left) - cardRarityRank(right);
     const secondary = cardSortCost(left) - cardSortCost(right);
@@ -116,7 +118,7 @@ export function ExtractionShrineModal({
                   >
                     <strong><DeckName deck={item} onEditionTooltipHover={onEditionTooltipHover}
                       onEditionTooltipLeave={onEditionTooltipLeave} /></strong>
-                    <small>{item.cards.length} / {item.capacity}</small>
+                    <small>{occupiedDeckSpace(item.cards)} / {item.capacity}</small>
                   </button>
                 ))}
               </nav>

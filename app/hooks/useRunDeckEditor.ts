@@ -22,7 +22,6 @@ export function useRunDeckEditor() {
 
   const [pendingRemovalBlinkDim, setPendingRemovalBlinkDim] = useState(false);
 
-  const [pendingPaintTicketId, setPendingPaintTicketId] = useState<string | null>(null);
 
   const [pendingCloneTicketId, setPendingCloneTicketId] = useState<string | null>(null);
 
@@ -59,8 +58,8 @@ export function useRunDeckEditor() {
     deckEditorHighRarityInsertionOriginsRef, deckEditorDeckId, setDeckEditorDeckId,
     pendingRemovedCards, setPendingRemovedCards, pendingRemovedCardAreas,
     setPendingRemovedCardAreas, deckEditorReleasedCardIds, setDeckEditorReleasedCardIds,
-    pendingRemovalBlinkDim, setPendingRemovalBlinkDim, pendingPaintTicketId,
-    setPendingPaintTicketId, pendingCloneTicketId, setPendingCloneTicketId, pendingExtractTicketId,
+    pendingRemovalBlinkDim, setPendingRemovalBlinkDim,
+    pendingCloneTicketId, setPendingCloneTicketId, pendingExtractTicketId,
     setPendingExtractTicketId, pendingTransformTicketId, setPendingTransformTicketId,
     armedBombTicketIds, setArmedBombTicketIds, deckEditorMessage, setDeckEditorMessage,
     transformedCardNewIds, setTransformedCardNewIds, deckEditorSort, setDeckEditorSort,

@@ -1,4 +1,5 @@
 "use client";
+import { occupiedDeckSpace } from "../game/stickers";
 
 import { useLayoutEffect, useMemo, useRef, useState } from "react";
 import { buildMapSearchEntries, filterMapSearchEntries, type MapSearchData, type MapSearchKind } from "../game/mapSearch";
@@ -64,7 +65,7 @@ export function MapSearchModal({ data, currentRegion, onClose, onLocate }: {
           {results.map(entry => <button type="button" key={entry.id} aria-pressed={selected?.id === entry.id}
             onClick={() => { actions.clearCardPreview(); setSelectedId(entry.id); }}>
             <strong>{entry.deck ? <DeckName deck={entry.deck} onEditionTooltipHover={actions.editionTooltip.show} onEditionTooltipLeave={actions.editionTooltip.clear} /> : entry.label}</strong>
-            <small>{entry.region}지역{entry.deck ? ` · ${entry.deck.cards.length}/${entry.deck.capacity}장` : ""}
+            <small>{entry.region}지역{entry.deck ? ` · ${occupiedDeckSpace(entry.deck.cards)}/${entry.deck.capacity}장` : ""}
               {(entry.count ?? 0) > 1 ? ` · x${entry.count}` : ""}{entry.kind === "vault" ? entry.opened ? " · 개방 완료" : " · 미개방" : ""}</small>
             {entry.containerLabel && <small>{entry.containerLabel}</small>}
           </button>)}

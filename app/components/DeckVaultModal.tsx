@@ -1,3 +1,4 @@
+import { occupiedDeckSpace } from "../game/stickers";
 import { useRef } from "react";
 import type { DeckCase } from "../game/rewards";
 import { DeckVaultUnlockButton } from "./DeckVaultUnlockButton";
@@ -35,7 +36,7 @@ export function DeckVaultModal({ deck, keys, onClose, onUnlock }: {
         <header>
           <div>
             <h2 id="deck-vault-title"><DeckName deck={deck} /></h2>
-            <p>{deck.cards.length} / {deck.capacity}장</p>
+            <p>{occupiedDeckSpace(deck.cards)} / {deck.capacity}장</p>
           </div>
           <button type="button" onClick={onClose}>나가기</button>
         </header>

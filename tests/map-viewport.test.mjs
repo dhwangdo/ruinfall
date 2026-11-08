@@ -1,15 +1,8 @@
 import assert from "node:assert/strict";
 import test from "node:test";
 import { mapRenderSurface, mapViewportBounds } from "../app/game/mapViewport.ts";
-import { ticketCameraDuration } from "../app/hooks/mapCameraMotion.ts";
 
 const layout = { minX: 0, maxX: 100, maxY: 100, marginX: 0, marginY: 0, padding: 0, strideX: 100, strideY: 100 };
-
-test("map ticket camera travel scales with distance up to two seconds", () => {
-  assert.equal(ticketCameraDuration(0), 350);
-  assert.equal(ticketCameraDuration(50), 850);
-  assert.equal(ticketCameraDuration(1000), 2000);
-});
 
 test("camera bounds keep visible cells and a small border but exclude distant cells", () => {
   assert.deepEqual(mapViewportBounds({ x: -500, y: -800 }, 1, { width: 300, height: 200 }, layout),

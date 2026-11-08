@@ -14,6 +14,9 @@ export type DefenseGainOptions = {
 
 const FIXED_DEFENSE_VALUES: Partial<Record<CardEffect, number>> = {
   ironWave: 5,
+  ironSong: 5,
+  steelStorm: 12,
+  atField: 13,
   waterWave: 5,
   ironRampage: 8,
   starArk: 10,

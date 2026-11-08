@@ -38,7 +38,7 @@ export function useMapKeyboardMovement(moveOnMap: (deltaX: number, deltaY: numbe
           const deltaX = Math.sign(heldMove[0]);
           const deltaY = Math.sign(heldMove[1]);
           if (deltaX !== 0 || deltaY !== 0) moveOnMap(deltaX, deltaY);
-        }, 45);
+        }, 20);
       }
       return true;
     }
@@ -56,7 +56,7 @@ export function useMapKeyboardMovement(moveOnMap: (deltaX: number, deltaY: numbe
         if (pressedKeys.length !== 1) return;
         const pressedMove = NUMPAD_MOVES[pressedKeys[0]];
         if (pressedMove) moveOnMap(...pressedMove);
-      }, 45);
+      }, 20);
     }
     return true;
   }, [moveOnMap]);

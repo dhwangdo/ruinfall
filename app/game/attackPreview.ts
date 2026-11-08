@@ -6,6 +6,7 @@ export function attackPreview(amplification: number, target?: EnemyState, bossSl
     attackModifiers: {
       amplification,
       resistance: target?.resistance ?? 0,
+      resistanceEffectiveness: (target?.resistance ?? 0) > 0 ? target?.statusEffectiveness : undefined,
       multiplier: target?.isBoss && bossSlayer ? 2 : 1,
     },
   };

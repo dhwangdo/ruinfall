@@ -32,9 +32,9 @@ test("ordinary victories immediately award a card, update pity, leave blood and 
   assert.equal(ctx.battle.screen, "map");
 });
 
-test("tickets use the original 50 percent threshold and rare drops reset pity", t => {
+test("ordinary battles grant no tickets and rare drops reset pity", t => {
   t.mock.method(Math, "random", () => .499);
-  assert.equal(createBattleReward(1, 123).consumableTypes.length, 1);
+  assert.equal(createBattleReward(1, 123).consumableTypes.length, 0);
   Math.random.mock.mockImplementation(() => .5);
   assert.equal(createBattleReward(1, 123).consumableTypes.length, 0);
   Math.random.mock.mockImplementation(() => 0);
@@ -43,15 +43,17 @@ test("tickets use the original 50 percent threshold and rare drops reset pity", 
   createBattleSessionActions(ctx.options()).grantBattleReward(1);
   assert.equal(ctx.battle.battleRewards[0].rarity, "rare");
   assert.equal(ctx.inventory.rareCardDropChanceRef.current, .05);
-  assert.equal(ctx.battle.battleRewardConsumables.length, 1);
+  assert.equal(ctx.battle.battleRewardConsumables.length, 0);
 });
 
-test("bosses keep their guaranteed rare card and two tickets without a key", () => {
+test("bosses grant two stickered rare cards without tickets or a key", () => {
   const ctx = makeRunFixture();
   ctx.battle.battleRewardIsBossRef.current = true;
   createBattleSessionActions(ctx.options()).grantBattleReward(1);
   assert.equal(ctx.battle.battleRewards[0].rarity, "rare");
-  assert.equal(ctx.battle.battleRewardConsumables.length, 2);
+  assert.equal(ctx.battle.battleRewards.length, 2);
+  assert.ok(ctx.battle.battleRewards.every(card => card.rarity === "rare" && card.sticker));
+  assert.equal(ctx.battle.battleRewardConsumables.length, 0);
   assert.equal(ctx.battle.battleRewardKeys, 0);
 });
 

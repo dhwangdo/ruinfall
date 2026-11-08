@@ -1,5 +1,5 @@
-import { REGION_ONE_PAIR_CANDIDATES, REGION_ONE_ENCOUNTERS, REGION_ONE_MIXED_ENCOUNTERS, REGION_ONE_PAIR_INDICES, normalizeRegionOneEncounterIndex } from "./regionOneEnemies.ts";
-import { REGION_TWO_ENCOUNTERS, REGION_TWO_MIXED_ENCOUNTERS, REGION_TWO_PAIR_INDICES, normalizeRegionTwoEncounterIndex, WARLOCK } from "./regionTwoEnemies.ts";
+import { REGION_ONE_BOSS, REGION_ONE_ENCOUNTERS, REGION_ONE_MIXED_ENCOUNTERS, REGION_ONE_PAIR_INDICES, normalizeRegionOneEncounterIndex } from "./regionOneEnemies.ts";
+import { REGION_TWO_BOSS, REGION_TWO_ENCOUNTERS, REGION_TWO_MIXED_ENCOUNTERS, REGION_TWO_PAIR_INDICES, normalizeRegionTwoEncounterIndex, WARLOCK } from "./regionTwoEnemies.ts";
 export function normalizeEncounterIndex(index: number) {
   return normalizeRegionOneEncounterIndex(normalizeRegionTwoEncounterIndex(index));
 }
@@ -13,6 +13,7 @@ export function resolveEnemyHitAgainstPlayer({
   block,
   resistance = 0,
   amplification = 0,
+  amplificationEffectiveness,
   ignoreNegativeResistance = false,
   isAttack = true,
   damageTakenMultiplier = 1,
@@ -23,13 +24,20 @@ export function resolveEnemyHitAgainstPlayer({
   block: number;
   resistance?: number;
   amplification?: number;
+  amplificationEffectiveness?: number;
   ignoreNegativeResistance?: boolean;
   isAttack?: boolean;
   damageTakenMultiplier?: number;
   invulnerable?: boolean;
 }) {
   const transformedDamage = isAttack
-    ? calculateAttackDamage(damage, { resistance, amplification, ignoreNegativeResistance, multiplier: damageTakenMultiplier })
+    ? calculateAttackDamage(damage, {
+      resistance,
+      amplification,
+      amplificationEffectiveness,
+      ignoreNegativeResistance,
+      multiplier: damageTakenMultiplier,
+    })
     : Math.max(0, Math.floor(damage));
   const blocked = invulnerable ? 0 : Math.min(transformedDamage, block);
   return {
@@ -89,7 +97,7 @@ export type EnemyAction = {
 
 export type EnemyVariant = "slime" | "golem" | "goblin" | "rat" | "beast" | "wisp" | "mummyPriest" | "mummyWarrior" | "wyrm" | "thornBeetle" | "blackSlime" | "clown" | "giantWyrm"
   | "warlock" | "powderCarrier" | "bloodBerserker" | "searchHound" | "hammerGuard" | "shackleJailer" | "sealWarden" | "fermentedSlime" | "voidJellyfish" | "bloodRider" | "confiscator"
-  | "hungryDog" | "knifeFighter" | "clayDoll" | "puppetColossus" | "puppeteer" | "opportunist" | "weaverSpider" | "powderToad" | "broodRoach" | "roachHatchling";
+  | "hungryDog" | "knifeFighter" | "clayDoll" | "puppetColossus" | "puppeteer" | "opportunist" | "weaverSpider" | "powderToad" | "broodRoach" | "roachHatchling" | "scavenger";
 
 export type EnemyState = {
   id: string;
@@ -102,8 +110,12 @@ export type EnemyState = {
   openingIntentIndex?: number;
   strength: number;
   karmaStage?: number;
+  /** Active battle HP multiplier inherited by any minions this enemy summons. */
+  summonHpMultiplier?: number;
   resistance?: number;
   amplification?: number;
+  /** Percent strength for this enemy's resistance and amplification statuses. */
+  statusEffectiveness?: number;
   /** Count-based damage immunity. Each successful hit consumes one stack. */
   boon?: number;
   /** Gains strength by this amount when the player's next turn starts. */
@@ -331,27 +343,8 @@ const SEWER_ENCOUNTERS: Array<EnemyBlueprint[] | null> = [
     thorns: 4,
     trait: "전투 시작 시 가시 4 · 공격받을 때마다 물리 피해 4로 반격",
   })),
-  REGION_ONE_PAIR_CANDIDATES.slice(0, 4).map(enemy => ({ ...enemy, isBoss: true })),
-  [
-    {
-      name: "광대",
-      hp: 137,
-      maxHp: 137,
-      actions: [
-        { name: "광대의 강타", attacks: [{ type: "physical", value: 20 }], discardCount: 5, cycle: true },
-        { name: "광대의 마법", attacks: [{ type: "magic", value: 20 }], discardCount: 5, cycle: true },
-        { name: "광대의 강화", attacks: [], strengthGain: 3, discardCount: 5, cycle: true },
-      ],
-      strength: 0,
-      physicalBlock: 0,
-      variant: "clown",
-      sturdyThreshold: 0,
-      quicknessReady: false,
-      nextAttackMagic: false,
-      isBoss: true,
-      trait: "비어 있지 않은 무작위 파일의 카드 5장 버림",
-    },
-  ],
+  [REGION_ONE_BOSS],
+  [REGION_TWO_BOSS],
   [
     {
       name: "거대 지룡",
@@ -393,7 +386,7 @@ const ENCOUNTER_INDICES_BY_REGION = [
 
 const BOSS_ENCOUNTER_INDICES_BY_REGION = [14, 15, 16] as const;
 
-export const NEXT_REGION_ENCOUNTER_CHANCE = 0.03;
+export const NEXT_REGION_ENCOUNTER_CHANCE = 0;
 
 export function getBossEncounterIndex(regionIndex: number) {
   return BOSS_ENCOUNTER_INDICES_BY_REGION[regionIndex] ?? null;
@@ -504,7 +497,7 @@ export function getEnemyCodexEntries(): EnemyCodexEntry[] {
         : []);
     return [{
       encounterIndex,
-      label: encounterIndex === 14 ? "무작위 약한 적 4마리 (5종 중 중복 없이)" : encounter.length > 1 && encounter.every((enemy) => enemy.name === encounter[0].name)
+      label: encounter.length > 1 && encounter.every((enemy) => enemy.name === encounter[0].name)
         ? `${encounter[0].name} ${encounter.length}마리`
         : encounter.map(enemy => enemy.name).join(" + "),
       regions,
@@ -520,12 +513,7 @@ export function createSewerEncounterByIndex(
   random: () => number = Math.random,
 ): EnemyState[] {
   const safeIndex = normalizeEncounterIndex(Math.max(0, Math.min(SEWER_ENCOUNTERS.length - 1, Math.floor(encounterIndex))));
-  const encounter = safeIndex === 14
-    ? (() => {
-      const pool = [...REGION_ONE_PAIR_CANDIDATES];
-      return Array.from({ length: 4 }, () => ({ ...pool.splice(Math.min(pool.length - 1, Math.floor(random() * pool.length)), 1)[0], isBoss: true }));
-    })()
-    : SEWER_ENCOUNTERS[safeIndex];
+  const encounter = SEWER_ENCOUNTERS[safeIndex];
   if (!encounter) return [];
   const enemies: EnemyState[] = encounter.map((enemy, index) => {
     const minimumHp = enemy.name === "쥐"
@@ -559,7 +547,6 @@ export function getSewerEncounterLabel(encounterIndex: number) {
   const safeIndex = normalizeEncounterIndex(Math.max(0, Math.min(SEWER_ENCOUNTERS.length - 1, Math.floor(encounterIndex))));
   const encounter = SEWER_ENCOUNTERS[safeIndex];
   if (!encounter) return "삭제된 조우";
-  if (safeIndex === 14) return "적 무리 + ? + ? + ?";
   if (MIXED_ENCOUNTER_INDICES.has(safeIndex)) return `${encounter[0].name} + ?`;
   return encounter.length > 1 && encounter.every((enemy) => enemy.name === encounter[0].name)
     ? `${encounter[0].name} ${encounter.length}마리`
@@ -610,7 +597,13 @@ export function applyPlayerAttack(
       ? damage + (next.solitaireHitBonus ?? 0)
       : damage;
     const hitDamage = modifiers.isAttack === false ? rawDamage
-      : calculateAttackDamage(rawDamage, { ...modifiers, resistance: next.resistance });
+      : calculateAttackDamage(rawDamage, {
+        ...modifiers,
+        resistance: next.resistance,
+        resistanceEffectiveness: (next.resistance ?? 0) > 0
+          ? next.statusEffectiveness ?? modifiers.resistanceEffectiveness
+          : modifiers.resistanceEffectiveness,
+      });
     if (damage > 0 && next.solitaireHitBonusReady) next = { ...next, solitaireHitBonusReady: false };
     if (next.quicknessReady) {
       next = { ...next, quicknessReady: false };

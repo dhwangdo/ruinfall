@@ -78,11 +78,10 @@ test("debug enemy codex is derived from every encounter and its spawn regions", 
   assert.equal(rats.enemies[0].enemy.maxHp, 13);
 });
 
-test("each region has a three-percent chance to use the next region enemy pool", () => {
-  assert.deepEqual(getEncounterSpawnPool(0, 0.029), getEncounterIndicesForRegion(1));
-  assert.deepEqual(getEncounterSpawnPool(0, 0.03), [1, 5, 19, 20, 22, 25, ...Array.from({ length: 20 }, (_, i) => 66 + i)]);
-  assert.deepEqual(getEncounterSpawnPool(1, 0), [10, 11, 12, 13]);
-  assert.deepEqual(getEncounterSpawnPool(1, 0.03), getEncounterIndicesForRegion(1));
+test("future-region enemy pools are disabled", () => {
+  for (const region of [0, 1, 2]) for (const roll of [0, .029, .03, .999]) {
+    assert.deepEqual(getEncounterSpawnPool(region, roll), getEncounterIndicesForRegion(region));
+  }
   assert.equal(getEncounterRegionNumber(2), 2);
   assert.equal(getEncounterRegionNumber(1), 1);
   assert.equal(getEncounterRegionNumber(10), 3);
@@ -221,21 +220,24 @@ test("third-region wyrm shows soil as its current intent", () => {
 test("boss encounters have fixed health and the requested repeating patterns", () => {
   for (const roll of [0, .3, .7, .999]) {
     const group = createSewerEncounterByIndex(14, () => roll);
-    assert.equal(group.length, 4);
-    assert.equal(new Set(group.map(enemy => enemy.name)).size, 4);
-    assert.ok(group.every(enemy => enemy.isBoss && enemy.hp === enemy.maxHp));
+    assert.equal(group.length, 1);
+    const boss = group[0];
+    assert.equal(boss.name, "청소부");
+    assert.equal(boss.hp, 150);
+    assert.ok(boss.isBoss && boss.hp === boss.maxHp);
+    assert.deepEqual(boss.actions.map(action => action.attacks), [[], [{ type: "physical", value: 15 }], [{ type: "physical", value: 6, hits: 2 }], [{ type: "physical", value: 10 }]]);
+    assert.equal(boss.actions[0].nextTurnPlayerResistanceChange, -2);
+    assert.equal(boss.actions[0].nextTurnPlayerAmplificationChange, -2);
+    assert.equal(boss.actions[3].strengthGain, 3);
   }
-
-  const clown = createSewerEncounterByIndex(15, () => 0)[0];
-  assert.equal(clown.name, "광대");
-  assert.equal(clown.hp, 137);
-  assert.ok(clown.actions.every((action) => action.discardCount === 5));
-  assert.deepEqual(clown.actions.map((action) => action.attacks), [
-    [{ type: "physical", value: 20 }],
-    [{ type: "magic", value: 20 }],
-    [],
-  ]);
-  assert.equal(clown.actions[2].strengthGain, 3);
+  const jailer = createSewerEncounterByIndex(15, () => 0)[0];
+  assert.equal(jailer.name, "간수");
+  assert.equal(jailer.hp, 250);
+  assert.equal(jailer.statusEffectiveness, 40);
+  assert.deepEqual(jailer.actions.map(action => action.attacks), [[], [{ type: "physical", value: 20, hits: 1 }], [{ type: "physical", value: 20, hits: 1 }], []]);
+  assert.equal(jailer.actions[0].resistanceGain, 2);
+  assert.equal(jailer.actions[0].amplificationGain, 2);
+  assert.equal(jailer.actions[3].strengthGain, 5);
 
   const giantWyrm = createSewerEncounterByIndex(16, () => 0)[0];
   assert.equal(giantWyrm.name, "거대 지룡");

@@ -5,9 +5,10 @@ import type { RunDeckEditor } from "../hooks/useRunDeckEditor";
 import type { Card } from "../game/cards.ts";
 import type { DeckCase } from "../game/rewards.ts";
 import { isSafeAreaPosition, mapRoomKey } from "../game/mapRules.ts";
-import { countRareSlotCards, usesRareCardSlot, validateDeckEditorCardMove,
+import { countRareSlotCards, usesRareCardSlot, isHighRarityCard, validateDeckEditorCardMove,
   type DeckEditorCardLocation, type DeckEditorMoveBlockReason } from "../game/deckEditorRules.ts";
 import { transitionDeckEditorCardCollections } from "../game/deckEditorTransitions.ts";
+import { occupiedDeckSpace } from "../game/stickers.ts";
 
 type Options = {
   inventory: RunInventory;
@@ -73,7 +74,7 @@ export function createDeckEditorMoves({
     if (!card) return false;
     let target = requestedTarget;
     const temporaryRareReturnArea = deckEditorHighRarityInsertionOriginsRef.current[cardId];
-    if (!viaExtractionTicket && usesRareCardSlot(card) && source.area === "deck"
+    if (!viaExtractionTicket && isHighRarityCard(card) && source.area === "deck"
       && !isSafeAreaPosition(mapPosition, mapSeed) && !blessings.includes("forbiddenKnowledge")
       && target.area === "floor" && temporaryRareReturnArea) {
       target = temporaryRareReturnArea === "inventory" && deckEditorInventoryItemCount >= inventoryCapacity
@@ -101,7 +102,9 @@ export function createDeckEditorMoves({
       safeArea,
       originalOriginDeckId: originalDeckIdForCard(cardId),
       effectiveOriginDeckId: effectiveOriginDeckIdForCard(cardId),
-      targetDeckCardCount: targetDeck?.cards.length,
+      targetDeckCardCount: targetDeck ? occupiedDeckSpace(targetDeck.cards) : 0,
+      incomingCardSpace: 1,
+      consumesRareSlot: usesRareCardSlot(card),
       targetDeckCapacity: targetDeck?.capacity,
       targetDeckRareCardCount,
       targetDeckRareSlotCapacity: targetDeck
@@ -113,7 +116,7 @@ export function createDeckEditorMoves({
       viaExtractionTicket,
       allowsRareExtraction,
       temporaryRareReturnArea: source.area === "deck" ? temporaryRareReturnArea : undefined,
-      isRare: usesRareCardSlot(card),
+      isRare: isHighRarityCard(card),
     });
     if (!validation.allowed) {
       if (validation.reason !== "same-location") {
@@ -137,7 +140,7 @@ export function createDeckEditorMoves({
     setPendingRemovedCards(nextCollections.pendingRemovedCards);
     setPendingRemovedCardAreas(nextCollections.pendingRemovedCardAreas);
 
-    if (usesRareCardSlot(card)) {
+    if (isHighRarityCard(card)) {
       if ((source.area === "inventory" || source.area === "floor") && target.area === "deck") {
         deckEditorHighRarityInsertionOriginsRef.current[cardId] = source.area;
       } else if (source.area === "deck" && (target.area === "inventory" || target.area === "floor")) {

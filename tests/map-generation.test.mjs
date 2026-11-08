@@ -65,7 +65,7 @@ test("ordinary location counts stay in range, spread across the map and add to p
   for (const seed of [1, 173, 291, 418]) for (let region = 0; region < 7; region++) {
     const map = getGeneratedDungeonRegion(seed, region);
     assert.ok([...map.ordinarySites.values()].every(kind => kind !== "shop" && kind !== "bloodShop"));
-    for (const [kind, min, max] of [["deckVault", 40, 46]]) {
+    for (const [kind, min, max] of [["deckVault", 30, 35], ["stickerAltar", 4, 4], ["tinkerer", 8, 8], ["cardTransmuter", 4, 4]]) {
       const locations = [...map.ordinarySites].filter(([, type]) => type === kind).map(([index]) => index);
       assert.equal(locations.length, map.locationCounts[kind]);
       assert.ok(locations.length >= min && locations.length <= max);
@@ -83,7 +83,7 @@ test("ordinary location counts stay in range, spread across the map and add to p
       assert.equal(map.main[index], 1);
       assert.equal(map.protectedCells[index], 0);
       assert.equal(map.landmarks.has(index), false);
-      assert.ok(["deckVault", "shop", "bloodShop"].includes(kind));
+      assert.ok(["deckVault", "shop", "bloodShop", "stickerAltar", "tinkerer", "cardTransmuter"].includes(kind));
     }
   }
 });

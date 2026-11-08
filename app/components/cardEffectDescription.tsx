@@ -8,13 +8,13 @@ function starIcons(amount: number) {
 
 export function cardEffectDescription(card: Card, damageNumber: ReactNode, defenseNumber: ReactNode): ReactNode {
   switch (card.effect) {
-    case "battleCry": return <span><strong className="effect-keyword">증폭</strong>을 1 얻습니다.</span>;
+    case "battleCry": return <span><strong className="effect-keyword">증폭</strong>을 {card.value} 얻습니다.</span>;
     case "shatter": return <><span>피해를 {damageNumber} 줍니다.</span><span><strong className="effect-keyword">취약</strong>을 2 부여합니다.</span></>;
     case "kneeStrike": return <><span>피해를 {damageNumber} 줍니다.</span><span><strong className="effect-keyword">약화</strong>를 1 부여합니다.</span></>;
     case "resistanceWard": return <span><strong className="effect-keyword">저항</strong>을 2 얻습니다.</span>;
     case "battlePreparation": return <span>다음 턴 시작 시 <strong className="effect-keyword">증폭</strong>과 <strong className="effect-keyword">에너지</strong>를 각각 2 얻습니다.</span>;
     case "scaleArmor": return <><span><span className="effect-type physical">방어</span>를 {defenseNumber} 얻습니다.</span><span><strong className="effect-keyword">약화</strong>를 2 부여합니다.</span></>;
-    case "fourSeasons": return <><span><strong className="effect-keyword">버리기 3</strong>.</span><span><strong className="effect-keyword">증폭</strong>과 <strong className="effect-keyword">저항</strong>을 각각 2 얻습니다.</span><span>모든 적에게 <strong className="effect-keyword">취약</strong>과 <strong className="effect-keyword">약화</strong>를 각각 2 부여합니다.</span></>;
+    case "fourSeasons": return <><span><strong className="effect-keyword">증폭</strong>과 <strong className="effect-keyword">저항</strong>을 2 얻습니다.</span><span>모든 적에게 <strong className="effect-keyword">취약</strong>과 <strong className="effect-keyword">약화</strong>를 2 부여합니다.</span></>;
     case "unyielding": return <span><strong className="effect-keyword">저항</strong>을 5 얻습니다.</span>;
     case "demolish": return <><span>피해를 {damageNumber} 줍니다.</span><span><strong className="effect-keyword">취약</strong>과 <strong className="effect-keyword">약화</strong>를 각각 3 부여합니다.</span></>;
     case "strike":
@@ -34,7 +34,29 @@ export function cardEffectDescription(card: Card, damageNumber: ReactNode, defen
     case "pruning":
       return <span><strong className="effect-keyword">버리기 2</strong>. <strong className="effect-keyword">에너지</strong>를 2 얻습니다.</span>;
     case "adrenaline":
-      return <span><strong className="effect-keyword">체력</strong>을 2 잃습니다. <strong className="effect-keyword">에너지</strong>를 {card.value} 얻습니다. 카드를 {card.draw}장 뽑습니다.</span>;
+      return <span>체력을 3 잃습니다. <strong className="effect-keyword">에너지</strong>를 {card.value} 얻습니다. 카드를 {card.draw}장 뽑습니다.</span>;
+    case "beastification":
+      return <span><strong className="effect-keyword">힘</strong>을 {card.forged ? 6 : "3[6]"} 얻습니다.</span>;
+    case "metalization":
+      return <span><strong className="effect-keyword">강인함</strong>을 {card.forged ? 4 : "2[4]"} 얻습니다.</span>;
+    case "sandToss":
+      return <span>선택한 적에게 <strong className="effect-keyword">약화</strong>를 {card.value} 부여합니다.</span>;
+    case "saeongjima":
+      return <span><strong className="effect-keyword">버리기 X</strong> 효과로 버려지면 카드를 무작위로 {card.draw}장 뽑습니다.</span>;
+    case "ironSong":
+      return <><span><span className="effect-type physical">방어</span>를 {defenseNumber} 얻습니다.</span><span>내 다음 2턴 시작 시 같은 양의 방어를 얻습니다.</span></>;
+    case "foresight":
+      return <span>다음 턴 시작 시 카드를 {card.draw}장 뽑습니다.</span>;
+    case "photonCannon":
+      return <span>피해를 {damageNumber} 줍니다. 내 <strong className="effect-keyword">증폭</strong>이 4 이상이면 대신 피해를 8씩 3번 줍니다.</span>;
+    case "overcharge":
+      return <span>내 <strong className="effect-keyword">증폭</strong>이 4 이상일 때, 카드 2장을 뽑습니다. (턴당 1회 발동)</span>;
+    case "atField":
+      return <><span><span className="effect-type physical">방어</span>를 {defenseNumber} 얻습니다.</span><span><strong className="effect-keyword">증폭</strong>을 2 얻습니다.</span></>;
+    case "criticalReaction":
+      return <span>내 <strong className="effect-keyword">증폭</strong>이 8 이상일 때, <strong className="effect-keyword">에너지</strong> 2를 얻습니다. (턴당 1회 발동)</span>;
+    case "diy":
+      return <span>이 카드는 스티커를 3개까지 붙일 수 있습니다. (중복 불가)</span>;
     case "sweep":
       return <span>모든 적에게 <span className="effect-type damage">피해</span>를 {damageNumber} 줍니다.</span>;
     case "drawEachPile":
@@ -48,7 +70,7 @@ export function cardEffectDescription(card: Card, damageNumber: ReactNode, defen
     case "librariansPrivilege":
       return <span>턴 시작 시 원하는 파일에서 카드를 1장 뽑습니다.</span>;
     case "dash":
-      return <span>무작위 파일에서 카드를 1장씩 {card.forged ? 3 : "2[3]"}번 뽑습니다.</span>;
+      return <span>카드를 무작위로 {card.forged ? 3 : "2[3]"}장 뽑습니다.</span>;
     case "quickStep":
       return <span>카드를 {card.draw}장 뽑습니다.</span>;
     case "rulerCompass":
@@ -56,7 +78,7 @@ export function cardEffectDescription(card: Card, damageNumber: ReactNode, defen
     case "suppression":
       return <><span><span className="effect-type damage">피해</span>를 {damageNumber} 줍니다.</span><span>막히지 않은 피해만큼 <span className="effect-type physical">방어</span>를 얻습니다.</span></>;
     case "transcend":
-      return <span>이번 턴 피해에 <strong className="effect-keyword">면역</strong>이 됩니다. <strong className="effect-keyword">힘</strong>을 5 얻습니다.</span>;
+      return <span><strong className="effect-keyword">무적</strong>을 {card.value} 얻습니다.</span>;
     case "rapidFire":
       return <span>다음에 사용하는 공격 카드가 2번 발동합니다.</span>;
     case "iceShield":
@@ -128,7 +150,11 @@ export function cardEffectDescription(card: Card, damageNumber: ReactNode, defen
     case "massDeal":
       return <><span>빈 파일을 하나 만듭니다.</span><span>카드를 섞을 때마다 각 파일의 카드 수가 최대한 같도록 놓습니다.</span></>;
     case "sturdyStance":
-      return <span>턴 종료 시 <strong className="effect-type physical effect-type-bold">방어</strong>와 <strong className="effect-type magic effect-type-bold">마법 방어</strong>를 절반 보존합니다. <strong className="effect-type physical effect-type-bold">방어</strong>를 10 얻습니다.</span>;
+      return <><span><strong className="effect-type physical effect-type-bold">방어</strong>를 {defenseNumber} 얻습니다.</span><span>턴 종료 시 <strong className="effect-type physical effect-type-bold">방어</strong>를 절반 보존합니다.</span></>;
+    case "steelStorm":
+      return <><span><span className="effect-type physical">방어</span>를 {defenseNumber} 얻습니다.</span><span>턴 종료 시 모든 적에게 현재 방어만큼 피해를 줍니다.</span></>;
+    case "parallelMirror":
+      return <span>손패에 있는 모든 <strong className="effect-keyword">광채</strong>를 복사해 손패에 가져옵니다.</span>;
     case "charge":
       return <span><strong className="effect-keyword">에너지</strong>를 {card.value} 얻습니다.</span>;
     case "weaponSharpen":

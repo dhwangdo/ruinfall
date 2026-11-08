@@ -7,6 +7,7 @@ import { statusLabel, addResistance, decayStatus } from "./statuses.ts";
 import { applyPlayerAttack, chooseNextIntent, resolveEnemyHitAgainstPlayer } from "./enemies.ts";
 import { enemyTemporaryStrength, spawnEnemyMinions, sharedTurnEndStrength } from "./enemyPassives.ts";
 import { resolveEnemyDefeats } from "./enemyDefeatRules.ts";
+import { retainsCard, parachuteDiscards } from "./stickers.ts";
 
 /** Enemy hits, status changes, reflection, and file discards calculated without presentation effects. */
 export function resolveEnemyTurn(game: GameState, {
@@ -14,18 +15,40 @@ export function resolveEnemyTurn(game: GameState, {
 }: { blessings: readonly BlessingId[]; maxPlayerHp: number; oneUpUsed: boolean; randomRolls: readonly number[] }) {
   let oneUpUsed = alreadyUsed;
   let rollIndex = 0;
+  const steelStormCount = game.activeRuleCards.filter((card) => card.effect === "steelStorm").length;
+  const steelStormHits: Array<{ enemy: EnemyState; damage: number; blocked: number }> = [];
+  if (steelStormCount > 0 && game.playerPhysicalBlock > 0) {
+    const stormEnemies = game.enemies.map((enemy) => {
+      if (enemy.hp <= 0) return enemy;
+      let next = enemy;
+      for (let trigger = 0; trigger < steelStormCount && next.hp > 0; trigger += 1) {
+        const blocked = Math.min(game.playerPhysicalBlock, Math.max(0, next.physicalBlock));
+        const damage = Math.max(0, game.playerPhysicalBlock - blocked);
+        next = { ...next, hp: Math.max(0, next.hp - damage), physicalBlock: next.physicalBlock - blocked };
+      }
+      steelStormHits.push({
+        enemy,
+        damage: enemy.hp - next.hp,
+        blocked: enemy.physicalBlock - next.physicalBlock,
+      });
+      return next;
+    });
+    const stormDeaths = resolveEnemyDefeats({ ...game, enemies: stormEnemies }, {
+      blessings, maxPlayerHp, oneUpUsed,
+    });
+    game = stormDeaths.state;
+    oneUpUsed = stormDeaths.oneUpUsed;
+  }
   const enemiesAfterBlockDecay = game.enemies.map((enemy) => ({
     ...enemy, physicalBlock: 0,
     ...(enemy.solitaireHitBonus ? { solitaireHitBonusReady: false } : {}),
   }));
   const livingEnemies = enemiesAfterBlockDecay.filter((enemy) => enemy.hp > 0);
   const toxicSlimeDamage = game.hand.filter((card) => card.effect === "slime").length * 12;
-  const discarded = [
-    ...game.discard,
-    ...game.hand.filter(card => !card.retain),
-  ];
-  let retainedHand = game.hand.filter(card => card.retain);
-  const pilesAfterSlime = game.piles.map((pile) => [...pile]);
+  const replacement = parachuteDiscards(game.hand.filter(card => !retainsCard(card)), game.piles);
+  const discarded = [...game.discard, ...replacement.discarded];
+  let retainedHand = game.hand.filter(retainsCard);
+  const pilesAfterSlime = replacement.piles;
   let remainingPhysicalBlock = game.playerPhysicalBlock;
   let remainingMagicBlock = game.playerMagicBlock;
   let remainingStrength = Math.max(0, game.strength - game.temporaryStrength);
@@ -37,7 +60,7 @@ export function resolveEnemyTurn(game: GameState, {
     damageType: "physical",
     block: remainingPhysicalBlock,
     isAttack: false,
-    invulnerable: game.invulnerable,
+    invulnerable: game.invulnerable || game.invulnerabilityTurns > 0,
   });
   const toxicSlimeDamageTaken = toxicSlimeHit.damageTaken;
   remainingPhysicalBlock = toxicSlimeHit.remainingBlock;
@@ -61,8 +84,19 @@ export function resolveEnemyTurn(game: GameState, {
     magicBlockAfter: number;
     message?: string;
     messageTarget?: "player" | "enemy";
-    messageKind?: "buff" | "debuff";
-  }> = [];
+    messageKind?: "buff" | "debuff" | "damage";
+  }> = steelStormHits.map(({ enemy, damage, blocked }) => ({
+    enemy,
+    action: enemy.actions[enemy.intentIndex],
+    attack: null,
+    damage: 0,
+    hpAfter: remainingHp,
+    physicalBlockAfter: remainingPhysicalBlock,
+    magicBlockAfter: remainingMagicBlock,
+    message: damage > 0 ? `-${damage}` : blocked > 0 ? "방어로 막음" : "막음",
+    messageTarget: "enemy",
+    messageKind: "damage",
+  }));
   const actedEnemyIds = new Set<string>();
   const skippedEnemyIds = new Set<string>();
   const summoningEnemyIds = new Set<string>();
@@ -99,8 +133,9 @@ export function resolveEnemyTurn(game: GameState, {
             block: matchingBlock,
             resistance: game.playerResistance,
             amplification: enemy.amplification,
+            amplificationEffectiveness: (enemy.amplification ?? 0) > 0 ? enemy.statusEffectiveness : undefined,
             damageTakenMultiplier: game.damageTakenMultiplier,
-            invulnerable: game.invulnerable,
+            invulnerable: game.invulnerable || game.invulnerabilityTurns > 0,
             ignoreNegativeResistance: blessings.includes("vulnerabilityInsurance"),
           });
           if (game.reflectDamage > 0 && resolvedHit.blocked > 0) {
@@ -302,6 +337,8 @@ export function resolveEnemyTurn(game: GameState, {
       : addResistance(decayStatus(game.playerResistance), nextTurnResistanceChange, blessings.includes("glassCannon")),
     nextPlayerAmplification: game.extraTurns > 0 ? game.playerAmplification
       : decayStatus(game.playerAmplification) + nextTurnAmplificationChange,
+    nextPlayerInvulnerability: game.extraTurns > 0 ? game.invulnerabilityTurns
+      : decayStatus(game.invulnerabilityTurns),
     remainingStrength,
     remainingAgility,
     toxicSlimeDamageTaken,

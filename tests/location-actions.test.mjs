@@ -45,9 +45,9 @@ test("a lethal blessing reroll spends 1UP once or ends the run", () => {
 test("free tickets fit alongside a full card inventory while ordinary tickets spill to the floor", () => {
   const ctx = makeRunFixture(), key = mapRoomKey(MAP_START);
   ctx.inventory.setInventoryCards([{ id: 1 }, { id: 2 }]);
-  createBlessingActions(ctx.options()).grantConsumables("mapTicket", 2);
+  createBlessingActions(ctx.options()).grantConsumables("extractTicket", 2);
   assert.equal(ctx.inventory.roomConsumableDrops[key].length, 2);
-  createBlessingActions(ctx.options()).grantConsumables("mapTicket", 2, true);
+  createBlessingActions(ctx.options()).grantConsumables("extractTicket", 2, true);
   assert.equal(ctx.inventory.inventoryConsumables.length, 2);
 });
 

@@ -1,6 +1,8 @@
 # Python 사용자를 위한 코드 가이드
 
-마지막 갱신: 2026-11-06
+마지막 갱신: 2026-11-08
+
+2026-11-08: 스티커 작업 장소의 규칙·가격·호환성은 `app/game/stickerServices.ts`, 카드·골드·장소별 이용 횟수 연결은 `app/hooks/useStickerServices.ts`, 덱 금고 공용 패널과 공용 카드를 재사용하는 화면은 `app/components/StickerServiceModal.tsx`가 맡는다. 장소별 이용 횟수는 `useRunWorld.ts`의 `roomServiceUses`로 소유하고 진행 저장·복원에 포함한다.
 
 로컬 실행기: `desktop/main.cjs`가 Electron 창과 `ruinfall://game/` 내부 파일 경로를 연결한다. `asset-path.cjs`는 게임 폴더 밖 경로를 거부하고, `verify.cjs`는 명시적인 빌드 확인 모드에서만 숨김 창의 로딩 오류를 기록한다. `scripts/build-desktop.mjs`가 Next 정적 내보내기와 Windows 패키징을 담당하며 `desktop-runtime.mjs`가 공식 런타임을 체크섬 검증 후 작업공간에 캐시한다. `Ruinfall.cmd`는 생성된 exe를 열기만 하고 서버를 실행하지 않는다. 자세한 실행·갱신 방법은 `desktop/README.md`를 따른다.
 
@@ -122,7 +124,7 @@ setGame((current) => ({ ...current, energy: 2 }));
 |---|---|
 | `app/page.tsx` | 앱 상태 연결, 지도·전투 이벤트와 화면 조립 |
 | `app/components/MapBoard.tsx` | 지도 카메라를 연결하고 보이는 방·적·표식을 계산해 지도판 표시 |
-| `app/components/MapMinimap.tsx` | 정사각형 미니맵 표시·안쪽 지도 드래그·휠 확대·축소·모서리 크기 조정 |
+| `app/components/MapMinimap.tsx` | 가로·세로 조절 가능한 미니맵 표시·안쪽 지도 드래그·휠 확대·축소·모서리 크기 조정 |
 | `app/game/mapMinimap.ts` | 미니맵 표시 범위·탐사 제한·지형과 적의 색상 계산 |
 | `app/components/ExtractionShrineModal.tsx` | 추출 카드 선택·정렬·드래그·결과 표시 |
 | `app/components/CardConversionShrineModal.tsx` | 변환·조합 카드 선택·드래그·결과 상태와 화면 |
@@ -137,7 +139,7 @@ setGame((current) => ({ ...current, energy: 2 }));
 | `app/controllers/portalActions.ts` | 포탈 경고·이번 런 경고 생략·열쇠 소멸·기존 지역 이동 |
 | `app/components/DeckVaultModal.tsx`, `PortalKeyWarning.tsx` | 공통 카드 외형을 쓰는 덱 미리보기와 포탈 열쇠 경고 |
 | `app/components/MapDeckVaultPreview.tsx`, `DeckVaultCards.tsx` | 거리 제한 없는 지도 금고 호버 미리보기. 개방 창과 카드 목록을 공유하고 호버 상태를 지도 렌더링에서 분리 |
-| `app/styles/base.css`의 `--tooltip-copy-font`, `--tooltip-title-font` | 키워드·에디션·전투 상태 설명의 공통 Pretendard 12px 글꼴·행간. 패널 자손 선택자로 미리보기 내부를 덮지 않음 |
+| `app/styles/base.css`의 `--tooltip-copy-font`, `--tooltip-title-font` | 키워드·에디션·전투 상태 설명의 공통 Pretendard 13px 글꼴·행간. 패널 자손 선택자로 미리보기 내부를 덮지 않음 |
 | `app/components/DeckSlotPlaceholder.tsx` | 인벤토리·덱 미리보기의 빈 일반 슬롯·빈 희귀 슬롯·구분선. 외형은 `item-visuals.css` |
 | `app/components/debugModeContext.ts`, `DeckName.tsx` | 디버그 여부를 공유하여 상세 덱 이름 아래 생성 당시 s/x/y/z를 표시. 작은 이름은 호버 설명으로 제공하고 구버전 기록은 추정하지 않음 |
 | `app/game/deckVaultRules.ts` | 덱 보관소 열쇠 비용과 개방 가능 판정 |
@@ -147,7 +149,7 @@ setGame((current) => ({ ...current, energy: 2 }));
 | `app/hooks/useRunWorld.ts` | 탐험 지형·적·발견 기억·파괴/소비 장소 상태와 복원 |
 | `app/hooks/useRunPlayer.ts` | 이름·체력·축복·이동 지속 효과 상태와 복원 |
 | `app/hooks/useRunInventory.ts` | 소지 덱·인벤토리·바닥·열쇠·ID와 복원 |
-| `app/hooks/useRunMapContent.ts` | 새로 본 방의 적·바닥 물건 생성과 시야 기억 갱신 |
+| `app/hooks/useRunMapContent.ts` | 새로 본 방의 적·골드·금고 생성과 시야 기억 갱신. 바닥 카드·티켓 자연생성은 중단 |
 | `app/hooks/useDebugMapContent.ts` | 디버그 지역 콘텐츠를 512칸씩 준비하고 로딩 상태 반환. 일반 발견 기억은 유지 |
 | `app/game/mapPreparation.ts`, `app/hooks/mapPreparationFrame.ts` | 시작 전 지형 캐시 준비, 진행률·취소·프레임 양보 |
 | `app/hooks/useRunPersistence.ts` | 저장 시드 선택 → 7개 지역 사전 준비와 진행률 → 복원 또는 초기화. 준비 중 저장 보류 |
@@ -160,7 +162,7 @@ setGame((current) => ({ ...current, energy: 2 }));
 | `app/hooks/useDeckEditorItems.ts` | 덱·인벤토리·바닥의 그룹별 가상 목록 구성 |
 | `app/hooks/useRunSaveLifecycle.ts` | 진행 스냅샷 저장, 지연 저장과 주기적 저장 타이머 |
 | `app/game/cards.ts` | 카드 타입, 카드 정의, 획득 풀, 전투 토큰 카드 생성 |
-| `app/game/cardEffects.ts` | 카드 비용, 키워드, 재련과 솔리테어 배치 판정 |
+| `app/game/cardEffects.ts` | 카드 비용, 키워드, 소멸·사용 불가 대상 재련과 솔리테어 배치 판정 |
 | `app/game/battleHandRules.ts` | 전투 중 스페이스로 실행하는 손패 코스트·희귀도 정렬 |
 | `app/cardTextLayout.ts` | 카드 효과 문장 나누기와 카드 너비에 맞춘 글자 크기 계산 |
 | `app/cardConstellations.ts` | 카드 워터마크용 별자리 생성과 SVG 이미지 변환 |
@@ -171,7 +173,6 @@ setGame((current) => ({ ...current, energy: 2 }));
 | `app/components/MapTopbar.tsx` | 지도 상단 체력·열쇠·검색·대기·덱 편집 UI |
 | `app/components/GameVersion.tsx`, `build/dev-source-version.ts` | 지도·전투 공통 버전 표시. 개발 중 소스 수정 시각 자동 갱신, 배포본은 기존 커밋 시각 유지 |
 | `app/hooks/useMapCamera.ts` | 지도 뷰포트 크기, 확대·축소, 이동과 카메라 포커스 |
-| `app/hooks/mapCameraMotion.ts` | 지도 티켓 안내의 거리별 0.7~4초 감속 이동과 취소. 격자 원점 변경과 독립적으로 카메라 위치를 프레임별 보간 |
 | `app/hooks/useMapKeyboardMovement.ts` | WASD·방향키·숫자패드 지도 이동과 입력 타이머 |
 | `app/hooks/useMapKeyboardShortcuts.ts` | 지도 단축키, 방 행동, 오버레이 닫기 입력 |
 | `app/hooks/useRunKeyboardControls.ts` | F8 저장, R키·다시하기 버튼이 공유하는 초기화 타이머·진행 상태·취소 처리 |
@@ -191,12 +192,13 @@ setGame((current) => ({ ...current, energy: 2 }));
 | `app/components/MapNotices.tsx` | 비용 부족·인벤토리 포화 등 지도 메시지만 표시. 장소 이용·줍기는 타일 클릭과 E/G 단축키로 연결 |
 | `app/components/DeckVaultUnlockButton.tsx`, `app/game/deckVaultRules.ts` | 열쇠 3개 미만은 비활성화·1.5초 홀드·입력 취소. 프레임 진행은 버튼·금고 창 CSS 변수만 갱신하며 막바지에 떨림 표시 |
 | `app/components/DeckVaultReleaseNotice.tsx` | 컨트롤러가 실제 개방한 덱을 반환한 경우에만 중앙 해방 메시지·덱 아이콘 연출을 2.4초 표시. 상태는 장소 모달 훅이 소유하고 저장하지 않음 |
-| `app/components/MapFloorItem.tsx` | 지도 바닥 물품의 덱 > 카드 > 티켓 우선순위. CardVisual·ConsumableVisual 간소화 외형 재사용 |
-| `app/game/mapAutoExplore.ts` | O 자동 여행의 미탐사 경로 탐색과 새 장소·물품 발견 판정. 실제 이동은 기존 빠른 이동 처리 공유 |
+| `app/components/MapFloorItem.tsx` | 지도 바닥 물품의 덱 > 카드 > 티켓 우선순위. CardVisual·ConsumableVisual 간소화 외형 재사용. 골드는 GoldPileVisual로 표시 |
+| `app/components/GoldPileVisual.tsx` | 금액에 따른 5단계 금화 더미. 검은 외곽선, 그림자 없는 SVG이며 보통·큰 더미는 타일 대부분을 채움 |
+| `app/game/mapAutoExplore.ts` | O 자동 여행의 안전한 탐사·골드 수집과 완료 판정. `AutoExploreProgress`는 현재 실행의 조사 지점·회피 칸·목표·남은 경로를 관리한다. 관측한 적의 ID·위치·상태는 저장되는 `MapEnemyCellMemory`에서 이어받는다. `goldPiles`는 알려진 안전한 칸에 있는 양수 더미만 목표로 삼는다. 이미 조사한 칸의 골드도 수집하며, 같은 거리의 탐사 후보보다 우선한다. 안전한 목적지가 없으면 `complete`, 적 회피 구역 너머에 탐사나 골드 목적지가 남으면 `blocked`, 현재 칸이 위험하면 `unsafe`로 종료한다. 숨은 지형·적의 현재 위치·미발견 골드는 경로 판단에 사용하지 않는다 |
 | `app/game/karmaRules.ts` | 12승부터 카르마 단계 계산·적 힘/체력 보정. useRunPlayer가 승리 수를 저장하고 포탈에서 초기화 |
 | `app/game/mapSearch.ts`, `mapRoomLabels.ts` | 발견한 칸만 대상으로 검색 목록 생성·필터. 지도와 장소 이름 공유 |
 | `app/components/MapSearchModal.tsx`, `app/hooks/useMapSearchShortcut.ts` | Ctrl+F를 캡처해 게임 검색 창을 열고 공통 금고/카드 미리보기와 카메라 위치 보기를 연결 |
-| `app/game/discardRules.ts` | 직접 손패 버리기와 재활용 룰의 ★ 지급. 파일 버리기는 pileActions에서 같은 계산 사용 |
+| `app/game/discardRules.ts` | 손패 버리기, 재활용 룰의 ★ 지급, discard-X 완료 뒤 새옹지마 드로우 처리 |
 | `app/components/BattleDeckCheckModal.tsx` | 전투 전에 사용할 덱 선택과 구성 미리보기 |
 | `app/components/CardKeywordPopover.tsx` | 카드 키워드 팝오버 배치와 표시 |
 | `app/components/CardKeywordSections.tsx` | 키워드 설명을 유형별 구역으로 표시 |
@@ -238,21 +240,21 @@ setGame((current) => ({ ...current, energy: 2 }));
 | `app/game/runTypes.ts` | 저장·전투·보상 흐름에서 공유하는 탐험 타입 |
 | `app/game/telemetrySnapshots.ts` | 카드·덱·적 텔레메트리 스냅샷 생성 |
 | `app/game/cardPlayAction.ts` | 카드 사용 결과를 한 번 반영하고 연출에 전달 |
-| `app/game/cardAttackResolution.ts` | 실제 적 피해와 표시할 타격 목록을 한 번 계산 |
-| `app/game/cardPlayResolution.ts` | 카드 사용의 체력·방어·자원·드로우·카드 이동 결과 계산 |
-| `app/game/cardStatusEffects.ts` | 저항·증폭 카드의 상태 부여·상쇄와 다음 턴 싸움 준비 지급 |
-| `app/game/enemyTurnResolution.ts` | 적 턴의 피해·저항·반사·파일 버리기와 순서별 연출 자료 계산 |
+| `app/game/cardAttackResolution.ts` | 광자포 조건부 타격 수를 포함한 실제 적 피해와 표시할 타격 목록 계산 |
+| `app/game/cardPlayResolution.ts` | 카드 사용의 체력·방어·자원·예약 드로우·상태·카드 이동 결과 계산 |
+| `app/game/cardStatusEffects.ts` | 저항·증폭 부여·상쇄, 싸움 준비 지급, 증폭 임계 룰 발동 판정 |
+| `app/game/enemyTurnResolution.ts` | 적 행동 전 강철의 폭풍과 적 턴의 피해·저항·반사·파일 버리기 계산 |
 | `app/game/battleSetup.ts` | 전투 시작 덱·적·축복·에디션 적용 데이터 생성 |
 | `app/game/startingForge.ts` | 빠른 망치의 무작위 시작 재련. 특수 재련 제외·원본 보존과 전투 중 재배치에 사용할 카드 복사본 생성 |
 | `app/game/cardTransforms.ts` | 같은 희귀도 안에서 ID를 유지하는 카드 변환 |
 | `app/components/battleCardPresentation.ts` | 계산된 타격 목록을 팝업·체력 표시·사망 연출로 표시 |
-| `app/game/drawCards.ts` | 턴 시작과 카드 효과에 따른 손패 드로우 처리. 사서의 특권은 기본/재배치 드로우 뒤 기존 pendingDraws 파일 선택으로 연결하며 봉인·빈 파일을 제외 |
+| `app/game/drawCards.ts` | 턴 시작 드로우·예지의 예약 선택·철의 노래 방어 반복·과충전 임계 무작위 드로우 처리. 사서의 특권은 기본/재배치 드로우 뒤 파일 선택으로 연결하며 봉인·빈 파일을 제외 |
 | `app/game/endTurnAction.ts` | 턴 종료, 적 행동, 다음 턴 준비 처리 |
 | `app/game/pileActions.ts` | 파일 이동, 파일 선택 드로우와 연구 드로우 처리 |
 | `tests/starter-rework.test.mjs` | 시작 카드 개편의 파일 버리기→드로우 순서, 마지막 카드 처리, 버리기 비용과 구 저장 갱신 |
 | `app/game/mapRules.ts` | 지도 지역·노드·안전 지대·보스 위치·바닥 드롭 생성 |
 | `app/game/mapLocationPlacement.ts` | 지역별 장소 개수 범위·가로 구간 분산·근접 회피·아래쪽 포탈 배치 |
-| `app/game/mapRegionGenerator.ts` | 현재 321×31 혼합 지형 생성. 지역별 캐시와 세계 좌표 변환은 mapRules가 담당 |
+| `app/game/mapRegionGenerator.ts` | 현재 212×47 혼합 지형 생성. 지역별 캐시와 세계 좌표 변환은 mapRules가 담당 |
 | `app/game/mapCorridors.ts`, `app/game/mapGenerationMath.ts` | 통로 연결망·A* 굴착·거리장·시드 난수·공간 노이즈·연결 영역 탐색 |
 | `app/game/mapPrefabDefinitions.ts`, `app/game/mapPrefabs.ts` | 수제 지형 데이터와 검증·회전·반전·출입구·보호 영역·가중 배치 |
 | `tests/map-generation.test.mjs`, `tests/save-game.test.mjs` | 실제 지형 접근성·추가 장소·수제 지형 확장·개발 저장 버전 전환 |
@@ -261,13 +263,16 @@ setGame((current) => ({ ...current, energy: 2 }));
 | `app/components/MapPerformanceProbe.tsx` | 개발 URL의 profileMap 플래그로 렌더 시간·긴 작업 계측. 게임 규칙·UI에는 영향 없음 |
 | `app/game/mapEffects.ts` | 지도 폭탄의 이동 카운트와 피해 계산 |
 | `app/game/enemies.ts` | 1~3지역 일반 조우와 보스, 적 행동 선택, 피해·상태 보조 규칙 |
-| `app/game/regionOneEnemies.ts` | 1지역 고유 적·새끼 바퀴·혼합 후보 5종, 순서 있는 혼합 20레시피(66~85)와 구 ID 변환. 혼합 후보의 옛 조우와 죄수는 null로 보존 |
+| `app/game/regionOneEnemies.ts` | 1지역 고유 적·청소부 보스·새끼 바퀴·혼합 후보 5종, 순서 있는 혼합 20레시피(66~85)와 구 ID 변환. 혼합 후보의 옛 조우와 죄수는 null로 보존 |
 | `app/game/enemyPassives.ts` | 손패·에너지 조건 임시 힘, 기본 에너지 회복 감소, 봉인 파일 선택, 배치 후 파일을 유지하는 희귀 카드 압수, 솔리테어 보너스 및 소환 |
-| `app/game/regionTwoEnemies.ts` | 2지역 단독·혼합 후보 데이터, 순서 있는 30조합(36~65), 구 ID 변환. 보스는 기존 파일 유지 |
+| `app/game/regionTwoEnemies.ts` | 2지역 단독·혼합 후보와 간수 보스 데이터, 순서 있는 30조합(36~65), 구 ID 변환 |
 | `app/game/enemyDefeatRules.ts` | 사망 시 카드 반환·화약 폭발·연쇄 폭발·1UP. 한 사망을 한 번만 처리 |
 | `app/game/mapEnemies.ts` | 지도 적 생성, 인식 상태, 시야 활성화, 거리장, 동시 이동과 충돌 |
 | `app/game/mapTurn.ts` | 한 지도 턴에서 적 이동과 플레이어 충돌 결과 계산 |
 | `app/game/cardRules.ts` | 리셔플 제외 카드 필터와 고정·균등 파일 분배 |
+| `app/game/stickers.ts` | 스티커 10종 정의·설명, 카드별 부착 가능성·DIY 용량, 시작 배치, 갈고리 드로우, 낙하산 버리기 대체 |
+| `app/components/CardStickerMark.tsx` | 카드 좌측 하단의 스티커 그림·툴팁. 여러 스티커를 CardFace와 CardVisual의 앞·뒷면 및 간소화 카드에서 공유 |
+| `tests/stickers.test.mjs` | 스티커 생성 확률·적합성·보스 보상, 전투별/턴별 사용 제한, 배치·연쇄 드로우·버리기 대체·방어·피해·용량·저장 복원 |
 | `app/game/statuses.ts` | 부호 있는 저항·증폭의 지속시간·상쇄와 공격 배율 계산 |
 | `app/game/attackPreview.ts` | 실제 공격과 카드 표시가 공유하는 대상 저항·증폭·보스 배율 |
 | `app/game/deckEditorRules.ts` | 원래 위치, 안전 지대, 고정 희귀 슬롯, 추출 티켓을 고려한 카드 이동 판정 |
@@ -294,7 +299,7 @@ setGame((current) => ({ ...current, energy: 2 }));
 | `tests/deck-editor-rules.test.mjs` | 덱 편집 이동 권한과 제한. `npm test`에 포함 |
 | `tests/blessing-rules.test.mjs` | 축복 선택, 피해 처리, 중복 효과 판정 |
 | `tests/enemies.test.mjs` | 적 수치, 행동, 특수 상태와 피해 규칙 |
-| `tests/map-effects.test.mjs` | 지도 티켓·폭탄·시야 등 효과 |
+| `tests/map-effects.test.mjs` | 폭탄·시야 등 지도 효과 |
 | `tests/map-enemies.test.mjs` | 인식 상태, 거리장, 다중 적 이동과 충돌 |
 | `tests/rewards.test.mjs` | 보상·덱 생성 규칙 |
 | `tests/statuses.test.mjs` | 부호 있는 상태의 상쇄·자연 변동·공격 배율의 마지막 버림 |
@@ -306,6 +311,10 @@ setGame((current) => ({ ...current, energy: 2 }));
 | `.github/workflows/deploy-pages.yml` | `main` push 뒤 Pages 배포 절차 |
 
 카드 효과 문장을 수정할 때는 대괄호 `[ ... ]` 안에 재련 후 효과를 미리 표시한다. 대괄호 밖에는 현재 효과를 적고, 재련 전에도 괄호 안 효과가 발동하는 것처럼 설명하지 않는다.
+
+카드 본문과 재련 조건에서 참조하는 키워드도 `getCardKeywordInfos`에 연결한다. 예를 들어 평행 거울의 광채 미리보기, 새옹지마의 버리기 X, 금속화의 재련 전 사용 불가 조건이 포함된다. 이 연결은 해당 키워드를 카드 자체의 속성으로 부여하지 않는다. 카드 본문의 사용 불가 표시는 실제 사용 판정과 같은 `UNPLAYABLE_CARD_EFFECTS` 목록을 사용한다.
+
+룰 표기는 `CardFace.tsx`가 붙인다. 견고한 태세·강철의 폭풍·진화론·대분배는 첫 문장이 즉시 효과이므로 두 번째 문장 앞에 `룰.`을 붙이고, 나머지 룰 카드는 첫 문장 앞에 붙인다. `cardEffectDescription.tsx` 본문에 `룰:`을 별도로 넣지 않는다. 견고한 태세의 보존은 `endTurnAction.ts`에서 물리 방어에만 적용하며 마법 방어는 턴 경계에서 0으로 만든다.
 
 `db/`, `drizzle/`, `examples/`는 현재 게임 플레이에 쓰지 않는 예제 골격이다. `.next/`, `dist/`, `out/`, `node_modules/`는 생성물 또는 외부 코드이므로 직접 편집하지 않는다.
 
@@ -356,7 +365,7 @@ flowchart LR
 
 `useBattleSession`의 `setGame`은 전투 상태와 지연 콜백용 최신 스냅샷을 함께 갱신한다. 지연된 카드 사용은 `getGame()`으로 이 스냅샷을 읽는다. 상태 변경을 이 소유자 밖에서 우회하지 않는다. 연출은 계산 결과를 받아 실행하며, 전투 시작·초기화·언마운트 때 예약된 전투 타이머를 취소한다. 한 조우의 보상은 생성 완료와 수령 완료 표시를 통해 중복 지급을 막는다. 일반전 열쇠는 전투당 1개이며 지도 복귀 때 지급한다. 덱 보관소 내용은 소지품 상태가 저장하고, 개방된 방 집합은 지도 상태가 저장한다. 포탈 경고 생략은 소지품 저장 상태의 런 한정 설정이며 새 런에서 초기화한다.
 
-일반 전투 보상은 승리 시 카드 1장과 50% 확률의 티켓을 즉시 생성한다. `useRunInventory.rareCardDropChanceRef`는 희귀 카드 누적 확률을 관리한다. `useBattleSession.battleRewardIsOutOfDepthRef`는 미래 지역 적의 덱 보상 예외를 기록하며 연속 전투에서도 갱신한다. 승리 타일의 `bloodstainedRooms`는 `useRunWorld`가 집합으로 관리하고 저장할 때 배열로 바꾸며 구 저장에서는 빈 목록으로 복원한다.
+일반 전투 보상은 승리 시 카드 1장(고지역 적은 덱)과 열쇠 1개를 즉시 생성하며, 전투 골드는 주지 않는다. 골드는 `mapGold.ts`가 지역별 수제 지형 금고를 포함한 덱 금고 수의 3배만큼(96~111개) 고정 배치하며 지역 합계는 1,000이다. 각 더미의 금액은 서로 다르고 타일에는 숫자를 표시하지 않는다. `MapFloorItem`이 금화 더미를 그리며, `moveOnMap`·`travelSafePath`는 타일 진입과 함께 줍고 `MapEntityMarkers`가 플레이어 위에 `+N`을 잠깐 띄운다. 주울 때 전투 턴을 추가로 쓰지 않는다. `roomGoldPiles`는 남은 금액을 저장하며 0은 이미 주운 더미를 뜻한다. 보스전은 카드 1장과 티켓 2장을 주며 보스 처치 축복이 다음 지역 덱을 추가한다. `useRunInventory.rareCardDropChanceRef`는 희귀 카드 누적 확률을 관리한다. `useBattleSession.battleRewardIsOutOfDepthRef`는 미래 지역 적의 덱 보상 예외를 기록하며 연속 전투에서도 갱신한다. 승리 타일의 `bloodstainedRooms`는 `useRunWorld`가 집합으로 관리하고 저장할 때 배열로 바꾸며 구 저장에서는 빈 목록으로 복원한다.
 
 ### 카드 사용 한 번
 
@@ -387,7 +396,7 @@ flowchart LR
 
 React의 `useState`는 현재 열린 페이지가 살아 있는 동안의 메모리다. 탐험 진행 일부는 별도의 저장 코드가 `localStorage`에서 복원한다. 저장 대상은 맵 화면 상태이며, 전투 중이거나 덱 편집 중인 상태는 저장하지 않는다. 패배하거나 새 탐험을 시작하면 진행 저장을 지운다.
 
-`saveGame.ts`는 버전 6 저장 봉투를 읽고 쓴다. 지역 높이 41→31칸 축소 전의 버전 1~5 탐험은 복원하지 않는다. 사용자는 개발 저장을 중요하게 보지 않으며 필요 시 초기화를 허용했다. 이후 저장 범위는 기존처럼 지도 화면이고, 새로고침 복원은 유지한다. 현재 진행 저장과 `telemetry.ts`의 전투 기록은 별도 항목이다. 진행 저장을 확장할 때는 다음을 검토한다.
+`saveGame.ts`는 버전 7 저장 봉투를 읽고 쓴다. 지도 비율을 321×31→212×47칸으로 바꾸기 전의 버전 1~6 탐험은 복원하지 않는다. 사용자는 개발 저장을 중요하게 보지 않으며 필요 시 초기화를 허용했다. 이후 저장 범위는 기존처럼 지도 화면이고, 새로고침 복원은 유지한다. 현재 진행 저장과 `telemetry.ts`의 전투 기록은 별도 항목이다. 진행 저장을 확장할 때는 다음을 검토한다.
 
 - 저장할 상태와 다시 계산할 상태의 구분
 - 카드·덱·적 ID의 안정성
@@ -488,4 +497,4 @@ $env:GITHUB_ACTIONS='true'; npm run build:pages
 
 최근 배포 실패 중에는 코드가 실행되기 전 GitHub runner가 시작하지 못한 `startup_failure` 사례도 있었다. 배포가 실패하면 먼저 로컬 빌드 결과와 Actions 로그를 나눠서 확인한다.
 
-2026-11-05: 상점·골드 동작은 제거했다. cardPackActions.ts는 기존 카드팩 개봉만 담당한다. 금고 티켓 지급은 deckVaultActions.ts의 중복 개방 방지와 함께 처리한다. 안전구역 희귀 편집은 deckEditorRules.ts에서 용량 검사 후 허용한다.
+2026-11-05: 일반·피의 상점과 골드 축복 동작을 제거했다. 2026-11-08: 전투 골드 보상을 제거하고 지역당 96~111개, 총 1,000골드의 필드 더미를 추가했다. 플레이어는 타일에 들어서면 추가 턴 없이 골드를 줍고, 진행 저장은 현재 더미와 획득 표시를 보존한다. 지도 상단의 보유량 표시는 유지한다. cardPackActions.ts는 기존 카드팩 개봉만 담당한다. 금고 티켓 지급은 deckVaultActions.ts의 중복 개방 방지와 함께 처리한다. 안전구역 희귀 편집은 deckEditorRules.ts에서 용량 검사 후 허용한다.

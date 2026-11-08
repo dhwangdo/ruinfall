@@ -68,6 +68,7 @@ export function BattleEnemyUnit({
               forceMagic={enemy.nextAttackMagic}
               resistance={resistance}
               amplification={enemy.amplification ?? 0}
+              amplificationEffectiveness={(enemy.amplification ?? 0) > 0 ? enemy.statusEffectiveness ?? 30 : 30}
               ignoreNegativeResistance={ignoreNegativeResistance}
             />
           )}
@@ -98,6 +99,7 @@ export function BattleEnemyUnit({
         {enemy.hp > 0 && <div className="combat-buffs enemy-effects" aria-label="적 상태 효과">
           {(enemy.resistance ?? 0) !== 0 && <BattleStatusBadge kind={enemy.resistance! < 0 ? "debuff" : "buff"} description={STATUS.resistance(enemy.resistance!)}>{statusLabel("resistance", enemy.resistance!)}</BattleStatusBadge>}
           {(enemy.amplification ?? 0) !== 0 && <BattleStatusBadge kind={enemy.amplification! < 0 ? "debuff" : "buff"} description={STATUS.amplification(enemy.amplification!)}>{statusLabel("amplification", enemy.amplification!)}</BattleStatusBadge>}
+          {(enemy.statusEffectiveness ?? 30) > 30 && <BattleStatusBadge description={enemy.trait ?? ""}>강화됨</BattleStatusBadge>}
           {enemy.physicalBlock > 0 && <BattleStatusBadge description={STATUS.enemyBlock}>방어 {enemy.physicalBlock}</BattleStatusBadge>}
           {enemy.stunned && <BattleStatusBadge kind="debuff" description={STATUS.stunned}>행동 불가 1</BattleStatusBadge>}
           {enemy.stunAllyOnDeath && <BattleStatusBadge description={enemy.trait ?? ""}>인형 조종</BattleStatusBadge>}

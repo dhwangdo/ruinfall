@@ -1,3 +1,4 @@
+import { occupiedDeckSpace } from "../game/stickers";
 import { CardVisual } from "./CardVisual";
 import type { MouseEvent as ReactMouseEvent } from "react";
 import { DeckName } from "./DeckName";
@@ -52,7 +53,7 @@ export function BattleDeckCheckModal({
                   onEditionTooltipLeave={onEditionTooltipLeave}
                 />
               </strong>
-              <small>{deck.cards.length} / {deck.capacity}</small>
+              <small>{occupiedDeckSpace(deck.cards)} / {deck.capacity}</small>
             </button>
           ))}
         </div>
@@ -65,7 +66,7 @@ export function BattleDeckCheckModal({
                   card={card}
                   variant="compact"
                   count={cardIds.length}
-                  className={`${card.rarity === "legendary" ? "is-painted" : ""}`}
+                  className={`${card.rarity === "legendary" ? "is-legendary" : ""}`}
                   key={`${card.id}-${card.name}`}
                 />
               ))}

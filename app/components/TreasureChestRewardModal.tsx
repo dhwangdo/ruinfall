@@ -1,3 +1,4 @@
+import { occupiedDeckSpace } from "../game/stickers";
 import { CardVisual } from "./CardVisual";
 import { ConsumableVisual } from "./ConsumableVisual";
 import type { Dispatch, SetStateAction } from "react";
@@ -54,7 +55,7 @@ export function TreasureChestRewardModal({
               <div className="battle-reward-deck treasure-chest-reward-deck" key={`treasure-deck-${deck.id}`}>
                 <span className="floor-deck-icon" aria-hidden="true" />
                 <strong><DeckName deck={deck} /></strong>
-                <span>{deck.cards.length} / {deck.capacity}</span>
+                <span>{occupiedDeckSpace(deck.cards)} / {deck.capacity}</span>
               </div>
             ))}
             {reward.cards.map((card) => (

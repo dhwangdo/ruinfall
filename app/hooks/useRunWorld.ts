@@ -24,7 +24,13 @@ export function useRunWorld() {
 
   const [defeatedBossRegions, setDefeatedBossRegions] = useState<Set<number>>(() => new Set());
 
-  const [mapEnemyCellMemory, setMapEnemyCellMemory] = useState<MapEnemyCellMemory>({});
+  const [mapEnemyCellMemory, setRenderedMapEnemyCellMemory] = useState<MapEnemyCellMemory>({});
+  const mapEnemyCellMemoryRef = useRef<MapEnemyCellMemory>({});
+  const setMapEnemyCellMemory = useCallback<Dispatch<SetStateAction<MapEnemyCellMemory>>>((update) => {
+    const next = typeof update === "function" ? update(mapEnemyCellMemoryRef.current) : update;
+    mapEnemyCellMemoryRef.current = next;
+    setRenderedMapEnemyCellMemory(next);
+  }, []);
 
   const [mapBombs, setMapBombs] = useState<MapBomb[]>([]);
 
@@ -58,6 +64,7 @@ export function useRunWorld() {
   const [usedBlessingRooms, setUsedBlessingRooms] = useState<Set<string>>(() => new Set());
 
   const [rockBombHits, setRockBombHits] = useState<Record<string, number>>({});
+  const [roomServiceUses, setRoomServiceUses] = useState<Record<string, number>>({});
 
   const generatedMapRoomKeysRef = useRef<Set<string>>(new Set([mapRoomKey(MAP_START)]));
 
@@ -92,13 +99,13 @@ export function useRunWorld() {
     mapEnemyCellMemory, mapBombs, destroyedShopRooms, collapsedExtractionShrineRooms,
     collapsedRecoveryShrineRooms, collapsedVitalityShrineRooms, collapsedMindEyeShrineRooms,
     collapsedTransformShrineRooms, collapsedTreasureChestRooms, openedDeckVaultRooms,
-    usedHealRooms, usedBlessingRooms, rockBombHits, bloodstainedRooms,
+    usedHealRooms, usedBlessingRooms, rockBombHits, bloodstainedRooms, roomServiceUses,
   }), [
     mapSeed, mapPosition, seenRooms, safeAreaEntrySeenRooms, mapEnemyWorld, defeatedBossRegions,
     mapEnemyCellMemory, mapBombs, destroyedShopRooms, collapsedExtractionShrineRooms,
     collapsedRecoveryShrineRooms, collapsedVitalityShrineRooms, collapsedMindEyeShrineRooms,
     collapsedTransformShrineRooms, collapsedTreasureChestRooms, openedDeckVaultRooms,
-    usedHealRooms, usedBlessingRooms, rockBombHits, bloodstainedRooms,
+    usedHealRooms, usedBlessingRooms, rockBombHits, bloodstainedRooms, roomServiceUses,
   ]);
   const restoreWorld = useCallback((state: PreparedRunRestore) => {
     setMapSeed(state.mapSeed);
@@ -120,16 +127,18 @@ export function useRunWorld() {
     setUsedHealRooms(new Set(state.usedHealRooms));
     setUsedBlessingRooms(new Set(state.usedBlessingRooms));
     setRockBombHits(state.rockBombHits);
+    setRoomServiceUses(state.roomServiceUses);
     mapBombsRef.current = state.mapBombs;
     generatedMapRoomKeysRef.current = new Set([
       ...state.seenRooms, ...Object.keys(state.roomDrops), ...Object.keys(state.roomConsumableDrops), ...Object.keys(state.roomDeckVaults),
+      ...Object.keys(state.roomGoldPiles),
     ]);
-  }, [setOpenedDeckVaultRooms]);
+  }, [setOpenedDeckVaultRooms, setMapEnemyCellMemory]);
   return {
     mapSeed, setMapSeed, mapPosition, setMapPosition, seenRooms, setSeenRooms,
     bloodstainedRooms, setBloodstainedRooms,
     safeAreaEntrySeenRooms, setSafeAreaEntrySeenRooms, mapEnemyWorld, setMapEnemyWorld,
-    defeatedBossRegions, setDefeatedBossRegions, mapEnemyCellMemory, setMapEnemyCellMemory,
+    defeatedBossRegions, setDefeatedBossRegions, mapEnemyCellMemory, mapEnemyCellMemoryRef, setMapEnemyCellMemory,
     mapBombs, setMapBombs, mapBombsRef, destroyedShopRooms, setDestroyedShopRooms,
     collapsedExtractionShrineRooms, setCollapsedExtractionShrineRooms, collapsedRecoveryShrineRooms,
     setCollapsedRecoveryShrineRooms, collapsedVitalityShrineRooms, setCollapsedVitalityShrineRooms,
@@ -138,7 +147,7 @@ export function useRunWorld() {
     collapsedTreasureChestRooms,
     openedDeckVaultRooms, openedDeckVaultRoomsRef, setOpenedDeckVaultRooms,
     setCollapsedTreasureChestRooms, usedHealRooms, setUsedHealRooms, usedBlessingRooms,
-    setUsedBlessingRooms, rockBombHits, setRockBombHits, generatedMapRoomKeysRef,
+    setUsedBlessingRooms, rockBombHits, setRockBombHits, roomServiceUses, setRoomServiceUses, generatedMapRoomKeysRef,
     setMapBombsSynced, effectiveRoomType, saveState, restoreWorld,
   };
 }
