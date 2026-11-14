@@ -73,11 +73,21 @@ func run() -> void:
 	var guide: Control = game.get_node("BattleHoldGuide")
 	guide._process(0)
 	assert(not guide.arrow.visible, "untargeted cards must not show an arrow")
+	assert(guide.use_glow.visible, "usable untargeted card must glow yellow")
 	assert(not game.battle_keyboard_drag._can_latch_lift(game, point), "non-targeted drag must not latch")
 	game.battle_state["energy"] = 0
 	guide._process(0)
 	assert(not guide.arrow.visible, "untargeted cards must not show an arrow at any energy")
+	assert(not guide.use_glow.visible, "unaffordable card must not glow")
 	game.battle_state["energy"] = 3
+	move_pointer(game.battle_pile_widgets[0].get_global_rect().get_center())
+	await process_frame
+	guide._process(0)
+	assert(not guide.use_glow.visible, "file placement must not show card-use glow")
+	move_pointer(point)
+	await process_frame
+	guide._process(0)
+	assert(guide.use_glow.visible, "glow must return in usable area")
 	var origin: Dictionary = game.battle_keyboard_drag.capture_origin(game)
 	game.battle_keyboard_drag._commit_or_cancel(game, point)
 	assert(not root.gui_is_dragging())
@@ -122,6 +132,7 @@ func run() -> void:
 	guide = game.get_node("BattleHoldGuide")
 	guide._process(0)
 	assert(guide.arrow.visible and guide.arrow.color == Color("#ff9a00"))
+	assert(not guide.use_glow.visible, "targeted aim must keep orange arrow only")
 	assert(guide.arrow.tip.distance_to(Vector2(700, 700)) < 0.1)
 	move_pointer(Vector2(400, 5))
 	await process_frame
@@ -188,7 +199,7 @@ func run() -> void:
 	assert(aimed_center.distance_to(enemy.get_global_rect().get_center()) < 0.1, "orange card must fly to selected enemy")
 	await create_timer(0.5).timeout
 	assert(game._battle_hand_card(301).is_empty(), "enemy click must use targeted card")
-	print("PASS: no untargeted arrow, lower-right exit, targeting lower cancel, native upward drag latch, opaque file placement, staged flight and enemy use")
+	print("PASS: yellow use glow with no arrow, affordability/file exclusions, lower-right exit, targeting lower cancel, native upward drag latch, opaque file placement and enemy use")
 	game.queue_free()
 	await process_frame
 	quit()
