@@ -12,6 +12,7 @@ var visual_controls: Array[Control] = []
 var obstacle_controls: Array[Control] = []
 var prompt_text := ""
 var prompt_above_focus := false
+var pointer_provider: Callable
 var _dimmer: ColorRect
 var _prompt: Label
 var _last_hole := Rect2(-1, -1, -1, -1)
@@ -75,12 +76,21 @@ func _process(_delta: float) -> void:
 		return
 	_update_dimmer_geometry()
 	_layout_prompt()
+	var pointer: Vector2 = pointer_provider.call() if pointer_provider.is_valid() \
+		else get_global_transform_with_canvas() * get_local_mouse_position()
+	for control in interaction_controls:
+		if is_instance_valid(control) and control.has_method("contains_choice_point"):
+			control.call("set_choice_hovered", control.call("contains_choice_point", pointer))
 
 
 func _has_point(point: Vector2) -> bool:
 	var global_point: Vector2 = get_global_transform_with_canvas() * point
 	for control in interaction_controls:
 		if not is_instance_valid(control) or not control.is_visible_in_tree():
+			continue
+		if control.has_method("contains_choice_point"):
+			if control.call("contains_choice_point", global_point):
+				return false
 			continue
 		var local_point: Vector2 = control.get_global_transform_with_canvas().affine_inverse() * global_point
 		if Rect2(Vector2.ZERO, control.size).has_point(local_point):

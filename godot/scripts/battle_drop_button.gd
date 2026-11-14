@@ -20,6 +20,7 @@ var drop_point_validator: Callable
 var drop_style_resolver: Callable
 var drag_hover_valid := false
 var drag_prompt: Control
+var choice_hovered := false
 var _drop_guide_layers: Dictionary = {}
 var _drop_guide_style := "none"
 var _drop_guide_hovered := false
@@ -166,6 +167,30 @@ func contains_battle_drop_local_point(point: Vector2) -> bool:
 	return _has_point(point)
 
 
+func contains_choice_point(global_point: Vector2) -> bool:
+	if not is_visible_in_tree() or not get_viewport_rect().has_point(global_point):
+		return false
+	var ancestor := get_parent()
+	while ancestor is Control:
+		if ancestor.clip_contents:
+			var point: Vector2 = ancestor.get_global_transform_with_canvas().affine_inverse() * global_point
+			if not Rect2(Vector2.ZERO, ancestor.size).has_point(point):
+				return false
+		ancestor = ancestor.get_parent()
+	for preview in file_drag_previews.values():
+		if is_instance_valid(preview) and preview.is_visible_in_tree():
+			var point: Vector2 = preview.get_global_transform_with_canvas().affine_inverse() * global_point
+			if Rect2(Vector2.ZERO, preview.size).has_point(point):
+				return true
+	return false
+
+
+func set_choice_hovered(enabled: bool) -> void:
+	choice_hovered = enabled
+	if not _drop_guide_layers.is_empty():
+		_drop_guide_layers["hover_outline"].visible = choice_hovered or _drop_guide_hovered
+
+
 func _battle_card_drag_active() -> bool:
 	if not accepts_battle_drops or not get_viewport().gui_is_dragging():
 		return false
@@ -232,6 +257,8 @@ func _apply_drop_guide(style_name: String, hovered: bool) -> void:
 		_drop_guide_layers["forge_glow_inner"].visible = true
 		_drop_guide_layers["forge_glow_outer"].visible = true
 	if _drop_guide_hovered:
+		_drop_guide_layers["hover_outline"].visible = true
+	if choice_hovered:
 		_drop_guide_layers["hover_outline"].visible = true
 	if _drop_guide_style != DROP_GUIDE_FORGE:
 		var outline: Control = _drop_guide_layers["guide_outline"]

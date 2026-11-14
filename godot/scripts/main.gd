@@ -59,6 +59,7 @@ const BattleFreePlayDrop = preload("res://scripts/battle_free_play_drop.gd")
 const BattleChoiceFocus = preload("res://scripts/battle_choice_focus.gd")
 const BattleKeyboardDrag = preload("res://scripts/battle_keyboard_drag.gd")
 const BattleHoldGuide = preload("res://scripts/battle_hold_guide.gd")
+const BattleFileChoiceInput = preload("res://scripts/battle_file_choice_input.gd")
 const StickerServiceSlotDropTarget = preload("res://scripts/sticker_service_slot_drop_target.gd")
 const BattleEnergyOrbScript = preload("res://scripts/battle_energy_orb.gd")
 const BattleEnemyPortraitScript = preload("res://scripts/battle_enemy_portrait.gd")
@@ -467,7 +468,7 @@ func _input(event: InputEvent) -> void:
 	var focused := get_viewport().gui_get_focus_owner()
 	if focused is LineEdit or focused is TextEdit:
 		return
-	if battle_keyboard_drag.handle_input(event, self):
+	if BattleFileChoiceInput.handle_input(event, self) or battle_keyboard_drag.handle_input(event, self):
 		get_viewport().set_input_as_handled()
 
 
@@ -2893,6 +2894,7 @@ func _add_battle_choice_focus() -> void:
 			obstacles.append(hand_widget)
 	var focus := BattleChoiceFocus.new()
 	focus.name = "BattleChoiceFocus"
+	focus.pointer_provider = func() -> Vector2: return pointer_position
 	focus.configure(focus_controls, focus_visuals, prompt, prompt_above_focus, obstacles)
 	add_child(focus)
 
