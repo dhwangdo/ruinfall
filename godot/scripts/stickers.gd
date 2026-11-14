@@ -1,6 +1,7 @@
 extends RefCounted
 class_name PortStickers
 
+const CardUse = preload("res://scripts/card_use.gd")
 const STICKERS := {
 	"moonstone": {"name": "월석 스티커", "description": "이 카드의 비용이 1 감소합니다.", "cell": Vector2i(1, 0)},
 	"clockwork": {"name": "태엽장치 스티커", "description": "이 카드를 손패에서 파일로 옮기면 비용이 1 감소합니다. 전투마다 한 번만 발동합니다.", "cell": Vector2i(2, 0)},
@@ -15,9 +16,6 @@ const STICKERS := {
 }
 const STICKER_IDS := ["moonstone", "clockwork", "bookmark", "kite", "anchor", "glowDinosaur", "bluebird", "hook", "parachute", "comet"]
 const STICKER_ATLAS_PATH := "res://assets/sticker-atlas.png"
-const UNPLAYABLE_CARD_EFFECTS := [
-	"slime", "soil", "rock", "combat_manual", "grimoire", "wolf_talisman", "turtle_talisman", "saeongjima",
-]
 
 
 static func card_sticker_ids(card: Dictionary) -> Array[String]:
@@ -70,7 +68,7 @@ static func with_card_stickers(card: Dictionary, sticker_ids: Array[String]) -> 
 static func compatible_stickers(card: Dictionary) -> Array[String]:
 	var existing := card_sticker_ids(card)
 	var maximum := 3 if str(card.get("effect", "")) == "diy" else 1
-	var unplayable_effect := UNPLAYABLE_CARD_EFFECTS.has(str(card.get("effect", "")))
+	var unplayable_effect := not CardUse.is_playable(card)
 	if existing.size() >= maximum:
 		return []
 	var compatible: Array[String] = []

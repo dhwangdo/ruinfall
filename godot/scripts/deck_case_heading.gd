@@ -5,7 +5,7 @@ const TooltipBindings = preload("res://scripts/tooltip_bindings.gd")
 const HeadingFontRegular = preload("res://assets/fonts/PretendardVariable.woff2")
 const HeadingFont = preload("res://assets/fonts/PretendardVariable700.tres")
 static var _name_font: FontVariation
-static var _count_font: SystemFont
+static var _count_font: FontVariation
 var _lock_shackle_progress := 1.0
 var _lock_shackle_lift_progress := 1.0
 var _lock_color_progress := 1.0
@@ -201,10 +201,8 @@ static func _font_800() -> FontVariation:
 	return _name_font
 
 
-static func _font_arial_700() -> SystemFont:
+static func _font_arial_700() -> FontVariation:
 	if _count_font == null:
-		_count_font = SystemFont.new()
-		_count_font.font_names = PackedStringArray(["Arial"])
-		_count_font.font_weight = 700
+		_count_font = preload("res://scripts/game_fonts.gd").make(700)
 	return _count_font
 

@@ -3,9 +3,12 @@ class_name BattleCardDepartures
 
 signal finished(cancelled: bool)
 
-const PLAY_DURATION_MS := 170.0
+const PLAY_DURATION_MS := 260.0
 const DISCARD_DURATION_MS := 320.0
 const DISCARD_STAGGER_MS := 42.0
+const STAGED_MOVE_MS := 210.0
+const STAGED_PAUSE_MS := 110.0
+const STAGED_EXIT_MS := 270.0
 const PLAY_EASING := Vector4(0.24, 0.78, 0.3, 1.0)
 const DISCARD_EASING := Vector4(0.55, 0.05, 0.82, 0.38)
 
@@ -51,7 +54,7 @@ func play() -> void:
 	_elapsed_ms = 0.0
 	_completed = false
 	_running = true
-	if _reduced_motion or not _card_builder.is_valid() or not ["play", "discard"].has(_mode):
+	if _reduced_motion or not _card_builder.is_valid() or not ["play", "discard", "staged_play", "place"].has(_mode):
 		_finish(false)
 		return
 
@@ -79,7 +82,12 @@ func play() -> void:
 		_set_control_pose(ghost, from_pose)
 		var center := from_pose * (source.size * 0.5)
 		var to_pose: Transform2D
-		if _mode == "play":
+		if _mode == "place":
+			var target_scale := _destination_rect.size / source.size
+			to_pose = _pose_at_center(source.size, target_center, 0.0, target_scale)
+		elif _mode == "staged_play":
+			to_pose = _pose_at_center(source.size, target_center, 0.0, Vector2.ONE)
+		elif _mode == "play":
 			to_pose = _pose_at_center(source.size, target_center, deg_to_rad(-4.0), Vector2(0.78, 0.78))
 		else:
 			# The browser's discard flight exits rightward; the supplied rect is the
@@ -106,7 +114,10 @@ func play() -> void:
 			"original_modulate": original_modulate,
 			"from": from_pose,
 			"to": to_pose,
-			"duration": PLAY_DURATION_MS if _mode == "play" else DISCARD_DURATION_MS,
+			"exit": _pose_at_center(source.size,
+				parent_inverse * Vector2(item.get("player_center", _destination_rect.get_center())),
+				0.0, Vector2(0.4, 0.4)),
+			"duration": STAGED_MOVE_MS + STAGED_PAUSE_MS + STAGED_EXIT_MS if _mode == "staged_play" else PLAY_DURATION_MS if _mode in ["play", "place"] else DISCARD_DURATION_MS,
 			"delay": float(item.get("delay_ms", float(index) * DISCARD_STAGGER_MS if _mode == "discard" else 0.0)),
 		})
 
@@ -136,11 +147,24 @@ func _process(delta: float) -> void:
 			continue
 		var duration: float = flight["duration"]
 		var progress := clampf(local_elapsed / duration, 0.0, 1.0)
-		var eased := _bezier_ease(progress, PLAY_EASING if _mode == "play" else DISCARD_EASING)
+		var eased := _bezier_ease(progress, PLAY_EASING if _mode in ["play", "place"] else DISCARD_EASING)
 		var ghost := flight["ghost"] as Control
 		if is_instance_valid(ghost):
-			_set_control_pose(ghost, _interpolate_pose(flight["from"], flight["to"], eased))
-			ghost.modulate.a = 1.0 - eased
+			if _mode == "staged_play":
+				if local_elapsed < STAGED_MOVE_MS:
+					var arrival := 1.0 - pow(1.0 - clampf(local_elapsed / STAGED_MOVE_MS, 0, 1), 3)
+					_set_control_pose(ghost, _interpolate_pose(flight["from"], flight["to"], arrival))
+					ghost.modulate.a = 1.0
+				elif local_elapsed < STAGED_MOVE_MS + STAGED_PAUSE_MS:
+					_set_control_pose(ghost, flight["to"])
+					ghost.modulate.a = 1.0
+				else:
+					var departure := 1.0 - pow(1.0 - clampf((local_elapsed - STAGED_MOVE_MS - STAGED_PAUSE_MS) / STAGED_EXIT_MS, 0, 1), 3)
+					_set_control_pose(ghost, _interpolate_pose(flight["to"], flight["exit"], departure))
+					ghost.modulate.a = 1.0 - departure
+			else:
+				_set_control_pose(ghost, _interpolate_pose(flight["from"], flight["to"], eased))
+				ghost.modulate.a = 1.0 if _mode == "place" else 1.0 - eased
 		if progress >= 1.0:
 			_remove_ghost(flight)
 			_flights.remove_at(index)

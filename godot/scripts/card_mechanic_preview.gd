@@ -1,5 +1,8 @@
 extends PanelContainer
+
 class_name PortCardMechanicPreview
+
+const CardUse = preload("res://scripts/card_use.gd")
 
 const CardCatalog = preload("res://scripts/card_catalog.gd")
 const CardKeywords = preload("res://scripts/card_keywords.gd")
@@ -276,7 +279,7 @@ func _can_demo_drop(mode: String, index: int) -> bool:
 		"소멸 카드":
 			forge_target_matches = bool(target.get("exhaust", false))
 		"사용 불가 카드":
-			forge_target_matches = not bool(target.get("playable", true))
+			forge_target_matches = not CardUse.is_playable(target)
 		_:
 			forge_target_matches = str(moving.get("forge_target_name", "")) != "" \
 				and str(moving.get("forge_target_name", "")) == str(target.get("name", ""))
@@ -408,7 +411,7 @@ func _find_forge_target(card: Dictionary) -> Dictionary:
 	for candidate in candidates:
 		if str(card.get("forge_target_name", "")) == "소멸 카드" and bool(candidate.get("exhaust", false)):
 			return candidate
-		if str(card.get("forge_target_name", "")) == "사용 불가 카드" and not bool(candidate.get("playable", true)):
+		if str(card.get("forge_target_name", "")) == "사용 불가 카드" and not CardUse.is_playable(candidate):
 			return candidate
 		if card.has("forge_cost") and int(candidate.get("cost", -1)) == int(card.get("forge_cost", -2)):
 			return candidate

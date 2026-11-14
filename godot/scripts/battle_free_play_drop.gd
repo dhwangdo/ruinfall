@@ -1,5 +1,8 @@
 extends RefCounted
 
+const PLAY_HAND_HEIGHT_FRACTION := 0.40
+const CANCEL_HAND_HEIGHT_FRACTION := 0.82
+
 var _pass_through_controls: Array[Control] = []
 
 
@@ -26,7 +29,7 @@ func finish() -> void:
 static func can_drop(point: Vector2, hand: Control, files: Array[Control], payload: Dictionary,
 		validator: Callable, blocked_controls: Array[Control] = []) -> bool:
 	if str(payload.get("kind", "")) != "battle-card" or str(payload.get("source", "")) != "hand" \
-		or not is_instance_valid(hand) or contains_control_children(hand, point) \
+		or not in_play_band(hand, point) \
 		or not bool(validator.call(payload, "center", -1)):
 		return false
 	# A valid solitaire destination always wins over the outside-hand action.
@@ -39,6 +42,20 @@ static func can_drop(point: Vector2, hand: Control, files: Array[Control], paylo
 		if contains_point(control, point):
 			return false
 	return true
+
+
+static func in_play_band(hand: Control, point: Vector2) -> bool:
+	if not is_instance_valid(hand):
+		return false
+	var local := hand.get_global_transform_with_canvas().affine_inverse() * point
+	return local.y < hand.size.y * PLAY_HAND_HEIGHT_FRACTION
+
+
+static func in_cancel_band(hand: Control, point: Vector2) -> bool:
+	if not is_instance_valid(hand):
+		return false
+	var local := hand.get_global_transform_with_canvas().affine_inverse() * point
+	return local.y >= hand.size.y * CANCEL_HAND_HEIGHT_FRACTION
 
 
 static func contains_point(control: Control, point: Vector2) -> bool:

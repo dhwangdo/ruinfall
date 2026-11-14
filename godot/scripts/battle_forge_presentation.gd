@@ -128,7 +128,7 @@ func _resolve_pending_after_layout(game_ref: WeakRef, epoch: int, event_id: int,
 		_scheduled_events.erase(event_id)
 		return
 	var burst = ForgeBurstScript.new()
-	burst.configure(target, DisplayServer.accessibility_should_reduce_animation())
+	burst.configure(target, DisplayServer.accessibility_should_reduce_animation() == 1)
 	_host.add_child(burst)
 	var burst_instance_id: int = burst.get_instance_id()
 	_active_bursts[burst_instance_id] = burst

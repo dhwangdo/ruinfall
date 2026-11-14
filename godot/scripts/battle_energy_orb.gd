@@ -9,7 +9,7 @@ func _ready() -> void:
 
 
 func configure(current_energy: int, max_energy: int) -> void:
-	energy = maxi(0, current_energy)
+	energy = current_energy
 	maximum_energy = maxi(1, max_energy)
 	queue_redraw()
 
@@ -36,7 +36,7 @@ func _draw() -> void:
 
 
 func _draw_energy_text(center: Vector2) -> void:
-	var font := ThemeDB.fallback_font
+	var font := preload("res://scripts/game_fonts.gd").make(700)
 	if font == null:
 		return
 	var current_text := str(energy)

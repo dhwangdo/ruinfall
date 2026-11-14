@@ -6,7 +6,7 @@ const PretendardCardFont = preload("res://assets/fonts/PretendardVariable.woff2"
 
 static var _name_font: FontVariation
 static var _body_font: FontVariation
-static var _cost_font: SystemFont
+static var _cost_font: FontVariation
 
 
 static func _ensure_fonts() -> void:
@@ -19,9 +19,7 @@ static func _ensure_fonts() -> void:
 	_body_font = FontVariation.new()
 	_body_font.base_font = PretendardCardFont
 	_body_font.variation_opentype = {weight_axis: 400.0}
-	_cost_font = SystemFont.new()
-	_cost_font.font_names = PackedStringArray(["Arial"])
-	_cost_font.font_weight = 800
+	_cost_font = preload("res://scripts/game_fonts.gd").make(800)
 
 
 static func compact(

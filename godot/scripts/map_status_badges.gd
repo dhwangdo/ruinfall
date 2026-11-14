@@ -24,7 +24,7 @@ static func create(lament_charges: int, karma_stage: int, karma_description: Str
 
 
 static func _create_badge(text: String, background: Color, border: Color, foreground: Color,
-		font_families: PackedStringArray, tooltip_title: String, description: String) -> PanelContainer:
+		_font_families: PackedStringArray, tooltip_title: String, description: String) -> PanelContainer:
 	var badge := PanelContainer.new()
 	badge.custom_minimum_size = Vector2(144.0, 44.0)
 	badge.size_flags_horizontal = Control.SIZE_EXPAND_FILL
@@ -47,23 +47,11 @@ static func _create_badge(text: String, background: Color, border: Color, foregr
 	label.autowrap_mode = TextServer.AUTOWRAP_OFF
 	label.add_theme_font_size_override("font_size", 13)
 	label.add_theme_color_override("font_color", foreground)
-	if OS.has_feature("web"):
-		var font := FontVariation.new()
-		font.base_font = CARD_FONT
-		var weight_axis := TextServerManager.get_primary_interface().name_to_tag("wght")
-		font.variation_opentype = {weight_axis: 800.0}
-		label.add_theme_font_override("font", font)
-	elif "Pretendard" in font_families:
-		var font := FontVariation.new()
-		font.base_font = CARD_FONT
-		var weight_axis := TextServerManager.get_primary_interface().name_to_tag("wght")
-		font.variation_opentype = {weight_axis: 800.0}
-		label.add_theme_font_override("font", font)
-	else:
-		var font := SystemFont.new()
-		font.font_names = font_families
-		font.font_weight = 800
-		label.add_theme_font_override("font", font)
+	var font := FontVariation.new()
+	font.base_font = CARD_FONT
+	var weight_axis := TextServerManager.get_primary_interface().name_to_tag("wght")
+	font.variation_opentype = {weight_axis: 800.0}
+	label.add_theme_font_override("font", font)
 	label.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	badge.add_child(label)
 	return badge

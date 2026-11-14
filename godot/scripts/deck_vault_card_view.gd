@@ -1,6 +1,7 @@
 extends RefCounted
 class_name PortDeckVaultCardView
 
+const CardUse = preload("res://scripts/card_use.gd")
 const CardStickers = preload("res://scripts/stickers.gd")
 const DeckEditorRules = preload("res://scripts/deck_editor_rules.gd")
 
@@ -126,6 +127,6 @@ static func korean_name_key(name: String) -> String:
 
 
 static func _card_cost(card: Dictionary) -> int:
-	if CardStickers.UNPLAYABLE_CARD_EFFECTS.has(str(card.get("effect", ""))):
+	if not CardUse.is_playable(card):
 		return -1
 	return int(CardStickers.card_energy_cost(card) if card.has("cost") else -1)

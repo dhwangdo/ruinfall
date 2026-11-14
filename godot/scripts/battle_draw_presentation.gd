@@ -297,7 +297,7 @@ func _restore_pre_hidden(widget: Control) -> void:
 
 
 func _reduced_motion() -> bool:
-	return DisplayServer.accessibility_should_reduce_animation()
+	return DisplayServer.accessibility_should_reduce_animation() == 1
 
 
 func _is_current(game, ticket: int) -> bool:

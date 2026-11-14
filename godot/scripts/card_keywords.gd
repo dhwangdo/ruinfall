@@ -1,5 +1,8 @@
 extends RefCounted
+
 class_name PortCardKeywords
+
+const CardUse = preload("res://scripts/card_use.gd")
 
 const CardStickers = preload("res://scripts/stickers.gd")
 
@@ -44,7 +47,7 @@ static func tooltip_sections(card: Dictionary) -> Array[Dictionary]:
 			or description.contains("재련") or card.has("forge_cost") or card.has("forge_costs") \
 			or card.has("forge_target_name") or bool(card.get("forge_any", false)):
 		_add_keyword(keywords, "재련")
-	if not bool(card.get("playable", true)) or description.contains("사용 불가") \
+	if not CardUse.is_playable(card) or description.contains("사용 불가") \
 			or (not bool(card.get("forged", false)) \
 			and str(card.get("forge_target_name", "")) == "사용 불가 카드"):
 		_add_keyword(keywords, "사용 불가")

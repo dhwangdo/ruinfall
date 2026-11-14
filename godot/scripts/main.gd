@@ -1,5 +1,7 @@
 extends Control
 
+const CardUse = preload("res://scripts/card_use.gd")
+
 const CardCatalog = preload("res://scripts/card_catalog.gd")
 const DeckEditions = preload("res://scripts/deck_editions.gd")
 const DeckEditorRules = preload("res://scripts/deck_editor_rules.gd")
@@ -56,6 +58,7 @@ const DeckEditionList = preload("res://scripts/deck_edition_list.gd")
 const BattleFreePlayDrop = preload("res://scripts/battle_free_play_drop.gd")
 const BattleChoiceFocus = preload("res://scripts/battle_choice_focus.gd")
 const BattleKeyboardDrag = preload("res://scripts/battle_keyboard_drag.gd")
+const BattleHoldGuide = preload("res://scripts/battle_hold_guide.gd")
 const StickerServiceSlotDropTarget = preload("res://scripts/sticker_service_slot_drop_target.gd")
 const BattleEnergyOrbScript = preload("res://scripts/battle_energy_orb.gd")
 const BattleEnemyPortraitScript = preload("res://scripts/battle_enemy_portrait.gd")
@@ -510,6 +513,7 @@ func _unhandled_key_input(event: InputEvent) -> void:
 	# Map movement follows OS key repeats, as in the browser, with no separate frame timer.
 	if key_event.echo and not (screen_name == "map" and key_event.keycode in [
 		KEY_UP, KEY_DOWN, KEY_LEFT, KEY_RIGHT, KEY_W, KEY_A, KEY_S, KEY_D,
+		KEY_1, KEY_3, KEY_7, KEY_9,
 		KEY_KP_7, KEY_KP_8, KEY_KP_9,
 		KEY_KP_4, KEY_KP_6, KEY_KP_1, KEY_KP_2, KEY_KP_3,
 	]):
@@ -535,7 +539,7 @@ func _unhandled_key_input(event: InputEvent) -> void:
 		and not key_event.alt_pressed and not key_event.ctrl_pressed and not key_event.meta_pressed \
 		and selected_battle_hand_card_id >= 0 and _battle_drop_available():
 		var card := _battle_hand_card(selected_battle_hand_card_id)
-		if not card.is_empty() and bool(card.get("playable", true)):
+		if not card.is_empty() and CardUse.is_playable(card):
 			if _card_can_target_enemy(card):
 				battle_state["message"] = "%s: 적용할 적을 선택하세요." % str(card.get("name", "카드"))
 				_show_battle()
@@ -569,6 +573,10 @@ func _unhandled_key_input(event: InputEvent) -> void:
 		KEY_A: Vector2i(-1, 0),
 		KEY_S: Vector2i(0, 1),
 		KEY_D: Vector2i(1, 0),
+		KEY_7: Vector2i(-1, -1),
+		KEY_9: Vector2i(1, -1),
+		KEY_1: Vector2i(-1, 1),
+		KEY_3: Vector2i(1, 1),
 		KEY_KP_7: Vector2i(-1, -1),
 		KEY_KP_8: Vector2i(0, -1),
 		KEY_KP_9: Vector2i(1, -1),
@@ -881,12 +889,7 @@ func _refresh_map_travel_controls() -> void:
 
 func _install_theme() -> void:
 	var game_theme := Theme.new()
-	if OS.has_feature("web"):
-		game_theme.default_font = WEB_UI_FONT
-	else:
-		var korean_font := SystemFont.new()
-		korean_font.font_names = PackedStringArray(["Pretendard", "Malgun Gothic", "맑은 고딕", "Noto Sans CJK KR"])
-		game_theme.default_font = korean_font
+	game_theme.default_font = WEB_UI_FONT
 	game_theme.default_font_size = 16
 	theme = game_theme
 	var card_font: FontFile = preload("res://assets/fonts/PretendardVariable.woff2")
@@ -895,28 +898,12 @@ func _install_theme() -> void:
 	map_currency_font = FontVariation.new()
 	map_currency_font.base_font = card_font
 	map_currency_font.variation_opentype = {card_font_weight_axis: 700.0}
-	if OS.has_feature("web"):
-		map_health_font = _web_weight_font(card_font, card_font_weight_axis, 800)
-		map_control_font = _web_weight_font(card_font, card_font_weight_axis, 700)
-	else:
-		var health_font := SystemFont.new()
-		health_font.font_names = PackedStringArray(["Arial"])
-		health_font.font_weight = 800
-		map_health_font = health_font
-		var control_font := SystemFont.new()
-		control_font.font_names = PackedStringArray(["Arial"])
-		control_font.font_weight = 700
-		map_control_font = control_font
+	map_health_font = _web_weight_font(card_font, card_font_weight_axis, 800)
+	map_control_font = _web_weight_font(card_font, card_font_weight_axis, 700)
 	battle_card_name_font = FontVariation.new()
 	battle_card_name_font.base_font = card_font
 	battle_card_name_font.variation_opentype = {card_font_weight_axis: 700.0}
-	if OS.has_feature("web"):
-		battle_card_cost_font = _web_weight_font(card_font, card_font_weight_axis, 800)
-	else:
-		var cost_font := SystemFont.new()
-		cost_font.font_names = PackedStringArray(["Arial", "Malgun Gothic", "맑은 고딕"])
-		cost_font.font_weight = 800
-		battle_card_cost_font = cost_font
+	battle_card_cost_font = _web_weight_font(card_font, card_font_weight_axis, 800)
 	battle_card_body_font = FontVariation.new()
 	battle_card_body_font.base_font = card_font
 	battle_card_body_font.variation_opentype = {card_font_weight_axis: 400.0}
@@ -1565,12 +1552,12 @@ func _show_map() -> void:
 	search_button.disabled = auto_travel_active or map_travel_active
 	toolbar.add_child(search_button)
 	toolbar.add_child(_map_restart_button())
-	var inventory_label := "인벤토리" if OS.has_feature("web") else "▤  인벤토리"
+	var inventory_label := "인벤토리"
 	var inventory_button := _button(inventory_label, Callable(self, "_show_deck"), Vector2(126, 52))
 	inventory_button.add_theme_font_override("font", map_control_font)
 	inventory_button.add_theme_font_size_override("font_size", 16)
 	toolbar.add_child(inventory_button)
-	var settings_label := "설정" if OS.has_feature("web") else "⚙  설정"
+	var settings_label := "설정"
 	var settings_button := _button(settings_label, Callable(self, "_open_map_settings"), Vector2(82, 52))
 	settings_button.add_theme_font_override("font", map_control_font)
 	settings_button.add_theme_font_size_override("font_size", 16)
@@ -1865,6 +1852,8 @@ func _clear_map_vault_preview() -> void:
 func _notification(what: int) -> void:
 	if what == NOTIFICATION_DRAG_BEGIN:
 		card_info_tooltip.clear()
+		_hide_card_hover_preview()
+		_hide_card_mechanic_preview()
 	if what in [NOTIFICATION_WM_WINDOW_FOCUS_OUT, NOTIFICATION_APPLICATION_FOCUS_OUT, NOTIFICATION_APPLICATION_PAUSED]:
 		card_info_tooltip.clear()
 		run_reset_hold.cancel()
@@ -1892,8 +1881,7 @@ func _drop_data(at_position: Vector2, data: Variant) -> void:
 
 
 func _is_outside_battle_hand() -> bool:
-	return is_instance_valid(active_battle_hand_area) \
-		and not BattleFreePlayDrop.contains_control_children(active_battle_hand_area, pointer_position)
+	return BattleFreePlayDrop.in_play_band(active_battle_hand_area, pointer_position)
 
 
 func _battle_enemy_drop_controls() -> Array[Control]:
@@ -2848,6 +2836,10 @@ func _show_battle(keep_draw_phase: bool = false) -> void:
 	if battle_state.get("status") == "won":
 		_finish_battle_win()
 	else:
+		var hold_guide := BattleHoldGuide.new()
+		hold_guide.name = "BattleHoldGuide"
+		hold_guide.game_ref = weakref(self)
+		add_child(hold_guide)
 		_add_battle_choice_focus()
 
 
@@ -2983,6 +2975,18 @@ func _show_battle_card_ledger() -> void:
 				cards_flow.add_child(card_holder)
 			else:
 				cards_flow.add_child(card_view)
+
+
+func _battle_player_destination() -> Rect2:
+	if is_instance_valid(active_battle_play_area) and is_instance_valid(active_battle_play_area.player):
+		return active_battle_play_area.player.get_global_rect()
+	return active_battle_player_hp.get_global_rect() if is_instance_valid(active_battle_player_hp) else Rect2()
+
+
+func _can_begin_card_play(card: Dictionary) -> bool:
+	return _battle_drop_available() and battle_card_ledger_open.is_empty() and CardUse.is_playable(card) \
+		and BattleRules.can_pay_card_cost(battle_state, card) \
+		and battle_state.get("hand", []).size() - 1 >= int(card.get("discard_cost", 0))
 
 
 func _battle_drop_available() -> bool:
@@ -3310,13 +3314,28 @@ func _on_battle_card_dropped(payload: Dictionary, target_kind: String, target_in
 		return
 	var card_id := int(payload.get("card_id", -1))
 	if target_kind == "center" and source == "hand":
-		_play_card(card_id)
+		_play_card(card_id, payload.get("held_origin", {}))
 		return
 	elif target_kind == "file":
-		battle_state = BattleRules.move_cards_to_file(battle_state, payload, target_index)
+		var moving_card := _battle_hand_card(card_id)
+		var next_state := BattleRules.move_cards_to_file(battle_state, payload, target_index)
+		var held_origin: Dictionary = payload.get("held_origin", {})
+		if source == "hand" and held_origin.has("pose") and not moving_card.is_empty() \
+				and BattleRules._hand_card_index(next_state.get("hand", []), card_id) < 0 \
+				and target_index >= 0 and target_index < battle_pile_widgets.size():
+			var file := battle_pile_widgets[target_index]
+			var top_index: int = next_state["piles"][target_index].size() - 1
+			var target_top: Vector2 = file.get_global_transform_with_canvas() * Vector2(0, top_index * PILE_STACK_OFFSET)
+			var destination := Rect2(target_top, Vector2(136, 191) * PILE_CARD_SCALE)
+			var carrier := _released_card_source(moving_card, battle_hand_card_widgets.get(card_id), held_origin)
+			var items: Array = [{"card": moving_card, "source": carrier}]
+			var ticket := await battle_draw_presentation.play_departures(self, items, next_state, "place", destination)
+			if ticket < 0:
+				return
+		battle_state = next_state
 	elif target_kind == "enemy" and source == "hand":
 		battle_state = BattleRules.select_enemy_target(battle_state, target_index)
-		_play_card(card_id)
+		_play_card(card_id, payload.get("held_origin", {}))
 		return
 	else:
 		return
@@ -3349,6 +3368,7 @@ func _card_widget(card: Dictionary, interactive: bool = true, sticker_tooltips: 
 	panel.add_theme_stylebox_override("panel", _card_style(card,
 		interactive and screen_name == "battle" and int(card.get("id", -1)) == selected_battle_hand_card_id))
 	panel.mouse_filter = Control.MOUSE_FILTER_PASS
+	panel.set_meta("targeted_card", CardUse.requires_target(card))
 	if interactive and screen_name == "battle" and _battle_drop_available():
 		panel.drag_payload = {
 			"kind": "battle-card",
@@ -3377,7 +3397,7 @@ func _card_widget(card: Dictionary, interactive: bool = true, sticker_tooltips: 
 	var header := HBoxContainer.new()
 	header.mouse_filter = Control.MOUSE_FILTER_PASS
 	var can_show_cost := card.has("cost") \
-		and not CardStickers.UNPLAYABLE_CARD_EFFECTS.has(str(card.get("effect", "")))
+		and CardUse.is_playable(card)
 	var header_text_color := Color("#ffe08a") if str(card.get("rarity", "")) == "rare" else Color.WHITE
 	if can_show_cost:
 		var shown_cost = BattleRules.effective_card_cost(battle_state, card) \
@@ -3590,7 +3610,32 @@ func _card_description(card: Dictionary, use_battle_context: bool = true) -> Str
 		description += "\n토큰."
 	if CardStickers.retains_card(card) and not description.contains("보존."):
 		description += " 보존."
-	return _add_card_rule_marker(card, description)
+	return _add_card_rule_marker(card, _append_forge_description(card, description))
+
+
+func _append_forge_description(card: Dictionary, description: String) -> String:
+	var effect := str(card.get("effect", ""))
+	if effect in ["obsidian_dagger", "astronomy_research", "necromancy_research", "mass_deal"]:
+		return description
+	if bool(card.get("forged", false)):
+		var condition := RegEx.new()
+		condition.compile("\\n?재련:.*$")
+		return condition.sub(description, "") + "\n재련됨."
+	if description.contains("재련:"):
+		return description
+	var requirement := ""
+	if card.has("forge_cost"):
+		requirement = "%d코스트" % int(card["forge_cost"])
+	elif card.has("forge_costs"):
+		var costs: Array[String] = []
+		for cost in card["forge_costs"]:
+			costs.append(str(cost))
+		requirement = " 또는 ".join(costs) + "코스트"
+	elif card.has("forge_target_name"):
+		requirement = str(card["forge_target_name"])
+	elif bool(card.get("forge_any", false)):
+		requirement = "아무거나"
+	return description if requirement.is_empty() else description + "\n재련: [%s]" % requirement
 
 
 func _browser_star_gain_description(card: Dictionary, fallback: String) -> String:
@@ -3650,7 +3695,28 @@ func _add_card_rule_marker(card: Dictionary, description: String) -> String:
 	return marker + description
 
 
-func _play_card(card_id: int) -> void:
+func _released_card_source(card: Dictionary, source_widget: Control, held_origin: Dictionary) -> Control:
+	if not held_origin.has("pose") or not held_origin.has("size"):
+		return source_widget
+	# Keep the displayed pose alive through native drag cleanup, without a hand flash.
+	var carrier := _card_widget(card, false, false, false)
+	carrier.name = "ReleasedCardSource"
+	add_child(carrier)
+	carrier.pivot_offset = Vector2.ZERO
+	carrier.size = held_origin["size"]
+	var local_pose: Transform2D = get_global_transform_with_canvas().affine_inverse() * Transform2D(held_origin["pose"])
+	carrier.position = local_pose.origin
+	carrier.rotation = local_pose.get_rotation()
+	carrier.scale = local_pose.get_scale()
+	carrier.z_as_relative = false
+	carrier.z_index = 4095
+	_set_child_controls_mouse_ignored(carrier)
+	if is_instance_valid(source_widget):
+		source_widget.modulate.a = 0.0
+	return carrier
+
+
+func _play_card(card_id: int, held_origin: Dictionary = {}) -> void:
 	if battle_turn_resolving or battle_draw_presentation.active:
 		return
 	var played_card := _battle_hand_card(card_id)
@@ -3673,10 +3739,18 @@ func _play_card(card_id: int) -> void:
 					break
 			if parachute_target_file >= 0:
 				break
-	if not played_card.is_empty() and BattleRules._hand_card_index(next_state.get("hand", []), card_id) < 0:
+	if not played_card.is_empty() and (BattleRules._hand_card_index(next_state.get("hand", []), card_id) < 0 \
+			or int(next_state.get("pending_play_card_id", -1)) == card_id):
 		var destination := active_battle_play_area.get_global_rect() if is_instance_valid(active_battle_play_area) else get_viewport_rect()
-		var items: Array = [{"card": played_card, "source": source_widget}]
-		var phase_ticket := await battle_draw_presentation.play_departures(self, items, next_state, "play", destination)
+		if CardUse.requires_target(played_card):
+			var enemy_target: Control = battle_enemy_widgets.get(int(battle_state.get("target_enemy_index", 0)))
+			if is_instance_valid(enemy_target):
+				destination = enemy_target.get_global_rect()
+		var departure_source := _released_card_source(played_card, source_widget, held_origin)
+		var items: Array = [{"card": played_card, "source": departure_source,
+			"player_center": _battle_player_destination().get_center()}]
+		var mode := "play" if CardUse.requires_target(played_card) else "staged_play"
+		var phase_ticket := await battle_draw_presentation.play_departures(self, items, next_state, mode, destination)
 		if phase_ticket < 0:
 			return
 	battle_card_presentation.commit_queued(self)
@@ -3738,27 +3812,10 @@ func _on_battle_card_gui_input(event: InputEvent, card_id: int) -> void:
 	if int(battle_state.get("pending_discard_count", 0)) > 0:
 		get_viewport().set_input_as_handled()
 		_discard_for_pending_play(card_id)
-	elif mouse_event.double_click and _battle_drop_available():
-		var card := _battle_hand_card(card_id)
-		if card.is_empty() or not bool(card.get("playable", true)):
-			return
-		if _card_can_target_enemy(card):
-			selected_battle_hand_card_id = card_id
-			battle_state["message"] = "%s: 적용할 적을 선택하세요." % str(card.get("name", "카드"))
-			_show_battle()
-		else:
-			_play_card(card_id)
 
 
 func _card_can_target_enemy(card: Dictionary) -> bool:
-	if card.is_empty():
-		return false
-	var effect := str(card.get("effect", ""))
-	if effect in ["scale_armor", "sand_toss"]:
-		return true
-	var is_attack := str(card.get("kind", "")) == "strike" \
-		or effect in ["radiance", "sweep", "double_hit", "iron_rampage", "magic_strike", "shockwave", "meteor", "hydra"]
-	return is_attack and not ["iron_rampage", "shockwave", "sweep", "odin_spear", "meteor", "hydra", "magic_strike"].has(effect)
+	return CardUse.requires_target(card)
 
 
 func _is_valid_battle_drop(payload: Dictionary, drop_kind: String, target_index: int) -> bool:
@@ -3774,7 +3831,7 @@ func _is_valid_battle_drop(payload: Dictionary, drop_kind: String, target_index:
 	var card := _battle_hand_card(int(payload.get("card_id", -1)))
 	if card.is_empty():
 		return false
-	if not bool(card.get("playable", true)):
+	if not CardUse.is_playable(card):
 		return false
 	if drop_kind == "center":
 		return not _card_can_target_enemy(card)
@@ -3812,7 +3869,7 @@ func _select_enemy_target(enemy_index: int) -> void:
 	battle_state["preview_target_enemy_index"] = enemy_index
 	if selected_battle_hand_card_id >= 0:
 		var selected_card := _battle_hand_card(selected_battle_hand_card_id)
-		if not selected_card.is_empty() and bool(selected_card.get("playable", true)) \
+		if not selected_card.is_empty() and CardUse.is_playable(selected_card) \
 				and _card_can_target_enemy(selected_card) and _battle_drop_available():
 			var selected_card_id := selected_battle_hand_card_id
 			selected_battle_hand_card_id = -1
@@ -4225,6 +4282,17 @@ func _finish_deck_editor_session() -> void:
 	deck_editor_origins_by_card_id.clear()
 	_sync_active_deck()
 	_save_run()
+
+
+func _apply_pending_deck_add_effect(view: Control, card_ids: Array) -> void:
+	# Browser isTemporary: a stack blinks if any card came from outside a deck.
+	for card_id in card_ids:
+		if _origin_deck_id_for_card(int(card_id)) == "":
+			var effect := PendingRemovalEffectScript.new()
+			view.add_child(effect)
+			effect.configure(view, deck_editor_effect_started_usec,
+				DisplayServer.accessibility_should_reduce_animation() == 1, null, null, false)
+			return
 
 
 func _origin_deck_id_for_card(card_id: int) -> String:
@@ -5130,6 +5198,7 @@ func _show_deck() -> void:
 			var card := _deck_editor_group_representative(group)
 			var card_ids: Array = group["ids"]
 			var deck_card_widget := _deck_editor_card_widget(card, card_ids.size())
+			_apply_pending_deck_add_effect(deck_card_widget, card_ids)
 			_configure_deck_card_ticket_drop(deck_card_widget, deck_id, card)
 			if not extraction_ticket_mode:
 				_configure_run_card_drag(deck_card_widget, card, "deck", deck_id, "deck", deck_id)
@@ -5145,6 +5214,7 @@ func _show_deck() -> void:
 			var card := _deck_editor_group_representative(group)
 			var card_ids: Array = group["ids"]
 			var deck_card_widget := _deck_editor_card_widget(card, card_ids.size())
+			_apply_pending_deck_add_effect(deck_card_widget, card_ids)
 			_configure_deck_card_ticket_drop(deck_card_widget, deck_id, card)
 			if not extraction_ticket_mode:
 				_configure_run_card_drag(deck_card_widget, card, "deck", deck_id, "deck", deck_id)
@@ -5208,7 +5278,7 @@ func _show_deck() -> void:
 		var removal_effect = PendingRemovalEffectScript.new()
 		pending_view.add_child(removal_effect)
 		removal_effect.configure(pending_view, deck_editor_effect_started_usec,
-			DisplayServer.accessibility_should_reduce_animation())
+			DisplayServer.accessibility_should_reduce_animation() == 1)
 		_configure_run_card_drag(pending_view, pending_card, "pendingRemoval", str(pending.get("deck_id", "")))
 		pending_view.gui_input.connect(_on_pending_deck_card_gui_input.bind(pending_card.duplicate(true)))
 		_add_deck_editor_card(floor_card_list, pending_view)
@@ -5451,7 +5521,7 @@ func _deck_editor_card_widget(card: Dictionary, count: int = 1) -> BattleCardDra
 
 func _show_card_hover_preview(source: Control, card: Dictionary) -> void:
 	_hide_card_hover_preview()
-	if not is_instance_valid(source) or card.is_empty():
+	if get_viewport().gui_is_dragging() or not is_instance_valid(source) or card.is_empty():
 		return
 	var preview := _card_widget(card, false, false, false, false)
 	preview.custom_minimum_size = Vector2(136, 191)

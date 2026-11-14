@@ -28,18 +28,12 @@ func _init() -> void:
 	z_index = 100
 	z_as_relative = false
 	set_process(false)
-	if OS.has_feature("web"):
-		var web_font := FontVariation.new()
-		web_font.base_font = preload("res://assets/fonts/PretendardVariable.woff2")
-		web_font.variation_opentype = {
-			TextServerManager.get_primary_interface().name_to_tag("wght"): 800.0
-		}
-		_font = web_font
-	else:
-		var native_font := SystemFont.new()
-		native_font.font_names = PackedStringArray(["Arial", "Arial Unicode MS", "sans-serif"])
-		native_font.font_weight = 800
-		_font = native_font
+	var web_font := FontVariation.new()
+	web_font.base_font = preload("res://assets/fonts/PretendardVariable.woff2")
+	web_font.variation_opentype = {
+		TextServerManager.get_primary_interface().name_to_tag("wght"): 800.0
+	}
+	_font = web_font
 	tree_exiting.connect(_on_burst_exiting, CONNECT_ONE_SHOT)
 
 

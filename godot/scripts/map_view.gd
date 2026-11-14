@@ -51,20 +51,8 @@ var _camera_duration_ms := 0.0
 
 func _ready() -> void:
 	mouse_exited.connect(_clear_deck_vault_hover)
-	if OS.has_feature("web"):
-		_enemy_state_font = _web_map_font(900)
-		_enemy_name_font = _web_map_font(700)
-	else:
-		var state_font := SystemFont.new()
-		state_font.font_names = PackedStringArray(["Arial"])
-		state_font.font_weight = 900
-		_enemy_state_font = state_font
-		var name_font := SystemFont.new()
-		name_font.font_names = PackedStringArray(["Arial"])
-		name_font.font_weight = 700
-		_enemy_name_font = name_font
-
-
+	_enemy_state_font = _web_map_font(900)
+	_enemy_name_font = _web_map_font(700)
 func _web_map_font(weight: int) -> FontVariation:
 	var font := FontVariation.new()
 	font.base_font = WEB_MAP_FONT

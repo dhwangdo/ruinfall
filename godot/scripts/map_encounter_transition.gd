@@ -113,13 +113,7 @@ func _apply_visual_scale() -> void:
 
 	var scale := _visual_scale
 	var base_font: Font
-	if OS.has_feature("web"):
-		base_font = preload("res://assets/fonts/PretendardVariable.woff2")
-	else:
-		var native_font := SystemFont.new()
-		native_font.font_names = PackedStringArray(["Georgia", "Times New Roman", "Malgun Gothic"])
-		native_font.font_weight = 900
-		base_font = native_font
+	base_font = preload("res://assets/fonts/PretendardVariable.woff2")
 	var font := FontVariation.new()
 	font.base_font = base_font
 	font.spacing_glyph = roundi(34.0 * 0.08 * scale)

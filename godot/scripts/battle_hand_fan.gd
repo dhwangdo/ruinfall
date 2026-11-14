@@ -67,7 +67,7 @@ func _gui_input(event: InputEvent) -> void:
 
 
 func _raise_card(card: Control) -> void:
-	if not is_instance_valid(card) or not card.visible:
+	if get_viewport().gui_is_dragging() or not is_instance_valid(card) or not card.visible:
 		return
 	hovered_card = card
 	_layout_cards()
@@ -76,6 +76,11 @@ func _raise_card(card: Control) -> void:
 func _lower_cards() -> void:
 	hovered_card = null
 	_layout_cards()
+
+
+func _notification(what: int) -> void:
+	if what == NOTIFICATION_DRAG_BEGIN:
+		_lower_cards()
 
 
 func _layout_cards() -> void:

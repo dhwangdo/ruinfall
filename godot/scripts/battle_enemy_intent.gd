@@ -10,18 +10,12 @@ var intent_font: Font
 
 func configure(enemy: Dictionary, state: Dictionary) -> void:
 	mouse_filter = Control.MOUSE_FILTER_IGNORE
-	if OS.has_feature("web"):
-		var web_font := FontVariation.new()
-		web_font.base_font = preload("res://assets/fonts/PretendardVariable.woff2")
-		web_font.variation_opentype = {
-			TextServerManager.get_primary_interface().name_to_tag("wght"): 800.0
-		}
-		intent_font = web_font
-	else:
-		var native_font := SystemFont.new()
-		native_font.font_names = PackedStringArray(["Arial", "Malgun Gothic"])
-		native_font.font_weight = 800
-		intent_font = native_font
+	var web_font := FontVariation.new()
+	web_font.base_font = preload("res://assets/fonts/PretendardVariable.woff2")
+	web_font.variation_opentype = {
+		TextServerManager.get_primary_interface().name_to_tag("wght"): 800.0
+	}
+	intent_font = web_font
 	var actions: Array = enemy.get("actions", [])
 	var action: Dictionary = actions[clampi(int(enemy.get("action_index", 0)), 0, actions.size() - 1)] if not actions.is_empty() else {}
 	hits = maxi(1, int(action.get("hits", 1)))

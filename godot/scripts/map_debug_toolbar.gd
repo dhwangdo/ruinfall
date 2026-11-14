@@ -341,17 +341,12 @@ func _label(text: String, size: int, bold: bool, color: Color) -> Label:
 
 
 func _font(bold: bool = true) -> Font:
-	if OS.has_feature("web"):
-		var web_font := FontVariation.new()
-		web_font.base_font = preload("res://assets/fonts/PretendardVariable.woff2")
-		web_font.variation_opentype = {
-			TextServerManager.get_primary_interface().name_to_tag("wght"): 700.0 if bold else 400.0
-		}
-		return web_font
-	var font := SystemFont.new()
-	font.font_names = PackedStringArray(["Arial"])
-	font.font_weight = 700 if bold else 400
-	return font
+	var web_font := FontVariation.new()
+	web_font.base_font = preload("res://assets/fonts/PretendardVariable.woff2")
+	web_font.variation_opentype = {
+		TextServerManager.get_primary_interface().name_to_tag("wght"): 700.0 if bold else 400.0
+	}
+	return web_font
 
 
 func _add_spacer(row: HBoxContainer) -> void:

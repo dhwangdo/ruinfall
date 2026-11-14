@@ -36,6 +36,8 @@ func configure(deck: Dictionary, anchor_global_rect: Rect2, keys: int) -> void:
 	if is_instance_valid(_panel):
 		_panel.queue_free()
 	_panel = _build_panel(deck)
+	# Keep layout active, but do not draw intermediate sizes/positions.
+	_panel.modulate.a = 0.0
 	add_child(_panel)
 	show()
 	call_deferred("_layout_panel", _layout_generation)
@@ -194,6 +196,7 @@ func _layout_panel(generation: int) -> void:
 	)
 	_panel.position = get_global_transform_with_canvas().affine_inverse() * target_global
 	_panel.size = Vector2(width, panel_height)
+	_panel.modulate.a = 1.0
 
 
 func _layout_is_current(generation: int) -> bool:

@@ -41,7 +41,8 @@ func configure(
 	editor_started_usec: int,
 	reduced_motion := false,
 	filter_shader: Shader = null,
-	badge_texture: Texture2D = null
+	badge_texture: Texture2D = null,
+	show_removal_badge: bool = true
 ) -> bool:
 	if not is_instance_valid(view) or _has_skip_metadata(view):
 		return false
@@ -50,9 +51,9 @@ func configure(
 		return false
 	if filter_shader == null:
 		filter_shader = load("res://shaders/pending_removal_filter.gdshader") as Shader
-	if badge_texture == null:
+	if show_removal_badge and badge_texture == null:
 		badge_texture = _make_badge_texture()
-	if filter_shader == null or badge_texture == null:
+	if filter_shader == null or (show_removal_badge and badge_texture == null):
 		return false
 	
 	_view_ref = weakref(view)
@@ -69,7 +70,8 @@ func configure(
 	_material = ShaderMaterial.new()
 	_material.shader = filter_shader
 	content_group.material = _material
-	_add_badge(badge_texture)
+	if show_removal_badge:
+		_add_badge(badge_texture)
 	_configured = true
 	set_process(true)
 	update_for_elapsed_usec(maxi(0, Time.get_ticks_usec() - _editor_started_usec))

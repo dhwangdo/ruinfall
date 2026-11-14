@@ -26,17 +26,11 @@ func configure(anchor_point: Vector2, visual_scale: float = 1.0) -> void:
 	_label.autowrap_mode = TextServer.AUTOWRAP_OFF
 	_label.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	var notice_font: Font
-	if OS.has_feature("web"):
-		notice_font = FontVariation.new()
-		notice_font.base_font = preload("res://assets/fonts/PretendardVariable.woff2")
-		notice_font.variation_opentype = {
-			TextServerManager.get_primary_interface().name_to_tag("wght"): 900.0
-		}
-	else:
-		var native_font := SystemFont.new()
-		native_font.font_names = PackedStringArray(["Arial"])
-		native_font.font_weight = 900
-		notice_font = native_font
+	notice_font = FontVariation.new()
+	notice_font.base_font = preload("res://assets/fonts/PretendardVariable.woff2")
+	notice_font.variation_opentype = {
+		TextServerManager.get_primary_interface().name_to_tag("wght"): 900.0
+	}
 	_label.add_theme_font_override("font", notice_font)
 	_label.add_theme_font_size_override("font_size", maxi(1, roundi(24.0 * _visual_scale)))
 	_label.add_theme_color_override("font_color", NOTICE_COLOR)

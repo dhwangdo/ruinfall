@@ -89,18 +89,13 @@ static func populate(target: Button, enemy: Dictionary, state: Dictionary, statu
 		var description := _label(intent.secondary, 12, Color("#111111"))
 		description.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
 		var font: Font
-		if OS.has_feature("web"):
-			var web_font := FontVariation.new()
-			web_font.base_font = preload("res://assets/fonts/PretendardVariable.woff2")
-			web_font.variation_opentype = {
-				TextServerManager.get_primary_interface().name_to_tag("wght"): 700.0
-			}
-			font = web_font
-			description.add_theme_font_override("font", web_font)
-		else:
-			var native_font := SystemFont.new()
-			native_font.font_names = PackedStringArray(["Malgun Gothic", "Arial"])
-			font = native_font
+		var web_font := FontVariation.new()
+		web_font.base_font = preload("res://assets/fonts/PretendardVariable.woff2")
+		web_font.variation_opentype = {
+			TextServerManager.get_primary_interface().name_to_tag("wght"): 700.0
+		}
+		font = web_font
+		description.add_theme_font_override("font", web_font)
 		description.custom_minimum_size.x = minf(180, font.get_string_size(intent.secondary, HORIZONTAL_ALIGNMENT_LEFT, -1, 12).x)
 		tag.add_child(description)
 		tag_center.add_child(tag)
@@ -123,12 +118,6 @@ static func populate(target: Button, enemy: Dictionary, state: Dictionary, statu
 			badge.add_theme_stylebox_override("panel", badge_style)
 			badge.add_child(_label(str(status.get("text", "")), 11))
 			badges.add_child(badge)
-	var prompt := _label("이 적에게 사용", 12)
-	prompt.position = Vector2(15, 58)
-	prompt.size = Vector2(200, 32)
-	prompt.visible = choosing_target
-	target.add_child(prompt)
-	target.set("drag_prompt", prompt)
 	if int(enemy.get("hp", 0)) <= 0:
 		target.modulate.a = 0.42
 

@@ -92,18 +92,12 @@ func _apply_style(text: String, kind: String) -> void:
 		_label.custom_minimum_size = Vector2(180, 0)
 		_label.size = Vector2(180, 0)
 	var font: Font
-	if OS.has_feature("web"):
-		var web_font := FontVariation.new()
-		web_font.base_font = preload("res://assets/fonts/PretendardVariable.woff2")
-		web_font.variation_opentype = {
-			TextServerManager.get_primary_interface().name_to_tag("wght"): float(font_weight)
-		}
-		font = web_font
-	else:
-		var native_font := SystemFont.new()
-		native_font.font_names = ["Malgun Gothic"] if kind == "buff" or kind == "debuff" else ["Arial"]
-		native_font.font_weight = font_weight
-		font = native_font
+	var web_font := FontVariation.new()
+	web_font.base_font = preload("res://assets/fonts/PretendardVariable.woff2")
+	web_font.variation_opentype = {
+		TextServerManager.get_primary_interface().name_to_tag("wght"): float(font_weight)
+	}
+	font = web_font
 	settings.font = font
 	_label.label_settings = settings
 

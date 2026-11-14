@@ -2,20 +2,14 @@ extends Control
 
 var discard_count := 0
 var badge_style := StyleBoxFlat.new()
-var badge_font: Font = SystemFont.new()
+var badge_font: Font = preload("res://scripts/game_fonts.gd").make(800)
 
 
 func configure(count: int) -> void:
 	discard_count = maxi(0, count)
 	mouse_filter = Control.MOUSE_FILTER_IGNORE
 	z_index = 12
-	if OS.has_feature("web"):
-		badge_font = _web_font(800)
-	else:
-		var native_font := SystemFont.new()
-		native_font.font_names = PackedStringArray(["Arial", "Malgun Gothic"])
-		native_font.font_weight = 800
-		badge_font = native_font
+	badge_font = _web_font(800)
 	badge_style.bg_color = Color("#8d2525")
 	badge_style.corner_radius_top_left = 9
 	badge_style.corner_radius_top_right = 9

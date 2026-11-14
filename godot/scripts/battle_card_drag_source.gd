@@ -11,6 +11,7 @@ var ticket_drop_target: Dictionary = {}
 var ticket_drop_callback: Callable
 var ticket_can_drop_callback: Callable
 var drag_hover_valid := false
+var active_drag_preview: Control
 
 signal service_card_removed(card_id: int)
 
@@ -24,7 +25,10 @@ func _get_drag_data(_at_position: Vector2) -> Variant:
 
 func begin_keyboard_drag() -> void:
 	if not drag_payload.is_empty():
-		force_drag(drag_payload.duplicate(true), _make_drag_preview(drag_payload))
+		var preview := _make_drag_preview(drag_payload)
+		# Start from the hand pose instead of appearing at the cursor.
+		preview.get_child(0).position = get_global_transform_with_canvas().origin - get_global_mouse_position()
+		force_drag(drag_payload.duplicate(true), preview)
 
 
 func _make_drag_preview(payload: Dictionary) -> Control:
@@ -35,7 +39,11 @@ func _make_drag_preview(payload: Dictionary) -> Control:
 		preview.rotation = 0
 		preview.pivot_offset = Vector2.ZERO
 	var selected_card_size := size if not size.is_zero_approx() else custom_minimum_size
-	return CardDragPreviewLayer.create(preview, selected_card_size, "BattleCardDragPreview", true)
+	active_drag_preview = CardDragPreviewLayer.create(preview, selected_card_size, "BattleCardDragPreview", true)
+	if str(payload.get("kind", "")) == "battle-card" and str(payload.get("source", "")) == "hand":
+		# The source metadata is set by the hand builder, independently of cost.
+		active_drag_preview.set_meta("drag_fixed_center", bool(get_meta("targeted_card", false)))
+	return active_drag_preview
 
 
 func _can_drop_data(_at_position: Vector2, data: Variant) -> bool:

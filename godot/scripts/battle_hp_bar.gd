@@ -15,9 +15,7 @@ static func apply_map_style(bar: ProgressBar, label: Label) -> void:
 	fill.set_corner_radius_all(2)
 	bar.add_theme_stylebox_override("fill", fill)
 
-	var font := SystemFont.new()
-	font.font_names = PackedStringArray(["Arial"])
-	font.font_weight = 800
+	var font := preload("res://scripts/game_fonts.gd").make(800)
 	label.add_theme_font_override("font", font)
 	label.add_theme_font_size_override("font_size", 16)
 	label.add_theme_color_override("font_color", Color.WHITE)

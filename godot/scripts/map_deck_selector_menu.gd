@@ -447,7 +447,7 @@ func _closed_position() -> Vector2:
 
 
 func _reduced_motion() -> bool:
-	return DisplayServer.accessibility_should_reduce_animation()
+	return DisplayServer.accessibility_should_reduce_animation() == 1
 
 
 func _stop_close_timer() -> void:

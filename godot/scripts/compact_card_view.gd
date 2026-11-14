@@ -1,5 +1,7 @@
 extends RefCounted
 
+const CardUse = preload("res://scripts/card_use.gd")
+
 const CardStickers = preload("res://scripts/stickers.gd")
 const TooltipBindings = preload("res://scripts/tooltip_bindings.gd")
 const BattleCardDragSourceScript = preload("res://scripts/battle_card_drag_source.gd")
@@ -16,8 +18,8 @@ const COUNT_BACKGROUND := Color("#17234f")
 const COUNT_TEXT := Color("#ffd166")
 
 static var _name_font: FontVariation
-static var _cost_font: SystemFont
-static var _count_font: SystemFont
+static var _cost_font: FontVariation
+static var _count_font: FontVariation
 static var _map_frame_styles: Dictionary = {}
 
 
@@ -31,7 +33,7 @@ static func draw_map_preview(canvas: CanvasItem, card: Dictionary, rect: Rect2) 
 	canvas.draw_set_transform(rect.position, 0.0, rect.size / CARD_SIZE)
 	frame.draw(canvas.get_canvas_item(), Rect2(Vector2.ZERO, CARD_SIZE))
 	canvas.draw_rect(Rect2(4.0, 4.0, 74.0, 19.6), _rarity_band(rarity))
-	if card.has("cost") and not CardStickers.UNPLAYABLE_CARD_EFFECTS.has(str(card.get("effect", ""))):
+	if card.has("cost") and CardUse.is_playable(card):
 		var cost_baseline := 4.0 + (19.6 - _cost_font.get_height(16)) * 0.5 + _cost_font.get_ascent(16)
 		canvas.draw_string(_cost_font, Vector2(9.0, cost_baseline),
 			str(CardStickers.card_energy_cost(card)), HORIZONTAL_ALIGNMENT_LEFT, -1, 16, Color.WHITE)
@@ -156,7 +158,7 @@ static func create(
 	band.add_theme_stylebox_override("panel", band_style)
 	visual.add_child(band)
 
-	if card.has("cost") and not CardStickers.UNPLAYABLE_CARD_EFFECTS.has(str(card.get("effect", ""))):
+	if card.has("cost") and CardUse.is_playable(card):
 		var cost := CompactCardText.new()
 		cost.name = "CompactCardCost"
 		cost.position = Vector2(5, 2)
@@ -201,12 +203,8 @@ static func _ensure_fonts() -> void:
 	_name_font.base_font = PretendardCardFont
 	_name_font.variation_opentype = {weight_axis: 600.0}
 	_name_font.spacing_glyph = -1
-	_cost_font = SystemFont.new()
-	_cost_font.font_names = PackedStringArray(["Arial"])
-	_cost_font.font_weight = 800
-	_count_font = SystemFont.new()
-	_count_font.font_names = PackedStringArray(["Arial"])
-	_count_font.font_weight = 800
+	_cost_font = preload("res://scripts/game_fonts.gd").make(800)
+	_count_font = preload("res://scripts/game_fonts.gd").make(800)
 
 
 static func _rarity_band(rarity: String) -> Color:

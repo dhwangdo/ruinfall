@@ -1,9 +1,11 @@
 extends RefCounted
+
 class_name PortBattleRules
+
+const CardUse = preload("res://scripts/card_use.gd")
 
 const STARTING_ENERGY := 3
 const CARDS_PER_FILE := 5
-const UNPLAYABLE_CARD_EFFECTS := ["slime", "soil", "rock", "combat_manual", "grimoire", "wolf_talisman", "turtle_talisman", "saeongjima"]
 const EnemyCatalog = preload("res://scripts/enemy_catalog.gd")
 const CardCatalog = preload("res://scripts/card_catalog.gd")
 const CardStickers = preload("res://scripts/stickers.gd")
@@ -23,6 +25,7 @@ static func start_battle(deck: Array, player_hp: int, encounter: Dictionary = {}
 	var talisman_strength := 0
 	var talisman_agility := 0
 	for card in cards:
+		CardUse.mode(card)
 		card.erase("clockwork_triggered")
 		if str(card.get("effect", "")) == "wolf_talisman":
 			talisman_strength += int(card.get("value", 1))
@@ -110,7 +113,8 @@ static func start_battle(deck: Array, player_hp: int, encounter: Dictionary = {}
 		"overcharge_triggered_this_turn": false,
 		"critical_reaction_triggered_this_turn": false,
 		"random_draw_sequence": 0,
-		"next_generated_card_id": -1,
+		# Generated hand cards must not collide with the -1 "no card" sentinel.
+		"next_generated_card_id": 2000000000,
 		"forge_count": 1 if quick_hammer_forged else 0,
 		"toxic_slime_added": false,
 		"pending_summoners": [],
@@ -285,7 +289,7 @@ static func play_card(state: Dictionary, card_id: int, play_view: Variant = null
 	if card_index < 0:
 		return _with_message(next, "이 카드는 현재 손패에 없습니다.")
 	var card: Dictionary = next["hand"][card_index]
-	if not bool(card.get("playable", true)):
+	if not CardUse.is_playable(card):
 		return _with_message(next, "%s은(는) 사용할 수 없습니다." % str(card.get("name", "카드")))
 	if not can_pay_card_cost(next, card):
 		return _with_message(next, "에너지가 부족합니다.")
@@ -545,7 +549,7 @@ static func _resolve_forge_placement(state: Dictionary, moving_card: Dictionary,
 	if forge_target_name == "소멸 카드":
 		target_matches = bool(target_card.get("exhaust", false))
 	elif forge_target_name == "사용 불가 카드":
-		target_matches = not bool(target_card.get("playable", true))
+		target_matches = not CardUse.is_playable(target_card)
 	var forge_cost_matches := target_card.has("cost") and int(moving_card.get("forge_cost", 2147483647)) == target_cost
 	if moving_card.has("forge_costs"):
 		forge_cost_matches = forge_cost_matches or (target_card.has("cost") and moving_card.get("forge_costs", []).has(target_cost))
@@ -2578,7 +2582,7 @@ static func sort_hand_by_cost(state: Dictionary, hand: Array) -> Array[Dictionar
 	for index in range(hand.size()):
 		var card: Dictionary = hand[index]
 		var sort_cost := INF
-		if UNPLAYABLE_CARD_EFFECTS.has(str(card.get("effect", ""))) or not bool(card.get("playable", true)):
+		if not CardUse.is_playable(card):
 			sort_cost = -999.0
 		elif card.has("cost"):
 			sort_cost = float(effective_card_cost(state, card))

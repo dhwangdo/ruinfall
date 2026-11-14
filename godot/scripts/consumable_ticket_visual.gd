@@ -5,8 +5,8 @@ const FONT_REGULAR = preload("res://assets/fonts/PretendardVariable.woff2")
 const FONT_BOLD = preload("res://assets/fonts/PretendardVariable700.tres")
 
 static var _medium_font: FontVariation
-static var _count_font: SystemFont
-static var _star_font: SystemFont
+static var _count_font: FontVariation
+static var _star_font: FontVariation
 
 class TicketCountText extends Control:
 	var display_text := ""
@@ -348,10 +348,6 @@ static func _ensure_fonts() -> void:
 		_medium_font.base_font = FONT_REGULAR
 		_medium_font.variation_opentype = {weight_axis: 600.0}
 	if _count_font == null:
-		_count_font = SystemFont.new()
-		_count_font.font_names = PackedStringArray(["Arial"])
-		_count_font.font_weight = 800
+		_count_font = preload("res://scripts/game_fonts.gd").make(800)
 	if _star_font == null:
-		_star_font = SystemFont.new()
-		_star_font.font_names = PackedStringArray(["Arial"])
-		_star_font.font_weight = 900
+		_star_font = preload("res://scripts/game_fonts.gd").make(900)
