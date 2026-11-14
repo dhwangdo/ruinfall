@@ -27,20 +27,12 @@ func _process(_delta: float) -> void:
 		return
 	var card: Dictionary = game._battle_hand_card(int(payload.get("card_id", -1)))
 	var mode := CardUse.mode(card)
-	if mode == CardUse.UNPLAYABLE:
+	if mode != CardUse.TARGETED:
 		return
 	var origin: Dictionary = game.battle_keyboard_drag.capture_origin(game)
 	if origin.is_empty():
 		return
 	var pose: Transform2D = origin["pose"]
 	var center: Vector2 = pose * (Vector2(origin["size"]) * 0.5)
-	if mode == CardUse.TARGETED:
-		arrow.set_endpoints(center, game.pointer_position, Color("#ff9a00"))
-	else:
-		if not game._can_begin_card_play(card):
-			return
-		var destination: Dictionary = game.battle_keyboard_drag.drop_destination(game, game.pointer_position, payload)
-		if destination.is_empty() or str(destination["kind"]) == "file":
-			return
-		arrow.set_endpoints(center, game._battle_player_destination().get_center(), Color("#42aaff"))
+	arrow.set_endpoints(center, game.pointer_position, Color("#ff9a00"))
 	arrow.show()

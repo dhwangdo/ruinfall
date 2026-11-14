@@ -2977,12 +2977,6 @@ func _show_battle_card_ledger() -> void:
 				cards_flow.add_child(card_view)
 
 
-func _battle_player_destination() -> Rect2:
-	if is_instance_valid(active_battle_play_area) and is_instance_valid(active_battle_play_area.player):
-		return active_battle_play_area.player.get_global_rect()
-	return active_battle_player_hp.get_global_rect() if is_instance_valid(active_battle_player_hp) else Rect2()
-
-
 func _can_begin_card_play(card: Dictionary) -> bool:
 	return _battle_drop_available() and battle_card_ledger_open.is_empty() and CardUse.is_playable(card) \
 		and BattleRules.can_pay_card_cost(battle_state, card) \
@@ -3748,7 +3742,7 @@ func _play_card(card_id: int, held_origin: Dictionary = {}) -> void:
 				destination = enemy_target.get_global_rect()
 		var departure_source := _released_card_source(played_card, source_widget, held_origin)
 		var items: Array = [{"card": played_card, "source": departure_source,
-			"player_center": _battle_player_destination().get_center()}]
+			"exit_center": get_viewport_rect().end + Vector2(70, 70)}]
 		var mode := "play" if CardUse.requires_target(played_card) else "staged_play"
 		var phase_ticket := await battle_draw_presentation.play_departures(self, items, next_state, mode, destination)
 		if phase_ticket < 0:

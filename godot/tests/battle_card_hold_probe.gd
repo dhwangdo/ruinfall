@@ -72,12 +72,11 @@ func run() -> void:
 	await create_timer(0.3).timeout
 	var guide: Control = game.get_node("BattleHoldGuide")
 	guide._process(0)
-	assert(guide.arrow.visible and guide.arrow.color == Color("#42aaff"), "valid non-targeted play needs blue arrow")
-	assert(guide.arrow.tip.distance_to(game._battle_player_destination().get_center()) < 0.1, "blue arrow must point to player")
+	assert(not guide.arrow.visible, "untargeted cards must not show an arrow")
 	assert(not game.battle_keyboard_drag._can_latch_lift(game, point), "non-targeted drag must not latch")
 	game.battle_state["energy"] = 0
 	guide._process(0)
-	assert(not guide.arrow.visible, "unaffordable play must not show blue arrow")
+	assert(not guide.arrow.visible, "untargeted cards must not show an arrow at any energy")
 	game.battle_state["energy"] = 3
 	var origin: Dictionary = game.battle_keyboard_drag.capture_origin(game)
 	game.battle_keyboard_drag._commit_or_cancel(game, point)
@@ -103,9 +102,11 @@ func run() -> void:
 	layer._process(0.055)
 	assert((ghost.get_transform() * (ghost.size * 0.5)).distance_to(middle) < 0.1, "card must stop at center")
 	assert(ghost.modulate.a == 1.0, "card must remain opaque at center")
-	var player: Vector2 = game._battle_player_destination().get_center()
+	var exit_center: Vector2 = game.get_viewport_rect().end + Vector2(70, 70)
 	layer._process(0.180)
-	assert((ghost.get_transform() * (ghost.size * 0.5)).distance_to(player) < middle.distance_to(player))
+	var exiting_center: Vector2 = ghost.get_transform() * (ghost.size * 0.5)
+	assert(exiting_center.x > middle.x and exiting_center.y > middle.y, "card must fly down and right")
+	assert(exiting_center.distance_to(exit_center) < middle.distance_to(exit_center))
 	assert(ghost.modulate.a < 1.0)
 	layer._process(0.200)
 	await process_frame
@@ -187,7 +188,7 @@ func run() -> void:
 	assert(aimed_center.distance_to(enemy.get_global_rect().get_center()) < 0.1, "orange card must fly to selected enemy")
 	await create_timer(0.5).timeout
 	assert(game._battle_hand_card(301).is_empty(), "enemy click must use targeted card")
-	print("PASS: blue arrow points to player, targeting lower cancel, native upward drag latches after release, no non-targeted latch, staged flight and enemy use")
+	print("PASS: no untargeted arrow, lower-right exit, targeting lower cancel, native upward drag latch, opaque file placement, staged flight and enemy use")
 	game.queue_free()
 	await process_frame
 	quit()

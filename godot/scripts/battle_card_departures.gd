@@ -115,7 +115,7 @@ func play() -> void:
 			"from": from_pose,
 			"to": to_pose,
 			"exit": _pose_at_center(source.size,
-				parent_inverse * Vector2(item.get("player_center", _destination_rect.get_center())),
+				parent_inverse * Vector2(item.get("exit_center", _destination_rect.get_center())),
 				0.0, Vector2(0.4, 0.4)),
 			"duration": STAGED_MOVE_MS + STAGED_PAUSE_MS + STAGED_EXIT_MS if _mode == "staged_play" else PLAY_DURATION_MS if _mode in ["play", "place"] else DISCARD_DURATION_MS,
 			"delay": float(item.get("delay_ms", float(index) * DISCARD_STAGGER_MS if _mode == "discard" else 0.0)),
