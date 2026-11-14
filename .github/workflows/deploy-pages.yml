@@ -1,4 +1,4 @@
-name: Deploy game to GitHub Pages
+name: Deploy Godot game to GitHub Pages
 
 on:
   push:
@@ -17,21 +17,66 @@ concurrency:
 jobs:
   build:
     runs-on: ubuntu-latest
+    env:
+      GODOT_VERSION: 4.7.2-stable
+      GODOT_TAG: 4.7.2-stable
     steps:
       - name: Check out repository
         uses: actions/checkout@v4
 
-      - name: Set up Node.js
-        uses: actions/setup-node@v4
+      - name: Cache Godot export templates
+        id: godot-templates-cache
+        uses: actions/cache@v4
         with:
-          node-version: 22
-          cache: npm
+          path: ~/.local/share/godot/export_templates/4.7.2.stable
+          key: godot-export-templates-4.7.2-stable
 
-      - name: Install dependencies
-        run: npm ci
+      - name: Install Godot export templates
+        if: steps.godot-templates-cache.outputs.cache-hit != 'true'
+        shell: bash
+        run: |
+          set -euo pipefail
+          archive="$RUNNER_TEMP/godot-templates.tpz"
+          extracted="$RUNNER_TEMP/godot-templates"
+          destination="$HOME/.local/share/godot/export_templates/4.7.2.stable"
+          curl --fail --location --silent --show-error \
+            "https://github.com/godotengine/godot-builds/releases/download/${GODOT_TAG}/Godot_v${GODOT_VERSION}_export_templates.tpz" \
+            --output "$archive"
+          printf '%s  %s\n' 'f298490b8d44d934be425a5a65a51bf15f422428b229a06a6e11d9ffea248011' "$archive" | sha256sum --check
+          mkdir -p "$extracted" "$destination"
+          unzip -q "$archive" -d "$extracted"
+          cp -a "$extracted/templates/." "$destination/"
 
-      - name: Build static game
-        run: npm run build:pages
+      - name: Install Godot editor
+        shell: bash
+        run: |
+          set -euo pipefail
+          archive="$RUNNER_TEMP/godot-linux.zip"
+          extracted="$RUNNER_TEMP/godot-linux"
+          curl --fail --location --silent --show-error \
+            "https://github.com/godotengine/godot-builds/releases/download/${GODOT_TAG}/Godot_v${GODOT_VERSION}_linux.x86_64.zip" \
+            --output "$archive"
+          printf '%s  %s\n' 'cadd3204e728a35d3f13adb7fd0d7902636b79f6b95c40c265eb73b6c35329e4' "$archive" | sha256sum --check
+          mkdir -p "$extracted"
+          unzip -q "$archive" -d "$extracted"
+          chmod +x "$extracted/Godot_v${GODOT_VERSION}_linux.x86_64"
+          echo "GODOT_BIN=$extracted/Godot_v${GODOT_VERSION}_linux.x86_64" >> "$GITHUB_ENV"
+
+      - name: Import and export Web build
+        shell: bash
+        run: |
+          set -euo pipefail
+          version="$("$GODOT_BIN" --version)"
+          [[ "$version" == "${GODOT_VERSION/-/.}.official."* ]]
+          "$GODOT_BIN" --headless --editor --path godot --import
+          "$GODOT_BIN" --headless --path godot --check-only \
+            --script res://scripts/main.gd --log-file "$RUNNER_TEMP/godot-script-check.log"
+          if grep -Eq 'SCRIPT ERROR|Parse Error|Failed to load script' "$RUNNER_TEMP/godot-script-check.log"; then
+            exit 1
+          fi
+          mkdir -p out
+          "$GODOT_BIN" --headless --path godot --export-release Web ../out/index.html
+          test -s out/index.html
 
       - name: Configure Pages
         uses: actions/configure-pages@v5
