@@ -3,7 +3,8 @@ extends SceneTree
 class Game extends "res://scripts/main.gd":
 	func _ready() -> void:
 		_install_theme()
-		set_process(false)
+	func _process(_delta: float) -> void:
+		battle_play_queue.tick(self)
 
 func _init() -> void:
 	call_deferred("run")
@@ -43,8 +44,7 @@ func run() -> void:
 	var stars_before: int = game.battle_state["stars"]
 	game.battle_keyboard_drag._commit_or_cancel(game, file.get_global_rect().get_center())
 	assert(game.battle_draw_presentation.active, "file placement must animate")
-	var placement_carrier: Control = game.get_node("ReleasedCardSource")
-	assert(placement_carrier.get_global_transform_with_canvas().origin.distance_to(placement_origin["pose"].origin) < 0.1)
+	assert(game.get_node_or_null("ReleasedCardSource") == null)
 	var placement_layer: Control
 	for _frame in range(4):
 		await process_frame
@@ -55,6 +55,7 @@ func run() -> void:
 	placement_layer.set_process(false)
 	placement_layer._elapsed_ms = 0
 	var placement: Dictionary = placement_layer._flights[0]
+	assert(placement["from"].origin.distance_to(placement_origin["pose"].origin) < 0.1, "file release must preserve held pose")
 	var landing: Transform2D = placement["to"]
 	placement_layer._process(0.12)
 	assert(placement["ghost"].modulate.a == 1.0, "file transfer must stay opaque")
@@ -121,8 +122,7 @@ func run() -> void:
 	var origin: Dictionary = game.battle_keyboard_drag.capture_origin(game)
 	game.battle_keyboard_drag._commit_or_cancel(game, point)
 	assert(not root.gui_is_dragging())
-	var carrier: Control = game.get_node("ReleasedCardSource")
-	assert(carrier.get_global_transform_with_canvas().origin.distance_to(origin["pose"].origin) < 0.1, "release must preserve held pose")
+	assert(game.get_node_or_null("ReleasedCardSource") == null)
 	assert(game.battle_hand_card_widgets[300].modulate.a == 0.0, "hand source must not flash")
 	var layer: Control
 	for _frame in range(4):
@@ -132,6 +132,7 @@ func run() -> void:
 			break
 	assert(is_instance_valid(layer), "departure layer missing")
 	assert(layer._mode == "staged_play")
+	assert(layer._flights[0]["from"].origin.distance_to(origin["pose"].origin) < 0.1, "release must preserve held pose")
 	layer.set_process(false)
 	layer._elapsed_ms = 0
 	layer._process(0.210)
@@ -147,7 +148,7 @@ func run() -> void:
 	assert(ghost.modulate.a == 1.0, "card must remain opaque at center")
 	assert(departure_glow.modulate.a == 1.0, "aura must remain bright through arrival and pause")
 	var exit_center: Vector2 = game.get_viewport_rect().end + Vector2(70, 70)
-	layer._process(0.180)
+	layer._process(0.035)
 	var exiting_center: Vector2 = ghost.get_transform() * (ghost.size * 0.5)
 	assert(exiting_center.x > middle.x and exiting_center.y > middle.y, "card must fly down and right")
 	assert(exiting_center.distance_to(exit_center) < middle.distance_to(exit_center))
@@ -232,8 +233,7 @@ func run() -> void:
 	origin = game.battle_keyboard_drag.capture_origin(game)
 	game.battle_keyboard_drag._commit_or_cancel(game, point)
 	assert(game.battle_draw_presentation.active, "enemy click must begin play")
-	carrier = game.get_node("ReleasedCardSource")
-	assert(carrier.get_global_transform_with_canvas().origin.distance_to(origin["pose"].origin) < 0.1)
+	assert(game.get_node_or_null("ReleasedCardSource") == null)
 	layer = null
 	for _frame in range(4):
 		await process_frame

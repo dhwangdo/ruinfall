@@ -12,8 +12,7 @@ const TEXT_PURPLE := Color("#f5eff8")
 const TITLE_KEYWORD := Color("#f8d4aa")
 const TITLE_BLUE := TITLE_KEYWORD
 const TITLE_PURPLE := TITLE_KEYWORD
-const FONT_PATH := "res://assets/fonts/PretendardVariable.woff2"
-const WEIGHT_AXIS_TAG := 2003265652 # OpenType `wght` axis.
+const Typefaces = preload("res://scripts/card_typefaces.gd")
 
 var _sections_root: VBoxContainer
 var _configured_width := 310.0
@@ -27,10 +26,8 @@ var _overflow_scroll: ScrollContainer
 func _init() -> void:
 	mouse_filter = Control.MOUSE_FILTER_IGNORE
 	focus_mode = Control.FOCUS_NONE
-	var base_font := load(FONT_PATH) as Font
-	if base_font:
-		_regular_font = _font_weight(base_font, 400)
-		_bold_font = _font_weight(base_font, 700)
+	_regular_font = Typefaces.font("tooltip_body", 400)
+	_bold_font = Typefaces.font("tooltip_title", 700)
 	_sections_root = VBoxContainer.new()
 	_sections_root.name = "Sections"
 	_sections_root.mouse_filter = Control.MOUSE_FILTER_IGNORE
@@ -165,8 +162,3 @@ func _disable_mouse_input(control: Control) -> void:
 			_disable_mouse_input(child)
 
 
-func _font_weight(base_font: Font, weight: int) -> FontVariation:
-	var variation := FontVariation.new()
-	variation.base_font = base_font
-	variation.variation_opentype = {WEIGHT_AXIS_TAG: float(weight)}
-	return variation

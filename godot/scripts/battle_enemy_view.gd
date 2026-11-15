@@ -7,10 +7,8 @@ const TooltipBindings = preload("res://scripts/tooltip_bindings.gd")
 
 
 static func populate(target: Button, enemy: Dictionary, state: Dictionary, statuses: Array,
-		selected: Callable, trait_text: String, crowded: bool, choosing_target: bool) -> void:
+		selected: Callable, _trait_text: String, crowded: bool, choosing_target: bool) -> void:
 	target.custom_minimum_size = Vector2(210 if crowded else 230, 232)
-	if not trait_text.is_empty():
-		TooltipBindings.bind_enemy(target, str(enemy.get("name", "적")), trait_text)
 	target.focus_mode = Control.FOCUS_NONE
 	target.pressed.connect(selected)
 	for mode in ["normal", "hover", "pressed", "disabled"]:
@@ -45,6 +43,7 @@ static func populate(target: Button, enemy: Dictionary, state: Dictionary, statu
 	portrait.custom_minimum_size = Vector2(70, 75)
 	portrait.configure(enemy)
 	portrait_center.add_child(portrait)
+	target.set_meta("enemy_portrait", portrait)
 	var intent = Intent.new()
 	intent.portrait_scale = 0.82 if portrait.enemy_variant == "rat" else 0.88 if portrait.enemy_variant == "goblin" else 1.0
 	intent.configure(enemy, state)

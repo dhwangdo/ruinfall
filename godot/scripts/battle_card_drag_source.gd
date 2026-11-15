@@ -40,11 +40,11 @@ func _make_drag_preview(payload: Dictionary) -> Control:
 		preview.pivot_offset = Vector2.ZERO
 	var selected_card_size := size if not size.is_zero_approx() else custom_minimum_size
 	if str(payload.get("kind", "")) == "battle-card" and str(payload.get("source", "")) == "hand":
-		# Hover enlarges the source's dimensions; held cards use the normal size.
+		# Normalize a hovered card back to the shared full-card layout and scale.
 		selected_card_size = Vector2(149.6, 210.1)
 		preview.custom_minimum_size = selected_card_size
 		preview.size = selected_card_size
-		preload("res://scripts/card_font_sizes.gd").apply(preview, 1.0)
+		preload("res://scripts/card_visual_scale.gd").apply(preview, 1.0)
 	active_drag_preview = CardDragPreviewLayer.create(preview, selected_card_size, "BattleCardDragPreview", true)
 	if str(payload.get("kind", "")) == "battle-card" and str(payload.get("source", "")) == "hand":
 		preview.set_deferred("size", selected_card_size)
@@ -89,7 +89,7 @@ func _notification(what: int) -> void:
 				and int(payload.get("card_id", -1)) == int(drag_payload.get("card_id", -2)):
 			modulate.a = 0.16
 	if what == NOTIFICATION_DRAG_END:
-		modulate.a = 1.0
+		modulate.a = 0.0 if bool(get_meta("card_use_queued", false)) else 1.0
 		_reset_drag_highlight()
 
 

@@ -241,7 +241,12 @@ func play_departures(game, items: Array, final_state: Dictionary, mode: String,
 	active = true
 	pending_final_state = final_state
 	var ticket := generation
-	lock_hand_input(game.active_battle_hand_area)
+	# The flight uses a captured pose; no source card needs to flash back in hand.
+	for item in items:
+		var source := item.get("source") as Control
+		if item.get("origin", {}).has("pose") and is_instance_valid(source):
+			source.modulate.a = 0.0
+	lock_hand_input(game.active_battle_hand_area, game.battle_play_queue.accepting(game))
 	if is_instance_valid(game.active_battle_end_button):
 		game.active_battle_end_button.disabled = true
 	# A native drag finishes after its drop callback. Start the flight with that
@@ -249,7 +254,7 @@ func play_departures(game, items: Array, final_state: Dictionary, mode: String,
 	await game.get_tree().process_frame
 	if not _is_current(game, ticket):
 		return -1
-	lock_hand_input(game.active_battle_hand_area)
+	lock_hand_input(game.active_battle_hand_area, game.battle_play_queue.accepting(game))
 	var layer := CardDepartures.new()
 	layer.name = "BattleCardDepartures"
 	layer.z_index = 110
@@ -282,7 +287,9 @@ func prepare_hand_widget(card_id: int, widget: Control) -> void:
 		widget.modulate.a = 0.0
 
 
-func lock_hand_input(node: Node) -> void:
+func lock_hand_input(node: Node, allow_queue := false) -> void:
+	if allow_queue:
+		return
 	if not active or not is_instance_valid(node):
 		return
 	if node is Control:

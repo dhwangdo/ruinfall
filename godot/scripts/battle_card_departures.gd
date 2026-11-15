@@ -7,8 +7,8 @@ const PLAY_DURATION_MS := 260.0
 const DISCARD_DURATION_MS := 320.0
 const DISCARD_STAGGER_MS := 42.0
 const STAGED_MOVE_MS := 210.0
-const STAGED_PAUSE_MS := 110.0
-const STAGED_EXIT_MS := 270.0
+const STAGED_PAUSE_MS := 60.0
+const STAGED_EXIT_MS := 90.0
 const PLAY_EASING := Vector4(0.24, 0.78, 0.3, 1.0)
 const DISCARD_EASING := Vector4(0.55, 0.05, 0.82, 0.38)
 const HoldGuide = preload("res://scripts/battle_hold_guide.gd")
@@ -64,8 +64,10 @@ func play() -> void:
 	for index in _items.size():
 		var item := _items[index]
 		var source := item.get("source") as Control
-		if not is_instance_valid(source) or not source.is_inside_tree() or not source.is_visible_in_tree() \
-				or source.size.x <= 0.0 or source.size.y <= 0.0:
+		var origin: Dictionary = item.get("origin", {})
+		var has_origin := origin.has("pose") and origin.has("size")
+		if not has_origin and (not is_instance_valid(source) or not source.is_inside_tree() or not source.is_visible_in_tree() \
+				or source.size.x <= 0.0 or source.size.y <= 0.0):
 			continue
 
 		var ghost := _card_builder.call(item.get("card")) as Control
@@ -73,29 +75,30 @@ func play() -> void:
 			continue
 		ghost.name = "BattleCardDepartureGhost_%d" % index
 		ghost.set_anchors_and_offsets_preset(Control.PRESET_TOP_LEFT)
-		ghost.size = source.size
+		var card_size: Vector2 = origin["size"] if has_origin else source.size
+		ghost.size = card_size
 		if _mode in ["staged_play", "play"]:
 			# Both use modes carry the aura and inherit the card's exit fade.
 			var glow := HoldGuide.create_use_glow()
 			glow.show_behind_parent = true
 			ghost.add_child(glow)
 			glow.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
-		ghost.pivot_offset = source.pivot_offset
+		ghost.pivot_offset = Vector2.ZERO if has_origin else source.pivot_offset
 		ghost.mouse_filter = Control.MOUSE_FILTER_IGNORE
 		ghost.focus_mode = Control.FOCUS_NONE
 		_add_child_ignore_mouse(ghost)
 
-		var from_pose: Transform2D = parent_inverse * source.get_global_transform_with_canvas()
+		var from_pose: Transform2D = parent_inverse * (Transform2D(origin["pose"]) if has_origin else source.get_global_transform_with_canvas())
 		_set_control_pose(ghost, from_pose)
-		var center := from_pose * (source.size * 0.5)
+		var center := from_pose * (card_size * 0.5)
 		var to_pose: Transform2D
 		if _mode == "place":
-			var target_scale := _destination_rect.size / source.size
-			to_pose = _pose_at_center(source.size, target_center, 0.0, target_scale)
+			var target_scale := _destination_rect.size / card_size
+			to_pose = _pose_at_center(card_size, target_center, 0.0, target_scale)
 		elif _mode == "staged_play":
-			to_pose = _pose_at_center(source.size, target_center, 0.0, Vector2.ONE)
+			to_pose = _pose_at_center(card_size, target_center, 0.0, Vector2.ONE)
 		elif _mode == "play":
-			to_pose = _pose_at_center(source.size, target_center, deg_to_rad(-4.0), Vector2(0.78, 0.78))
+			to_pose = _pose_at_center(card_size, target_center, deg_to_rad(-4.0), Vector2(0.78, 0.78))
 		else:
 			# The browser's discard flight exits rightward; the supplied rect is the
 			# caller's viewport discard destination, matching that off-screen endpoint.
@@ -104,24 +107,21 @@ func play() -> void:
 				discard_center = center + Vector2(get_viewport_rect().size.x * 0.78, -24.0)
 			var source_angle := from_pose.x.angle() + deg_to_rad(14.0)
 			var source_scale := Vector2(from_pose.x.length(), from_pose.y.length())
-			to_pose = _pose_at_center(source.size, discard_center, source_angle, source_scale)
+			to_pose = _pose_at_center(card_size, discard_center, source_angle, source_scale)
 
-		var original_visibility := source.visible
-		var original_modulate := source.modulate
-		_held_sources.append({"source": source, "original_visibility": original_visibility,
-			"original_modulate": original_modulate})
-		var hidden_modulate := original_modulate
-		hidden_modulate.a = 0.0
-		source.modulate = hidden_modulate
+		if is_instance_valid(source):
+			_held_sources.append({"source": source, "original_visibility": source.visible,
+				"original_modulate": source.modulate})
+			var hidden_modulate := source.modulate
+			hidden_modulate.a = 0.0
+			source.modulate = hidden_modulate
 		ghost.modulate.a = 1.0
 		_flights.append({
 			"ghost": ghost,
 			"source": source,
-			"original_visibility": original_visibility,
-			"original_modulate": original_modulate,
 			"from": from_pose,
 			"to": to_pose,
-			"exit": _pose_at_center(source.size,
+			"exit": _pose_at_center(card_size,
 				parent_inverse * Vector2(item.get("exit_center", _destination_rect.get_center())),
 				0.0, Vector2(0.4, 0.4)),
 			"duration": STAGED_MOVE_MS + STAGED_PAUSE_MS + STAGED_EXIT_MS if _mode == "staged_play" else PLAY_DURATION_MS if _mode in ["play", "place"] else DISCARD_DURATION_MS,

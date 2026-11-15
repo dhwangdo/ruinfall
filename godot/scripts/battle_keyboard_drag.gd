@@ -2,6 +2,7 @@ extends RefCounted
 
 const CardUse = preload("res://scripts/card_use.gd")
 const LIFT_HOLD_DISTANCE := 12.0
+const KEY_CLICK_GRACE_MS := 150
 
 # Keep keyboard selection on the same payload and validators as pointer dragging.
 var card_id := -1
@@ -12,11 +13,15 @@ var click_start := Vector2.ZERO
 var returning: Dictionary = {}
 var pointer_drag := false
 var lift_hold_armed := false
+var keyboard_grace_until_ms := 0
+var grace_release_pending := false
+var _grace_ticket := 0
 
 
 func handle_input(event: InputEvent, game: Control) -> bool:
 	var viewport := game.get_viewport()
 	if not viewport.gui_is_dragging():
+		_clear_keyboard_grace()
 		card_id = -1
 		held_key = 0
 		pointer_drag = false
@@ -27,6 +32,8 @@ func handle_input(event: InputEvent, game: Control) -> bool:
 				and str(native_payload.get("source", "")) == "hand":
 			card_id = int(native_payload.get("card_id", -1))
 			pointer_drag = true
+	if grace_release_pending and Time.get_ticks_msec() >= keyboard_grace_until_ms:
+		_cancel(game)
 	var active := card_id >= 0
 	if active and event is InputEventMouseMotion:
 		if pointer_drag and _crossed_lift_height(game, event.position):
@@ -35,7 +42,14 @@ func handle_input(event: InputEvent, game: Control) -> bool:
 			_cancel(game)
 			return true
 	if event is InputEventKey and not event.pressed and active and event.keycode == held_key:
-		_cancel(game)
+		held_key = 0
+		var remaining := keyboard_grace_until_ms - Time.get_ticks_msec()
+		if remaining > 0:
+			grace_release_pending = true
+			_grace_ticket += 1
+			_expire_keyboard_grace(weakref(game), _grace_ticket, card_id, remaining)
+		else:
+			_cancel(game)
 		return true
 	if event is InputEventMouseButton and event.button_index == MOUSE_BUTTON_LEFT \
 			and not event.pressed and suppress_left_release:
@@ -103,15 +117,41 @@ func handle_input(event: InputEvent, game: Control) -> bool:
 	if active:
 		if chosen_id != card_id:
 			_select(game, chosen_id)
-		held_key = event.keycode
+		_arm_keyboard_grace(event.keycode)
 		return true
 	if forced_discard_active:
 		game._discard_for_pending_play(chosen_id)
 		return true
 	else:
 		_select(game, chosen_id)
-		held_key = event.keycode
+		_arm_keyboard_grace(event.keycode)
 	return true
+
+
+func _arm_keyboard_grace(key: int) -> void:
+	held_key = key
+	keyboard_grace_until_ms = Time.get_ticks_msec() + KEY_CLICK_GRACE_MS
+	grace_release_pending = false
+	_grace_ticket += 1
+
+
+func _clear_keyboard_grace() -> void:
+	keyboard_grace_until_ms = 0
+	grace_release_pending = false
+	_grace_ticket += 1
+
+
+func _expire_keyboard_grace(game_ref: WeakRef, ticket: int, selected_id: int, remaining_ms: int) -> void:
+	var game = game_ref.get_ref()
+	if not is_instance_valid(game) or not game.is_inside_tree():
+		return
+	await game.get_tree().create_timer(float(remaining_ms) / 1000.0, true, false, true).timeout
+	game = game_ref.get_ref()
+	if not is_instance_valid(game) or not game.is_inside_tree():
+		return
+	if ticket == _grace_ticket and grace_release_pending and card_id == selected_id \
+			and game.screen_name == "battle" and game.get_viewport().gui_is_dragging():
+		_cancel(game)
 
 
 func _crossed_lift_height(game: Control, point: Vector2) -> bool:
@@ -151,6 +191,7 @@ func _select(game: Control, chosen_id: int) -> void:
 		returning.erase(chosen_id)
 		widget.modulate.a = 1.0
 	widget.begin_keyboard_drag()
+	_clear_keyboard_grace()
 	card_id = chosen_id
 	held_key = 0
 	pointer_drag = false
@@ -171,6 +212,7 @@ func _commit_or_cancel(game: Control, point: Vector2) -> void:
 		return
 	if not destination.is_empty():
 		payload["held_origin"] = capture_origin(game)
+		_clear_keyboard_grace()
 		viewport.gui_cancel_drag()
 		card_id = -1
 		held_key = 0
@@ -203,11 +245,14 @@ func drop_destination(game: Control, point: Vector2, payload: Dictionary) -> Dic
 
 
 func _cancel(game: Control) -> void:
+	_clear_keyboard_grace()
 	var widget: Control = game.battle_hand_card_widgets.get(card_id)
 	var ghost: Control
 	if is_instance_valid(widget) and is_instance_valid(widget.active_drag_preview):
 		var visual: Control = widget.active_drag_preview.get_child(0)
 		ghost = visual.duplicate() as Control
+		ghost.mouse_filter = Control.MOUSE_FILTER_IGNORE
+		game._set_child_controls_mouse_ignored(ghost)
 		var pose := game.get_global_transform_with_canvas().affine_inverse() * visual.get_global_transform_with_canvas()
 		game.add_child(ghost)
 		ghost.position = pose.origin

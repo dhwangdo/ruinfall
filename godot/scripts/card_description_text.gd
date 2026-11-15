@@ -9,6 +9,7 @@ const STRONG_MAGIC_DAMAGE_TOKEN := "__PORT_STRONG_MAGIC_DAMAGE__"
 const EMPHASIZED_KEYWORDS := [
 	"힘", "강인함", "취약", "약화", "무적", "광채",
 	"에너지", "소멸", "보존", "토큰", "재련", "버리기", "룰.", "피해",
+	"사용 불가", "사용불가",
 ]
 
 
@@ -41,9 +42,9 @@ static func to_bbcode(source: String, context_source: String = "") -> String:
 	result = result.replace("__PORT_PHYSICAL_DAMAGE__", "[color=#c55200][b]물리 피해[/b][/color]")
 	result = result.replace(STRONG_STAR_TOKEN, "[font=%s]★[/font]" % EMPHASIS_700_FONT)
 	result = result.replace(STRONG_DEFENSE_TOKEN,
-		"[font=%s][color=#c55200]방어[/color][/font]" % EMPHASIS_700_FONT)
+		"[b][color=#c55200]방어[/color][/b]")
 	result = result.replace(STRONG_MAGIC_DAMAGE_TOKEN,
-		"[font=%s]마법 피해[/font]" % EMPHASIS_700_FONT)
+		"[b]마법 피해[/b]")
 	return result
 
 

@@ -1,6 +1,8 @@
 extends Control
 
 const CardUse = preload("res://scripts/card_use.gd")
+const CardTypefaces = preload("res://scripts/card_typefaces.gd")
+const BattleEnemyLayout = preload("res://scripts/battle_enemy_layout.gd")
 
 const CardCatalog = preload("res://scripts/card_catalog.gd")
 const DeckEditions = preload("res://scripts/deck_editions.gd")
@@ -42,6 +44,7 @@ const DeckEditorEmptySlotScript = preload("res://scripts/deck_editor_empty_slot.
 const SolitaireRules = preload("res://scripts/solitaire_rules.gd")
 const BattleSetup = preload("res://scripts/battle_setup.gd")
 const BattleBoardLayoutScript = preload("res://scripts/battle_board_layout.gd")
+const BattleFilesLayoutScript = preload("res://scripts/battle_files_layout.gd")
 const BattleEnemyView = preload("res://scripts/battle_enemy_view.gd")
 const BattleHPBar = preload("res://scripts/battle_hp_bar.gd")
 const CardBackTexture = preload("res://assets/card-back-basic.png")
@@ -97,7 +100,7 @@ const MAX_OWNED_DECKS := 3
 const PILE_CARD_WIDTH := 133.1
 const PILE_CARD_HEIGHT := 187.0
 const PILE_CARD_SCALE := 0.89
-const CardFontSizes = preload("res://scripts/card_font_sizes.gd")
+const CardVisualScale = preload("res://scripts/card_visual_scale.gd")
 const PILE_STACK_OFFSET := 27.0
 var run_state: Dictionary = {}
 var battle_state: Dictionary = {}
@@ -106,6 +109,7 @@ var selected_source: Dictionary = {}
 var selected_battle_hand_card_id := -1
 var battle_hand_card_widgets: Dictionary = {}
 var battle_keyboard_drag := BattleKeyboardDrag.new()
+var battle_play_queue := preload("res://scripts/battle_play_queue.gd").new()
 var battle_draw_presentation := BattleDrawPresentationScript.new()
 var battle_card_presentation := BattleCardPresentationScript.new()
 var battle_forge_presentation := BattleForgePresentationScript.new()
@@ -464,7 +468,7 @@ func _input(event: InputEvent) -> void:
 		return
 	if screen_name != "battle" or is_instance_valid(player_name_setup_overlay):
 		return
-	if battle_draw_presentation.active:
+	if battle_draw_presentation.active and not battle_play_queue.accepting(self):
 		get_viewport().set_input_as_handled()
 		return
 	var focused := get_viewport().gui_get_focus_owner()
@@ -648,6 +652,7 @@ func _sort_battle_hand_by_cost() -> void:
 
 
 func _process(delta: float) -> void:
+	battle_play_queue.tick(self)
 	map_debug_controller.sync_toolbar(self)
 	card_info_tooltip.refresh_position()
 	if is_instance_valid(active_restart_progress):
@@ -898,6 +903,7 @@ func _install_theme() -> void:
 	var game_theme := Theme.new()
 	game_theme.default_font = WEB_UI_FONT
 	game_theme.default_font_size = 16
+	game_theme.set_font("font", "TooltipLabel", CardTypefaces.font("tooltip_body", 400))
 	theme = game_theme
 	var card_font: FontFile = preload("res://assets/fonts/PretendardVariable.woff2")
 	# Godot ignores the string "wght" key; resolve the OpenType tag numerically.
@@ -907,19 +913,11 @@ func _install_theme() -> void:
 	map_currency_font.variation_opentype = {card_font_weight_axis: 700.0}
 	map_health_font = _web_weight_font(card_font, card_font_weight_axis, 800)
 	map_control_font = _web_weight_font(card_font, card_font_weight_axis, 700)
-	battle_card_name_font = FontVariation.new()
-	battle_card_name_font.base_font = card_font
-	battle_card_name_font.variation_opentype = {card_font_weight_axis: 700.0}
+	battle_card_name_font = CardTypefaces.font("name", 700)
 	battle_card_cost_font = _web_weight_font(card_font, card_font_weight_axis, 800)
-	battle_card_body_font = FontVariation.new()
-	battle_card_body_font.base_font = card_font
-	battle_card_body_font.variation_opentype = {card_font_weight_axis: 400.0}
-	battle_card_emphasis_font = FontVariation.new()
-	battle_card_emphasis_font.base_font = card_font
-	battle_card_emphasis_font.variation_opentype = {card_font_weight_axis: 600.0}
-	deck_editor_card_name_font = FontVariation.new()
-	deck_editor_card_name_font.base_font = card_font
-	deck_editor_card_name_font.variation_opentype = {card_font_weight_axis: 600.0}
+	battle_card_body_font = CardTypefaces.font("body", 400)
+	battle_card_emphasis_font = CardTypefaces.font("body", 600)
+	deck_editor_card_name_font = _web_weight_font(card_font, card_font_weight_axis, 600)
 	deck_editor_card_name_font.spacing_glyph = -1
 	blue_tooltip_theme = Theme.new()
 	var tooltip_style := StyleBoxFlat.new()
@@ -934,6 +932,7 @@ func _install_theme() -> void:
 	blue_tooltip_theme.set_stylebox("panel", "TooltipPanel", tooltip_style)
 	blue_tooltip_theme.set_color("font_color", "TooltipLabel", Color("#f3f7fa"))
 	blue_tooltip_theme.set_font_size("font_size", "TooltipLabel", 14)
+	blue_tooltip_theme.set_font("font", "TooltipLabel", CardTypefaces.font("tooltip_body", 400))
 	RenderingServer.set_default_clear_color(COLOR_BG)
 	reward_random.randomize()
 
@@ -2514,32 +2513,12 @@ func _show_battle(keep_draw_phase: bool = false) -> void:
 		_show_defeat()
 		return
 	var battlefield_background := ColorRect.new()
-	battlefield_background.color = Color.BLACK
+	battlefield_background.color = COLOR_BATTLE_FELT
 	battlefield_background.z_index = -10
 	battlefield_background.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
 	battlefield_background.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	add_child(battlefield_background)
 	move_child(battlefield_background, 0)
-	var battlefield_frame := PanelContainer.new()
-	battlefield_frame.z_index = -5
-	battlefield_frame.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
-	battlefield_frame.offset_left = 12
-	battlefield_frame.offset_top = 12
-	battlefield_frame.offset_right = -12
-	battlefield_frame.offset_bottom = -12
-	battlefield_frame.mouse_filter = Control.MOUSE_FILTER_IGNORE
-	var battlefield_style := StyleBoxFlat.new()
-	battlefield_style.bg_color = COLOR_BATTLE_FELT
-	battlefield_style.border_color = Color("#69746f")
-	battlefield_style.set_border_width_all(1)
-	battlefield_style.set_corner_radius_all(5)
-	battlefield_style.content_margin_left = 0
-	battlefield_style.content_margin_top = 0
-	battlefield_style.content_margin_right = 0
-	battlefield_style.content_margin_bottom = 0
-	battlefield_frame.add_theme_stylebox_override("panel", battlefield_style)
-	add_child(battlefield_frame)
-	move_child(battlefield_frame, 0)
 	var board = BattleBoardLayoutScript.new()
 	active_battle_play_area = board
 	board.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
@@ -2553,10 +2532,14 @@ func _show_battle(keep_draw_phase: bool = false) -> void:
 	battle_hud_overlay.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	battle_hud_overlay.z_index = 20
 	add_child(battle_hud_overlay)
-	var battle_ledger := HBoxContainer.new()
-	battle_ledger.position = Vector2(22, 22)
+	var battle_ledger := VBoxContainer.new()
 	battle_ledger.add_theme_constant_override("separation", 5)
 	battle_hud_overlay.add_child(battle_ledger)
+	battle_ledger.set_anchors_and_offsets_preset(Control.PRESET_TOP_LEFT)
+	battle_ledger.offset_left = 22
+	battle_ledger.offset_top = 22
+	battle_ledger.offset_right = 145
+	battle_ledger.offset_bottom = 173
 	var pile_card_count := 0
 	for pile in battle_state.get("piles", []):
 		pile_card_count += pile.size()
@@ -2609,10 +2592,7 @@ func _show_battle(keep_draw_phase: bool = false) -> void:
 	center_files.size_flags_vertical = Control.SIZE_EXPAND_FILL
 	center_files.add_theme_constant_override("separation", 4)
 	files_margin.add_child(center_files)
-	var enemy_column := MarginContainer.new()
-	enemy_column.add_theme_constant_override("margin_left", 10)
-	enemy_column.add_theme_constant_override("margin_right", 10)
-	enemy_column.add_theme_constant_override("margin_top", 0)
+	var enemy_column := BattleEnemyLayout.new()
 	board.add_child(enemy_column)
 	board.enemies = enemy_column
 	var center_drop = BattleDropButtonScript.new()
@@ -2633,7 +2613,13 @@ func _show_battle(keep_draw_phase: bool = false) -> void:
 	center_drop_style.content_margin_bottom = 0
 	for style_name in ["normal", "hover", "pressed", "disabled", "focus"]:
 		center_drop.add_theme_stylebox_override(style_name, center_drop_style)
-	center_drop.add_child(_battle_resource_cluster())
+	var resource_cluster := _battle_resource_cluster()
+	battle_hud_overlay.add_child(resource_cluster)
+	resource_cluster.set_anchors_and_offsets_preset(Control.PRESET_BOTTOM_LEFT)
+	resource_cluster.offset_left = 58
+	resource_cluster.offset_top = -186
+	resource_cluster.offset_right = 182
+	resource_cluster.offset_bottom = -62
 	board.add_child(center_drop)
 	board.center = center_drop
 	var player_panel := VBoxContainer.new()
@@ -2642,6 +2628,9 @@ func _show_battle(keep_draw_phase: bool = false) -> void:
 	player_panel.size_flags_vertical = Control.SIZE_EXPAND_FILL
 	player_column.add_child(player_panel)
 	player_panel.add_child(_battle_player_identity())
+	enemy_column.vertical_reference = player_panel.find_child("PlayerPortrait", true, false)
+	enemy_column.vertical_reference.item_rect_changed.connect(enemy_column._arrange, CONNECT_DEFERRED)
+	player_column.item_rect_changed.connect(enemy_column._arrange, CONNECT_DEFERRED)
 	var player_statuses: Array[String] = []
 	if int(battle_state.get("player_weak", 0)) > 0:
 		player_statuses.append("약화 %d" % int(battle_state["player_weak"]))
@@ -2711,24 +2700,7 @@ func _show_battle(keep_draw_phase: bool = false) -> void:
 	var battle_content := center_files
 	var encounter_enemies: Array = battle_state.get("enemies", [])
 	if not encounter_enemies.is_empty():
-		var enemy_scroll := ScrollContainer.new()
-		enemy_scroll.size_flags_horizontal = Control.SIZE_EXPAND_FILL
-		enemy_scroll.horizontal_scroll_mode = ScrollContainer.SCROLL_MODE_DISABLED
-		enemy_scroll.vertical_scroll_mode = ScrollContainer.SCROLL_MODE_AUTO
-		enemy_column.add_child(enemy_scroll)
-		var targets := VBoxContainer.new()
 		var crowded_enemies := encounter_enemies.size() > 2
-		var enemy_gap := 12.0
-		if crowded_enemies:
-			enemy_gap = 10.0
-		targets.add_theme_constant_override("separation", int(enemy_gap))
-		targets.size_flags_horizontal = Control.SIZE_EXPAND_FILL
-		var enemy_padding := MarginContainer.new()
-		enemy_padding.size_flags_horizontal = Control.SIZE_EXPAND_FILL
-		enemy_padding.add_theme_constant_override("margin_top", 22)
-		enemy_padding.add_theme_constant_override("margin_bottom", 18)
-		enemy_scroll.add_child(enemy_padding)
-		enemy_padding.add_child(targets)
 		for enemy_index in range(encounter_enemies.size()):
 			var enemy: Dictionary = encounter_enemies[enemy_index]
 			if int(enemy.get("hp", 0)) <= 0 and not battle_card_presentation.dying.has(enemy_index):
@@ -2742,7 +2714,7 @@ func _show_battle(keep_draw_phase: bool = false) -> void:
 			target_button.drop_validator = Callable(self, "_is_valid_battle_drop")
 			target_button.card_dropped.connect(_on_battle_card_dropped)
 			target_button.disabled = int(enemy.get("hp", 0)) <= 0
-			targets.add_child(target_button)
+			enemy_column.add_child(target_button)
 			battle_enemy_widgets[enemy_index] = target_button
 	var active_rules: Array = battle_state.get("active_rule_cards", [])
 	if not active_rules.is_empty():
@@ -2754,10 +2726,6 @@ func _show_battle(keep_draw_phase: bool = false) -> void:
 		active_rules_panel.add_child(_label("활성 룰: " + " · ".join(active_rule_names), 14, COLOR_GOLD))
 
 	var piles_scroll := ScrollContainer.new()
-	var tallest_pile_height := PILE_CARD_HEIGHT
-	for pile in battle_state["piles"]:
-		if not pile.is_empty():
-			tallest_pile_height = maxf(tallest_pile_height, PILE_CARD_HEIGHT + float(pile.size() - 1) * PILE_STACK_OFFSET)
 	piles_scroll.size_flags_vertical = Control.SIZE_EXPAND_FILL
 	piles_scroll.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	piles_scroll.horizontal_scroll_mode = ScrollContainer.SCROLL_MODE_AUTO
@@ -2765,22 +2733,34 @@ func _show_battle(keep_draw_phase: bool = false) -> void:
 	piles_scroll.scroll_horizontal_by_default = true
 	battle_piles_scroll = piles_scroll
 	battle_content.add_child(piles_scroll)
+	var file_vertical_bar := piles_scroll.get_v_scroll_bar()
+	var balance_file_margins := func() -> void:
+		if not files_margin.is_inside_tree():
+			return
+		# Mirror the right scrollbar so the visible file group stays screen-centered.
+		var scrollbar_width := roundi(file_vertical_bar.size.x) if file_vertical_bar.visible else 0
+		files_margin.add_theme_constant_override("margin_left", 22 + scrollbar_width)
+	file_vertical_bar.visibility_changed.connect(balance_file_margins, CONNECT_DEFERRED)
+	file_vertical_bar.resized.connect(balance_file_margins, CONNECT_DEFERRED)
+	balance_file_margins.call_deferred()
 	var piles_row := HBoxContainer.new()
 	piles_row.add_theme_constant_override("separation", 12)
 	piles_row.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	piles_row.alignment = BoxContainer.ALIGNMENT_CENTER
-	var piles_margin := MarginContainer.new()
-	piles_margin.add_theme_constant_override("margin_top", 20)
-	piles_margin.size_flags_horizontal = Control.SIZE_EXPAND_FILL
-	piles_margin.size_flags_vertical = Control.SIZE_SHRINK_BEGIN
-	piles_margin.add_child(piles_row)
-	piles_scroll.add_child(piles_margin)
+	var piles_layout := BattleFilesLayoutScript.new()
+	piles_layout.layout_changed.connect(enemy_column._arrange, CONNECT_DEFERRED)
+	enemy_column.file_row = piles_row
+	piles_layout.row = piles_row
+	piles_layout.avoid_controls.append(player_column)
+	piles_layout.add_child(piles_row)
+	piles_scroll.add_child(piles_layout)
 	for pile_index in range(battle_state["piles"].size()):
 		var pile_widget := _pile_button(pile_index)
 		battle_pile_widgets.append(pile_widget)
 		piles_row.add_child(pile_widget)
 
 	var hand_fan := BattleHandFanScript.new()
+	hand_fan.reveal_queued_for_choice = int(battle_state.get("pending_discard_count", 0)) > 0
 	active_battle_hand_area = hand_fan
 	hand_fan.z_index = 6
 	board.add_child(hand_fan)
@@ -2814,7 +2794,7 @@ func _show_battle(keep_draw_phase: bool = false) -> void:
 	if battle_turn_resolving:
 		end_button.text = "턴 진행 중"
 	end_button.tooltip_text = ""
-	end_button.disabled = battle_turn_resolving or battle_draw_presentation.active or int(battle_state.get("pending_draws", 0)) > 0 \
+	end_button.disabled = battle_play_queue.busy or not battle_play_queue.entries.is_empty() or battle_turn_resolving or battle_draw_presentation.active or int(battle_state.get("pending_draws", 0)) > 0 \
 		or int(battle_state.get("pending_pile_draw_count", 0)) > 0 \
 		or int(battle_state.get("pending_discard_count", 0)) > 0 \
 		or int(battle_state.get("pending_play_card_id", -1)) >= 0 \
@@ -2990,18 +2970,18 @@ func _show_battle_card_ledger() -> void:
 
 
 func _can_begin_card_play(card: Dictionary) -> bool:
+	var state := battle_draw_presentation.pending_final_state if battle_play_queue.accepting(self) else battle_state
 	return _battle_drop_available() and battle_card_ledger_open.is_empty() and CardUse.is_playable(card) \
-		and BattleRules.can_pay_card_cost(battle_state, card) \
-		and battle_state.get("hand", []).size() - 1 >= int(card.get("discard_cost", 0))
+		and not battle_play_queue.contains(int(card.get("id", -1))) \
+		and BattleRules._hand_card_index(state.get("hand", []), int(card.get("id", -1))) >= 0 \
+		and BattleRules.can_pay_card_cost(state, card) \
+		and state.get("hand", []).size() - 1 >= int(card.get("discard_cost", 0))
 
 
 func _battle_drop_available() -> bool:
-	return not battle_turn_resolving and not battle_draw_presentation.active and battle_state.get("status") == "playing" \
-		and int(battle_state.get("pending_draws", 0)) <= 0 \
-		and int(battle_state.get("pending_pile_draw_count", 0)) <= 0 \
-		and int(battle_state.get("pending_discard_count", 0)) <= 0 \
-		and int(battle_state.get("pending_play_card_id", -1)) < 0 \
-		and str(battle_state.get("pending_pile_operation", "")) == ""
+	if battle_play_queue.accepting(self):
+		return true
+	return not battle_turn_resolving and not battle_draw_presentation.active and battle_play_queue.ready(battle_state)
 
 
 func _build_enemy_target_button(target_button: Button, enemy: Dictionary, enemy_index: int) -> void:
@@ -3203,10 +3183,10 @@ func _pile_button(pile_index: int) -> Button:
 				stack_preview.position = card_position
 				stack_preview.custom_minimum_size = Vector2(PILE_CARD_WIDTH, PILE_CARD_HEIGHT)
 				stack_preview.size = stack_preview.custom_minimum_size
-				CardFontSizes.apply(stack_preview, PILE_CARD_SCALE)
+				CardVisualScale.apply(stack_preview, PILE_CARD_SCALE)
 				stack_preview.pivot_offset = Vector2.ZERO
 				button.add_child(stack_preview)
-				stack_preview.set_deferred("size", Vector2(PILE_CARD_WIDTH, PILE_CARD_HEIGHT))
+				stack_preview.set_deferred("size", CardVisualScale.BASE_SIZE)
 				button.file_drag_previews[stack_index] = stack_preview
 			else:
 				var card_back := _battle_card_back()
@@ -3223,10 +3203,10 @@ func _pile_button(pile_index: int) -> Button:
 			preview.position = Vector2(0, top_card_y)
 			preview.custom_minimum_size = Vector2(PILE_CARD_WIDTH, PILE_CARD_HEIGHT)
 			preview.size = preview.custom_minimum_size
-			CardFontSizes.apply(preview, PILE_CARD_SCALE)
+			CardVisualScale.apply(preview, PILE_CARD_SCALE)
 			preview.pivot_offset = Vector2.ZERO
 			button.add_child(preview)
-			preview.set_deferred("size", Vector2(PILE_CARD_WIDTH, PILE_CARD_HEIGHT))
+			preview.set_deferred("size", CardVisualScale.BASE_SIZE)
 			button.set("drag_preview_widget", preview)
 			button.file_drag_previews[visible_stack_count] = preview
 		else:
@@ -3312,6 +3292,8 @@ func _on_battle_card_dropped(payload: Dictionary, target_kind: String, target_in
 		_play_card(card_id, payload.get("held_origin", {}))
 		return
 	elif target_kind == "file":
+		if battle_play_queue.busy or not battle_play_queue.entries.is_empty():
+			return
 		var moving_card := _battle_hand_card(card_id)
 		var next_state := BattleRules.move_cards_to_file(battle_state, payload, target_index)
 		var held_origin: Dictionary = payload.get("held_origin", {})
@@ -3320,17 +3302,15 @@ func _on_battle_card_dropped(payload: Dictionary, target_kind: String, target_in
 				and target_index >= 0 and target_index < battle_pile_widgets.size():
 			var file := battle_pile_widgets[target_index]
 			var top_index: int = next_state["piles"][target_index].size() - 1
-			var target_top: Vector2 = file.get_global_transform_with_canvas() * Vector2(0, top_index * PILE_STACK_OFFSET)
-			var destination := Rect2(target_top, Vector2(149.6, 210.1) * PILE_CARD_SCALE)
-			var carrier := _released_card_source(moving_card, battle_hand_card_widgets.get(card_id), held_origin)
-			var items: Array = [{"card": moving_card, "source": carrier}]
+			var destination: Rect2 = file.get_global_transform_with_canvas() * Rect2(
+				Vector2(0, top_index * PILE_STACK_OFFSET), Vector2(PILE_CARD_WIDTH, PILE_CARD_HEIGHT))
+			var items: Array = [{"card": moving_card, "source": battle_hand_card_widgets.get(card_id), "origin": held_origin}]
 			var ticket := await battle_draw_presentation.play_departures(self, items, next_state, "place", destination)
 			if ticket < 0:
 				return
 		battle_state = next_state
 	elif target_kind == "enemy" and source == "hand":
-		battle_state = BattleRules.select_enemy_target(battle_state, target_index)
-		_play_card(card_id, payload.get("held_origin", {}))
+		battle_play_queue.submit(self, card_id, target_index, payload.get("held_origin", {}))
 		return
 	else:
 		return
@@ -3371,6 +3351,10 @@ func _card_widget(card: Dictionary, interactive: bool = true, sticker_tooltips: 
 			"card_id": int(card.get("id", -1)),
 			"card_name": str(card.get("name", "카드")),
 		}
+	if interactive and screen_name == "battle" and battle_play_queue.contains(int(card.get("id", -1))):
+		panel.drag_payload = {}
+		panel.modulate.a = 1.0 if int(battle_state.get("pending_discard_count", 0)) > 0 else 0.0
+		panel.set_meta("card_use_queued", true)
 	if interactive and screen_name == "battle":
 		panel.gui_input.connect(_on_battle_card_gui_input.bind(int(card.get("id", -1))))
 	var body := Control.new()
@@ -3378,7 +3362,6 @@ func _card_widget(card: Dictionary, interactive: bool = true, sticker_tooltips: 
 	body.mouse_filter = Control.MOUSE_FILTER_PASS
 	panel.add_child(body)
 	var header_panel := PanelContainer.new()
-	header_panel.set_meta("card_base_header_height", 37.0)
 	header_panel.custom_minimum_size.y = 37
 	header_panel.anchor_left = 0.0
 	header_panel.anchor_top = 0.0
@@ -3399,14 +3382,12 @@ func _card_widget(card: Dictionary, interactive: bool = true, sticker_tooltips: 
 		var shown_cost = BattleRules.effective_card_cost(battle_state, card) \
 			if screen_name == "battle" and use_battle_context else CardStickers.card_energy_cost(card)
 		var cost := _label(str(shown_cost), 22, COLOR_TEXT)
-		cost.set_meta("card_base_font_size", 22)
 		cost.add_theme_font_override("font", battle_card_cost_font)
 		cost.add_theme_color_override("font_color", header_text_color)
 		cost.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
 		cost.mouse_filter = Control.MOUSE_FILTER_PASS
 		header.add_child(cost)
-	var name := _label(str(card.get("name", "카드")), 17, header_text_color)
-	name.set_meta("card_base_font_size", 17)
+	var name := _label(str(card.get("name", "카드")), CardTypefaces.NAME_SIZE, header_text_color)
 	name.add_theme_font_override("font", battle_card_name_font)
 	name.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	name.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
@@ -3431,8 +3412,8 @@ func _card_widget(card: Dictionary, interactive: bool = true, sticker_tooltips: 
 	description.add_theme_constant_override("line_separation", 3)
 	var plain_description := _card_description(card, use_battle_context)
 	description.text = CardDescriptionText.to_bbcode(plain_description)
-	description.set_meta("card_base_font_size", 14)
-	description.set_meta("card_body_size_variants", Vector3i(12, 14, 17))
+	for font_key in ["normal_font_size", "bold_font_size", "italics_font_size", "bold_italics_font_size"]:
+		description.add_theme_font_size_override(font_key, CardTypefaces.BODY_SIZE)
 	description.set_meta("card_description_bbcode", description.text)
 	description.autowrap_mode = TextServer.AUTOWRAP_WORD
 	if keyword_tooltips:
@@ -3656,28 +3637,11 @@ func _add_card_rule_marker(card: Dictionary, description: String) -> String:
 	return marker + description
 
 
-func _released_card_source(card: Dictionary, source_widget: Control, held_origin: Dictionary) -> Control:
-	if not held_origin.has("pose") or not held_origin.has("size"):
-		return source_widget
-	# Keep the displayed pose alive through native drag cleanup, without a hand flash.
-	var carrier := _card_widget(card, false, false, false)
-	carrier.name = "ReleasedCardSource"
-	add_child(carrier)
-	carrier.pivot_offset = Vector2.ZERO
-	carrier.size = held_origin["size"]
-	var local_pose: Transform2D = get_global_transform_with_canvas().affine_inverse() * Transform2D(held_origin["pose"])
-	carrier.position = local_pose.origin
-	carrier.rotation = local_pose.get_rotation()
-	carrier.scale = local_pose.get_scale()
-	carrier.z_as_relative = false
-	carrier.z_index = 4095
-	_set_child_controls_mouse_ignored(carrier)
-	if is_instance_valid(source_widget):
-		source_widget.modulate.a = 0.0
-	return carrier
-
-
 func _play_card(card_id: int, held_origin: Dictionary = {}) -> void:
+	battle_play_queue.submit(self, card_id, int(battle_state.get("target_enemy_index", 0)), held_origin)
+
+
+func _execute_card_play(card_id: int, held_origin: Dictionary = {}) -> void:
 	if battle_turn_resolving or battle_draw_presentation.active:
 		return
 	var played_card := _battle_hand_card(card_id)
@@ -3710,15 +3674,23 @@ func _play_card(card_id: int, held_origin: Dictionary = {}) -> void:
 			var enemy_target: Control = battle_enemy_widgets.get(int(battle_state.get("target_enemy_index", 0)))
 			if is_instance_valid(enemy_target):
 				destination = enemy_target.get_global_rect()
-		var departure_source := _released_card_source(played_card, source_widget, held_origin)
-		var items: Array = [{"card": played_card, "source": departure_source,
+		var departure_origin := held_origin
+		if is_instance_valid(battle_play_queue.view):
+			departure_origin = battle_play_queue.view.begin(card_id)
+		var items: Array = [{"card": played_card, "source": source_widget, "origin": departure_origin,
 			"exit_center": get_viewport_rect().end + Vector2(70, 70)}]
 		var mode := "play" if CardUse.requires_target(played_card) else "staged_play"
 		var phase_ticket := await battle_draw_presentation.play_departures(self, items, next_state, mode, destination)
 		if phase_ticket < 0:
 			return
+	# Keep a newly held card alive until release; rebuilding would destroy its drag.
+	var session := battle_session_generation
+	while get_viewport().gui_is_dragging() and screen_name == "battle" and session == battle_session_generation:
+		await get_tree().process_frame
+	if screen_name != "battle" or session != battle_session_generation:
+		return
 	battle_card_presentation.commit_queued(self)
-	battle_draw_presentation.apply_state(self, next_state, origins)
+	await battle_draw_presentation.apply_state(self, next_state, origins)
 	if parachute_target_file >= 0 and source_rect.size.x > 0.0:
 		_animate_parachute_card_to_file(played_card, source_rect, parachute_target_file)
 
@@ -3750,16 +3722,15 @@ func _animate_parachute_card_to_file(card: Dictionary, source_rect: Rect2, targe
 	add_child(animation_layer)
 	var moving_card := _card_widget(card, false, false, false)
 	moving_card.mouse_filter = Control.MOUSE_FILTER_IGNORE
-	moving_card.custom_minimum_size = target_rect.size
 	_set_child_controls_mouse_ignored(moving_card)
 	animation_layer.add_child(moving_card)
-	moving_card.size = source_rect.size
+	CardVisualScale.apply(moving_card, source_rect.size.x / CardVisualScale.BASE_SIZE.x)
 	moving_card.global_position = source_rect.position
 	var tween := create_tween()
 	tween.set_trans(Tween.TRANS_CUBIC)
 	tween.set_ease(Tween.EASE_OUT)
 	tween.tween_property(moving_card, "global_position", target_rect.position, 0.28)
-	tween.parallel().tween_property(moving_card, "size", target_rect.size, 0.28)
+	tween.parallel().tween_property(moving_card, "scale", Vector2.ONE * (target_rect.size.x / CardVisualScale.BASE_SIZE.x), 0.28)
 	tween.tween_callback(func() -> void:
 		if is_instance_valid(target_widget):
 			target_widget.modulate = target_modulate
@@ -3787,13 +3758,15 @@ func _is_valid_battle_drop(payload: Dictionary, drop_kind: String, target_index:
 		return false
 	var source := str(payload.get("source", ""))
 	if drop_kind == "file":
+		if battle_play_queue.busy or not battle_play_queue.entries.is_empty():
+			return false
 		return SolitaireRules.move_error(battle_state, payload, target_index) == ""
 	if source == "file":
 		return false
 	if source != "hand":
 		return false
 	var card := _battle_hand_card(int(payload.get("card_id", -1)))
-	if card.is_empty():
+	if card.is_empty() or battle_play_queue.contains(int(card.get("id", -1))):
 		return false
 	if not CardUse.is_playable(card):
 		return false
@@ -3889,7 +3862,7 @@ func _on_pile_pressed(pile_index: int) -> void:
 
 
 func _end_turn() -> void:
-	if screen_name != "battle" or not _battle_drop_available():
+	if screen_name != "battle" or not _battle_drop_available() or battle_play_queue.busy or not battle_play_queue.entries.is_empty():
 		return
 	if get_viewport().gui_is_dragging():
 		get_viewport().gui_cancel_drag()
@@ -6329,6 +6302,7 @@ func _battle_player_identity() -> VBoxContainer:
 	row.alignment = BoxContainer.ALIGNMENT_CENTER
 	row.add_theme_constant_override("separation", 5)
 	var avatar := PanelContainer.new()
+	avatar.name = "PlayerPortrait"
 	avatar.custom_minimum_size = Vector2(50, 50)
 	avatar.size_flags_horizontal = Control.SIZE_SHRINK_CENTER
 	var avatar_style := StyleBoxFlat.new()
@@ -6407,13 +6381,13 @@ func _battle_resource_cluster() -> Control:
 	var cluster := Control.new()
 	cluster.custom_minimum_size = Vector2(124, 124)
 	cluster.mouse_filter = Control.MOUSE_FILTER_IGNORE
-	cluster.anchor_left = 1.0
-	cluster.anchor_right = 1.0
+	cluster.anchor_left = 0.0
+	cluster.anchor_right = 0.0
 	cluster.anchor_top = 0.0
 	cluster.anchor_bottom = 0.0
-	cluster.offset_left = -128.0
+	cluster.offset_left = 4.0
 	cluster.offset_top = -8.0
-	cluster.offset_right = -4.0
+	cluster.offset_right = 128.0
 	cluster.offset_bottom = 116.0
 	var energy_orb = BattleEnergyOrbScript.new()
 	energy_orb.configure(int(battle_state.get("energy", 0)), int(battle_state.get("max_energy", 0)))
@@ -6734,7 +6708,7 @@ func _clear_screen() -> void:
 				active_map_deck_selector_host]:
 			continue
 		if screen_name == "battle" and (child == battle_turn_presentation.popup_host \
-				or child == battle_forge_presentation._host):
+				or child == battle_forge_presentation._host or child == battle_play_queue.view):
 			continue
 		remove_child(child)
 		child.queue_free()
