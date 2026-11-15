@@ -127,8 +127,9 @@ func _can_latch_lift(game: Control, point: Vector2) -> bool:
 		return false
 	var payload: Dictionary = game.get_viewport().gui_get_drag_data()
 	var destination := drop_destination(game, point, payload)
-	# Dropping onto a valid file remains a solitaire action.
-	return destination.is_empty() or str(destination["kind"]) != "file"
+	# An enemy release uses the card immediately; only empty space latches aim.
+	# A valid file still takes priority as a solitaire action.
+	return destination.is_empty() or str(destination["kind"]) not in ["file", "enemy"]
 
 
 func _select(game: Control, chosen_id: int) -> void:

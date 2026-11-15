@@ -254,6 +254,49 @@ func run() -> void:
 	assert(aimed_center.distance_to(enemy.get_global_rect().get_center()) < 0.1, "orange card must fly to selected enemy")
 	await create_timer(0.5).timeout
 	assert(game._battle_hand_card(301).is_empty(), "enemy click must use targeted card")
+	# A continuous press-drag-release over an enemy must bypass the lift latch.
+	strike["id"] = 304
+	game.battle_state["hand"] = [strike]
+	game.battle_state["energy"] = 3
+	game._show_battle()
+	await process_frame
+	await process_frame
+	widget = game.battle_hand_card_widgets[304]
+	grab = widget.get_global_transform_with_canvas() * (widget.size * 0.5)
+	move_pointer(grab)
+	await process_frame
+	press.position = grab
+	root.push_input(press, true)
+	await process_frame
+	lift.position = grab - Vector2(0, 24)
+	lift.relative = Vector2(0, -24)
+	root.push_input(lift, true)
+	await process_frame
+	enemy = game.battle_enemy_widgets[0]
+	point = enemy.get_global_rect().get_center()
+	lift.position = point
+	lift.relative = point - grab
+	root.push_input(lift, true)
+	await process_frame
+	assert(root.gui_is_dragging(), "continuous pointer drag must be active")
+	release.position = point
+	root.push_input(release, true)
+	assert(not root.gui_is_dragging(), "enemy release must commit instead of latching aim")
+	assert(game.battle_draw_presentation.active, "enemy release must start play without another click")
+	await create_timer(0.6).timeout
+	assert(game._battle_hand_card(304).is_empty(), "continuous enemy release must use the card")
+	# Exercise the real hover binding and controller whitelist, not only section styling.
+	enemy = game.battle_enemy_widgets[0]
+	var bindings = load("res://scripts/tooltip_bindings.gd")
+	bindings.bind_enemy(enemy, "약화 2", "공격 피해가 감소합니다.")
+	enemy.mouse_entered.emit()
+	await process_frame
+	await process_frame
+	assert(game.card_info_tooltip.current_kind == "enemy", "enemy hover request must be accepted")
+	var tooltip: Control = game.card_info_tooltip._get_ref(game.card_info_tooltip._view_ref)
+	assert(is_instance_valid(tooltip) and tooltip.modulate.a == 1.0, "enemy tooltip must appear without a hover timer")
+	var tooltip_panel: PanelContainer = tooltip.get_node("Sections").get_child(0)
+	assert(tooltip_panel.get_theme_stylebox("panel").bg_color == tooltip.PANEL_PURPLE)
 	print("PASS: yellow use glow, energy-shortage flashing, stable center under late cursor movement, lower-right exit, native lift latch, opaque file placement and enemy use")
 	game.queue_free()
 	await process_frame

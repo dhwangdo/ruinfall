@@ -33,7 +33,7 @@ func request(game: Node, kind: String, payload: Variant, anchor: Control,
 		placement_anchor: Control = null, preview_factory: Callable = Callable()) -> void:
 	if not is_instance_valid(game) or not is_instance_valid(anchor):
 		return
-	if not ["keyword", "sticker", "edition", "status"].has(kind):
+	if not ["keyword", "sticker", "edition", "status", "enemy"].has(kind):
 		return
 	var next_placement_anchor := placement_anchor if is_instance_valid(placement_anchor) else anchor
 	var next_key := _make_payload_key(kind, payload)
