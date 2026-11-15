@@ -176,7 +176,7 @@ func _render_vitals(game, values: Dictionary) -> void:
 		var value := int(values.get("player_hp", hp.value))
 		hp.value = clampf(value, 0.0, hp.max_value)
 		game.active_battle_player_hp_text.text = "%d / %d" % [value, int(hp.max_value)]
-	var strip: VBoxContainer = game.active_battle_defense_strip
+	var strip: HBoxContainer = game.active_battle_defense_strip
 	if not is_instance_valid(strip):
 		return
 	for child in strip.get_children():

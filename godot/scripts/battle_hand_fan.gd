@@ -3,8 +3,10 @@ class_name BattleHandFan
 
 signal layout_height_changed(height: float)
 
-const CARD_WIDTH := 136.0
-const CARD_HEIGHT := 191.0
+const CardFontSizes = preload("res://scripts/card_font_sizes.gd")
+
+const CARD_WIDTH := 149.6
+const CARD_HEIGHT := 210.1
 const MAX_VISIBLE_CARDS := 9
 const HAND_ANGLE_STEP := 3.4
 const HAND_ARC_RADIUS := 1700.0
@@ -114,7 +116,8 @@ func _layout_cards() -> void:
 		card.visible = visible_index >= 0 and visible_index < visible_count
 		if not card.visible:
 			continue
-		card.size = Vector2(CARD_WIDTH, maxf(CARD_HEIGHT, card.get_combined_minimum_size().y))
+		card.size = Vector2(CARD_WIDTH, CARD_HEIGHT)
+		CardFontSizes.apply(card, 1.0)
 		var distance := float(visible_index) - float(visible_count - 1) / 2.0
 		var angle := deg_to_rad(distance * HAND_ANGLE_STEP)
 		var top := HAND_ARC_RADIUS * (1.0 - cos(angle)) + 22.0
@@ -125,8 +128,11 @@ func _layout_cards() -> void:
 		card.z_index = visible_index + 1
 		if card == hovered_card:
 			card.rotation = 0
-			card.scale = Vector2.ONE * 1.3
-			card.position.y = 8.0
+			card.size = Vector2(CARD_WIDTH, CARD_HEIGHT) * 1.3
+			CardFontSizes.apply(card, 1.3)
+			card.position.x -= CARD_WIDTH * 0.15
+			card.position.y = 8.0 - CARD_HEIGHT * 0.3
+			card.pivot_offset = card.size * Vector2(0.5, 1.0)
 			card.z_index = MAX_VISIBLE_CARDS + 10
 	custom_minimum_size = Vector2(viewport_width, fan_height)
 	layout_in_progress = false

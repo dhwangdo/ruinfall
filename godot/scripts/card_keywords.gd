@@ -18,10 +18,8 @@ const DESCRIPTIONS := {
 	"버리기 X": "사용 시 손패의 다른 카드 X장을 버립니다. 버릴 카드가 X장보다 적으면 사용할 수 없습니다.",
 	"힘 X": "공격의 각 타격에 피해를 X만큼 추가합니다. 직접 카드를 낼 때만 적용됩니다.",
 	"강인함 X": "방어 또는 마법 방어를 얻을 때 X만큼 추가로 얻습니다. 직접 카드를 낼 때만 적용됩니다.",
-	"저항 X": "적에게 받는 공격 피해가 30% 감소합니다. 취약과 서로 상쇄됩니다.",
-	"취약 X": "적에게 받는 공격 피해가 30% 증가합니다. 저항과 서로 상쇄됩니다.",
-	"증폭 X": "내 공격 피해가 30% 증가합니다. 약화와 서로 상쇄됩니다.",
-	"약화 X": "내 공격 피해가 30% 감소합니다. 증폭과 서로 상쇄됩니다.",
+	"취약 X": "받는 공격 피해가 50% 증가합니다.",
+	"약화 X": "가하는 공격 피해가 50% 감소합니다.",
 	"무적": "피해를 받지 않습니다.",
 	"광채": "피해를 4 줍니다. 전투 중 생성되는 임시 카드입니다. 사용하거나 버리면 사라집니다.",
 }
@@ -59,12 +57,8 @@ static func tooltip_sections(card: Dictionary) -> Array[Dictionary]:
 		_add_keyword(keywords, "힘 X")
 	if description.contains("강인함"):
 		_add_keyword(keywords, "강인함 X")
-	if description.contains("저항"):
-		_add_keyword(keywords, "저항 X")
 	if description.contains("취약"):
 		_add_keyword(keywords, "취약 X")
-	if description.contains("증폭"):
-		_add_keyword(keywords, "증폭 X")
 	if description.contains("약화"):
 		_add_keyword(keywords, "약화 X")
 	if description.contains("무적"):

@@ -384,11 +384,6 @@ func _forged_card() -> Dictionary:
 		var after := int(result.get("upgraded_value", before))
 		result["value"] = after
 		description = description.replace("%d[%d]" % [before, after], str(after))
-	if result.has("upgraded_resistance_gain"):
-		var before_resistance := int(result.get("resistance_gain", 0))
-		var after_resistance := int(result.get("upgraded_resistance_gain", before_resistance))
-		result["resistance_gain"] = after_resistance
-		description = description.replace("%d[%d]" % [before_resistance, after_resistance], str(after_resistance))
 	if str(result.get("effect", "")) == "obsidian_dagger":
 		var target := _find_forge_target(result)
 		var added_damage := int(target.get("value", 0))
@@ -449,7 +444,7 @@ func _demo_card(card: Dictionary) -> Control:
 
 func _empty_card_widget() -> Control:
 	var empty := Control.new()
-	empty.custom_minimum_size = Vector2(136, 191)
+	empty.custom_minimum_size = Vector2(149.6, 210.1)
 	empty.size = empty.custom_minimum_size
 	return empty
 

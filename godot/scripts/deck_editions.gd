@@ -4,7 +4,7 @@ class_name PortDeckEditions
 const IDS: Array[String] = [
 	"clever", "roomy", "lively", "fantastic", "rampaging", "quickHammer",
 	"drawPlus", "starPlus", "energyPlus", "persistentDraw", "frugalPlus",
-	"defensiveStance", "resistance", "giant", "whiteSpace", "invincible",
+	"defensiveStance", "giant", "whiteSpace", "invincible",
 	"hammering", "deckHighlander", "starFive", "energyThree", "starThree",
 ]
 
@@ -12,7 +12,7 @@ const SCORES := {
 	"clever": 10, "roomy": 5, "lively": 50, "fantastic": 60, "rampaging": 50,
 	"quickHammer": 10, "drawPlus": 5, "starPlus": 5, "energyPlus": 10,
 	"persistentDraw": 40, "frugalPlus": 40, "defensiveStance": 5,
-	"resistance": 30, "giant": 50, "whiteSpace": 30, "invincible": 100,
+	"giant": 50, "whiteSpace": 30, "invincible": 100,
 	"hammering": 30, "deckHighlander": 30, "starFive": 40, "energyThree": 40,
 	"starThree": 20,
 }
@@ -21,7 +21,7 @@ const NAMES := {
 	"clever": "별++", "roomy": "추가 파일", "lively": "아드레날린", "fantastic": "압축",
 	"rampaging": "지속 에너지", "quickHammer": "빠른 망치", "drawPlus": "드로우+",
 	"starPlus": "별+", "energyPlus": "에너지+", "persistentDraw": "지속 드로우",
-	"frugalPlus": "재활용+", "defensiveStance": "방호 태세", "resistance": "저항",
+	"frugalPlus": "재활용+", "defensiveStance": "방호 태세",
 	"giant": "거인", "whiteSpace": "여백의 미", "invincible": "무적",
 	"hammering": "망치질", "deckHighlander": "하이랜더", "starFive": "별+++++",
 	"energyThree": "에너지+++", "starThree": "별+++",
@@ -40,7 +40,6 @@ const DESCRIPTIONS := {
 	"persistentDraw": "매 턴 시작 시 무작위 파일에서 카드 1장을 뽑습니다.",
 	"frugalPlus": "턴 종료 시 남은 에너지 1당 ★ 2개를 획득합니다.",
 	"defensiveStance": "전투 시작 시 방어도 5를 획득합니다.",
-	"resistance": "전투 시작 시 저항 2를 획득합니다.",
 	"giant": "전투 시작 시 힘 3과 강인함 3을 획득합니다.",
 	"whiteSpace": "현재 빈 파일 하나당 힘 2를 획득합니다.",
 	"invincible": "전투 시작 시 무적 1을 획득합니다.",

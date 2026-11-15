@@ -35,7 +35,7 @@ static func description(action: Dictionary, enemy: Dictionary) -> String:
 	var formats := {
 		"strength_gain": "힘 %d 획득", "boon_gain": "가호 %d 획득", "block_gain": "방어 %d 획득",
 		"heal_gain": "체력 %d 회복", "strength_loss": "플레이어 힘 %d 감소", "agility_loss": "플레이어 강인함 %d 감소",
-		"resistance_gain": "저항 %d", "amplification_gain": "증폭 %d", "powder_gain": "화약 %d 획득",
+		"weak_gain": "약화 %d", "vulnerable_gain": "취약 %d", "powder_gain": "화약 %d 획득",
 		"soil_count": "모든 파일에 흙 %d장", "rock_count": "모든 파일에 바위 %d장", "discard_count": "버리기 %d",
 	}
 	for key in formats:
@@ -44,11 +44,11 @@ static func description(action: Dictionary, enemy: Dictionary) -> String:
 			count = int(action.get("first_action_rock_count", count))
 		if count != 0:
 			parts.append(str(formats[key]) % count)
-	for field in ["next_turn_player_resistance_change", "next_turn_player_amplification_change"]:
+	for field in ["next_turn_player_weak_gain", "next_turn_player_vulnerable_gain"]:
 		var amount := int(action.get(field, 0))
-		if amount != 0:
-			var status := ("저항" if amount > 0 else "취약") if field.ends_with("resistance_change") else ("증폭" if amount > 0 else "약화")
-			parts.append("플레이어 %s %d" % [status, absi(amount)])
+		if amount > 0:
+			var status := "취약" if field.ends_with("vulnerable_gain") else "약화"
+			parts.append("다음 턴 플레이어 %s %d" % [status, amount])
 	if action.has("summon"): parts.append("새끼 소환")
 	if bool(action.get("self_destruct", false)): parts.append("자폭")
 	if action.has("preview"): parts.append(str(action["preview"]))
@@ -63,7 +63,12 @@ func _draw() -> void:
 			if magic:
 				draw_circle(origin + Vector2(22, 29), 22, Color("#4b9bd7"))
 			else:
-				var blade := PackedVector2Array([Vector2(22, 0), Vector2(40, 11), Vector2(34, 41), Vector2(27, 41), Vector2(27, 48), Vector2(44, 48), Vector2(44, 57), Vector2(27, 57), Vector2(27, 65), Vector2(17, 65), Vector2(17, 57), Vector2(0, 57), Vector2(0, 48), Vector2(17, 48), Vector2(17, 41), Vector2(10, 41), Vector2(4, 11)])
+				var blade := PackedVector2Array([
+					Vector2(22, 0), Vector2(40, 11), Vector2(33, 41),
+					Vector2(44, 41), Vector2(44, 49), Vector2(27, 49),
+					Vector2(27, 60), Vector2(17, 60), Vector2(17, 49),
+					Vector2(0, 49), Vector2(0, 41), Vector2(11, 41), Vector2(4, 11),
+				])
 				for point in range(blade.size()): blade[point] += origin
 				draw_colored_polygon(blade, Color("#e87e22"))
 			draw_string(intent_font, origin + Vector2(0, 35), str(damage), HORIZONTAL_ALIGNMENT_CENTER, 44, 25, Color.WHITE)

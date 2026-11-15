@@ -19,30 +19,29 @@ const ATTACK_EFFECTS := ["radiance", "sweep", "double_hit", "iron_rampage", "mag
 const DRAW_EFFECTS := [
 	"librarians_privilege", "pommel", "deflect", "prepare", "draw_each_pile", "dash", "quick_step",
 	"battle_plan", "file_draw", "flood", "adrenaline", "astronomy_research", "necromancy_research",
-	"saeongjima", "foresight", "parallel_mirror", "overcharge",
+	"saeongjima", "foresight", "parallel_mirror",
 ]
 const ENERGY_EFFECTS := [
-	"battle_preparation", "focus", "adrenaline", "pruning", "ventilate", "plate_armor", "charge",
-	"flood", "end_start", "supernova", "aries", "economics_research", "critical_reaction",
+	"focus", "adrenaline", "pruning", "ventilate", "plate_armor", "charge",
+	"flood", "end_start", "supernova", "aries", "economics_research",
 ]
 const DEFENSE_EFFECTS := [
-	"scale_armor", "defend", "deflect", "ice_shield", "water_wave", "plate_armor_defense", "star_guard",
+	"scale_armor", "defend", "deflect", "ice_shield", "water_wave", "star_guard",
 	"star_ark", "iron_wave", "iron_rampage", "suppression", "odin_spear", "silver_sword", "sturdy_stance",
-	"iron_song", "steel_storm", "at_field",
+	"iron_song", "steel_storm",
 ]
 const STAR_EFFECTS := [
 	"recycling", "battle_plan", "ruler_compass", "starlight", "star_guard", "star_ark", "super_strategist",
 	"flood", "aries", "astronomy_research", "necromancy_research", "nebula",
 ]
 const STATUS_EFFECTS := [
-	"battle_cry", "shatter", "knee_strike", "resistance_ward", "battle_preparation", "scale_armor",
-	"four_seasons", "unyielding", "demolish", "beastification", "metalization", "sand_toss", "iron_song",
-	"foresight", "transcend", "steel_storm", "at_field", "overcharge", "critical_reaction", "warm_up",
+	"shatter", "knee_strike", "scale_armor", "demolish", "beastification", "metalization", "sand_toss", "iron_song",
+	"foresight", "transcend", "steel_storm", "warm_up",
 	"rapid_fire", "counter", "supernova", "mirror_image", "light_travel_time", "wolf_talisman", "turtle_talisman",
 ]
 const PHYSICAL_DEFENSE_EFFECTS := [
-	"scale_armor", "deflect", "star_guard", "plate_armor_defense", "iron_wave", "iron_rampage", "suppression",
-	"star_ark", "odin_spear", "sturdy_stance", "iron_song", "steel_storm", "at_field",
+	"scale_armor", "deflect", "star_guard", "iron_wave", "iron_rampage", "suppression",
+	"star_ark", "odin_spear", "sturdy_stance", "iron_song", "steel_storm",
 ]
 const MAGIC_DEFENSE_EFFECTS := ["ice_shield", "water_wave", "star_ark", "silver_sword"]
 

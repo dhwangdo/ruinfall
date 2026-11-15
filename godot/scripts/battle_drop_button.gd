@@ -51,19 +51,19 @@ func _get_drag_data(at_position: Vector2) -> Variant:
 				var copy := source_preview.duplicate() as Control
 				copy.set_script(null)
 				copy.position = Vector2(0, float(index - card_index) * file_stack_offset)
-				copy.size = Vector2(136, 191)
-				copy.custom_minimum_size = Vector2(136, 191)
+				copy.size = Vector2(149.6, 210.1)
+				copy.custom_minimum_size = Vector2(149.6, 210.1)
 				copy.scale = Vector2.ONE
 				copy.pivot_offset = Vector2.ZERO
 				copy.mouse_filter = Control.MOUSE_FILTER_IGNORE
 				preview.add_child(copy)
-		preview.size = Vector2(136, 191 + float(card_ids.size() - 1) * file_stack_offset)
+		preview.size = Vector2(149.6, 210.1 + float(card_ids.size() - 1) * file_stack_offset)
 		payload["card_ids"] = card_ids
 	elif is_instance_valid(drag_preview_widget):
 		preview = drag_preview_widget.duplicate() as Control
 		preview.set_script(null)
-		preview.size = Vector2(136, 191)
-		preview.custom_minimum_size = Vector2(136, 191)
+		preview.size = Vector2(149.6, 210.1)
+		preview.custom_minimum_size = Vector2(149.6, 210.1)
 		preview.scale = Vector2.ONE
 		preview.pivot_offset = Vector2.ZERO
 	else:
@@ -75,7 +75,7 @@ func _get_drag_data(at_position: Vector2) -> Variant:
 		label.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 		label.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
 		preview = label
-	set_drag_preview(CardDragPreviewLayer.create(preview, Vector2(136, 191), "BattlePileCardDragPreview", true))
+	set_drag_preview(CardDragPreviewLayer.create(preview, Vector2(149.6, 210.1), "BattlePileCardDragPreview", true))
 	return payload
 
 

@@ -93,10 +93,11 @@ const RUN_SAVE_PATH := "user://run_state.save"
 const SETTINGS_PATH := "user://settings.cfg"
 const INVENTORY_CAPACITY := 15
 const MAX_OWNED_DECKS := 3
-# Mirror the browser file cards: 120.9×170px cards with 27px exposed per layer.
-const PILE_CARD_WIDTH := 121.0
-const PILE_CARD_HEIGHT := 170.0
+# File cards retain their hand-card scale, with 27px exposed per layer.
+const PILE_CARD_WIDTH := 133.1
+const PILE_CARD_HEIGHT := 187.0
 const PILE_CARD_SCALE := 0.89
+const CardFontSizes = preload("res://scripts/card_font_sizes.gd")
 const PILE_STACK_OFFSET := 27.0
 var run_state: Dictionary = {}
 var battle_state: Dictionary = {}
@@ -116,7 +117,7 @@ var battle_enemy_widgets: Dictionary = {}
 var active_battle_player_hp: ProgressBar
 var active_battle_player_hp_text: Label
 var active_battle_energy_orb: Control
-var active_battle_defense_strip: VBoxContainer
+var active_battle_defense_strip: HBoxContainer
 var battle_pile_widgets: Array[Control] = []
 var active_battle_hand_area: Control
 var active_battle_play_area: Control
@@ -932,7 +933,7 @@ func _install_theme() -> void:
 	tooltip_style.content_margin_bottom = 7
 	blue_tooltip_theme.set_stylebox("panel", "TooltipPanel", tooltip_style)
 	blue_tooltip_theme.set_color("font_color", "TooltipLabel", Color("#f3f7fa"))
-	blue_tooltip_theme.set_font_size("font_size", "TooltipLabel", 13)
+	blue_tooltip_theme.set_font_size("font_size", "TooltipLabel", 14)
 	RenderingServer.set_default_clear_color(COLOR_BG)
 	reward_random.randomize()
 
@@ -2642,14 +2643,10 @@ func _show_battle(keep_draw_phase: bool = false) -> void:
 	player_column.add_child(player_panel)
 	player_panel.add_child(_battle_player_identity())
 	var player_statuses: Array[String] = []
-	if int(battle_state.get("player_amplification", 0)) < 0:
-		player_statuses.append("약화 %d" % absi(int(battle_state["player_amplification"])))
-	elif int(battle_state.get("player_amplification", 0)) > 0:
-		player_statuses.append("증폭 %d" % int(battle_state["player_amplification"]))
-	if int(battle_state.get("player_resistance", 0)) < 0:
-		player_statuses.append("취약 %d" % absi(int(battle_state["player_resistance"])))
-	elif int(battle_state.get("player_resistance", 0)) > 0:
-		player_statuses.append("저항 %d" % int(battle_state["player_resistance"]))
+	if int(battle_state.get("player_weak", 0)) > 0:
+		player_statuses.append("약화 %d" % int(battle_state["player_weak"]))
+	if int(battle_state.get("player_vulnerable", 0)) > 0:
+		player_statuses.append("취약 %d" % int(battle_state["player_vulnerable"]))
 	if int(battle_state.get("strength", 0)) != 0:
 		var strength := int(battle_state["strength"])
 		player_statuses.append("힘 %s%d" % ["+" if strength > 0 else "", strength])
@@ -2675,7 +2672,7 @@ func _show_battle(keep_draw_phase: bool = false) -> void:
 				or status_text.begins_with("힘 -") or status_text.begins_with("이번 턴 힘 -") \
 				or status_text.begins_with("강인함 -"):
 				status_color = COLOR_RED
-			elif status_text.begins_with("저항") or status_text.begins_with("강인함") or status_text.begins_with("무적"):
+			elif status_text.begins_with("강인함") or status_text.begins_with("무적"):
 				status_color = Color("#82b6da")
 			elif status_text.begins_with("다음 공격"):
 				status_color = COLOR_GOLD
@@ -2812,13 +2809,11 @@ func _show_battle(keep_draw_phase: bool = false) -> void:
 			exclusions.append(enemy_widget)
 		pile_widget.drop_exclusion_controls = exclusions
 
-	active_battle_defense_strip = _battle_resource_strip()
-	player_panel.add_child(active_battle_defense_strip)
-	var end_button := _button("턴 종료 (E) →", Callable(self, "_end_turn"), Vector2(124, 48))
+	var end_button := _button("턴 종료 (E) →", Callable(self, "_end_turn"), Vector2(164, 60))
 	active_battle_end_button = end_button
 	if battle_turn_resolving:
 		end_button.text = "턴 진행 중"
-	end_button.tooltip_text = "턴을 끝내고 각 적의 예고 행동을 진행합니다."
+	end_button.tooltip_text = ""
 	end_button.disabled = battle_turn_resolving or battle_draw_presentation.active or int(battle_state.get("pending_draws", 0)) > 0 \
 		or int(battle_state.get("pending_pile_draw_count", 0)) > 0 \
 		or int(battle_state.get("pending_discard_count", 0)) > 0 \
@@ -2826,15 +2821,25 @@ func _show_battle(keep_draw_phase: bool = false) -> void:
 		or str(battle_state.get("pending_pile_operation", "")) != ""
 	battle_hud_overlay.add_child(end_button)
 	end_button.set_anchors_and_offsets_preset(Control.PRESET_BOTTOM_RIGHT)
-	end_button.offset_left = -148
-	end_button.offset_top = -74
+	end_button.offset_left = -188
+	end_button.offset_top = -84
 	end_button.offset_right = -24
-	end_button.offset_bottom = -26
-	end_button.add_theme_font_size_override("font_size", 12)
+	end_button.offset_bottom = -24
+	end_button.add_theme_font_size_override("font_size", 18)
+	var end_turn_font := FontVariation.new()
+	end_turn_font.base_font = preload("res://assets/fonts/PretendardVariable.woff2")
+	end_turn_font.variation_opentype = {
+		TextServerManager.get_primary_interface().name_to_tag("wght"): 700.0
+	}
+	end_button.add_theme_font_override("font", end_turn_font)
 	end_button.add_theme_color_override("font_color", Color("#252525"))
-	end_button.add_theme_color_override("font_hover_color", Color("#252525"))
-	end_button.add_theme_stylebox_override("normal", _button_style(Color("#ece7d9"), Color("#a5a396")))
-	end_button.add_theme_stylebox_override("hover", _button_style(Color("#fff6d9"), Color("#e0c76a")))
+	end_button.add_theme_color_override("font_hover_color", Color("#b52d29"))
+	end_button.add_theme_color_override("font_pressed_color", Color("#b52d29"))
+	var end_turn_style := _button_style(Color("#d7d2c6"), Color("#a5a396"))
+	var end_turn_hover_style := _button_style(Color("#f4ead6"), Color("#a5a396"))
+	end_button.add_theme_stylebox_override("normal", end_turn_style)
+	end_button.add_theme_stylebox_override("hover", end_turn_hover_style)
+	end_button.add_theme_stylebox_override("pressed", end_turn_hover_style)
 	board.arrange.call_deferred()
 	if not battle_card_ledger_open.is_empty():
 		_show_battle_card_ledger()
@@ -3032,18 +3037,12 @@ func _battle_enemy_visual(enemy_index: int) -> Button:
 
 func _enemy_status_text(enemy: Dictionary) -> String:
 	var statuses: Array[String] = []
-	var resistance := int(enemy.get("resistance", 0))
-	var amplification := int(enemy.get("amplification", 0))
-	if resistance > 0:
-		statuses.append("저항 %d" % resistance)
-	elif resistance < 0:
-		statuses.append("취약 %d" % absi(resistance))
-	if amplification > 0:
-		statuses.append("증폭 %d" % amplification)
-	elif amplification < 0:
-		statuses.append("약화 %d" % absi(amplification))
-	if int(enemy.get("status_effectiveness", 30)) > 30:
-		statuses.append("강화됨")
+	var vulnerable := int(enemy.get("vulnerable", 0))
+	var weak := int(enemy.get("weak", 0))
+	if vulnerable > 0:
+		statuses.append("취약 %d" % vulnerable)
+	if weak > 0:
+		statuses.append("약화 %d" % weak)
 	var block := int(enemy.get("physical_block", 0))
 	if block > 0:
 		statuses.append("방어 %d" % block)
@@ -3110,15 +3109,10 @@ func _enemy_status_text(enemy: Dictionary) -> String:
 
 
 func _enemy_status_tooltip(enemy: Dictionary, status_text: String) -> String:
-	var effectiveness := int(enemy.get("status_effectiveness", 30))
-	if status_text.begins_with("저항 "):
-		return "받는 공격 피해가 %d%% 감소합니다. 취약과 서로 상쇄됩니다." % effectiveness
 	if status_text.begins_with("취약 "):
-		return "받는 공격 피해가 %d%% 증가합니다. 저항과 서로 상쇄됩니다." % effectiveness
-	if status_text.begins_with("증폭 "):
-		return "공격 피해가 %d%% 증가합니다. 약화와 서로 상쇄됩니다." % effectiveness
+		return "받는 공격 피해가 50% 증가합니다."
 	if status_text.begins_with("약화 "):
-		return "공격 피해가 %d%% 감소합니다. 증폭과 서로 상쇄됩니다." % effectiveness
+		return "가하는 공격 피해가 50% 감소합니다."
 	if status_text.begins_with("힘 "):
 		return "공격의 각 타격에 피해를 %d만큼 추가합니다." % status_text.get_slice(" ", 1).to_int()
 	if status_text.begins_with("임시 힘 "):
@@ -3156,14 +3150,10 @@ func _enemy_trait_tooltip(enemy: Dictionary) -> String:
 
 
 func _battle_status_tooltip(status_text: String) -> String:
-	if status_text.begins_with("저항 "):
-		return "적에게 받는 공격 피해가 30% 감소합니다. 취약과 서로 상쇄됩니다."
 	if status_text.begins_with("취약 "):
-		return "적에게 받는 공격 피해가 30% 증가합니다. 저항과 서로 상쇄됩니다."
-	if status_text.begins_with("증폭 "):
-		return "내 공격 피해가 30% 증가합니다. 약화와 서로 상쇄됩니다."
+		return "받는 공격 피해가 50% 증가합니다."
 	if status_text.begins_with("약화 "):
-		return "내 공격 피해가 30% 감소합니다. 증폭과 서로 상쇄됩니다."
+		return "가하는 공격 피해가 50% 감소합니다."
 	if status_text.begins_with("강인함 "):
 		var status_parts: PackedStringArray = status_text.split(" ")
 		var agility := int(status_parts[status_parts.size() - 1])
@@ -3211,10 +3201,12 @@ func _pile_button(pile_index: int) -> Button:
 			if bool(stacked_card.get("revealed", false)):
 				var stack_preview := _card_widget(stacked_card, false, false)
 				stack_preview.position = card_position
-				stack_preview.size = Vector2(136, 191)
-				stack_preview.scale = Vector2.ONE * PILE_CARD_SCALE
+				stack_preview.custom_minimum_size = Vector2(PILE_CARD_WIDTH, PILE_CARD_HEIGHT)
+				stack_preview.size = stack_preview.custom_minimum_size
+				CardFontSizes.apply(stack_preview, PILE_CARD_SCALE)
 				stack_preview.pivot_offset = Vector2.ZERO
 				button.add_child(stack_preview)
+				stack_preview.set_deferred("size", Vector2(PILE_CARD_WIDTH, PILE_CARD_HEIGHT))
 				button.file_drag_previews[stack_index] = stack_preview
 			else:
 				var card_back := _battle_card_back()
@@ -3229,10 +3221,12 @@ func _pile_button(pile_index: int) -> Button:
 		if bool(top_card.get("revealed", false)):
 			var preview := _card_widget(top_card, false, false)
 			preview.position = Vector2(0, top_card_y)
-			preview.size = Vector2(136, 191)
-			preview.scale = Vector2.ONE * PILE_CARD_SCALE
+			preview.custom_minimum_size = Vector2(PILE_CARD_WIDTH, PILE_CARD_HEIGHT)
+			preview.size = preview.custom_minimum_size
+			CardFontSizes.apply(preview, PILE_CARD_SCALE)
 			preview.pivot_offset = Vector2.ZERO
 			button.add_child(preview)
+			preview.set_deferred("size", Vector2(PILE_CARD_WIDTH, PILE_CARD_HEIGHT))
 			button.set("drag_preview_widget", preview)
 			button.file_drag_previews[visible_stack_count] = preview
 		else:
@@ -3327,7 +3321,7 @@ func _on_battle_card_dropped(payload: Dictionary, target_kind: String, target_in
 			var file := battle_pile_widgets[target_index]
 			var top_index: int = next_state["piles"][target_index].size() - 1
 			var target_top: Vector2 = file.get_global_transform_with_canvas() * Vector2(0, top_index * PILE_STACK_OFFSET)
-			var destination := Rect2(target_top, Vector2(136, 191) * PILE_CARD_SCALE)
+			var destination := Rect2(target_top, Vector2(149.6, 210.1) * PILE_CARD_SCALE)
 			var carrier := _released_card_source(moving_card, battle_hand_card_widgets.get(card_id), held_origin)
 			var items: Array = [{"card": moving_card, "source": carrier}]
 			var ticket := await battle_draw_presentation.play_departures(self, items, next_state, "place", destination)
@@ -3362,8 +3356,8 @@ func _card_widget(card: Dictionary, interactive: bool = true, sticker_tooltips: 
 		keyword_tooltips: bool = true, use_battle_context: bool = true) -> Control:
 	var panel = BattleCardDragSourceScript.new()
 	panel.oversampling_with_scale = CanvasItem.OVERSAMPLING_WITH_SCALE_ENABLED
-	panel.custom_minimum_size = Vector2(136, 191)
-	# The browser full card has fixed dimensions, even inside a taller flex row.
+	panel.custom_minimum_size = Vector2(149.6, 210.1)
+	# Full cards keep fixed dimensions, even inside a taller row.
 	panel.size_flags_horizontal = Control.SIZE_SHRINK_CENTER
 	panel.size_flags_vertical = Control.SIZE_SHRINK_CENTER
 	panel.add_theme_stylebox_override("panel", _card_style(card,
@@ -3384,6 +3378,7 @@ func _card_widget(card: Dictionary, interactive: bool = true, sticker_tooltips: 
 	body.mouse_filter = Control.MOUSE_FILTER_PASS
 	panel.add_child(body)
 	var header_panel := PanelContainer.new()
+	header_panel.set_meta("card_base_header_height", 37.0)
 	header_panel.custom_minimum_size.y = 37
 	header_panel.anchor_left = 0.0
 	header_panel.anchor_top = 0.0
@@ -3404,12 +3399,14 @@ func _card_widget(card: Dictionary, interactive: bool = true, sticker_tooltips: 
 		var shown_cost = BattleRules.effective_card_cost(battle_state, card) \
 			if screen_name == "battle" and use_battle_context else CardStickers.card_energy_cost(card)
 		var cost := _label(str(shown_cost), 22, COLOR_TEXT)
+		cost.set_meta("card_base_font_size", 22)
 		cost.add_theme_font_override("font", battle_card_cost_font)
 		cost.add_theme_color_override("font_color", header_text_color)
 		cost.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
 		cost.mouse_filter = Control.MOUSE_FILTER_PASS
 		header.add_child(cost)
-	var name := _label(str(card.get("name", "카드")), 15, header_text_color)
+	var name := _label(str(card.get("name", "카드")), 17, header_text_color)
+	name.set_meta("card_base_font_size", 17)
 	name.add_theme_font_override("font", battle_card_name_font)
 	name.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	name.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
@@ -3424,19 +3421,20 @@ func _card_widget(card: Dictionary, interactive: bool = true, sticker_tooltips: 
 	description.fit_content = false
 	description.scroll_active = false
 	description.add_theme_font_override("normal_font", battle_card_body_font)
-	description.add_theme_font_size_override("normal_font_size", 12)
-	description.add_theme_font_size_override("bold_font_size", 12)
-	description.add_theme_font_size_override("italics_font_size", 12)
-	description.add_theme_font_size_override("bold_italics_font_size", 12)
+	description.add_theme_font_size_override("normal_font_size", 14)
+	description.add_theme_font_size_override("bold_font_size", 14)
+	description.add_theme_font_size_override("italics_font_size", 14)
+	description.add_theme_font_size_override("bold_italics_font_size", 14)
 	description.add_theme_font_override("bold_font", battle_card_emphasis_font)
 	description.add_theme_color_override("default_color", Color("#292b28"))
 	description.language = "ko"
 	description.add_theme_constant_override("line_separation", 3)
 	var plain_description := _card_description(card, use_battle_context)
 	description.text = CardDescriptionText.to_bbcode(plain_description)
+	description.set_meta("card_base_font_size", 14)
+	description.set_meta("card_body_size_variants", Vector3i(12, 14, 17))
+	description.set_meta("card_description_bbcode", description.text)
 	description.autowrap_mode = TextServer.AUTOWRAP_WORD
-	description.ready.connect(_fit_card_description_after_layout.bind(
-		description, plain_description, screen_name == "battle"), CONNECT_ONE_SHOT)
 	if keyword_tooltips:
 		TooltipBindings.bind_card(panel, card)
 	if keyword_tooltips and animation_tooltips_enabled and CardMechanicPreview.supports(card):
@@ -3498,40 +3496,6 @@ func _card_widget(card: Dictionary, interactive: bool = true, sticker_tooltips: 
 			sticker_row.add_child(icon)
 		body.add_child(sticker_row)
 	return panel
-
-
-func _fit_card_description_after_layout(description: RichTextLabel, plain_description: String,
-		fit_battle_layout: bool) -> void:
-	await get_tree().process_frame
-	if not is_instance_valid(description):
-		return
-	if not description.is_inside_tree():
-		return
-	var fitted: Dictionary = CardDescriptionText.fit_sentences(plain_description, description, description.size.x, 12)
-	if bool(fitted.get("changed", false)):
-		description.text = str(fitted.get("text", CardDescriptionText.to_bbcode(plain_description)))
-		description.autowrap_mode = TextServer.AUTOWRAP_WORD
-	elif fit_battle_layout:
-		var wrap_result: Dictionary = CardDescriptionText.wrap_words(plain_description, description,
-			description.size.x, description.size.y, 12)
-		if bool(wrap_result.get("fits", false)):
-			description.text = CardDescriptionText.to_bbcode(str(wrap_result.get("text", plain_description)))
-			description.autowrap_mode = TextServer.AUTOWRAP_OFF
-		else:
-			description.text = CardDescriptionText.to_bbcode(plain_description)
-			description.autowrap_mode = TextServer.AUTOWRAP_WORD
-	else:
-		description.text = CardDescriptionText.to_bbcode(plain_description)
-		description.autowrap_mode = TextServer.AUTOWRAP_WORD
-
-	if fit_battle_layout:
-		# Match useCardEffectLayout without reserving space for sticker overlays.
-		var line_count := description.get_line_count()
-		var shift := minf(8.0, maxf(0.0, float(line_count - 1)) * 1.2)
-		var description_margin := description.get_parent() as MarginContainer
-		if is_instance_valid(description_margin):
-			description_margin.offset_top = 30.0 + shift
-			description_margin.offset_bottom = -14.0 + shift
 
 
 func _mechanic_full_card_widget(card: Dictionary) -> Control:
@@ -3600,10 +3564,6 @@ func _card_description(card: Dictionary, use_battle_context: bool = true) -> Str
 			var base_value := int(card.get("value", 0))
 			var forged_value := int(card.get("upgraded_value", base_value))
 			description = description.replace("%d[%d]" % [base_value, forged_value], str(forged_value))
-		if card.has("upgraded_resistance_gain"):
-			var base_resistance := int(card.get("resistance_gain", 0))
-			var forged_resistance := int(card.get("upgraded_resistance_gain", base_resistance))
-			description = description.replace("%d[%d]" % [base_resistance, forged_resistance], str(forged_resistance))
 	description = _browser_star_gain_description(card, description)
 	if screen_name == "battle" and use_battle_context:
 		description = BattleCardPreview.describe(card, description, battle_state)
@@ -5535,8 +5495,8 @@ func _show_card_hover_preview(source: Control, card: Dictionary) -> void:
 	if get_viewport().gui_is_dragging() or not is_instance_valid(source) or card.is_empty():
 		return
 	var preview := _card_widget(card, false, false, false, false)
-	preview.custom_minimum_size = Vector2(136, 191)
-	preview.size = Vector2(136, 191)
+	preview.custom_minimum_size = Vector2(149.6, 210.1)
+	preview.size = Vector2(149.6, 210.1)
 	var frame := CardHoverPreview.create(preview)
 	add_child(frame)
 	var source_rect := source.get_global_rect()
@@ -6274,7 +6234,7 @@ func _service_slot(label_text: String, slot_index := 0) -> StickerServiceSlotDro
 	var panel := StickerServiceSlotDropTarget.new()
 	panel.slot_index = slot_index
 	panel.card_validator = Callable(self, "_can_drop_service_card_to_slot").bind(slot_index)
-	panel.custom_minimum_size = Vector2(136, 191)
+	panel.custom_minimum_size = Vector2(149.6, 210.1)
 	if active_service_kind == "stickerAltar":
 		panel.tooltip_text = "스티커가 하나 붙은 카드만 제물로 놓을 수 있습니다." if slot_index == 0 \
 			else "제물 스티커를 받을 수 있는 카드를 놓을 수 있습니다."
@@ -6289,7 +6249,7 @@ func _service_slot(label_text: String, slot_index := 0) -> StickerServiceSlotDro
 
 func _service_result_placeholder() -> Control:
 	var panel := PanelContainer.new()
-	panel.custom_minimum_size = Vector2(136, 191)
+	panel.custom_minimum_size = Vector2(149.6, 210.1)
 	panel.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	panel.add_theme_stylebox_override("panel", _button_style(COLOR_PANEL, COLOR_BORDER))
 	var plus := _label("+", 34, COLOR_GOLD)
@@ -6391,7 +6351,8 @@ func _battle_player_identity() -> VBoxContainer:
 	player_name.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 	details.add_child(player_name)
 	var hp_row := HBoxContainer.new()
-	hp_row.custom_minimum_size.x = 190
+	hp_row.custom_minimum_size.x = details.custom_minimum_size.x
+	hp_row.add_theme_constant_override("separation", 5)
 	hp_row.size_flags_horizontal = Control.SIZE_SHRINK_CENTER
 	var hp_value := int(battle_state.get("player_hp", 0))
 	var hp_max := maxi(1, int(run_state.get("max_hp", 1)))
@@ -6408,14 +6369,22 @@ func _battle_player_identity() -> VBoxContainer:
 	BattleHPBar.apply_map_style(hp_bar, hp_text)
 	hp_bar.add_child(hp_text)
 	details.add_child(hp_row)
+	active_battle_defense_strip = _battle_resource_strip()
+	hp_bar.add_child(active_battle_defense_strip)
+	active_battle_defense_strip.set_anchors_and_offsets_preset(Control.PRESET_CENTER_RIGHT)
+	active_battle_defense_strip.offset_left = -16
+	active_battle_defense_strip.offset_right = 72
+	active_battle_defense_strip.offset_top = -44
+	active_battle_defense_strip.offset_bottom = 44
+	active_battle_defense_strip.grow_horizontal = Control.GROW_DIRECTION_END
+	active_battle_defense_strip.z_index = 1
 	row.add_child(details)
 	return row
 
 
-func _battle_resource_strip() -> VBoxContainer:
-	var strip := VBoxContainer.new()
-	strip.add_theme_constant_override("separation", 5)
-	strip.alignment = BoxContainer.ALIGNMENT_BEGIN
+func _battle_resource_strip() -> HBoxContainer:
+	var strip := HBoxContainer.new()
+	strip.add_theme_constant_override("separation", 2)
 	var physical_block := int(battle_state.get("player_block", 0))
 	if physical_block > 0:
 		var physical_shield = BattleDefenseShieldScript.new()

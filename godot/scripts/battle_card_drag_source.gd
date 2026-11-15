@@ -39,7 +39,15 @@ func _make_drag_preview(payload: Dictionary) -> Control:
 		preview.rotation = 0
 		preview.pivot_offset = Vector2.ZERO
 	var selected_card_size := size if not size.is_zero_approx() else custom_minimum_size
+	if str(payload.get("kind", "")) == "battle-card" and str(payload.get("source", "")) == "hand":
+		# Hover enlarges the source's dimensions; held cards use the normal size.
+		selected_card_size = Vector2(149.6, 210.1)
+		preview.custom_minimum_size = selected_card_size
+		preview.size = selected_card_size
+		preload("res://scripts/card_font_sizes.gd").apply(preview, 1.0)
 	active_drag_preview = CardDragPreviewLayer.create(preview, selected_card_size, "BattleCardDragPreview", true)
+	if str(payload.get("kind", "")) == "battle-card" and str(payload.get("source", "")) == "hand":
+		preview.set_deferred("size", selected_card_size)
 	if str(payload.get("kind", "")) == "battle-card" and str(payload.get("source", "")) == "hand":
 		# The source metadata is set by the hand builder, independently of cost.
 		active_drag_preview.set_meta("drag_fixed_center", bool(get_meta("targeted_card", false)))

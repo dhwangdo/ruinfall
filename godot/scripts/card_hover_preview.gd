@@ -1,7 +1,7 @@
 extends RefCounted
 class_name PortCardHoverPreview
 
-const FRAME_SIZE := Vector2(160, 215)
+const FRAME_SIZE := Vector2(173.6, 234.1)
 
 
 static func create(card_widget: Control) -> Control:

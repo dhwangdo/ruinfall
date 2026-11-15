@@ -7,7 +7,7 @@ const STRONG_DEFENSE_TOKEN := "__PORT_STRONG_DEFENSE__"
 const STRONG_MAGIC_DAMAGE_TOKEN := "__PORT_STRONG_MAGIC_DAMAGE__"
 
 const EMPHASIZED_KEYWORDS := [
-	"힘", "강인함", "저항", "취약", "증폭", "약화", "무적", "광채",
+	"힘", "강인함", "취약", "약화", "무적", "광채",
 	"에너지", "소멸", "보존", "토큰", "재련", "버리기", "룰.", "피해",
 ]
 
@@ -45,104 +45,6 @@ static func to_bbcode(source: String, context_source: String = "") -> String:
 	result = result.replace(STRONG_MAGIC_DAMAGE_TOKEN,
 		"[font=%s]마법 피해[/font]" % EMPHASIS_700_FONT)
 	return result
-
-
-static func fit_sentences(source: String, label: RichTextLabel, max_width: float,
-		font_size: int = 12, minimum_scale: float = 0.8611111111111112) -> Dictionary:
-	var minimum_font_size := int(floor(float(font_size) * minimum_scale))
-	if max_width <= 0.0 or minimum_font_size >= font_size:
-		return {"text": to_bbcode(source), "changed": false}
-	var previous_autowrap := label.autowrap_mode
-	label.autowrap_mode = TextServer.AUTOWRAP_OFF
-	var boundary := RegEx.new()
-	boundary.compile("[.!?](?:\\)|\\]|\\})?(?=\\s|$)")
-	var sentences: Array[Dictionary] = []
-	var cursor := 0
-	for match in boundary.search_all(source):
-		var sentence_end := match.get_end()
-		var sentence := source.substr(cursor, sentence_end - cursor).strip_edges()
-		if not sentence.is_empty():
-			var separator_end := sentence_end
-			while separator_end < source.length() and source.substr(separator_end, 1) in [" ", "\t", "\n", "\r"]:
-				separator_end += 1
-			sentences.append({
-				"text": sentence,
-				"separator": source.substr(sentence_end, separator_end - sentence_end),
-			})
-			cursor = separator_end
-	var remainder := source.substr(cursor)
-	if not remainder.strip_edges().is_empty():
-		sentences.append({"text": remainder.strip_edges(), "separator": ""})
-	if sentences.is_empty():
-		_set_label_font_size(label, font_size)
-		label.autowrap_mode = previous_autowrap
-		return {"text": to_bbcode(source), "changed": false}
-
-	# Match the browser: fit each sentence, then apply the tightest shared size.
-	var shared_font_size := font_size
-	for entry in sentences:
-		var best_font_size := _best_sentence_font_size(str(entry["text"]), source, label,
-			max_width, font_size, minimum_font_size)
-		shared_font_size = mini(shared_font_size, best_font_size)
-
-	var result := ""
-	var changed := shared_font_size < font_size
-	var line_width := 0.0
-	var space_width := 3.0
-	var normal_font := label.get_theme_font("normal_font")
-	if normal_font != null:
-		space_width = normal_font.get_string_size(" ", HORIZONTAL_ALIGNMENT_LEFT, -1, shared_font_size).x
-	for index in range(sentences.size()):
-		var entry: Dictionary = sentences[index]
-		var sentence := str(entry["text"])
-		var separator := str(entry["separator"])
-		var formatted := to_bbcode(sentence, source)
-		_set_label_font_size(label, shared_font_size)
-		label.text = formatted
-		var sentence_width := float(label.get_content_width())
-		if index > 0:
-			if separator.contains("\n") or separator.contains("\r"):
-				result += separator
-				line_width = 0.0
-			elif line_width > 0.0 and (sentence_width > max_width \
-					or line_width + space_width + sentence_width > max_width):
-				result += "\n"
-				line_width = 0.0
-				changed = true
-			else:
-				result += separator
-		if shared_font_size < font_size:
-			result += "[font_size=%d]%s[/font_size]" % [shared_font_size, formatted]
-		else:
-			result += formatted
-		if sentence.contains("\n") or sentence.contains("\r") or sentence_width > max_width:
-			line_width = 0.0
-		else:
-			line_width += sentence_width
-			if index < sentences.size() - 1 and not separator.is_empty():
-				line_width += space_width
-	_set_label_font_size(label, font_size)
-	label.autowrap_mode = previous_autowrap
-	return {"text": result, "changed": changed}
-
-
-static func _best_sentence_font_size(sentence: String, source: String, label: RichTextLabel,
-		max_width: float, font_size: int, minimum_font_size: int) -> int:
-	var formatted := to_bbcode(sentence, source)
-	for candidate_size in range(font_size, minimum_font_size - 1, -1):
-		_set_label_font_size(label, candidate_size)
-		label.text = formatted
-		if float(label.get_content_width()) <= max_width:
-			return candidate_size
-	# Browser leaves an overlong sentence at its normal scale and wraps it.
-	return font_size
-
-
-static func _set_label_font_size(label: RichTextLabel, font_size: int) -> void:
-	label.add_theme_font_size_override("normal_font_size", font_size)
-	label.add_theme_font_size_override("bold_font_size", font_size)
-	label.add_theme_font_size_override("italics_font_size", font_size)
-	label.add_theme_font_size_override("bold_italics_font_size", font_size)
 
 
 static func wrap_words(source: String, label: RichTextLabel, max_width: float,

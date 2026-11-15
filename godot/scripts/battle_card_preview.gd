@@ -7,15 +7,14 @@ const ATTACK_EFFECTS := [
 	"radiance", "sweep", "double_hit", "iron_rampage", "magic_strike", "shockwave", "meteor", "hydra",
 ]
 const DEFENSE_EFFECTS := [
-	"defend", "scale_armor", "deflect", "ice_shield", "star_guard", "plate_armor_defense", "sturdy_stance",
-	"iron_wave", "iron_song", "steel_storm", "at_field", "water_wave", "iron_rampage", "star_ark",
+	"defend", "scale_armor", "deflect", "ice_shield", "star_guard", "sturdy_stance",
+	"iron_wave", "iron_song", "steel_storm", "water_wave", "iron_rampage", "star_ark",
 	"odin_spear", "silver_sword", "suppression",
 ]
 const FIXED_DEFENSE_VALUES := {
 	"iron_wave": 5,
 	"iron_song": 5,
 	"steel_storm": 12,
-	"at_field": 13,
 	"water_wave": 5,
 	"iron_rampage": 8,
 	"star_ark": 10,
@@ -54,20 +53,15 @@ static func _damage_per_hit(card: Dictionary, state: Dictionary) -> int:
 	strength += hand_bonus
 	var selected_index := int(state.get("preview_target_enemy_index", -1))
 	var enemies: Array = state.get("enemies", [])
-	var resistance := 0
-	var resistance_effectiveness := 30
+	var vulnerable := 0
 	if selected_index >= 0 and selected_index < enemies.size():
 		var target: Dictionary = enemies[selected_index]
-		resistance = int(target.get("resistance", 0))
-		if resistance > 0:
-			resistance_effectiveness = int(target.get("status_effectiveness", 30))
+		vulnerable = int(target.get("vulnerable", 0))
 	var raw_damage := base_damage + strength
 	return BattleRules._calculate_attack_damage(
 		raw_damage,
-		int(state.get("player_amplification", 0)),
-		resistance,
-		30,
-		resistance_effectiveness
+		int(state.get("player_weak", 0)),
+		vulnerable
 	)
 
 
@@ -77,7 +71,7 @@ static func _preview_defense_text(card: Dictionary, source: String, state: Dicti
 	if effect == "odin_spear":
 		base_value = int(card.get("defense_value", 15))
 	elif not FIXED_DEFENSE_VALUES.has(effect) and effect not in [
-		"defend", "scale_armor", "deflect", "ice_shield", "star_guard", "plate_armor_defense", "sturdy_stance",
+		"defend", "scale_armor", "deflect", "ice_shield", "star_guard", "sturdy_stance",
 	]:
 		return source
 	var multiplier := float(state.get("defense_multiplier", 1.0))

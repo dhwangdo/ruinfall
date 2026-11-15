@@ -58,7 +58,7 @@ const BASIC_CARDS: Array[Dictionary] = [
 	{
 		"name": "기회 포착", "kind": "strike", "effect": "strike", "use_mode": "targeted", "rarity": "basic",
 		"cost": 1, "value": 9, "discard_pile_top": true,
-		"description": "피해를 9 줍니다.\n파일 하나의 맨 위 카드를 버립니다.",
+		"description": "피해를 9 줍니다.\n파일에서 카드를 1장 버립니다.",
 	},
 	{
 		"name": "돌진", "kind": "strike", "effect": "strike", "use_mode": "targeted", "rarity": "basic",
@@ -68,7 +68,7 @@ const BASIC_CARDS: Array[Dictionary] = [
 	{
 		"name": "기회 창출", "kind": "skill", "effect": "deflect", "use_mode": "untargeted", "rarity": "basic",
 		"cost": 1, "value": 5, "discard_pile_top": true,
-		"description": "방어를 5 얻습니다.\n파일 하나의 맨 위 카드를 버립니다.",
+		"description": "방어를 5 얻습니다.\n파일에서 카드를 1장 버립니다.",
 	},
 	{
 		"name": "별의 장막", "kind": "skill", "effect": "star_guard", "use_mode": "untargeted", "rarity": "basic",
@@ -100,26 +100,19 @@ const LEGACY_SPECIAL_CARDS: Array[Dictionary] = [
 
 const SPECIAL_CARDS: Array[Dictionary] = [
 	{"name": "빛무리", "kind": "skill", "effect": "light_cluster", "use_mode": "untargeted", "rarity": "special", "cost": 0, "value": 1, "playable": true, "description": "광채 1장을 얻습니다."},
-	{"name": "기합", "kind": "skill", "effect": "battle_cry", "use_mode": "untargeted", "rarity": "special", "cost": 0, "value": 2, "playable": true, "description": "증폭을 2 얻습니다."},
-	{"name": "파쇄", "kind": "strike", "effect": "shatter", "use_mode": "targeted", "rarity": "special", "cost": 1, "value": 6, "playable": true, "description": "피해를 6 줍니다. 적에게 취약을 2 부여합니다."},
-	{"name": "무릎차기", "kind": "strike", "effect": "knee_strike", "use_mode": "targeted", "rarity": "special", "cost": 1, "value": 10, "playable": true, "description": "피해를 10 줍니다. 적에게 약화를 1 부여합니다."},
-	{"name": "가호", "kind": "skill", "effect": "resistance_ward", "use_mode": "untargeted", "rarity": "special", "cost": 1, "value": 2, "playable": true, "description": "저항을 2 얻습니다."},
-	{"name": "싸움 준비", "kind": "skill", "effect": "battle_preparation", "use_mode": "untargeted", "rarity": "special", "cost": 2, "value": 2, "playable": true, "description": "다음 턴 시작 시 에너지와 증폭을 2 얻습니다."},
-	{"name": "위압", "kind": "skill", "effect": "scale_armor", "use_mode": "targeted", "rarity": "special", "cost": 2, "value": 8, "playable": true, "description": "방어를 8 얻습니다. 적에게 약화를 2 부여합니다."},
+	{"name": "파쇄", "kind": "strike", "effect": "shatter", "use_mode": "targeted", "rarity": "special", "cost": 1, "value": 6, "playable": true, "description": "피해를 6 줍니다. 취약을 1 부여합니다."},
+	{"name": "무릎차기", "kind": "strike", "effect": "knee_strike", "use_mode": "targeted", "rarity": "special", "cost": 2, "value": 12, "playable": true, "description": "피해를 12 줍니다. 약화를 1 부여합니다."},
+	{"name": "위압", "kind": "skill", "effect": "scale_armor", "use_mode": "targeted", "rarity": "special", "cost": 1, "value": 8, "playable": true, "description": "방어를 8 얻습니다. 약화를 2 부여합니다."},
 	{"name": "야수화", "kind": "skill", "effect": "beastification", "use_mode": "untargeted", "rarity": "special", "cost": 1, "value": 3, "upgraded_value": 6, "exhaust": true, "playable": true, "forge_target_name": "소멸 카드", "description": "힘을 3[6] 얻습니다.\n소멸.\n재련: [소멸 카드]"},
 	{"name": "금속화", "kind": "skill", "effect": "metalization", "use_mode": "untargeted", "rarity": "special", "cost": 1, "value": 2, "upgraded_value": 4, "exhaust": true, "playable": true, "forge_target_name": "사용 불가 카드", "description": "강인함을 2[4] 얻습니다.\n소멸.\n재련: [사용 불가 카드]"},
-	{"name": "모래 뿌리기", "kind": "skill", "effect": "sand_toss", "use_mode": "targeted", "rarity": "special", "cost": 0, "value": 2, "playable": true, "description": "선택한 적에게 약화를 2 부여합니다."},
+	{"name": "모래 뿌리기", "kind": "skill", "effect": "sand_toss", "use_mode": "targeted", "rarity": "special", "cost": 0, "value": 1, "discard_cost": 1, "playable": true, "description": "버리기 1.\n약화를 1 부여합니다."},
 	{"name": "새옹지마", "kind": "skill", "effect": "saeongjima", "use_mode": "unplayable", "rarity": "special", "value": 2, "draw": 2, "playable": false, "description": "사용 불가. 버리기 X 효과로 버려지면 카드를 무작위로 2장 뽑습니다."},
 	{"name": "철의 노래", "kind": "skill", "effect": "iron_song", "use_mode": "untargeted", "rarity": "special", "cost": 1, "value": 5, "playable": true, "description": "방어를 5 얻습니다.\n내 다음 턴과 다다음 턴 시작 시 반복합니다."},
-	{"name": "광자포", "kind": "strike", "effect": "photon_cannon", "use_mode": "targeted", "rarity": "special", "cost": 1, "value": 12, "playable": true, "description": "피해를 12 줍니다. 내 증폭이 4 이상이면 대신 8씩 3번 줍니다."},
-	{"name": "과충전", "kind": "skill", "effect": "overcharge", "use_mode": "untargeted", "rarity": "special", "cost": 1, "value": 0, "exhaust": true, "rule": true, "playable": true, "description": "내 증폭이 4 이상일 때, 카드 2장을 뽑습니다. (턴당 1회 발동)"},
-	{"name": "AT 필드", "kind": "skill", "effect": "at_field", "use_mode": "untargeted", "rarity": "special", "cost": 2, "value": 13, "amplification_gain": 2, "playable": true, "description": "방어를 13 얻습니다. 증폭을 2 얻습니다."},
 	{"name": "재활용", "kind": "skill", "effect": "recycling", "use_mode": "untargeted", "rarity": "special", "cost": 1, "value": 1, "exhaust": true, "rule": true, "playable": true, "description": "내 턴 동안 카드를 버릴 때마다 ★를 얻습니다."},
 	{"name": "별의 샘", "kind": "skill", "effect": "osiris_sun", "use_mode": "untargeted", "rarity": "special", "cost": 1, "value": 1, "exhaust": true, "rule": true, "playable": true, "description": "턴 시작 시 ★를 얻습니다."},
 	{"name": "백스텝", "kind": "skill", "effect": "defend", "use_mode": "untargeted", "rarity": "special", "cost": 0, "value": 5, "playable": true, "description": "방어를 5 얻습니다."},
-	{"name": "정리 타격", "kind": "strike", "effect": "boomerang", "use_mode": "targeted", "rarity": "special", "cost": 1, "value": 9, "draw": 1, "discard_pile_top": true, "playable": true, "description": "피해를 9 줍니다. 파일 하나의 맨 위 카드를 버립니다. 카드를 1장 뽑습니다."},
+	{"name": "정리 타격", "kind": "strike", "effect": "boomerang", "use_mode": "targeted", "rarity": "special", "cost": 1, "value": 9, "draw": 1, "discard_pile_top": true, "playable": true, "description": "피해를 9 줍니다.\n파일에서 카드를 1장 버립니다.\n카드를 1장 뽑습니다."},
 	{"name": "낡은 노심", "kind": "skill", "effect": "plate_armor", "use_mode": "untargeted", "rarity": "special", "cost": 1, "value": 1, "upgraded_value": 3, "forge_cost": 3, "playable": true, "description": "에너지를 1[3] 얻습니다."},
-	{"name": "판금 갑옷", "kind": "skill", "effect": "plate_armor_defense", "use_mode": "untargeted", "rarity": "special", "cost": 1, "value": 5, "resistance_gain": 1, "upgraded_resistance_gain": 2, "forge_cost": 3, "playable": true, "description": "방어를 5 얻습니다. 저항을 1[2] 얻습니다."},
 	{"name": "청동 철퇴", "kind": "strike", "effect": "double_hit", "use_mode": "targeted", "rarity": "special", "cost": 1, "value": 12, "forge_costs": [2, 3], "playable": true, "description": "피해를 12씩 1[2]번 줍니다.\n재련: [2 또는 3코스트]"},
 	{"name": "휩쓸기", "kind": "skill", "effect": "sweep", "use_mode": "untargeted", "rarity": "special", "cost": 0, "value": 6, "playable": true, "description": "모든 적에게 피해를 6 줍니다."},
 	{"name": "재주넘기", "kind": "skill", "effect": "star_guard", "use_mode": "untargeted", "rarity": "special", "cost": 1, "value": 9, "playable": true, "description": "방어를 9 얻습니다. ★을 얻습니다."},
@@ -148,15 +141,12 @@ const SPECIAL_CARDS: Array[Dictionary] = [
 ]
 
 const RARE_CARDS: Array[Dictionary] = [
-	{"name": "사계절", "kind": "skill", "effect": "four_seasons", "use_mode": "untargeted", "rarity": "rare", "cost": 2, "value": 2, "exhaust": true, "playable": true, "description": "저항과 증폭을 2 얻습니다. 적에게 취약과 약화를 2 부여합니다.\n소멸."},
-	{"name": "불굴", "kind": "skill", "effect": "unyielding", "use_mode": "untargeted", "rarity": "rare", "cost": 1, "value": 5, "exhaust": true, "playable": true, "description": "저항을 5 얻습니다.\n소멸."},
-	{"name": "개박살", "kind": "strike", "effect": "demolish", "use_mode": "targeted", "rarity": "rare", "cost": 3, "value": 25, "playable": true, "description": "피해를 25 줍니다. 적에게 취약과 약화를 3 부여합니다."},
+	{"name": "개박살", "kind": "strike", "effect": "demolish", "use_mode": "targeted", "rarity": "rare", "cost": 3, "value": 20, "playable": true, "description": "피해를 20 줍니다. 취약과 약화를 2 부여합니다."},
 	{"name": "아드레날린", "kind": "skill", "effect": "adrenaline", "use_mode": "untargeted", "rarity": "rare", "cost": 0, "value": 2, "draw": 2, "exhaust": true, "playable": true, "description": "체력을 3 잃습니다. 에너지를 2 얻고 카드를 2장 뽑습니다.\n소멸."},
 	{"name": "예지", "kind": "skill", "effect": "foresight", "use_mode": "untargeted", "rarity": "rare", "cost": 0, "draw": 2, "playable": true, "description": "다음 턴 시작 시 카드를 2장 뽑습니다."},
 	{"name": "초월", "kind": "skill", "effect": "transcend", "use_mode": "untargeted", "rarity": "rare", "cost": 4, "value": 2, "exhaust": true, "playable": true, "description": "무적을 2 얻습니다.\n소멸."},
 	{"name": "강철의 폭풍", "kind": "skill", "effect": "steel_storm", "use_mode": "untargeted", "rarity": "rare", "cost": 3, "value": 12, "exhaust": true, "rule": true, "playable": true, "description": "방어를 12 얻습니다.\n턴 종료 시 모든 적에게 현재 방어만큼 피해를 줍니다."},
 	{"name": "평행 거울", "kind": "skill", "effect": "parallel_mirror", "use_mode": "untargeted", "rarity": "rare", "cost": 3, "exhaust": true, "playable": true, "description": "내 손에 있는 광채를 전부 복사해서 가져옵니다.\n소멸."},
-	{"name": "임계 반응", "kind": "skill", "effect": "critical_reaction", "use_mode": "untargeted", "rarity": "rare", "cost": 1, "exhaust": true, "rule": true, "playable": true, "description": "내 증폭이 8 이상일 때, 에너지 2를 얻습니다. (턴당 1회 발동)"},
 	{"name": "견고한 태세", "kind": "skill", "effect": "sturdy_stance", "use_mode": "untargeted", "rarity": "rare", "cost": 2, "value": 15, "exhaust": true, "rule": true, "playable": true, "description": "방어를 15 얻습니다.\n턴 종료 시 방어를 절반 보존합니다."},
 	{"name": "흑요석 단검", "kind": "strike", "effect": "obsidian_dagger", "use_mode": "targeted", "rarity": "rare", "cost": 2, "value": 1, "playable": true, "description": "피해를 1 줍니다.\n[밑패를 소멸시키고 피해량을 이 카드에 추가합니다.]"},
 	{"name": "DIY", "kind": "skill", "effect": "diy", "use_mode": "untargeted", "rarity": "rare", "cost": 0, "playable": true, "description": "이 카드는 스티커를 3개까지 붙일 수 있습니다. (중복 불가)"},

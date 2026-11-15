@@ -10,8 +10,8 @@ const TEXT_KEYWORD := Color("#f5eee8")
 const TEXT_BLUE := Color("#f4f8ff")
 const TEXT_PURPLE := Color("#f5eff8")
 const TITLE_KEYWORD := Color("#f8d4aa")
-const TITLE_BLUE := Color("#fff3c7")
-const TITLE_PURPLE := Color("#e4c8f4")
+const TITLE_BLUE := TITLE_KEYWORD
+const TITLE_PURPLE := TITLE_KEYWORD
 const FONT_PATH := "res://assets/fonts/PretendardVariable.woff2"
 const WEIGHT_AXIS_TAG := 2003265652 # OpenType `wght` axis.
 
@@ -97,8 +97,8 @@ func _add_section(section: Dictionary) -> void:
 	panel.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	panel.size_flags_horizontal = Control.SIZE_SHRINK_BEGIN if is_preview else Control.SIZE_EXPAND_FILL
 	if is_preview:
-		# Browser preview section is a 136px card with 10px padding and 2px borders.
-		panel.custom_minimum_size = Vector2(160, 0)
+		# Full card preview with 10px padding and 2px borders.
+		panel.custom_minimum_size = Vector2(173.6, 0)
 	panel.add_theme_stylebox_override("panel", _panel_style(blue, purple))
 	_sections_root.add_child(panel)
 
@@ -112,8 +112,8 @@ func _add_section(section: Dictionary) -> void:
 	if is_preview:
 		var preview_control := _preview_factory.call(section) as Control
 		if is_instance_valid(preview_control):
-			preview_control.custom_minimum_size = Vector2(136, 191)
-			preview_control.size = Vector2(136, 191)
+			preview_control.custom_minimum_size = Vector2(149.6, 210.1)
+			preview_control.size = Vector2(149.6, 210.1)
 			_disable_mouse_input(preview_control)
 			content.add_child(preview_control)
 			return
@@ -122,7 +122,7 @@ func _add_section(section: Dictionary) -> void:
 		var title_label := Label.new()
 		title_label.mouse_filter = Control.MOUSE_FILTER_IGNORE
 		title_label.text = title
-		title_label.add_theme_font_size_override("font_size", 13)
+		title_label.add_theme_font_size_override("font_size", 14)
 		title_label.add_theme_constant_override("line_spacing", 1)
 		title_label.add_theme_color_override("font_color", TITLE_PURPLE if purple else TITLE_BLUE if blue else TITLE_KEYWORD)
 		_apply_font(title_label, _bold_font)
@@ -133,7 +133,7 @@ func _add_section(section: Dictionary) -> void:
 		body_label.mouse_filter = Control.MOUSE_FILTER_IGNORE
 		body_label.text = description
 		body_label.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
-		body_label.add_theme_font_size_override("font_size", 13)
+		body_label.add_theme_font_size_override("font_size", 14)
 		body_label.add_theme_constant_override("line_spacing", 3)
 		body_label.add_theme_color_override("font_color", TEXT_PURPLE if purple else TEXT_BLUE if blue else TEXT_KEYWORD)
 		_apply_font(body_label, _regular_font)

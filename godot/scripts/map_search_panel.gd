@@ -495,8 +495,8 @@ func _show_card_hover_preview(source: Control, card: Dictionary) -> void:
 	var preview := card_widget_builder.call(card, false, false) as Control
 	if not is_instance_valid(preview):
 		return
-	preview.custom_minimum_size = Vector2(136, 191)
-	preview.size = Vector2(136, 191)
+	preview.custom_minimum_size = Vector2(149.6, 210.1)
+	preview.size = Vector2(149.6, 210.1)
 	var frame := CardHoverPreview.create(preview)
 	add_child(frame)
 	var source_rect := source.get_global_rect()

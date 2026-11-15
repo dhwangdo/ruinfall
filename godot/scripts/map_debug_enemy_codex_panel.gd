@@ -267,10 +267,10 @@ static func action_text(action: Dictionary) -> String:
 	_append_positive(parts, action, "soil_count", "soilCount", "모든 파일에 흙 %d장 놓음")
 	if bool(_alias(action, "next_attack_magic", "nextAttackMagic", false)):
 		parts.append("다음 공격 마법화")
-	_append_status(parts, action, "resistance_gain", "resistanceGain", "resistance", true)
-	_append_status(parts, action, "amplification_gain", "amplificationGain", "amplification", true)
-	_append_status(parts, action, "next_turn_player_resistance_change", "nextTurnPlayerResistanceChange", "resistance", false, "다음 턴 ")
-	_append_status(parts, action, "next_turn_player_amplification_change", "nextTurnPlayerAmplificationChange", "amplification", false, "다음 턴 ")
+	_append_status(parts, action, "weak_gain", "weakGain", "weak", false)
+	_append_status(parts, action, "vulnerable_gain", "vulnerableGain", "vulnerable", false)
+	_append_status(parts, action, "next_turn_player_weak_gain", "nextTurnPlayerWeakGain", "weak", false, "다음 턴 플레이어 ")
+	_append_status(parts, action, "next_turn_player_vulnerable_gain", "nextTurnPlayerVulnerableGain", "vulnerable", false, "다음 턴 플레이어 ")
 	_append_positive(parts, action, "discard_count", "discardCount", "버리기 %d")
 	if bool(_alias(action, "self_destruct", "selfDestruct", false)):
 		parts.append("자폭")
@@ -302,7 +302,7 @@ static func _append_status(parts: Array[String], data: Dictionary, native_key: S
 	var value := int(_alias(data, native_key, web_key, 0))
 	if not value:
 		return
-	var label := "저항" if kind == "resistance" and value >= 0 else "취약" if kind == "resistance" else "증폭" if value >= 0 else "약화"
+	var label := "취약" if kind == "vulnerable" else "약화"
 	var text := "%s %d" % [label, absi(value)]
 	if gained:
 		text += " 획득"
