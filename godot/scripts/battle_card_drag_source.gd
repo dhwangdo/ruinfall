@@ -43,6 +43,7 @@ func _make_drag_preview(payload: Dictionary) -> Control:
 	if str(payload.get("kind", "")) == "battle-card" and str(payload.get("source", "")) == "hand":
 		# The source metadata is set by the hand builder, independently of cost.
 		active_drag_preview.set_meta("drag_fixed_center", bool(get_meta("targeted_card", false)))
+		active_drag_preview.set_meta("drag_start_global", get_global_transform_with_canvas().origin)
 	return active_drag_preview
 
 
@@ -95,10 +96,15 @@ func _reset_drag_highlight() -> void:
 
 
 func _can_drop_run_card(data: Variant) -> bool:
-	if typeof(data) != TYPE_DICTIONARY or str(data.get("kind", "")) != "run-card":
+	if typeof(data) != TYPE_DICTIONARY:
 		return false
 	var source_area := str(data.get("source_area", ""))
 	var target_area := str(run_drop_target.get("area", ""))
+	if str(data.get("kind", "")) == "run-ticket":
+		return (source_area == "floor" and target_area == "inventory") \
+			or (source_area == "inventory" and target_area == "floor")
+	if str(data.get("kind", "")) != "run-card":
+		return false
 	if source_area == "pendingRemoval" and target_area == "deck":
 		return str(data.get("source_deck_id", "")) == str(run_drop_target.get("deck_id", ""))
 	if source_area == "deck" and target_area == "deck":

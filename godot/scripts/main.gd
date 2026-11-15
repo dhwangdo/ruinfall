@@ -115,6 +115,7 @@ var battle_turn_presentation := BattleTurnPresentation.new()
 var battle_enemy_widgets: Dictionary = {}
 var active_battle_player_hp: ProgressBar
 var active_battle_player_hp_text: Label
+var active_battle_energy_orb: Control
 var active_battle_defense_strip: VBoxContainer
 var battle_pile_widgets: Array[Control] = []
 var active_battle_hand_area: Control
@@ -514,7 +515,7 @@ func _unhandled_key_input(event: InputEvent) -> void:
 	# Map movement follows OS key repeats, as in the browser, with no separate frame timer.
 	if key_event.echo and not (screen_name == "map" and key_event.keycode in [
 		KEY_UP, KEY_DOWN, KEY_LEFT, KEY_RIGHT, KEY_W, KEY_A, KEY_S, KEY_D,
-		KEY_1, KEY_3, KEY_7, KEY_9,
+		KEY_1, KEY_2, KEY_3, KEY_4, KEY_6, KEY_7, KEY_8, KEY_9,
 		KEY_KP_7, KEY_KP_8, KEY_KP_9,
 		KEY_KP_4, KEY_KP_6, KEY_KP_1, KEY_KP_2, KEY_KP_3,
 	]):
@@ -575,8 +576,12 @@ func _unhandled_key_input(event: InputEvent) -> void:
 		KEY_S: Vector2i(0, 1),
 		KEY_D: Vector2i(1, 0),
 		KEY_7: Vector2i(-1, -1),
+		KEY_8: Vector2i(0, -1),
 		KEY_9: Vector2i(1, -1),
+		KEY_4: Vector2i(-1, 0),
+		KEY_6: Vector2i(1, 0),
 		KEY_1: Vector2i(-1, 1),
+		KEY_2: Vector2i(0, 1),
 		KEY_3: Vector2i(1, 1),
 		KEY_KP_7: Vector2i(-1, -1),
 		KEY_KP_8: Vector2i(0, -1),
@@ -3716,6 +3721,9 @@ func _play_card(card_id: int, held_origin: Dictionary = {}) -> void:
 	if battle_turn_resolving or battle_draw_presentation.active:
 		return
 	var played_card := _battle_hand_card(card_id)
+	if CardUse.is_playable(played_card) and not BattleRules.can_pay_card_cost(battle_state, played_card):
+		_flash_energy_shortage()
+		return
 	var source_rect := Rect2()
 	var source_widget: Control = battle_hand_card_widgets.get(card_id)
 	if is_instance_valid(source_widget):
@@ -4760,6 +4768,13 @@ func _on_run_card_dropped(target: Dictionary, data: Dictionary) -> void:
 	var card_id := int(data.get("card_id", -1))
 	var source_area := str(data.get("source_area", ""))
 	var target_area := str(target.get("area", ""))
+	if str(data.get("kind", "")) == "run-ticket":
+		var ticket_id := str(data.get("ticket_id", ""))
+		if source_area == "floor" and target_area == "inventory":
+			_move_floor_consumable_to_inventory(ticket_id)
+		elif source_area == "inventory" and target_area == "floor":
+			_move_inventory_consumable_to_floor(ticket_id)
+		return
 	if target_area == "deck":
 		var target_deck_id := str(target.get("deck_id", ""))
 		if source_area == "pendingRemoval" and str(data.get("source_deck_id", "")) == target_deck_id:
@@ -5469,13 +5484,12 @@ func _deck_editor_consumable_widget(consumable: Dictionary, area: String, count:
 	if area == "inventory":
 		item_view.set("run_drop_target", {"area": "inventory", "deck_id": ""})
 		item_view.set("run_drop_callback", Callable(self, "_on_run_card_dropped"))
-	if str(consumable.get("type", "")) == "extractTicket":
-		item_view.set("run_drag_payload", {
-			"kind": "run-ticket",
-			"ticket_id": consumable_id,
-			"ticket_type": "extractTicket",
-			"source_area": area,
-		})
+	item_view.set("run_drag_payload", {
+		"kind": "run-ticket",
+		"ticket_id": consumable_id,
+		"ticket_type": str(consumable.get("type", "")),
+		"source_area": area,
+	})
 	var item_name := str(consumable.get("name", "아이템"))
 	item_view.tooltip_text = "%s\n%s" % [item_name, str(consumable.get("description", ""))]
 	item_view.gui_input.connect(_on_deck_editor_consumable_gui_input.bind(consumable.duplicate(true), area))
@@ -5747,6 +5761,9 @@ func _render_sticker_service_preview() -> void:
 	if active_service_kind == "stickerAltar":
 		var row := HBoxContainer.new()
 		row.add_theme_constant_override("separation", 20)
+		var both_cards_present := service_selected_card_ids.size() >= 2 \
+			and not _run_card_by_id(int(service_selected_card_ids[0])).is_empty() \
+			and not _run_card_by_id(int(service_selected_card_ids[1])).is_empty()
 		for slot_index in range(3):
 			if slot_index == 1:
 				var plus := _label("+", 24, Color("#ffc400"))
@@ -5768,7 +5785,11 @@ func _render_sticker_service_preview() -> void:
 				var selected_card_id := int(service_selected_card_ids[slot_index]) if slot_index < service_selected_card_ids.size() else -1
 				var selected_card := _run_card_by_id(selected_card_id) if selected_card_id >= 0 else {}
 				if not selected_card.is_empty():
-					slot_column.add_child(_service_selection_card_widget(selected_card))
+					var selected_preview := _service_selection_card_widget(selected_card)
+					if slot_index == 0 and both_cards_present:
+						slot_column.add_child(_altar_sacrifice_preview(selected_preview))
+					else:
+						slot_column.add_child(selected_preview)
 				else:
 					var slot := _service_slot("", slot_index)
 					slot.card_dropped.connect(_on_service_slot_card_dropped)
@@ -5842,13 +5863,32 @@ func _render_sticker_service_preview() -> void:
 		_blink_service_sticker_preview(preview_card, fixed_sticker)
 
 
+func _altar_sacrifice_preview(card_preview: Control) -> Control:
+	var wrapper := Control.new()
+	wrapper.name = "AltarOfferingPreview"
+	wrapper.custom_minimum_size = card_preview.custom_minimum_size
+	wrapper.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	var filter := CanvasGroup.new()
+	filter.name = "AltarSacrificeFilter"
+	var grayscale := ShaderMaterial.new()
+	grayscale.shader = preload("res://shaders/pending_removal_filter.gdshader")
+	grayscale.set_shader_parameter("saturation", 0.0)
+	filter.material = grayscale
+	wrapper.add_child(filter)
+	filter.add_child(card_preview)
+	card_preview.size = card_preview.custom_minimum_size
+	return wrapper
+
+
 func _blink_service_sticker_preview(card_preview: Control, sticker_id: String) -> void:
 	var sticker_icon := _find_service_sticker_icon(card_preview, sticker_id)
 	if sticker_icon == null:
 		return
-	var preview_flash := create_tween().bind_node(card_preview).set_loops(3)
-	preview_flash.tween_property(sticker_icon, "modulate:a", 0.35, 0.12)
-	preview_flash.tween_property(sticker_icon, "modulate:a", 1.0, 0.12)
+	sticker_icon.modulate.a = 0.45
+	var preview_flash := create_tween().bind_node(card_preview).set_loops()
+	preview_flash.set_trans(Tween.TRANS_SINE).set_ease(Tween.EASE_IN_OUT)
+	preview_flash.tween_property(sticker_icon, "modulate:a", 1.0, 0.425)
+	preview_flash.tween_property(sticker_icon, "modulate:a", 0.45, 0.425)
 
 
 func _find_service_sticker_icon(node: Node, sticker_id: String) -> Control:
@@ -6388,6 +6428,11 @@ func _battle_resource_strip() -> VBoxContainer:
 	return strip
 
 
+func _flash_energy_shortage() -> void:
+	if is_instance_valid(active_battle_energy_orb):
+		active_battle_energy_orb.flash_shortage()
+
+
 func _battle_resource_cluster() -> Control:
 	var cluster := Control.new()
 	cluster.custom_minimum_size = Vector2(124, 124)
@@ -6397,33 +6442,34 @@ func _battle_resource_cluster() -> Control:
 	cluster.anchor_top = 0.0
 	cluster.anchor_bottom = 0.0
 	cluster.offset_left = -128.0
-	cluster.offset_top = 2.0
+	cluster.offset_top = -8.0
 	cluster.offset_right = -4.0
-	cluster.offset_bottom = 126.0
+	cluster.offset_bottom = 116.0
 	var energy_orb = BattleEnergyOrbScript.new()
 	energy_orb.configure(int(battle_state.get("energy", 0)), int(battle_state.get("max_energy", 0)))
-	energy_orb.position = Vector2(26, 0)
-	energy_orb.custom_minimum_size = Vector2(72, 72)
-	energy_orb.size = Vector2(72, 72)
+	energy_orb.position = Vector2(18, 0)
+	energy_orb.custom_minimum_size = Vector2(88, 88)
+	energy_orb.size = Vector2(88, 88)
+	active_battle_energy_orb = energy_orb
 	cluster.add_child(energy_orb)
 	var star_count := int(battle_state.get("stars", 0))
 	if star_count <= 6:
 		for index in range(star_count):
 			var star := _label("★", 18, COLOR_GOLD)
-			star.position = Vector2(62.0 - float(star_count) * 8.0 + float(index) * 16.0, 78)
+			star.position = Vector2(62.0 - float(star_count) * 8.0 + float(index) * 16.0, 94)
 			star.size = Vector2(20, 24)
 			star.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 			star.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
-			star.add_theme_color_override("font_outline_color", Color("#111512"))
+			star.add_theme_color_override("font_outline_color", Color.BLACK)
 			star.add_theme_constant_override("outline_size", 2)
 			star.mouse_filter = Control.MOUSE_FILTER_IGNORE
 			cluster.add_child(star)
 	elif star_count > 0:
 		var star_total := _label("★ x%d" % star_count, 13, COLOR_GOLD)
-		star_total.position = Vector2(34, 78)
+		star_total.position = Vector2(34, 94)
 		star_total.size = Vector2(56, 20)
 		star_total.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
-		star_total.add_theme_color_override("font_outline_color", Color("#111512"))
+		star_total.add_theme_color_override("font_outline_color", Color.BLACK)
 		star_total.add_theme_constant_override("outline_size", 2)
 		star_total.mouse_filter = Control.MOUSE_FILTER_IGNORE
 		cluster.add_child(star_total)
@@ -6691,6 +6737,7 @@ func _clear_screen() -> void:
 	active_battle_end_button = null
 	active_battle_player_hp = null
 	active_battle_player_hp_text = null
+	active_battle_energy_orb = null
 	active_battle_defense_strip = null
 	battle_enemy_widgets.clear()
 	_clear_map_vault_preview()

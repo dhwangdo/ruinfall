@@ -63,6 +63,8 @@ func handle_input(event: InputEvent, game: Control) -> bool:
 	if event is InputEventMouseButton and event.button_index == MOUSE_BUTTON_LEFT:
 		if event.pressed:
 			click_candidate = _hand_card_at(event.position, game.battle_hand_card_widgets) if game._battle_drop_available() else -1
+			if click_candidate >= 0 and CardUse.mode(game._battle_hand_card(click_candidate)) == CardUse.UNTARGETED:
+				click_candidate = -1
 			click_start = event.position
 		elif click_candidate >= 0:
 			var chosen := click_candidate
@@ -161,6 +163,9 @@ func _commit_or_cancel(game: Control, point: Vector2) -> void:
 	var destination := drop_destination(game, point, payload)
 	if not destination.is_empty() and str(destination["kind"]) != "file" \
 			and not game._can_begin_card_play(game._battle_hand_card(int(payload.get("card_id", -1)))):
+		var card: Dictionary = game._battle_hand_card(int(payload.get("card_id", -1)))
+		if CardUse.is_playable(card) and not game.BattleRules.can_pay_card_cost(game.battle_state, card):
+			game._flash_energy_shortage()
 		_cancel(game)
 		return
 	if not destination.is_empty():

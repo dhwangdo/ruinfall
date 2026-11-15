@@ -11,6 +11,15 @@ func _ready() -> void:
 	set_process(has_meta("drag_target_offset"))
 	if get_child_count() > 0:
 		_visual_global_position = get_child(0).global_position
+		if bool(get_meta("drag_fixed_center", false)):
+			_visual_global_position = get_meta("drag_start_global", get_child(0).get_global_transform_with_canvas().origin)
+			var visual: Control = get_child(0)
+			# Native drag moves its wrapper on input, after our process callback.
+			# A top-level visual cannot inherit that late cursor movement.
+			visual.top_level = true
+			visual.z_as_relative = false
+			visual.z_index = 4095
+			visual.global_position = visual.get_canvas_transform().affine_inverse() * _visual_global_position
 	if suppress_forbidden_cursor:
 		# force_drag may notify existing nodes before adding its preview.
 		_cursor_shape_before_drag = DisplayServer.cursor_get_shape()
@@ -26,7 +35,13 @@ func _process(delta: float) -> void:
 		goal = get_viewport_rect().get_center() - get_child(0).size * 0.5
 	# Exponential ease-out: quick response followed by a soft settle, at any FPS.
 	_visual_global_position = _visual_global_position.lerp(goal, 1.0 - exp(-28.0 * delta))
-	get_child(0).position = get_global_transform_with_canvas().affine_inverse() * _visual_global_position
+	if _visual_global_position.distance_squared_to(goal) < 0.01:
+		_visual_global_position = goal
+	var visual: Control = get_child(0)
+	if visual.top_level:
+		visual.global_position = visual.get_canvas_transform().affine_inverse() * _visual_global_position
+	else:
+		visual.position = get_global_transform_with_canvas().affine_inverse() * _visual_global_position
 
 
 func _input(_event: InputEvent) -> void:

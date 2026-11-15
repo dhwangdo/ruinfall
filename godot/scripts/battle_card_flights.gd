@@ -4,7 +4,7 @@ class_name BattleCardFlights
 signal finished(cancelled: bool)
 
 const DRAW_DURATION_MS := 300.0
-const TOKEN_DURATION_MS := 820.0
+const DELIVERY_DURATION_MS := 820.0
 const STAGGER_MS := 50.0
 const DRAW_EASING := Vector4(0.2, 0.72, 0.25, 1.0)
 
@@ -90,9 +90,9 @@ func play() -> void:
 			"from": start_transform,
 			"arc": _arc_transform(start_transform, target_transform, target.size),
 			"to": target_transform,
-			"duration": TOKEN_DURATION_MS if bool(item.get("enemy_token", false)) else DRAW_DURATION_MS,
+			"duration": DELIVERY_DURATION_MS if bool(item.get("enemy_delivery", false)) else DRAW_DURATION_MS,
 			"delay": float(item.get("delay_ms", float(index) * STAGGER_MS)),
-			"enemy_token": bool(item.get("enemy_token", false)),
+			"enemy_delivery": bool(item.get("enemy_delivery", false)),
 		})
 
 	if _flights.is_empty():
@@ -123,14 +123,14 @@ func _process(delta: float) -> void:
 		var progress := clampf(local_elapsed / duration, 0.0, 1.0)
 		var eased_progress := _bezier_ease(progress)
 		var eased_transform: Transform2D
-		if bool(flight["enemy_token"]):
-			eased_transform = _token_transform(flight, eased_progress)
+		if bool(flight["enemy_delivery"]):
+			eased_transform = _delivery_transform(flight, eased_progress)
 		else:
 			eased_transform = _interpolate_pose(flight["from"], flight["to"], eased_progress)
 		var ghost := flight["ghost"] as Control
 		if is_instance_valid(ghost):
 			_set_control_pose(ghost, eased_transform)
-			ghost.modulate.a = _token_opacity(eased_progress) if bool(flight["enemy_token"]) \
+			ghost.modulate.a = _delivery_opacity(eased_progress) if bool(flight["enemy_delivery"]) \
 				else lerpf(0.8, 1.0, eased_progress)
 		if progress >= 1.0:
 			_restore_flight(flight)
@@ -139,7 +139,7 @@ func _process(delta: float) -> void:
 		_finish(false)
 
 
-func _token_transform(flight: Dictionary, eased_progress: float) -> Transform2D:
+func _delivery_transform(flight: Dictionary, eased_progress: float) -> Transform2D:
 	if eased_progress <= 0.18:
 		return flight["from"]
 	if eased_progress <= 0.64:
@@ -149,7 +149,7 @@ func _token_transform(flight: Dictionary, eased_progress: float) -> Transform2D:
 	return _interpolate_pose(flight["arc"], flight["to"], final_segment)
 
 
-func _token_opacity(eased_progress: float) -> float:
+func _delivery_opacity(eased_progress: float) -> float:
 	if eased_progress <= 0.18:
 		return lerpf(0.8, 0.92, eased_progress / 0.18)
 	if eased_progress <= 0.64:

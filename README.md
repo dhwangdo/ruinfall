@@ -1,33 +1,25 @@
-# Ruinfall
+# RUINFALL
 
-Ruinfall은 덱빌딩 탐험 게임입니다. 적을 쓰러뜨리고, 카드를 수집하세요. 발견한 덱에서 카드를 추출하고, 자신만의 덱을 만드세요. 여러 개의 덱을 준비하고 더 깊은 곳으로 내려가, 세계의 비밀을 밝혀내세요. 그 끝에서, 당신은 별에 닿을 수 있을까요?
+RUINFALL은 덱을 구성해 지도를 탐험하고, 적과 솔리테어 방식의 전투를 벌이는 게임입니다. 현재 게임 구현은 Godot 하나이며, Windows판과 웹판은 같은 프로젝트에서 내보냅니다.
 
-- 공개 게임: https://dhwangdo.github.io/ruinfall/
-- 현재 상태와 다음 작업: [`docs/HANDOFF.md`](docs/HANDOFF.md)
-- 구현된 게임 규칙: [`docs/GAME_DESIGN.md`](docs/GAME_DESIGN.md)
-- Python 사용자를 위한 코드 설명: [`docs/CODE_GUIDE.md`](docs/CODE_GUIDE.md)
+## 시작하기
 
-## 로컬 실행
+- Godot 4.7.2 이상에서 `godot/project.godot`을 엽니다.
+- Windows에서는 저장소 루트의 `godot/Run RUINFALL.cmd`로 실행할 수 있습니다.
+- Windows 실행 파일은 `godot/Export Windows.cmd`로 내보냅니다. Godot와 같은 버전의 Windows 내보내기 템플릿이 필요합니다.
+- 공개 웹판: https://dhwangdo.github.io/ruinfall/
 
-Node.js `22.13.0` 이상이 필요합니다.
+## 저장소 안내
 
-```bash
-npm install
-npm run dev
-```
+- `godot/`: 유일한 현행 게임 코드, 장면, 자산, 웹·Windows 내보내기 설정
+- `docs/GAME_DESIGN.md`: 현행 게임 규칙
+- `docs/CODE_GUIDE.md`: Godot 코드 구조 안내
+- `docs/HANDOFF.md`: 현재 개발 상태와 작업 시 참고사항
+- `docs/archive/porting/`: 포팅 과정의 체크리스트와 작업 기록
+- `archive/legacy-web/`: 포팅 전 웹 구현과 그 실행·검사 도구를 보존한 과거 자료
 
-개발 서버가 출력한 접속 주소를 브라우저에서 엽니다. 보통 `http://localhost:3000`을 사용하지만, 해당 포트가 사용 중이면 다른 포트를 선택할 수 있으므로 터미널의 실제 주소를 확인하세요.
+구형 웹 코드는 현재 게임을 빌드하거나 배포하지 않습니다. 포팅 비교 기록을 찾을 때만 `archive/legacy-web/`을 참고하세요.
 
-## 검사
+## 웹 배포
 
-```bash
-npm run lint
-npm test
-$env:GITHUB_ACTIONS='true'; npm run build:pages
-```
-
-- `npm run lint`: TypeScript와 React 코드 정적 검사
-- `npm test`: Vinext 빌드, 게임 규칙 테스트, 첫 화면 서버 렌더링 검사
-- `npm run build:pages`: GitHub Pages용 정적 사이트 생성
-
-탐험 진행은 브라우저 `localStorage`에 자동 저장되어 새로고침 뒤에도 이어집니다. 전투 중 상태와 덱 편집 중 상태는 저장하지 않습니다.
+`main`에 push하면 `.github/workflows/deploy-pages.yml`이 Godot 4.7.2로 Web 빌드를 만들고 GitHub Pages에 배포합니다. 구형 웹 프로젝트는 이 경로에서 사용하지 않습니다. 커밋과 push는 별도 요청이 있을 때만 합니다.

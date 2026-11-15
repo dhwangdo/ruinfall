@@ -6,7 +6,7 @@ const DeckVaultCardView = preload("res://scripts/deck_vault_card_view.gd")
 const EmptySlotView = preload("res://scripts/deck_editor_empty_slot.gd")
 const DeckEditionList = preload("res://scripts/deck_edition_list.gd")
 const DeckVaultUnlockHold = preload("res://scripts/deck_vault_unlock_hold.gd")
-const PretendardVaultFont = preload("res://assets/fonts/PretendardVariable.woff2")
+const GameFonts = preload("res://scripts/game_fonts.gd")
 
 const PANEL_MAX_WIDTH := 1040.0
 const VIEWPORT_MARGIN := 24.0
@@ -205,6 +205,7 @@ func _build_header() -> Control:
 	summary_margin.add_theme_constant_override("margin_top", 8)
 	var summary := Label.new()
 	summary.name = "DeckVaultCardCount"
+	summary.add_theme_font_override("font", GameFonts.make(400))
 	var cards: Array = _deck.get("cards", [])
 	summary.text = "%d / %d장" % [cards.size(), int(_deck.get("capacity", 0))]
 	summary.add_theme_font_size_override("font_size", 14)
@@ -212,10 +213,6 @@ func _build_header() -> Control:
 	summary_margin.add_child(summary)
 	info.add_child(summary_margin)
 	row.add_child(info)
-	var exit_button := _action_button("나가기")
-	exit_button.name = "DeckVaultClose"
-	exit_button.pressed.connect(_on_close_pressed)
-	row.add_child(exit_button)
 	return margin
 
 
@@ -348,11 +345,7 @@ func _card_padding() -> int:
 
 
 func _font_with_weight(weight: int) -> FontVariation:
-	var variation := FontVariation.new()
-	variation.base_font = PretendardVaultFont
-	var weight_axis := TextServerManager.get_primary_interface().name_to_tag("wght")
-	variation.variation_opentype = {weight_axis: float(weight)}
-	return variation
+	return GameFonts.make(weight)
 
 
 func _reflow() -> void:

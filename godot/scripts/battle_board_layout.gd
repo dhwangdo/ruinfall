@@ -43,7 +43,6 @@ func arrange() -> void:
 	_place(enemies, Rect2(widths[0] + widths[1], 0, widths[2], size.y))
 	var hand_width := minf(1100.0, size.x - 24)
 	_place(hand, Rect2((size.x - hand_width) * 0.5, size.y - hand_height, hand_width, hand_height))
-	queue_redraw()
 
 
 func _place(control: Control, rectangle: Rect2) -> void:
@@ -51,10 +50,3 @@ func _place(control: Control, rectangle: Rect2) -> void:
 		control.position = rectangle.position
 		control.size = rectangle.size
 
-
-func _draw() -> void:
-	if is_instance_valid(files):
-		draw_rect(Rect2(files.position, files.size), Color(0, 0, 0, 0.035))
-		draw_line(files.position + Vector2(0, files.size.y), files.position + files.size, Color(1, 1, 1, 0.1))
-	if is_instance_valid(enemies):
-		draw_line(Vector2(enemies.position.x, 0), Vector2(enemies.position.x, size.y), Color(1, 1, 1, 0.08))

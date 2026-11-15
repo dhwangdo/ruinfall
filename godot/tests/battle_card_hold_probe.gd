@@ -66,6 +66,21 @@ func run() -> void:
 	assert(landed.get_global_transform_with_canvas().origin.distance_to(landing.origin) < 0.1, "landing must match final file card position")
 	assert(game.battle_state["piles"][0].back()["id"] == 303)
 	assert(game.battle_state["stars"] == stars_before - 1)
+	var defend_widget: Control = game.battle_hand_card_widgets[300]
+	var tap_point := defend_widget.get_global_transform_with_canvas() * (defend_widget.size * 0.5)
+	move_pointer(tap_point)
+	await process_frame
+	var tap := InputEventMouseButton.new()
+	tap.button_index = MOUSE_BUTTON_LEFT
+	tap.position = tap_point
+	tap.pressed = true
+	root.push_input(tap, true)
+	tap = tap.duplicate()
+	tap.pressed = false
+	root.push_input(tap, true)
+	await process_frame
+	assert(not root.gui_is_dragging(), "untargeted card must not be selected by a simple click")
+	assert(not game._battle_hand_card(300).is_empty(), "simple click must not use untargeted card")
 	game.battle_keyboard_drag._select(game, 300)
 	var point: Vector2 = game.active_battle_play_area.center.get_global_rect().get_center()
 	move_pointer(point)
@@ -79,7 +94,22 @@ func run() -> void:
 	guide._process(0)
 	assert(not guide.arrow.visible, "untargeted cards must not show an arrow at any energy")
 	assert(not guide.use_glow.visible, "unaffordable card must not glow")
+	var orb: Control = game.active_battle_energy_orb
+	orb.configure(0, 3)
+	game.battle_keyboard_drag._commit_or_cancel(game, point)
+	assert(not root.gui_is_dragging(), "unaffordable use must return the card")
+	assert(orb.text_color() == orb.SHORTAGE_COLOR, "unaffordable use must flash energy digits red")
+	assert(game.battle_state["energy"] == 0 and not game._battle_hand_card(300).is_empty())
+	orb._process(0.10)
+	assert(orb.text_color() == Color.WHITE)
+	orb._process(0.10)
+	assert(orb.text_color() == orb.SHORTAGE_COLOR)
+	orb._process(0.72)
+	assert(orb.text_color() == Color.WHITE, "energy digits must return to white")
+	await create_timer(0.3).timeout
 	game.battle_state["energy"] = 3
+	orb.configure(3, 3)
+	game.battle_keyboard_drag._select(game, 300)
 	move_pointer(game.battle_pile_widgets[0].get_global_rect().get_center())
 	await process_frame
 	guide._process(0)
@@ -107,17 +137,22 @@ func run() -> void:
 	layer._process(0.210)
 	var flight: Dictionary = layer._flights[0]
 	var ghost: Control = flight["ghost"]
+	var departure_glow := ghost.get_node("CardUseGlow") as Panel
+	assert(departure_glow.is_visible_in_tree() and departure_glow.show_behind_parent)
+	assert(departure_glow.get_theme_stylebox("panel").shadow_size == 15)
 	var middle: Vector2 = ghost.get_transform() * (ghost.size * 0.5)
 	assert(middle.distance_to(game.active_battle_play_area.get_global_rect().get_center()) < 0.1)
 	layer._process(0.055)
 	assert((ghost.get_transform() * (ghost.size * 0.5)).distance_to(middle) < 0.1, "card must stop at center")
 	assert(ghost.modulate.a == 1.0, "card must remain opaque at center")
+	assert(departure_glow.modulate.a == 1.0, "aura must remain bright through arrival and pause")
 	var exit_center: Vector2 = game.get_viewport_rect().end + Vector2(70, 70)
 	layer._process(0.180)
 	var exiting_center: Vector2 = ghost.get_transform() * (ghost.size * 0.5)
 	assert(exiting_center.x > middle.x and exiting_center.y > middle.y, "card must fly down and right")
 	assert(exiting_center.distance_to(exit_center) < middle.distance_to(exit_center))
 	assert(ghost.modulate.a < 1.0)
+	assert(departure_glow.get_parent() == ghost, "aura must inherit the card's exit fade")
 	layer._process(0.200)
 	await process_frame
 	await process_frame
@@ -129,10 +164,16 @@ func run() -> void:
 	origin = game.battle_keyboard_drag.capture_origin(game)
 	var center: Vector2 = origin["pose"] * (Vector2(origin["size"]) * 0.5)
 	assert(center.distance_to(game.get_viewport_rect().get_center()) < 1.0, "targeted card must stay at center")
+	var wrapper: Control = game.battle_hand_card_widgets[301].active_drag_preview
+	var fixed_visual: Control = wrapper.get_child(0)
+	var fixed_origin := fixed_visual.get_global_transform_with_canvas().origin
+	wrapper.position += Vector2(113, 47)
+	assert(fixed_visual.get_global_transform_with_canvas().origin.distance_to(fixed_origin) < 0.01,
+		"late cursor-wrapper movement must not jiggle the fixed card")
 	guide = game.get_node("BattleHoldGuide")
 	guide._process(0)
 	assert(guide.arrow.visible and guide.arrow.color == Color("#ff9a00"))
-	assert(not guide.use_glow.visible, "targeted aim must keep orange arrow only")
+	assert(not guide.use_glow.visible, "targeted card must not glow away from a valid enemy")
 	assert(guide.arrow.tip.distance_to(Vector2(700, 700)) < 0.1)
 	move_pointer(Vector2(400, 5))
 	await process_frame
@@ -182,6 +223,12 @@ func run() -> void:
 	point = enemy.get_global_rect().get_center()
 	move_pointer(point)
 	await create_timer(0.4).timeout
+	guide._process(0)
+	assert(guide.arrow.visible and guide.use_glow.visible, "valid enemy aim must retain orange arrow and glow yellow")
+	game.battle_state["energy"] = 0
+	guide._process(0)
+	assert(not guide.use_glow.visible, "unaffordable targeted card must not glow")
+	game.battle_state["energy"] = 3
 	origin = game.battle_keyboard_drag.capture_origin(game)
 	game.battle_keyboard_drag._commit_or_cancel(game, point)
 	assert(game.battle_draw_presentation.active, "enemy click must begin play")
@@ -195,11 +242,19 @@ func run() -> void:
 			break
 	assert(is_instance_valid(layer), "targeted departure missing")
 	var targeted_flight: Dictionary = layer._flights[0]
+	var targeted_ghost: Control = targeted_flight["ghost"]
+	var targeted_glow := targeted_ghost.get_node("CardUseGlow") as Panel
+	assert(targeted_glow.is_visible_in_tree() and targeted_glow.show_behind_parent)
+	layer.set_process(false)
+	layer._process(0.07)
+	assert(targeted_ghost.modulate.a > 0.0 and targeted_ghost.modulate.a < 1.0,
+		"targeted card and its aura must fade on the flight to the enemy")
+	layer.set_process(true)
 	var aimed_center: Vector2 = targeted_flight["to"] * (targeted_flight["source"].size * 0.5)
 	assert(aimed_center.distance_to(enemy.get_global_rect().get_center()) < 0.1, "orange card must fly to selected enemy")
 	await create_timer(0.5).timeout
 	assert(game._battle_hand_card(301).is_empty(), "enemy click must use targeted card")
-	print("PASS: yellow use glow with no arrow, affordability/file exclusions, lower-right exit, targeting lower cancel, native upward drag latch, opaque file placement and enemy use")
+	print("PASS: yellow use glow, energy-shortage flashing, stable center under late cursor movement, lower-right exit, native lift latch, opaque file placement and enemy use")
 	game.queue_free()
 	await process_frame
 	quit()

@@ -33,10 +33,15 @@ func _reset_drag_highlight() -> void:
 
 
 func _can_drop_run_card(data: Variant) -> bool:
-	if typeof(data) != TYPE_DICTIONARY or str(data.get("kind", "")) != "run-card":
+	if typeof(data) != TYPE_DICTIONARY:
 		return false
 	var source_area := str(data.get("source_area", ""))
 	var target_area := str(run_drop_target.get("area", ""))
+	if str(data.get("kind", "")) == "run-ticket":
+		return (source_area == "floor" and target_area == "inventory") \
+			or (source_area == "inventory" and target_area == "floor")
+	if str(data.get("kind", "")) != "run-card":
+		return false
 	if source_area == "pendingRemoval" and target_area == "deck":
 		return str(data.get("source_deck_id", "")) == str(run_drop_target.get("deck_id", ""))
 	if source_area == "deck" and target_area == "deck":

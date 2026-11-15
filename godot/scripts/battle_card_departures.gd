@@ -11,6 +11,7 @@ const STAGED_PAUSE_MS := 110.0
 const STAGED_EXIT_MS := 270.0
 const PLAY_EASING := Vector4(0.24, 0.78, 0.3, 1.0)
 const DISCARD_EASING := Vector4(0.55, 0.05, 0.82, 0.38)
+const HoldGuide = preload("res://scripts/battle_hold_guide.gd")
 
 var _items: Array[Dictionary] = []
 var _card_builder: Callable
@@ -73,6 +74,12 @@ func play() -> void:
 		ghost.name = "BattleCardDepartureGhost_%d" % index
 		ghost.set_anchors_and_offsets_preset(Control.PRESET_TOP_LEFT)
 		ghost.size = source.size
+		if _mode in ["staged_play", "play"]:
+			# Both use modes carry the aura and inherit the card's exit fade.
+			var glow := HoldGuide.create_use_glow()
+			glow.show_behind_parent = true
+			ghost.add_child(glow)
+			glow.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
 		ghost.pivot_offset = source.pivot_offset
 		ghost.mouse_filter = Control.MOUSE_FILTER_IGNORE
 		ghost.focus_mode = Control.FOCUS_NONE

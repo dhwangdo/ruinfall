@@ -180,7 +180,7 @@ static func _single_encounter_blueprints(encounter_index: int) -> Array[Dictiona
 			return [_enemy("알집 바퀴", 48, [
 				{"name": "물기", "damage": 10, "random_no_repeat": true},
 				{"name": "새끼 부화", "summon": "roachHatchling", "random_no_repeat": true},
-				{"name": "부식액", "next_turn_player_resistance_change": -2, "random_no_repeat": true},
+				{"name": "부식액", "next_turn_player_amplification_change": -2, "random_no_repeat": true},
 		], {"opening_action_index": 1, "trait": "첫 행동은 새끼 소환으로 고정하고 이후 3랜덤1로 행동합니다. 새끼는 최대 2마리이며 소환된 턴에는 행동하지 않습니다."})]
 		27:
 			return [_enemy("핏빛 광전사", 88, [

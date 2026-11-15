@@ -160,8 +160,9 @@ func apply_state(game, next_state: Dictionary, origins: Dictionary,
 			continue
 		if hidden_card_ids.has(card_id):
 			_restore_pre_hidden(target)
+			# These origins are file tops, even when the card was made by an enemy.
 			items.append({"card": card, "target": target, "source_rect": origins[card_id],
-				"enemy_token": bool(card.get("enemy_token", false)), "delay_ms": visible_index * 50.0})
+				"enemy_delivery": false, "delay_ms": visible_index * 50.0})
 		visible_index += 1
 	var layer := CardFlights.new()
 	layer.name = "BattleDrawFlights"

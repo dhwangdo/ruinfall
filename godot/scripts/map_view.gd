@@ -13,6 +13,7 @@ const MAP_TILE_SIZE_MIN := 25.5
 const MAP_TILE_SIZE_DEBUG_MIN := 8.5 # 136px × browser debug minimum zoom .0625
 const MAP_TILE_SIZE_MAX := 119.0
 const MAP_TILE_SIZE_STEP := 5.44 # 136px web tile × 0.04 zoom step
+const MAP_WHEEL_ZOOM_SENSITIVITY := 1.5
 
 signal tile_pressed(position: Vector2i)
 signal floor_items_pressed
@@ -40,6 +41,8 @@ var ping_flash_time := 0.0
 var _mouse_down := false
 var _dragged := false
 var _press_position := Vector2.ZERO
+var _screen_touches: Dictionary = {}
+var _ignore_touch_mouse_release := false
 var _last_ping_arrow_click_msec := 0
 var _hovered_deck_vault_position := Vector2i(-1, -1)
 var _enemy_name_cache: Dictionary = {}
@@ -453,11 +456,11 @@ func _gui_input(event: InputEvent) -> void:
 		var mouse_button := event as InputEventMouseButton
 		if mouse_button.button_index == MOUSE_BUTTON_WHEEL_UP and mouse_button.pressed:
 			_clear_deck_vault_hover()
-			_zoom_at(mouse_button.position, 1.0)
+			_zoom_at(mouse_button.position, MAP_WHEEL_ZOOM_SENSITIVITY)
 			accept_event()
 		elif mouse_button.button_index == MOUSE_BUTTON_WHEEL_DOWN and mouse_button.pressed:
 			_clear_deck_vault_hover()
-			_zoom_at(mouse_button.position, -1.0)
+			_zoom_at(mouse_button.position, -MAP_WHEEL_ZOOM_SENSITIVITY)
 			accept_event()
 		elif mouse_button.button_index == MOUSE_BUTTON_LEFT:
 			if mouse_button.pressed:
@@ -465,6 +468,11 @@ func _gui_input(event: InputEvent) -> void:
 				_dragged = false
 				_press_position = mouse_button.position
 			else:
+				if _ignore_touch_mouse_release:
+					_ignore_touch_mouse_release = false
+					_mouse_down = false
+					accept_event()
+					return
 				if _mouse_down and not _dragged:
 					_clear_deck_vault_hover()
 				if _mouse_down and not _dragged:
@@ -488,6 +496,38 @@ func _gui_input(event: InputEvent) -> void:
 							tile_pressed.emit(clicked_position)
 				_mouse_down = false
 				accept_event()
+	elif event is InputEventScreenTouch:
+		var touch := event as InputEventScreenTouch
+		if touch.pressed:
+			_screen_touches[touch.index] = touch.position
+		else:
+			_screen_touches.erase(touch.index)
+		if _screen_touches.size() >= 2:
+			_mouse_down = false
+			_dragged = true
+			_ignore_touch_mouse_release = true
+			accept_event()
+	elif event is InputEventScreenDrag:
+		var touch_drag := event as InputEventScreenDrag
+		if _screen_touches.has(touch_drag.index):
+			var previous_touches: Dictionary = _screen_touches.duplicate()
+			_screen_touches[touch_drag.index] = touch_drag.position
+			if _screen_touches.size() >= 2:
+				var points := _screen_touches.values()
+				var previous_points := previous_touches.values()
+				var previous_midpoint: Vector2 = (previous_points[0] + previous_points[1]) * 0.5
+				var midpoint: Vector2 = (points[0] + points[1]) * 0.5
+				var previous_distance: float = previous_points[0].distance_to(previous_points[1])
+				var distance: float = points[0].distance_to(points[1])
+				if previous_distance > 0.0 and distance > 0.0:
+					_zoom_between(previous_midpoint, midpoint, distance / previous_distance)
+				_clear_deck_vault_hover()
+				accept_event()
+	elif event is InputEventMagnifyGesture:
+		var magnify := event as InputEventMagnifyGesture
+		_zoom_at_factor(magnify.position, magnify.factor)
+		_clear_deck_vault_hover()
+		accept_event()
 	elif event is InputEventMouseMotion:
 		var motion := event as InputEventMouseMotion
 		if _mouse_down:
@@ -530,6 +570,24 @@ func _zoom_at(mouse_position: Vector2, direction: float) -> void:
 		MAP_TILE_SIZE_DEBUG_MIN if debug_mode else MAP_TILE_SIZE_MIN, MAP_TILE_SIZE_MAX)
 	var offset_from_center := (mouse_position - size * 0.5) / tile_size
 	camera_center = world_before - offset_from_center
+	_snap_motion_camera()
+	queue_redraw()
+	camera_changed.emit(camera_center, tile_size)
+
+
+func _zoom_at_factor(mouse_position: Vector2, factor: float) -> void:
+	if factor <= 0.0 or is_equal_approx(factor, 1.0):
+		return
+	_zoom_between(mouse_position, mouse_position, factor)
+
+
+func _zoom_between(previous_position: Vector2, position: Vector2, factor: float) -> void:
+	if factor <= 0.0:
+		return
+	var world_before := _world_position_float(previous_position)
+	tile_size = clampf(tile_size * factor,
+		MAP_TILE_SIZE_DEBUG_MIN if debug_mode else MAP_TILE_SIZE_MIN, MAP_TILE_SIZE_MAX)
+	camera_center = world_before - (position - size * 0.5) / tile_size
 	_snap_motion_camera()
 	queue_redraw()
 	camera_changed.emit(camera_center, tile_size)

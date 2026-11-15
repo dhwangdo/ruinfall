@@ -14,9 +14,15 @@ func _ready() -> void:
 	arrow = PointerArrow.new()
 	add_child(arrow)
 	arrow.hide()
-	use_glow = Panel.new()
-	use_glow.name = "CardUseGlow"
-	use_glow.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	use_glow = create_use_glow()
+	add_child(use_glow)
+	use_glow.hide()
+
+
+static func create_use_glow() -> Panel:
+	var glow := Panel.new()
+	glow.name = "CardUseGlow"
+	glow.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	var style := StyleBoxFlat.new()
 	style.draw_center = false
 	style.border_color = Color("#fff19a")
@@ -24,9 +30,8 @@ func _ready() -> void:
 	style.set_corner_radius_all(6)
 	style.shadow_color = Color(1.0, 0.79, 0.15, 0.72)
 	style.shadow_size = 15
-	use_glow.add_theme_stylebox_override("panel", style)
-	add_child(use_glow)
-	use_glow.hide()
+	glow.add_theme_stylebox_override("panel", style)
+	return glow
 
 
 func _process(_delta: float) -> void:
@@ -49,18 +54,16 @@ func _process(_delta: float) -> void:
 		return
 	var pose: Transform2D = origin["pose"]
 	var center: Vector2 = pose * (Vector2(origin["size"]) * 0.5)
-	if mode == CardUse.UNTARGETED:
-		if not game._can_begin_card_play(card):
-			return
-		var destination: Dictionary = game.battle_keyboard_drag.drop_destination(game, game.pointer_position, payload)
-		if destination.is_empty() or str(destination["kind"]) == "file":
-			return
+	if mode == CardUse.TARGETED:
+		arrow.set_endpoints(center, game.pointer_position, Color("#ff9a00"))
+		arrow.show()
+	if not game._can_begin_card_play(card):
+		return
+	var destination: Dictionary = game.battle_keyboard_drag.drop_destination(game, game.pointer_position, payload)
+	if not destination.is_empty() and str(destination["kind"]) != "file":
 		var local_pose := get_global_transform_with_canvas().affine_inverse() * pose
 		use_glow.position = local_pose.origin
 		use_glow.rotation = local_pose.get_rotation()
 		use_glow.scale = local_pose.get_scale()
 		use_glow.size = origin["size"]
 		use_glow.show()
-		return
-	arrow.set_endpoints(center, game.pointer_position, Color("#ff9a00"))
-	arrow.show()

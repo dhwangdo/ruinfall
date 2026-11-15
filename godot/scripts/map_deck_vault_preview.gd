@@ -5,6 +5,7 @@ const CompactCardView = preload("res://scripts/compact_card_view.gd")
 const DeckVaultCardView = preload("res://scripts/deck_vault_card_view.gd")
 const EmptySlotView = preload("res://scripts/deck_editor_empty_slot.gd")
 const DeckEditionList = preload("res://scripts/deck_edition_list.gd")
+const GameFonts = preload("res://scripts/game_fonts.gd")
 const DECK_VAULT_KEY_COST := 3
 const PREVIEW_MAX_WIDTH := 820.0
 const VIEWPORT_MARGIN := 12.0
@@ -79,18 +80,20 @@ func _build_header(deck: Dictionary) -> Control:
 	var deck_name := str(deck.get("name", "덱 금고"))
 	var title := Label.new()
 	title.text = "덱 「%s」" % deck_name
+	title.add_theme_font_override("font", GameFonts.make(700))
 	title.add_theme_font_size_override("font_size", 20)
 	title.add_theme_color_override("font_color", Color("#f0eee7"))
 	column.add_child(title)
 	var editions: Array = deck.get("editions", [])
 	if not editions.is_empty():
-		var edition_list := DeckEditionList.build(editions, deck.get("edition_colors", {}), null, 15,
+		var edition_list := DeckEditionList.build(editions, deck.get("edition_colors", {}), GameFonts.make(500), 15,
 			Color("#d7caa8"), 4)
 		column.add_child(edition_list)
 	var cards: Array = deck.get("cards", [])
 	var capacity := int(deck.get("capacity", 0))
 	var summary := Label.new()
 	summary.text = "%d / %d장 · 열쇠 %d개로 개방" % [cards.size(), capacity, DECK_VAULT_KEY_COST]
+	summary.add_theme_font_override("font", GameFonts.make(400))
 	summary.add_theme_font_size_override("font_size", 14)
 	summary.add_theme_color_override("font_color", Color("#f0eee7"))
 	summary.add_theme_constant_override("line_spacing", 1)
