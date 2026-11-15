@@ -29,6 +29,12 @@ if defined MISSING_TEMPLATES (
 )
 
 if not exist "%~dp0build" mkdir "%~dp0build"
+"%GODOT_EXE%" --headless --path "%~dp0." --script res://scripts/generate_build_info.gd
+if errorlevel 1 (
+    echo Could not generate commit version information.
+    pause
+    exit /b 1
+)
 "%GODOT_EXE%" --headless --path "%~dp0." --export-release "Windows Desktop" "%~dp0build\RUINFALL.exe"
 if errorlevel 1 (
     echo Export failed. Confirm that Godot %TEMPLATE_VERSION% export templates are installed.

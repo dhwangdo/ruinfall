@@ -74,6 +74,7 @@ jobs:
           if grep -Eq 'SCRIPT ERROR|Parse Error|Failed to load script' "$RUNNER_TEMP/godot-script-check.log"; then
             exit 1
           fi
+          "$GODOT_BIN" --headless --path godot --script res://scripts/generate_build_info.gd
           mkdir -p out
           "$GODOT_BIN" --headless --path godot --export-release Web ../out/index.html
           test -s out/index.html

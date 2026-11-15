@@ -18,6 +18,10 @@ window/size/resizable=true
 window/stretch/mode="canvas_items"
 window/stretch/aspect="expand"
 
+[autoload]
+
+GameBuildInfo="*res://scripts/game_build_info.gd"
+
 [gui]
 
 theme/default_font_multichannel_signed_distance_field=true

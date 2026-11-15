@@ -12,6 +12,8 @@
 - `godot/export_presets.cfg`: Windows와 Web 내보내기 설정
 - `.github/workflows/deploy-pages.yml`: Godot Web 빌드와 Pages 배포
 
+게임 화면 우측 하단에는 빌드에 포함된 Git 커밋 해시와 커밋 시각(KST)이 표시된다. 웹·Windows 내보내기는 `scripts/generate_build_info.gd`가 빌드 직전 정보를 생성하며, 편집기 실행은 현재 저장소에서 직접 읽는다.
+
 ## 코드 읽는 순서
 
 `main.gd`는 현재 게임 상태와 화면을 연결하는 진입점이다. 카드 사용 분류는 `card_use.gd`, 지도 규칙은 `map_*.gd`, 전투 동작과 표현은 `battle_*.gd`, 카드 정의와 시각화는 `card_*.gd` 및 `deck_*.gd`에서 찾는다. 가능한 경우 입력 연결, 순수 규칙, 애니메이션 표현을 각각 담당하는 스크립트를 따라가며 읽는다.

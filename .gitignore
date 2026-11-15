@@ -5,6 +5,7 @@
 /outputs/
 /out/
 /godot/build/
+/godot/build_info.json
 /.next/
 /.next-desktop/
 /.vinext/
