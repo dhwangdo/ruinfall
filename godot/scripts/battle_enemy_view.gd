@@ -3,12 +3,14 @@ extends RefCounted
 const Portrait = preload("res://scripts/battle_enemy_portrait.gd")
 const Intent = preload("res://scripts/battle_enemy_intent.gd")
 const BattleHPBar = preload("res://scripts/battle_hp_bar.gd")
+const TooltipBindings = preload("res://scripts/tooltip_bindings.gd")
 
 
 static func populate(target: Button, enemy: Dictionary, state: Dictionary, statuses: Array,
 		selected: Callable, trait_text: String, crowded: bool, choosing_target: bool) -> void:
 	target.custom_minimum_size = Vector2(210 if crowded else 230, 232)
-	target.tooltip_text = trait_text
+	if not trait_text.is_empty():
+		TooltipBindings.bind_enemy(target, str(enemy.get("name", "적")), trait_text)
 	target.focus_mode = Control.FOCUS_NONE
 	target.pressed.connect(selected)
 	for mode in ["normal", "hover", "pressed", "disabled"]:
@@ -106,8 +108,10 @@ static func populate(target: Button, enemy: Dictionary, state: Dictionary, statu
 		contents.add_child(badges)
 		for status in statuses:
 			var badge := PanelContainer.new()
-			badge.tooltip_text = str(status.get("tooltip", ""))
 			badge.mouse_filter = Control.MOUSE_FILTER_PASS
+			var status_tooltip := str(status.get("tooltip", ""))
+			if not status_tooltip.is_empty():
+				TooltipBindings.bind_enemy(badge, str(status.get("text", "")), status_tooltip)
 			var badge_style := StyleBoxFlat.new()
 			badge_style.bg_color = Color("#704399") if bool(status.get("debuff", false)) else Color("#2f84b9")
 			badge_style.set_corner_radius_all(3)

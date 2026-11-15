@@ -22,6 +22,10 @@ static func bind_status(control: Control, title: String, description: String) ->
 	_bind(control, "status", {"name": title, "description": description})
 
 
+static func bind_enemy(control: Control, title: String, description: String) -> void:
+	_bind(control, "enemy", {"name": title, "description": description})
+
+
 static func _bind(control: Control, kind: String, payload: Variant) -> void:
 	if not is_instance_valid(control):
 		return

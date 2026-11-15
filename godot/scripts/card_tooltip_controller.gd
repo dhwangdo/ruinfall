@@ -130,19 +130,19 @@ func _sections_for(kind: String, payload: Variant) -> Array[Dictionary]:
 			"description": edition_description,
 			"kind": "edition",
 		}]
-	if kind == "status" and payload is Dictionary:
+	if kind in ["status", "enemy"] and payload is Dictionary:
 		var title := str(payload.get("name", ""))
 		var description := str(payload.get("description", ""))
 		if title.is_empty() and description.is_empty():
 			return []
-		return [{"title": title, "description": description, "kind": "status"}]
+		return [{"title": title, "description": description, "kind": kind}]
 	return []
 
 
 func _width_for(kind: String, payload: Variant, sections: Array[Dictionary], anchor: Control) -> float:
 	if kind == "sticker":
 		return minf(STICKER_WIDTH, _viewport_size().x - VIEWPORT_MARGIN * 2.0)
-	if kind in ["edition", "status"]:
+	if kind in ["edition", "status", "enemy"]:
 		var rect := _anchor_bounds(anchor)
 		var left_space := maxf(0.0, rect.position.x - EDITION_GAP - VIEWPORT_MARGIN)
 		var right_space := maxf(0.0, _viewport_size().x - rect.end.x - EDITION_GAP - VIEWPORT_MARGIN)
@@ -212,7 +212,7 @@ func _position_for(kind: String, anchor: Control, measured: Vector2, width: floa
 	if kind == "sticker":
 		x = clampf(rect.position.x, VIEWPORT_MARGIN, viewport.x - actual_width - VIEWPORT_MARGIN)
 		y = rect.position.y - STICKER_GAP - measured.y if rect.position.y >= 120.0 else rect.end.y + STICKER_GAP
-	elif kind in ["edition", "status"]:
+	elif kind in ["edition", "status", "enemy"]:
 		var left_space := maxf(0.0, rect.position.x - EDITION_GAP - VIEWPORT_MARGIN)
 		var right_space := maxf(0.0, viewport.x - rect.end.x - EDITION_GAP - VIEWPORT_MARGIN)
 		var place_left := right_space < EDITION_WIDTH and left_space > right_space

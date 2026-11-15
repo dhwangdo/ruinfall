@@ -3843,7 +3843,8 @@ func _is_valid_battle_drop(payload: Dictionary, drop_kind: String, target_index:
 		var enemies: Array = battle_state.get("enemies", [])
 		if target_index < 0 or target_index >= enemies.size() or int(enemies[target_index].get("hp", 0)) <= 0:
 			return false
-		return _card_can_target_enemy(card) or _card_is_attack(card)
+		# Releasing any playable card on an enemy completes the drag-to-use gesture.
+		return true
 	return false
 
 

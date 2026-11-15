@@ -2,12 +2,16 @@ extends Control
 
 const PANEL_KEYWORD := Color(0.227, 0.121, 0.145, 0.96)
 const PANEL_BLUE := Color(0.090, 0.267, 0.431, 0.98)
+const PANEL_PURPLE := Color("#35233f")
 const BORDER_KEYWORD := Color(0.667, 0.424, 0.459, 0.9)
 const BORDER_BLUE := Color("#81b5e7")
+const BORDER_PURPLE := Color("#a780c0")
 const TEXT_KEYWORD := Color("#f5eee8")
 const TEXT_BLUE := Color("#f4f8ff")
+const TEXT_PURPLE := Color("#f5eff8")
 const TITLE_KEYWORD := Color("#f8d4aa")
 const TITLE_BLUE := Color("#fff3c7")
+const TITLE_PURPLE := Color("#e4c8f4")
 const FONT_PATH := "res://assets/fonts/PretendardVariable.woff2"
 const WEIGHT_AXIS_TAG := 2003265652 # OpenType `wght` axis.
 
@@ -86,6 +90,7 @@ func _add_section(section: Dictionary) -> void:
 	var description := str(section.get("description", ""))
 	var kind := str(section.get("kind", "keyword"))
 	var blue := kind in ["sticker", "edition", "status"]
+	var purple := kind == "enemy"
 	var is_preview := str(section.get("preview", "")) == "radiance" and _preview_factory.is_valid()
 
 	var panel := PanelContainer.new()
@@ -94,7 +99,7 @@ func _add_section(section: Dictionary) -> void:
 	if is_preview:
 		# Browser preview section is a 136px card with 10px padding and 2px borders.
 		panel.custom_minimum_size = Vector2(160, 0)
-	panel.add_theme_stylebox_override("panel", _panel_style(blue))
+	panel.add_theme_stylebox_override("panel", _panel_style(blue, purple))
 	_sections_root.add_child(panel)
 
 	var content := VBoxContainer.new()
@@ -119,7 +124,7 @@ func _add_section(section: Dictionary) -> void:
 		title_label.text = title
 		title_label.add_theme_font_size_override("font_size", 13)
 		title_label.add_theme_constant_override("line_spacing", 1)
-		title_label.add_theme_color_override("font_color", TITLE_BLUE if blue else TITLE_KEYWORD)
+		title_label.add_theme_color_override("font_color", TITLE_PURPLE if purple else TITLE_BLUE if blue else TITLE_KEYWORD)
 		_apply_font(title_label, _bold_font)
 		content.add_child(title_label)
 
@@ -130,15 +135,15 @@ func _add_section(section: Dictionary) -> void:
 		body_label.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
 		body_label.add_theme_font_size_override("font_size", 13)
 		body_label.add_theme_constant_override("line_spacing", 3)
-		body_label.add_theme_color_override("font_color", TEXT_BLUE if blue else TEXT_KEYWORD)
+		body_label.add_theme_color_override("font_color", TEXT_PURPLE if purple else TEXT_BLUE if blue else TEXT_KEYWORD)
 		_apply_font(body_label, _regular_font)
 		content.add_child(body_label)
 
 
-func _panel_style(blue: bool) -> StyleBoxFlat:
+func _panel_style(blue: bool, purple: bool = false) -> StyleBoxFlat:
 	var style := StyleBoxFlat.new()
-	style.bg_color = PANEL_BLUE if blue else PANEL_KEYWORD
-	style.border_color = BORDER_BLUE if blue else BORDER_KEYWORD
+	style.bg_color = PANEL_PURPLE if purple else PANEL_BLUE if blue else PANEL_KEYWORD
+	style.border_color = BORDER_PURPLE if purple else BORDER_BLUE if blue else BORDER_KEYWORD
 	style.set_border_width_all(2)
 	style.set_corner_radius_all(6)
 	style.content_margin_left = 10
