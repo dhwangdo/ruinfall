@@ -16,7 +16,7 @@ func _initialize() -> void:
 			var generated := Catalog.create_region_deck(region, 100, random)
 			var deck: Dictionary = generated.deck
 			var g: Dictionary = deck.generation
-			assert(g.model == "moments-v1")
+			assert(g.model == "maxent-v2")
 			assert(g.spent == 12 * g.x + 8 * g.y1 + 6 * g.y2 + 15 * g.z + 5 * g.w)
 			var capacity := 20 + 5 * int(g.x) - (20 if deck.editions.has("gambit") else 0)
 			if deck.editions.has("fantastic"):
@@ -47,7 +47,7 @@ func _initialize() -> void:
 				seen[edition] = true
 				observed[edition] = true
 				score += int(Editions.SCORES[edition])
-			assert(score <= g.z)
+			assert(score == g.z)
 			for edition in Editions.IDS:
 				assert(seen.has(edition) or int(Editions.SCORES[edition]) > int(g.z) - score)
 	assert(observed.size() == Editions.IDS.size())
@@ -93,5 +93,5 @@ func _initialize() -> void:
 	bound_card = Stickers.with_card_stickers(bound_card, [])
 	attached = Services.resolve("tinkerer", [bound_card], 1, -1, "kite", 0, random)
 	assert(attached.ok and Editor.is_bound(attached.after))
-	print("PASS: generated decks, exact budget/slots/stickers/IDs, roulette weights, tier weights, determinism, bound services, prices")
+	print("PASS: maximum-entropy decks, exact edition points/slots/stickers/IDs, tier weights, determinism, bound services, prices")
 	quit()

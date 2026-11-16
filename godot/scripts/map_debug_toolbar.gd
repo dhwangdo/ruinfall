@@ -132,9 +132,11 @@ func _add_score_group(row: HBoxContainer) -> void:
 	row.add_child(group)
 	var region := _labeled_number("지역", str(selector_values.get("deck_region", "1")))
 	_region_input = region[1]
+	_region_input.name = "DeckRegionInput"
 	group.add_child(region[0])
 	var count := _labeled_number("생성 개수", str(selector_values.get("deck_count", "1")))
 	_count_input = count[1]
+	_count_input.name = "DeckCountInput"
 	group.add_child(count[0])
 	_region_input.text_changed.connect(func(value: String) -> void:
 		selector_values["deck_region"] = value
@@ -174,6 +176,10 @@ func _labeled_number(label_text: String, initial: String) -> Array:
 	# Keep raw input until Generate validates it, like the browser number input.
 	# SpinBox rounds fractions and silently clamps invalid/large values first.
 	var line_edit := LineEdit.new()
+	# Web exports also need html/experimental_virtual_keyboard enabled so
+	# touchscreen IME input is forwarded to this LineEdit.
+	line_edit.virtual_keyboard_enabled = true
+	line_edit.virtual_keyboard_type = LineEdit.KEYBOARD_TYPE_NUMBER
 	line_edit.text = initial
 	line_edit.custom_minimum_size = Vector2(66, 31)
 	line_edit.size_flags_vertical = Control.SIZE_SHRINK_CENTER

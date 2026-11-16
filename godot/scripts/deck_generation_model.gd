@@ -2,27 +2,27 @@ extends RefCounted
 
 const Editions = preload("res://scripts/deck_editions.gd")
 const VALUES := [12, 8, 6, 15, 5]
-const EXCHANGE_STEPS := 6
-static var _exchanges: Array = []
+const TABLE_PATH := "res://assets/data/deck_maxent.json"
+static var _fits: Dictionary = {}
+static var _prepared := false
 static var _packs: Dictionary = {}
 
 
 static func _prepare() -> void:
-	if not _exchanges.is_empty():
+	if _prepared:
 		return
-	for a in range(-2, 3):
-		for b in range(-2, 3):
-			for c in range(-2, 3):
-				for d in range(-2, 3):
-					for e in range(-2, 3):
-						var v := [a,b,c,d,e]
-						var first := 0
-						for n in v:
-							if n != 0:
-								first = n
-								break
-						if first > 0 and absi(score(v)) <= 1:
-							_exchanges.append(v)
+	var data: Dictionary = JSON.parse_string(FileAccess.get_file_as_string(TABLE_PATH))
+	assert(data.get("model", "") == "maxent-v2", "Missing maximum entropy deck coefficients")
+	for i in range(5):
+		assert(int(data.weights[i]) == VALUES[i], "Deck values changed: rebuild deck_maxent.json")
+	assert(data.edition_ids.size() == Editions.IDS.size(), "Edition catalogue changed: rebuild deck_maxent.json")
+	for i in range(Editions.IDS.size()):
+		var id: String = Editions.IDS[i]
+		assert(str(data.edition_ids[i]) == id and int(data.edition_scores.get(id, -1)) == int(Editions.SCORES[id]),
+			"Edition catalogue changed: rebuild deck_maxent.json")
+	for row in data.regions:
+		_fits[int(row.region)] = row
+	_prepared = true
 	for mask in range(1 << Editions.IDS.size()):
 		var ids: Array[String] = []
 		var points := 0
@@ -76,7 +76,7 @@ static func _integer_sample(mean: float, variance: float, random: RandomNumberGe
 	return low + (1 if random.randf() < fraction else 0)
 
 
-static func roll(region: int, random: RandomNumberGenerator) -> Dictionary:
+static func _fallback_roll(region: int, random: RandomNumberGenerator) -> Dictionary:
 	_prepare()
 	var r := maxi(1, region)
 	var variance := pow(15.0 + 3.0 * (r - 1), 2) / 494.0
@@ -88,17 +88,50 @@ static func roll(region: int, random: RandomNumberGenerator) -> Dictionary:
 			v.append(_integer_sample(means[i], variance, random, 17 if i == 3 else 100000))
 		if valid(v):
 			break
-	for _step in range(EXCHANGE_STEPS):
-		var delta: Array = _exchanges[random.randi_range(0, _exchanges.size() - 1)]
-		var plus := []
-		var minus := []
-		for i in range(5):
-			plus.append(int(v[i]) + int(delta[i]))
-			minus.append(int(v[i]) - int(delta[i]))
-		if valid(plus) and valid(minus):
-			v = plus if random.randf() < 0.5 else minus
 	return {"k": r, "x": v[0], "y1": v[1], "y2": v[2], "z": v[3], "w": v[4],
-		"spent": score(v), "model": "moments-v1"}
+		"spent": score(v), "model": "moments-fallback"}
+
+
+static func _sample_cdf(cdf: Array, random: RandomNumberGenerator) -> int:
+	var u := random.randf()
+	var low := 0
+	var high := cdf.size() - 1
+	while low < high:
+		var middle := (low + high) / 2
+		if u < float(cdf[middle]):
+			high = middle
+		else:
+			low = middle + 1
+	return low
+
+
+static func roll(region: int, random: RandomNumberGenerator) -> Dictionary:
+	_prepare()
+	var r := maxi(1, region)
+	# Only regions with calibrated coefficients use the maximum-entropy model.
+	if not _fits.has(r):
+		return _fallback_roll(r, random)
+	var fit: Dictionary = _fits[r]
+	while true:
+		var v := []
+		var t := []
+		var log_accept := 0.0
+		for i in range(5):
+			var n := _sample_cdf(fit.proposal_cdfs[i], random)
+			v.append(n)
+			var centered := (n - float(fit.mean[i])) / float(fit.scale)
+			t.append(centered)
+			log_accept -= float(fit.envelope[i]) * centered * centered
+		for i in range(5):
+			for j in range(i + 1, 5):
+				log_accept += float(fit.quadratic[i][j]) * float(t[i]) * float(t[j])
+		# Young's inequality bounds log_accept by zero. This is an exact
+		# rejection sampler, not a finite chain of local exchanges.
+		if log(maxf(random.randf(), 1e-30)) > log_accept or not valid(v):
+			continue
+		return {"k": r, "x": v[0], "y1": v[1], "y2": v[2], "z": v[3], "w": v[4],
+			"spent": score(v), "model": "maxent-v2"}
+	return {}
 
 
 static func editions_for(shape: Dictionary, random: RandomNumberGenerator) -> Array[String]:

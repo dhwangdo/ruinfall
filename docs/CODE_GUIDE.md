@@ -50,4 +50,8 @@ Godot 4.7.2 이상에서 `godot/project.godot`을 열거나 저장소 루트의 
 
 디버그 도구 모음의 카드 선택은 고정 폭이며 `fit_to_longest_item=false`로 둔다. 닫힌 선택창의 너비를 정하려고 전체 카드 이름을 미리 측정하면 첫 진입이 느려진다. ALL 덱은 `map_debug_actions.gd`의 명시적 생성 버튼으로만 지급한다. 덱 습득 경로는 `_register_acquired_deck_origins`로 열린 편집 세션의 카드 출처를 등록하며 기존 임시 추가 기록은 보존한다. `debug_entry_and_pickup_probe.gd`에서 이 동작을 검사한다.
 
-덱 생성 평균·분산 및 교환 후보는 `deck_generation_model.gd`가 담당한다. `card_catalog.gd`는 결정된 벡터를 유지하며 실제 카드와 스티커를 배치한다. 귀속 전설 슬롯은 y1·y2의 목표와 점수에 포함하지 않는다. 교환 후보는 각 좌표 -2..2 및 가치 차이 1점 이하를 전부 열거해 무작위 선택하며 양방향 유효 조건으로 평균을 보존한다.
+덱 생성 분포는 `deck_generation_model.gd`와 `assets/data/deck_maxent.json`이 담당한다. `tools/build_deck_maxent.py`가 1~10지역의 유한 정수 격자에서 최대 엔트로피 계수를 맞추고 `docs/data/deck-maxent-validation.json`에 정확한 모멘트·주변분포·경계 질량을 기록한다. 실행 시 독립 제안 분포와 Young 부등식으로 만든 상계를 사용해 정확히 기각 추출한다. 평균 주변 두 정수/0·큰 값 혼합 및 교환은 검증 지역에서 제거했다. 다른 방향 분산 여유는 5%이며 최소 방향은 (12,8,6,15,5)다. 11지역부터는 교환 없는 기존 정수 모멘트 추첨으로 대체하므로 동일 분포 보장은 없다.
+
+`card_catalog.gd`는 결정된 벡터를 유지하며 실제 카드와 스티커를 배치한다. 귀속 전설 슬롯은 y1·y2의 목표와 점수에 포함하지 않는다. `deck_maxent_probe.gd`는 실제 기각 추출 10만 회의 평균·공분산·점수 편차와 유효성을 검사한다. `deck_generation_editions_probe.gd`는 실제 카드 배치·에디션 정확한 점수 사용·ID·스티커·결정성을 검사한다. 두 export preset의 include_filter가 JSON 계수표를 포함한다.
+
+모바일 웹의 LineEdit 입력은 Web export의 가상 키보드 브리지가 필요하다. `export_presets.cfg`에서 `html/experimental_virtual_keyboard=true`를 유지하고 디버그 숫자 입력의 `virtual_keyboard_type`은 NUMBER로 설정한다. `debug_number_input_probe.gd`는 설정·Unicode 입력·포커스 유지·생성 payload를 검사한다. 실제 모바일 OS 키보드의 브라우저 전달은 기기 확인이 필요하다.
