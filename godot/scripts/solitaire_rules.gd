@@ -83,6 +83,12 @@ static func move_error(state: Dictionary, payload: Dictionary, target_file: int)
 	var error := placement_error(moving[0], target)
 	if error != "":
 		return error
-	if int(state.get("stars", 0)) < CardStickers.solitaire_star_cost(moving[0]):
+	if int(state.get("stars", 0)) < solitaire_star_cost(state, moving[0]):
 		return "솔리테어 행동에 필요한 ★가 없습니다."
 	return ""
+
+
+static func solitaire_star_cost(state: Dictionary, card: Dictionary) -> int:
+	if state.get("deck_editions", []).has("firstSolitaire") and not bool(state.get("first_solitaire_used", false)):
+		return 0
+	return CardStickers.solitaire_star_cost(card)

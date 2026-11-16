@@ -1,6 +1,5 @@
 extends RefCounted
 
-const DebugDecks = preload("res://scripts/debug_decks.gd")
 const ALL_DECK_ID := "debug-all-cards"
 const STICKER_DECK_ID := "debug-sticker-catalog"
 const DEBUG_HP := 999
@@ -20,17 +19,6 @@ func enter(state: Dictionary) -> Dictionary:
 	var next := state.duplicate()
 	previous_active_deck_id = str(state.get("active_deck_id", ""))
 	normal_max_hp = maxi(1, int(state.get("max_hp", 50)))
-	var generated: Dictionary = DebugDecks.create_all_cards_deck(int(state.get("next_card_id", 1)))
-	var deck: Dictionary = generated["deck"]
-	var decks: Array = []
-	decks.append(deck)
-	for owned in state.get("owned_decks", []):
-		if not is_temporary_deck(str(owned.get("id", ""))):
-			decks.append(owned)
-	next["owned_decks"] = decks
-	next["active_deck_id"] = str(deck["id"])
-	next["deck"] = deck["cards"].duplicate(true)
-	next["next_card_id"] = int(generated["next_card_id"])
 	next["player_hp"] = DEBUG_HP
 	next["max_hp"] = DEBUG_HP
 	active = true

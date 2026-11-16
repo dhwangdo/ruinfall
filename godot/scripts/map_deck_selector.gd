@@ -38,7 +38,6 @@ func _init() -> void:
 	text = ""
 	custom_minimum_size = Vector2(SELECTOR_SIZE, SELECTOR_SIZE)
 	size = custom_minimum_size
-	tooltip_text = "전투에 사용할 덱 선택"
 
 
 func _ready() -> void:

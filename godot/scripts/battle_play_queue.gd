@@ -8,6 +8,7 @@ var session := -1
 var turn := -1
 var view: Control
 var waiting_for_advance := false
+var observed_confusion_sequence := 0
 
 
 func contains(card_id: int) -> bool:
@@ -42,6 +43,7 @@ func submit(game, card_id: int, target: int, origin: Dictionary) -> void:
 	if not busy and entries.is_empty():
 		session = game.battle_session_generation
 		turn = int(game.battle_state.get("turn", 0))
+		observed_confusion_sequence = int(game.battle_state.get("confusion_sequence", 0))
 	entries.append({"card_id": card_id, "target": target, "origin": origin.duplicate(true)})
 	var widget: Control = game.battle_hand_card_widgets.get(card_id)
 	if not is_instance_valid(view):
@@ -68,6 +70,7 @@ func tick(game) -> void:
 			view.queue_free()
 		view = null
 		return
+	_reconcile_confusion(game)
 	if not busy and entries.is_empty():
 		if is_instance_valid(game.active_battle_end_button):
 			game.active_battle_end_button.disabled = not game._battle_drop_available()
@@ -107,6 +110,33 @@ func _run_next(game) -> void:
 	_retire(card_id)
 	if is_instance_valid(game.active_battle_end_button):
 		game.active_battle_end_button.disabled = not game._battle_drop_available() or not entries.is_empty()
+
+
+func _reconcile_confusion(game) -> void:
+	var state: Dictionary = game.battle_draw_presentation.pending_final_state
+	if state.is_empty():
+		state = game.battle_state
+	var sequence := int(state.get("confusion_sequence", 0))
+	if sequence <= observed_confusion_sequence:
+		return
+	observed_confusion_sequence = sequence
+	var discarded_id := int(state.get("last_confusion_discard_id", -1))
+	var interrupted := false
+	for entry in entries:
+		if int(entry["card_id"]) == discarded_id:
+			interrupted = true
+	if not interrupted:
+		return
+	# Effects/costs already resolved stay committed. These entries are only intents.
+	for entry in entries:
+		var id := int(entry["card_id"])
+		if game.BattleRules._hand_card_index(state.get("hand", []), id) >= 0:
+			_restore_widget(game, id)
+		if is_instance_valid(view):
+			view.retire(id)
+	entries.clear()
+	waiting_for_advance = false
+	_arrange_view()
 
 
 func _restore_widget(game, card_id: int) -> void:

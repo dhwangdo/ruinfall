@@ -2,77 +2,69 @@ extends RefCounted
 class_name PortDeckEditions
 
 const IDS: Array[String] = [
-	"clever", "roomy", "lively", "fantastic", "rampaging", "quickHammer",
-	"drawPlus", "starPlus", "energyPlus", "persistentDraw", "frugalPlus",
-	"defensiveStance", "giant", "whiteSpace", "invincible",
-	"hammering", "deckHighlander", "starFive", "energyThree", "starThree",
+	"roomy", "firstSolitaire", "quickHammer", "sharpLight", "cycle",
+	"gambit", "sunkenLegend", "prism",
+	"fantastic", "legendCassiopeia",
 ]
-
 const SCORES := {
-	"clever": 10, "roomy": 5, "lively": 50, "fantastic": 60, "rampaging": 50,
-	"quickHammer": 10, "drawPlus": 5, "starPlus": 5, "energyPlus": 10,
-	"persistentDraw": 40, "frugalPlus": 40, "defensiveStance": 5,
-	"giant": 50, "whiteSpace": 30, "invincible": 100,
-	"hammering": 30, "deckHighlander": 30, "starFive": 40, "energyThree": 40,
-	"starThree": 20,
+	"roomy": 1, "firstSolitaire": 1, "quickHammer": 1, "sharpLight": 1, "cycle": 1,
+	"gambit": 2, "sunkenLegend": 2, "prism": 2,
+	"fantastic": 3, "legendCassiopeia": 3,
 }
-
 const NAMES := {
-	"clever": "별++", "roomy": "추가 파일", "lively": "아드레날린", "fantastic": "압축",
-	"rampaging": "지속 에너지", "quickHammer": "빠른 망치", "drawPlus": "드로우+",
-	"starPlus": "별+", "energyPlus": "에너지+", "persistentDraw": "지속 드로우",
-	"frugalPlus": "재활용+", "defensiveStance": "방호 태세",
-	"giant": "거인", "whiteSpace": "여백의 미", "invincible": "무적",
-	"hammering": "망치질", "deckHighlander": "하이랜더", "starFive": "별+++++",
-	"energyThree": "에너지+++", "starThree": "별+++",
+	"roomy": "추가 파일", "firstSolitaire": "무료 솔리테어 행동", "quickHammer": "자동망치",
+	"sharpLight": "날카로운 빛", "cycle": "순환", "gambit": "갬빗",
+	"sunkenLegend": "가라앉은 전설", "prism": "프리즘",
+	"fantastic": "압축", "legendCassiopeia": "카시오페이아",
 }
-
 const DESCRIPTIONS := {
-	"clever": "전투 시작 시 ★ 2개를 획득합니다.",
-	"roomy": "전투 시작 시 빈 파일을 1개 추가합니다.",
-	"lively": "전투 시작 시 아드레날린 카드를 1장 획득합니다.",
-	"fantastic": "파일을 4장씩 쌓습니다.",
-	"rampaging": "최대 에너지가 1 증가합니다.",
-	"quickHammer": "전투 시작 시 덱의 재련 가능한 무작위 카드 1장을 재련합니다. 치환 합금과 흑요석 단검은 제외합니다.",
-	"drawPlus": "전투 시작 시 무작위 파일에서 카드 1장을 뽑습니다.",
-	"starPlus": "전투 시작 시 ★ 1개를 획득합니다.",
-	"energyPlus": "전투 시작 시 에너지가 1 증가합니다.",
-	"persistentDraw": "매 턴 시작 시 무작위 파일에서 카드 1장을 뽑습니다.",
-	"frugalPlus": "턴 종료 시 남은 에너지 1당 ★ 2개를 획득합니다.",
-	"defensiveStance": "전투 시작 시 방어도 5를 획득합니다.",
-	"giant": "전투 시작 시 힘 3과 강인함 3을 획득합니다.",
-	"whiteSpace": "현재 빈 파일 하나당 힘 2를 획득합니다.",
-	"invincible": "전투 시작 시 무적 1을 획득합니다.",
-	"hammering": "카드를 재련할 때마다 ★ 1개를 획득합니다.",
-	"deckHighlander": "전투 시작 시 중복 카드 없이 덱이 가득 차 있으면 최대 에너지가 1 증가합니다.",
-	"starFive": "전투 시작 시 ★ 5개를 획득합니다.",
-	"energyThree": "전투 시작 시 에너지가 3 증가합니다.",
-	"starThree": "전투 시작 시 ★ 3개를 획득합니다.",
+	"roomy": "전투 시작 시 빈 추가 파일 2개를 얻습니다.",
+	"firstSolitaire": "매 턴 첫 번째 솔리테어 행동이 ★을 소모하지 않습니다.",
+	"quickHammer": "전투 시작 시 덱의 재련 가능한 무작위 카드 2장을 재련합니다.",
+	"sharpLight": "내 광채의 피해량이 3 증가합니다.",
+	"cycle": "매 턴 처음으로 손패에서 카드를 버리면 무작위 카드 1장을 뽑습니다.",
+	"gambit": "전투 시작 시 무작위 파일에서 카드 2장을 뽑고 에너지를 2 얻습니다. 덱 용량 -20.",
+	"sunkenLegend": "전투 시작 시 첫 번째 파일 맨 아래에 무작위 전설 카드를 놓습니다.",
+	"prism": "내 광채가 무작위 스티커를 얻습니다.",
+	"fantastic": "파일에 카드를 4장씩 놓습니다. 덱 용량 -20%.",
+	"legendCassiopeia": "이 덱은 카시오페이아를 가집니다. 이 카드는 덱에서 꺼내거나 제거·변환할 수 없습니다. 스티커는 붙일 수 있습니다.",
+}
+const TIER_COLORS := {1: "#00c8ff", 2: "#e040fb", 3: "#ffc400"}
+const COLORS := {
+	"roomy": TIER_COLORS[1], "firstSolitaire": TIER_COLORS[1], "quickHammer": TIER_COLORS[1],
+	"sharpLight": TIER_COLORS[1], "cycle": TIER_COLORS[1], "gambit": TIER_COLORS[2],
+	"sunkenLegend": TIER_COLORS[2], "prism": TIER_COLORS[2],
+	"fantastic": TIER_COLORS[3], "legendCassiopeia": TIER_COLORS[3],
 }
 
 
 static func roll(budget: int, random: RandomNumberGenerator) -> Array[String]:
 	var selected: Array[String] = []
 	var remaining := budget
-	while remaining >= 0:
-		var available: Array[String] = []
-		for edition in IDS:
-			if not selected.has(edition) and int(SCORES[edition]) <= remaining:
-				available.append(edition)
-		if available.is_empty():
+	while remaining > 0:
+		var tiers: Array[int] = []
+		var total_weight := 0
+		for tier in range(1, mini(3, remaining) + 1):
+			for edition in IDS:
+				if int(SCORES[edition]) == tier and not selected.has(edition):
+					tiers.append(tier)
+					total_weight += tier
+					break
+		if tiers.is_empty():
 			break
-		var total_weight := 0.0
-		for edition in available:
-			total_weight += pow(float(SCORES[edition]), 1.2)
-		var cursor := random.randf() * total_weight
-		var chosen: String = str(available.back())
-		for edition in available:
-			cursor -= pow(float(SCORES[edition]), 1.2)
-			if cursor < 0.0:
-				chosen = edition
+		var cursor := random.randi_range(1, total_weight)
+		var chosen_tier: int = tiers.back()
+		for tier in tiers:
+			cursor -= tier
+			if cursor <= 0:
+				chosen_tier = tier
 				break
-		selected.append(chosen)
-		remaining -= int(SCORES[chosen])
+		var candidates: Array[String] = []
+		for edition in IDS:
+			if int(SCORES[edition]) == chosen_tier and not selected.has(edition):
+				candidates.append(edition)
+		selected.append(candidates[random.randi_range(0, candidates.size() - 1)])
+		remaining -= chosen_tier
 	return selected
 
 
@@ -82,3 +74,7 @@ static func label(edition: String) -> String:
 
 static func description(edition: String) -> String:
 	return str(DESCRIPTIONS.get(edition, ""))
+
+
+static func tooltip_title(edition: String) -> String:
+	return "%s(%s)" % [label(edition), "★".repeat(int(SCORES.get(edition, 0)))]

@@ -211,7 +211,6 @@ static func _passive_status_text(enemy: Dictionary) -> String:
 	var thorns := int(_alias(enemy, "thorns", "thorns", 0))
 	var sturdy := int(_alias(enemy, "sturdy_threshold", "sturdyThreshold", 0))
 	var quickness := bool(_alias(enemy, "quickness_ready", "quicknessReady", false))
-	var next_magic := bool(_alias(enemy, "next_attack_magic", "nextAttackMagic", false))
 	if boon:
 		parts.append("가호 %d" % boon)
 	if berserk:
@@ -222,8 +221,6 @@ static func _passive_status_text(enemy: Dictionary) -> String:
 		parts.append("단단함 %d" % sturdy)
 	if quickness:
 		parts.append("재빠름 준비")
-	if next_magic:
-		parts.append("첫 공격 마법화")
 	return " · ".join(parts)
 
 
@@ -265,18 +262,21 @@ static func action_text(action: Dictionary) -> String:
 	_append_positive(parts, action, "strength_loss", "strengthLoss", "플레이어 힘 %d 감소")
 	_append_positive(parts, action, "agility_loss", "agilityLoss", "플레이어 강인함 %d 감소")
 	_append_positive(parts, action, "soil_count", "soilCount", "모든 파일에 흙 %d장 놓음")
-	if bool(_alias(action, "next_attack_magic", "nextAttackMagic", false)):
-		parts.append("다음 공격 마법화")
 	_append_status(parts, action, "weak_gain", "weakGain", "weak", false)
 	_append_status(parts, action, "vulnerable_gain", "vulnerableGain", "vulnerable", false)
-	_append_status(parts, action, "next_turn_player_weak_gain", "nextTurnPlayerWeakGain", "weak", false, "다음 턴 플레이어 ")
-	_append_status(parts, action, "next_turn_player_vulnerable_gain", "nextTurnPlayerVulnerableGain", "vulnerable", false, "다음 턴 플레이어 ")
+	_append_status(parts, action, "next_turn_player_weak_gain", "nextTurnPlayerWeakGain", "weak", false, "")
+	_append_status(parts, action, "next_turn_player_vulnerable_gain", "nextTurnPlayerVulnerableGain", "vulnerable", false, "")
+	for kind in ["weak", "vulnerable", "corrosion", "paralysis", "confusion"]:
+		var amount := int(action.get("player_" + kind + "_gain", action.get("next_turn_player_" + kind + "_gain", 0)))
+		# Legacy weak/vulnerable fields are already described above.
+		if amount > 0 and (kind not in ["weak", "vulnerable"] or action.has("player_" + kind + "_gain")):
+			parts.append("%s %d 부여" % [preload("res://scripts/battle_status_rules.gd").LABELS[kind], amount])
 	_append_positive(parts, action, "discard_count", "discardCount", "버리기 %d")
 	if bool(_alias(action, "self_destruct", "selfDestruct", false)):
 		parts.append("자폭")
 	var summon: Variant = _alias(action, "summon", "summon", null)
 	if summon != null and not str(summon).is_empty():
-		parts.append("새끼 바퀴 1마리 소환 (최대 2마리, HP 12, 공격 4)")
+		parts.append(preload("res://scripts/enemy_catalog.gd").roach_summon_description())
 	_append_positive(parts, action, "powder_gain", "powderGain", "화약 %d 증가")
 	_append_positive(parts, action, "ally_block_gain", "allyBlockGain", "다른 아군에게 방어 %d")
 	var preview: Variant = _alias(action, "preview", "preview", "")
@@ -286,7 +286,7 @@ static func action_text(action: Dictionary) -> String:
 
 
 static func _hit_text(hit: Dictionary) -> String:
-	var damage_type := "마법 피해" if str(hit.get("type", "physical")) == "magic" else "물리 피해"
+	var damage_type := "피해"
 	var value := str(hit.get("value", 0))
 	var hits := int(hit.get("hits", 1))
 	return "%s %s%s" % [damage_type, value, " × %d" % hits if hits > 1 else ""]

@@ -126,7 +126,7 @@ func _sections_for(kind: String, payload: Variant) -> Array[Dictionary]:
 		if edition_description.is_empty():
 			return []
 		return [{
-			"title": DeckEditions.label(edition_id),
+			"title": DeckEditions.tooltip_title(edition_id),
 			"description": edition_description,
 			"kind": "edition",
 		}]

@@ -96,6 +96,7 @@ const RUN_SAVE_PATH := "user://run_state.save"
 const SETTINGS_PATH := "user://settings.cfg"
 const INVENTORY_CAPACITY := 15
 const MAX_OWNED_DECKS := 3
+const DEBUG_MAX_OWNED_DECKS := 100
 # File cards retain their hand-card scale, with 27px exposed per layer.
 const PILE_CARD_WIDTH := 133.1
 const PILE_CARD_HEIGHT := 187.0
@@ -253,7 +254,8 @@ func _load_settings() -> void:
 	# Ignore any legacy saved marker choice; both map minimaps use the cross.
 	minimap_player_marker = "cross"
 	var config := ConfigFile.new()
-	if config.load(SETTINGS_PATH) != OK:
+	var settings_error := config.load(SETTINGS_PATH)
+	if settings_error != OK:
 		return
 	battle_deck_check_enabled = bool(config.get_value("game", "battle_deck_check_enabled", true))
 	animation_tooltips_enabled = bool(config.get_value("game", "animation_tooltips_enabled", true))
@@ -432,14 +434,14 @@ func _input(event: InputEvent) -> void:
 			return
 		if event.keycode == KEY_F and (event.ctrl_pressed or event.meta_pressed) and not event.alt_pressed \
 			and screen_name == "map" and not is_instance_valid(player_name_setup_overlay) \
-			and not is_instance_valid(map_settings_overlay) and not is_instance_valid(map_debug_controller.active_stats) \
+			and not is_instance_valid(map_settings_overlay) and not is_instance_valid(map_debug_controller.active_card_catalog) \
 			and not auto_travel_active and not map_travel_active:
 			_open_map_search()
 			get_viewport().set_input_as_handled()
 			return
 		if not text_focused and not is_instance_valid(player_name_setup_overlay) \
 			and not is_instance_valid(map_settings_overlay) and not is_instance_valid(active_map_search_panel) \
-			and not is_instance_valid(map_debug_controller.active_stats):
+			and not is_instance_valid(map_debug_controller.active_card_catalog):
 			if screen_name == "map" and event.keycode == KEY_B and not auto_travel_active and not map_travel_active:
 				map_debug_controller.count_activation(self)
 				get_viewport().set_input_as_handled()
@@ -509,7 +511,7 @@ func _unhandled_key_input(event: InputEvent) -> void:
 			_close_map_settings_overlay()
 		get_viewport().set_input_as_handled()
 		return
-	if is_instance_valid(map_debug_controller.active_stats):
+	if is_instance_valid(map_debug_controller.active_card_catalog):
 		get_viewport().set_input_as_handled()
 		return
 	var focused := get_viewport().gui_get_focus_owner()
@@ -1580,7 +1582,7 @@ func _show_map() -> void:
 	map_panel.size_flags_vertical = Control.SIZE_EXPAND_FILL
 	content.add_child(map_panel)
 	if map_debug_controller.session.active:
-		map_panel.add_child(map_debug_controller.make_toolbar(self, [], page))
+		map_panel.add_child(map_debug_controller.make_toolbar(self, page))
 	var map_surface := Control.new()
 	map_surface.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	map_surface.size_flags_vertical = Control.SIZE_EXPAND_FILL
@@ -1670,7 +1672,7 @@ func _configure_map_deck_selector() -> void:
 		selector.deck_picked.connect(_select_map_deck)
 		active_map_deck_selector_host.add_child(selector)
 	active_map_deck_selector.call("configure", str(active_deck.get("name", "덱")),
-		active_cards.size(), capacity, decks, MAX_OWNED_DECKS, active_id,
+		active_cards.size(), capacity, decks, _owned_deck_limit(), active_id,
 		active_cards.size(), capacity)
 	move_child(active_map_deck_selector_host, get_child_count() - 1)
 	_update_map_deck_selector_host()
@@ -2180,7 +2182,7 @@ func _show_deck_vault(position: Vector2i) -> void:
 		var vault_random := RandomNumberGenerator.new()
 		vault_random.seed = int(run_state.get("map_seed", 0)) ^ ((position.x + 17) * 73856093) ^ ((position.y + 31) * 19349663)
 		var generated := CardCatalog.create_region_deck(MapRules.region_index_at(position) + 1,
-			int(run_state.get("next_card_id", run_state["deck"].size() + 1)), vault_random, 0.02)
+			int(run_state.get("next_card_id", run_state["deck"].size() + 1)), vault_random)
 		vaults[room_key] = generated["deck"]
 		map_data["deck_vaults"] = vaults
 		run_state["map"] = map_data
@@ -2636,6 +2638,13 @@ func _show_battle(keep_draw_phase: bool = false) -> void:
 		player_statuses.append("약화 %d" % int(battle_state["player_weak"]))
 	if int(battle_state.get("player_vulnerable", 0)) > 0:
 		player_statuses.append("취약 %d" % int(battle_state["player_vulnerable"]))
+	for kind in ["corrosion", "paralysis", "confusion"]:
+		if int(battle_state.get("player_" + kind, 0)) > 0:
+			player_statuses.append("%s %d" % [BattleRules.StatusRules.LABELS[kind], battle_state["player_" + kind]])
+	if int(battle_state.get("magic_resistance", 0)) > 0:
+		player_statuses.append("마법 저항 %d" % int(battle_state["magic_resistance"]))
+	if int(battle_state.get("temporary_magic_resistance", 0)) > 0:
+		player_statuses.append("이번 턴 마법 저항 %d" % int(battle_state["temporary_magic_resistance"]))
 	if int(battle_state.get("strength", 0)) != 0:
 		var strength := int(battle_state["strength"])
 		player_statuses.append("힘 %s%d" % ["+" if strength > 0 else "", strength])
@@ -2658,10 +2667,11 @@ func _show_battle(keep_draw_phase: bool = false) -> void:
 		for status_text in player_statuses:
 			var status_color := COLOR_ORANGE
 			if status_text.begins_with("약화") or status_text.begins_with("취약") \
+				or status_text.begins_with("부식") or status_text.begins_with("마비") or status_text.begins_with("혼란") \
 				or status_text.begins_with("힘 -") or status_text.begins_with("이번 턴 힘 -") \
 				or status_text.begins_with("강인함 -"):
 				status_color = COLOR_RED
-			elif status_text.begins_with("강인함") or status_text.begins_with("무적"):
+			elif status_text.contains("마법 저항") or status_text.begins_with("강인함") or status_text.begins_with("무적"):
 				status_color = Color("#82b6da")
 			elif status_text.begins_with("다음 공격"):
 				status_color = COLOR_GOLD
@@ -2673,7 +2683,6 @@ func _show_battle(keep_draw_phase: bool = false) -> void:
 			badge_style.content_margin_bottom = 4
 			badge.add_theme_stylebox_override("panel", badge_style)
 			var badge_label := _label(status_text, 13, status_color)
-			badge.tooltip_text = _battle_status_tooltip(status_text)
 			badge.add_child(badge_label)
 			status_flow.add_child(badge)
 		player_panel.add_child(status_flow)
@@ -2694,7 +2703,7 @@ func _show_battle(keep_draw_phase: bool = false) -> void:
 			edition_badge.add_theme_stylebox_override("panel", edition_style)
 			TooltipBindings.bind_edition(edition_badge, edition_id)
 			edition_badge.theme = blue_tooltip_theme
-			edition_badge.add_child(_label("에디션 : [%s]" % DeckEditions.label(edition_id), 12, COLOR_GOLD))
+			edition_badge.add_child(_label("에디션 : [%s]" % DeckEditions.label(edition_id), 12, Color(str(DeckEditions.COLORS.get(edition_id, "#d7caa8")))))
 			edition_flow.add_child(edition_badge)
 		player_panel.add_child(edition_flow)
 	var battle_content := center_files
@@ -2974,6 +2983,7 @@ func _can_begin_card_play(card: Dictionary) -> bool:
 	return _battle_drop_available() and battle_card_ledger_open.is_empty() and CardUse.is_playable(card) \
 		and not battle_play_queue.contains(int(card.get("id", -1))) \
 		and BattleRules._hand_card_index(state.get("hand", []), int(card.get("id", -1))) >= 0 \
+		and not BattleRules.StatusRules.card_limit_reached(state) \
 		and BattleRules.can_pay_card_cost(state, card) \
 		and state.get("hand", []).size() - 1 >= int(card.get("discard_cost", 0))
 
@@ -3083,8 +3093,6 @@ func _enemy_status_text(enemy: Dictionary) -> String:
 		statuses.append("단단함 ≤%d" % sturdy)
 	if bool(enemy.get("quickness_ready", false)):
 		statuses.append("재빠름 준비")
-	if bool(enemy.get("next_attack_magic", false)):
-		statuses.append("다음 공격 마법")
 	return " · ".join(statuses)
 
 
@@ -3119,8 +3127,6 @@ func _enemy_status_tooltip(enemy: Dictionary, status_text: String) -> String:
 		return "표시된 수치 이하의 타격 피해를 받으면 그 피해를 1로 줄입니다."
 	if status_text == "재빠름 준비":
 		return "다음 공격의 한 타격을 회피합니다. 회피하면 준비 상태가 사라집니다."
-	if status_text == "다음 공격 마법":
-		return "다음 공격이 마법 피해를 주며, 마법 방어로 막을 수 있습니다."
 	return _enemy_trait_tooltip(enemy)
 
 
@@ -3130,6 +3136,9 @@ func _enemy_trait_tooltip(enemy: Dictionary) -> String:
 
 
 func _battle_status_tooltip(status_text: String) -> String:
+	var shared_status := BattleRules.StatusRules.describe_badge(status_text)
+	if shared_status != "":
+		return shared_status
 	if status_text.begins_with("취약 "):
 		return "받는 공격 피해가 50% 증가합니다."
 	if status_text.begins_with("약화 "):
@@ -3138,7 +3147,7 @@ func _battle_status_tooltip(status_text: String) -> String:
 		var status_parts: PackedStringArray = status_text.split(" ")
 		var agility := int(status_parts[status_parts.size() - 1])
 		var agility_effect := "%d만큼 추가로 얻습니다." % agility if agility >= 0 else "%d만큼 덜 얻습니다." % absi(agility)
-		return "방어 또는 마법 방어를 얻을 때 %s 직접 카드를 낼 때만 적용됩니다." % agility_effect
+		return "방어를 얻을 때 %s 직접 카드를 낼 때만 적용됩니다." % agility_effect
 	if status_text.begins_with("이번 턴 힘 "):
 		var status_parts: PackedStringArray = status_text.split(" ")
 		var temporary_strength := int(status_parts[status_parts.size() - 1])
@@ -3530,6 +3539,8 @@ func _card_description(card: Dictionary, use_battle_context: bool = true) -> Str
 			if str(blueprint.get("effect", "")) == effect:
 				description = str(blueprint.get("description", description))
 				break
+	if effect == "iron_song" and bool(card.get("forged", card.get("upgraded", false))):
+		description = description.replace("다음 턴[과 다다음 턴]", "다음 턴과 다다음 턴")
 	if effect == "dash" and bool(card.get("forged", card.get("upgraded", false))):
 		description = description.replace("2[3]장", "3장")
 	if str(card.get("effect", "")) == "obsidian_dagger":
@@ -3849,7 +3860,7 @@ func _on_pile_pressed(pile_index: int) -> void:
 		else:
 			selected_source = {"type": "pile", "pile_index": pile_index}
 			var top_card: Dictionary = battle_state["piles"][pile_index].back()
-			var star_cost := CardStickers.solitaire_star_cost(top_card)
+			var star_cost := SolitaireRules.solitaire_star_cost(battle_state, top_card)
 			battle_state["message"] = "카드를 옮길 목적지 파일을 선택하세요. 무료 솔리테어 행동입니다." if star_cost == 0 else "카드를 옮길 목적지 파일을 선택하세요. ★ %d개를 사용합니다." % star_cost
 			_show_battle()
 		return
@@ -4038,12 +4049,13 @@ func _quick_pick_up_floor_items() -> void:
 		else:
 			remaining_consumables.append(drop)
 	var owned_decks: Array = run_state.get("owned_decks", []).duplicate(true)
-	var free_deck_slots := maxi(0, MAX_OWNED_DECKS - owned_decks.size())
+	var free_deck_slots := maxi(0, _owned_deck_limit() - owned_decks.size())
 	for drop in floor_decks:
 		if int(drop.get("x", -1)) == position.x and int(drop.get("y", -1)) == position.y and free_deck_slots > 0:
 			var deck: Dictionary = drop.get("deck", {})
 			if not deck.is_empty():
 				owned_decks.append(deck.duplicate(true))
+				_register_acquired_deck_origins(deck)
 				picked_deck_count += 1
 				free_deck_slots -= 1
 			else:
@@ -4133,10 +4145,11 @@ func _collect_floor_deck_drops() -> void:
 	var decks: Array = run_state.get("owned_decks", [])
 	var collected := 0
 	for drop in drops:
-		if int(drop.get("x", -1)) == position.x and int(drop.get("y", -1)) == position.y:
+		if int(drop.get("x", -1)) == position.x and int(drop.get("y", -1)) == position.y and decks.size() < _owned_deck_limit():
 			var deck: Dictionary = drop.get("deck", {})
 			if not deck.is_empty():
 				decks.append(deck.duplicate(true))
+				_register_acquired_deck_origins(deck)
 				collected += 1
 		else:
 			remaining.append(drop)
@@ -4185,6 +4198,17 @@ func _collect_floor_consumable_drops() -> void:
 
 func _is_rare_slot_card(card: Dictionary) -> bool:
 	return DeckEditorRules.is_high_rarity(card)
+
+
+func _register_acquired_deck_origins(deck: Dictionary) -> void:
+	if not deck_editor_session_active:
+		return
+	var deck_id := str(deck.get("id", ""))
+	for card in deck.get("cards", []):
+		var card_id := int(card.get("id", -1))
+		# Preserve recorded temporary additions when dropping and picking up a deck.
+		if card_id >= 0 and not deck_editor_origins_by_card_id.has(card_id):
+			deck_editor_origins_by_card_id[card_id] = deck_id
 
 
 func _begin_deck_editor_session() -> void:
@@ -4253,6 +4277,8 @@ func _deck_add_error(card: Dictionary, deck_id: String) -> String:
 
 
 func _can_remove_deck_card(card: Dictionary, safe_area: bool, deck_id: String = "") -> bool:
+	if DeckEditorRules.is_bound(card):
+		return false
 	var card_id := int(card.get("id", -1))
 	var source_deck_id := deck_id if deck_id != "" else str(run_state.get("active_deck_id", "starter"))
 	if extraction_ticket_mode:
@@ -4267,6 +4293,8 @@ func _can_remove_deck_card(card: Dictionary, safe_area: bool, deck_id: String = 
 
 
 func _can_transfer_deck_card(card: Dictionary, safe_area: bool) -> bool:
+	if DeckEditorRules.is_bound(card):
+		return false
 	if safe_area:
 		return true
 	return not _is_rare_slot_card(card) and _origin_deck_id_for_card(int(card.get("id", -1))) == ""
@@ -4424,6 +4452,8 @@ func _move_deck_card_to_floor(card_id: int, source_deck_id: String) -> void:
 		var card: Dictionary = cards[index]
 		if int(card.get("id", -1)) != card_id:
 			continue
+		if DeckEditorRules.is_bound(card):
+			return
 		var safe_area: bool = MapRules.is_safe_area_tile(run_state["map"], run_state["position"]) \
 			or run_state.get("blessings", []).has("forbiddenKnowledge")
 		var original_deck_id := _origin_deck_id_for_card(card_id)
@@ -4653,6 +4683,8 @@ func _move_card_between_decks_by_id(card_id: int, source_deck_id: String, target
 
 func _configure_run_card_drag(widget: Control, card: Dictionary, source_area: String,
 			source_deck_id: String = "", target_area: String = "", target_deck_id: String = "") -> void:
+	if DeckEditorRules.is_bound(card):
+		return
 	widget.mouse_filter = Control.MOUSE_FILTER_STOP
 	widget.set("run_drag_payload", {
 		"kind": "run-card",
@@ -4767,10 +4799,14 @@ func _swap_owned_decks(source_id: String, target_id: String) -> void:
 	_show_deck()
 
 
+func _owned_deck_limit() -> int:
+	return DEBUG_MAX_OWNED_DECKS if map_debug_controller.session.active else MAX_OWNED_DECKS
+
+
 func _pick_up_floor_deck(deck_id: String) -> void:
 	var decks: Array = run_state.get("owned_decks", []).duplicate(true)
-	if decks.size() >= MAX_OWNED_DECKS:
-		notice = "덱은 최대 %d개까지 보유할 수 있습니다." % MAX_OWNED_DECKS
+	if decks.size() >= _owned_deck_limit():
+		notice = "덱은 최대 %d개까지 보유할 수 있습니다." % _owned_deck_limit()
 		_show_deck()
 		return
 	var position: Vector2i = run_state.get("position", Vector2i.ZERO)
@@ -4783,11 +4819,12 @@ func _pick_up_floor_deck(deck_id: String) -> void:
 		if str(floor_deck.get("id", "")) != deck_id:
 			continue
 		decks.append(floor_deck.duplicate(true))
+		_register_acquired_deck_origins(floor_deck)
 		floor_drops.remove_at(index)
 		run_state["owned_decks"] = decks
 		run_state["floor_deck_drops"] = floor_drops
 		notice = "덱 「%s」을(를) 주웠습니다. 보유 덱 %d / %d" % [
-			str(floor_deck.get("name", "금고 덱")), decks.size(), MAX_OWNED_DECKS]
+			str(floor_deck.get("name", "금고 덱")), decks.size(), _owned_deck_limit()]
 		_save_run()
 		_show_deck()
 		return
@@ -4866,7 +4903,7 @@ func _can_drop_extract_ticket(target: Dictionary, data: Dictionary) -> bool:
 		var cards: Array = run_state.get("deck", []) if deck_id == str(run_state.get("active_deck_id", "starter")) else deck.get("cards", [])
 		for card in cards:
 			if int(card.get("id", -1)) == card_id:
-				return true
+				return not DeckEditorRules.is_bound(card)
 	return false
 
 
@@ -4922,6 +4959,9 @@ func _extract_owned_deck_card(deck_id: String, card_id: int) -> void:
 			var card: Dictionary = cards[card_index]
 			if int(card.get("id", -1)) != card_id:
 				continue
+			if DeckEditorRules.is_bound(card):
+				notice = "에디션에 귀속된 카드는 추출할 수 없습니다."
+				return
 			cards.remove_at(card_index)
 			deck["cards"] = cards
 			decks[deck_index] = deck
@@ -5062,9 +5102,18 @@ func _show_deck() -> void:
 	deck_rows.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	deck_rows.size_flags_vertical = Control.SIZE_EXPAND_FILL
 	deck_rows.add_theme_constant_override("separation", 10)
-	# Keep owned deck rows in the board's normal vertical layout so their actual
-	# panel minimum heights and borders cannot be clipped by a scroll viewport.
-	editor_board.add_child(deck_rows)
+	if display_decks.size() > MAX_OWNED_DECKS or (_owned_deck_limit() > MAX_OWNED_DECKS and display_decks.size() >= MAX_OWNED_DECKS):
+		var deck_scroll := ScrollContainer.new()
+		deck_scroll.name = "ExtraDecksScroll"
+		deck_scroll.custom_minimum_size.y = 330.0
+		deck_scroll.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+		deck_scroll.size_flags_vertical = Control.SIZE_EXPAND_FILL
+		deck_scroll.horizontal_scroll_mode = ScrollContainer.SCROLL_MODE_DISABLED
+		deck_scroll.vertical_scroll_mode = ScrollContainer.SCROLL_MODE_AUTO
+		deck_scroll.add_child(deck_rows)
+		editor_board.add_child(deck_scroll)
+	else:
+		editor_board.add_child(deck_rows)
 	for deck in display_decks:
 		var deck_id := str(deck.get("id", ""))
 		var deck_name := str(deck.get("name", "덱"))
@@ -5093,6 +5142,8 @@ func _show_deck() -> void:
 		var select_deck := _button(deck_name, Callable(self, "_select_deck_editor_target").bind(deck_id), Vector2(154, 34))
 		select_deck.set_script(DeckCaseDragButtonScript)
 		select_deck.set("deck_drag_payload", {"kind": "deck-case", "source_area": "owned", "deck_id": deck_id})
+		select_deck.set("deck_preview_data", {"name": deck_name, "editions": deck.get("editions", []),
+			"count": deck_cards.size(), "capacity": deck_capacity})
 		select_deck.disabled = false
 		select_deck.add_theme_font_override("font", DeckEditorHeadingFont)
 		select_deck.add_theme_font_size_override("font_size", 15)
@@ -5177,7 +5228,8 @@ func _show_deck() -> void:
 		deck_scroll_trailing_space.mouse_filter = Control.MOUSE_FILTER_IGNORE
 		deck_card_list.add_child(deck_scroll_trailing_space)
 		deck_rows.add_child(deck_row["panel"])
-	for empty_slot_index in range(display_decks.size(), MAX_OWNED_DECKS):
+	var visible_slot_count := mini(_owned_deck_limit(), maxi(MAX_OWNED_DECKS, display_decks.size() + 1))
+	for empty_slot_index in range(display_decks.size(), visible_slot_count):
 		var empty_drop_area := Control.new()
 		empty_drop_area.custom_minimum_size.y = 104.0
 		empty_drop_area.size_flags_horizontal = Control.SIZE_EXPAND_FILL
@@ -5250,19 +5302,25 @@ func _show_deck() -> void:
 			continue
 		var floor_deck_id := str(floor_deck.get("id", ""))
 		var floor_deck_button := DeckCaseDragButtonScript.new() as Button
-		floor_deck_button.custom_minimum_size = Vector2(148, 76)
+		floor_deck_button.custom_minimum_size = Vector2(190, 100)
 		floor_deck_button.size_flags_vertical = Control.SIZE_SHRINK_CENTER
-		floor_deck_button.add_theme_font_size_override("font_size", 11)
-		floor_deck_button.text = "▣\n%s\n%d / %d장" % [
-			str(floor_deck.get("name", "금고 덱")),
-			floor_deck.get("cards", []).size(),
-			int(floor_deck.get("capacity", 25))]
-		floor_deck_button.tooltip_text = "눌러서 줍기 · 덱을 빈 슬롯으로 끌어도 주울 수 있습니다."
-		floor_deck_button.add_theme_stylebox_override("normal", _button_style(Color("#332f25"), Color("#c18435")))
-		floor_deck_button.add_theme_stylebox_override("hover", _button_style(Color("#43382b"), Color("#e2a64a")))
+		var floor_deck_style := StyleBoxFlat.new()
+		floor_deck_style.bg_color = Color("#0c0d0c", 0.85)
+		floor_deck_style.border_color = Color("#db8a3d")
+		floor_deck_style.set_border_width_all(2)
+		floor_deck_style.set_corner_radius_all(5)
+		for style_name in ["normal", "hover", "pressed", "hover_pressed", "disabled", "focus"]:
+			floor_deck_button.add_theme_stylebox_override(style_name, floor_deck_style)
+		var floor_heading := DeckCaseHeadingScript.new()
+		floor_heading.configure(str(floor_deck.get("name", "금고 덱")), floor_deck.get("editions", []),
+			floor_deck.get("cards", []).size(), int(floor_deck.get("capacity", 25)), false, false, false, true)
+		floor_deck_button.add_child(floor_heading)
 		floor_deck_button.set("deck_drag_payload", {
 			"kind": "deck-case", "source_area": "floor", "deck_id": floor_deck_id,
 		})
+		floor_deck_button.set("deck_preview_data", {"name": floor_deck.get("name", "금고 덱"),
+			"editions": floor_deck.get("editions", []), "count": floor_deck.get("cards", []).size(),
+			"capacity": int(floor_deck.get("capacity", 25))})
 		floor_deck_button.pressed.connect(_pick_up_floor_deck.bind(floor_deck_id))
 		floor_card_list.add_child(floor_deck_button)
 	var deck_floor_gap := Control.new()
@@ -5402,7 +5460,6 @@ func _deck_editor_count_badge(count: int) -> Label:
 	badge.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
 	badge.add_theme_color_override("font_outline_color", Color("#10192c"))
 	badge.add_theme_constant_override("outline_size", 3)
-	badge.tooltip_text = "%d장" % count
 	badge.mouse_filter = Control.MOUSE_FILTER_PASS
 	return badge
 
@@ -5425,7 +5482,6 @@ func _deck_editor_consumable_widget(consumable: Dictionary, area: String, count:
 		"source_area": area,
 	})
 	var item_name := str(consumable.get("name", "아이템"))
-	item_view.tooltip_text = "%s\n%s" % [item_name, str(consumable.get("description", ""))]
 	item_view.gui_input.connect(_on_deck_editor_consumable_gui_input.bind(consumable.duplicate(true), area))
 	return stack_root
 
@@ -5958,7 +6014,7 @@ func _can_service_card_fill_slot(card_id: int, slot_index: int) -> bool:
 		return false
 	var stickers := CardStickers.card_sticker_ids(card)
 	if slot_index == 0:
-		if stickers.size() != 1:
+		if stickers.size() != 1 or DeckEditorRules.is_bound(card):
 			return false
 		if service_selected_card_ids.size() > 1 and int(service_selected_card_ids[1]) >= 0:
 			return StickerServices.can_altar_transfer(card, _run_card_by_id(int(service_selected_card_ids[1])))
@@ -6208,9 +6264,6 @@ func _service_slot(label_text: String, slot_index := 0) -> StickerServiceSlotDro
 	panel.slot_index = slot_index
 	panel.card_validator = Callable(self, "_can_drop_service_card_to_slot").bind(slot_index)
 	panel.custom_minimum_size = Vector2(149.6, 210.1)
-	if active_service_kind == "stickerAltar":
-		panel.tooltip_text = "스티커가 하나 붙은 카드만 제물로 놓을 수 있습니다." if slot_index == 0 \
-			else "제물 스티커를 받을 수 있는 카드를 놓을 수 있습니다."
 	panel.add_theme_stylebox_override("panel", _button_style(COLOR_PANEL, COLOR_BORDER))
 	var label := _label("+" if label_text.is_empty() else "+\n" + label_text, 16, COLOR_GOLD)
 	label.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
@@ -6364,11 +6417,6 @@ func _battle_resource_strip() -> HBoxContainer:
 		var physical_shield = BattleDefenseShieldScript.new()
 		physical_shield.configure("physical", physical_block)
 		strip.add_child(physical_shield)
-	var magic_block := int(battle_state.get("player_magic_block", 0))
-	if magic_block > 0:
-		var magic_shield = BattleDefenseShieldScript.new()
-		magic_shield.configure("magic", magic_block)
-		strip.add_child(magic_shield)
 	return strip
 
 
@@ -6510,7 +6558,6 @@ func _button(text: String, callback: Callable, minimum_size: Vector2 = Vector2(1
 func _map_restart_button() -> Button:
 	var button := _button("다시하기", Callable(), Vector2(104, 52))
 	_style_map_control_button(button, Color("#783a35"), Color("#8e3935"), Color("#fff4eb"))
-	button.tooltip_text = "버튼을 1초간 눌러 새 탐험을 시작합니다."
 	button.focus_mode = Control.FOCUS_ALL
 	var progress := ColorRect.new()
 	progress.color = Color(248.0 / 255.0, 196.0 / 255.0, 129.0 / 255.0, 0.35)

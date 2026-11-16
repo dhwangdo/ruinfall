@@ -4,8 +4,8 @@ class_name MapDebugEnemyCodex
 const EnemyCatalog = preload("res://scripts/enemy_catalog.gd")
 
 const REGION_ONE_SINGLE_INDEXES := [1, 5, 19, 20, 22, 25]
-const REGION_TWO_SINGLE_INDEXES := [2, 4, 6, 27, 30, 33, 34]
-const REGION_THREE_SINGLE_INDEXES := [10, 11, 12, 13]
+const REGION_TWO_SINGLE_INDEXES := [2, 4, 6, 27, 30, 34]
+const REGION_THREE_SINGLE_INDEXES := [11, 13]
 const REGION_ONE_BOSS_INDEX := 14
 const REGION_TWO_BOSS_INDEX := 15
 const REGION_THREE_BOSS_INDEX := 16
@@ -13,7 +13,7 @@ const REGION_THREE_BOSS_INDEX := 16
 
 static func get_entries() -> Array[Dictionary]:
 	var entries: Array[Dictionary] = []
-	_append_region(entries, 1, REGION_ONE_SINGLE_INDEXES, [REGION_ONE_BOSS_INDEX], range(66, 86))
+	_append_region(entries, 1, REGION_ONE_SINGLE_INDEXES, [REGION_ONE_BOSS_INDEX], EnemyCatalog.REGION_ONE_PAIR_IDS)
 	_append_region(entries, 2, REGION_TWO_SINGLE_INDEXES, [REGION_TWO_BOSS_INDEX], range(36, 66))
 	_append_region(entries, 3, REGION_THREE_SINGLE_INDEXES, [REGION_THREE_BOSS_INDEX], [])
 	entries.sort_custom(func(left: Dictionary, right: Dictionary) -> bool:
@@ -49,12 +49,7 @@ static func _blueprints_for_encounter(encounter_index: int) -> Array[Dictionary]
 		var second_index := second_order if second_order < first_index else second_order + 1
 		return [candidates[first_index].duplicate(true), candidates[second_index].duplicate(true)]
 	if encounter_index >= 66 and encounter_index < 86:
-		var pair_index := encounter_index - 66
-		var candidates: Array[Dictionary] = EnemyCatalog._region_one_pair_candidates()
-		var first_index := int(pair_index / 4)
-		var second_order := pair_index % 4
-		var second_index := second_order if second_order < first_index else second_order + 1
-		return [candidates[first_index].duplicate(true), candidates[second_index].duplicate(true)]
+		return EnemyCatalog._region_one_pair_blueprints(encounter_index)
 	return EnemyCatalog._single_encounter_blueprints(encounter_index)
 
 

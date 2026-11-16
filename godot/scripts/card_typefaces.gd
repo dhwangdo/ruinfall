@@ -1,7 +1,7 @@
 extends RefCounted
 
 const NAME_SIZE := 18
-const BODY_SIZE := 13
+const BODY_SIZE := 12
 static var _fonts: Dictionary = {}
 
 

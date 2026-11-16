@@ -32,6 +32,8 @@ static func apply(run_state: Dictionary, action: String, payload: Dictionary, ra
 			var count := _strict_integer(payload.get("deck_count", null))
 			if bool(region.get("valid", false)) and bool(count.get("valid", false)):
 				_generate_region_decks(state, int(region["value"]), int(count["value"]), rng)
+		"create_all_cards_deck":
+			_create_all_cards_deck(state)
 		"create_sticker_test_deck":
 			_create_sticker_test_deck(state)
 	return state
@@ -45,7 +47,7 @@ static func _spawn_item(state: Dictionary, selection: String, random: RandomNumb
 		var region := maxi(1, MapRules.region_index_at(Vector2i(x, y)) + 1)
 		var bonus := 5 if state.get("blessings", []).has("deckSize") else 0
 		var first_id := int(state.get("next_card_id", 1))
-		var result := CardCatalog.create_region_deck(region, first_id, random, 0.0)
+		var result := CardCatalog.create_region_deck(region, first_id, random)
 		var deck: Dictionary = result["deck"]
 		deck["capacity"] = int(deck.get("capacity", 0)) + bonus
 		var drops: Array = state.get("floor_deck_drops", [])
@@ -117,7 +119,7 @@ static func _generate_region_decks(state: Dictionary, region: int, count: int, r
 	var next_id := int(state.get("next_card_id", 1))
 	var drops: Array = state.get("floor_deck_drops", [])
 	for _index in range(count):
-		var result := CardCatalog.create_region_deck(region, next_id, random, 0.0)
+		var result := CardCatalog.create_region_deck(region, next_id, random)
 		var deck: Dictionary = result["deck"]
 		deck["capacity"] = int(deck.get("capacity", 0)) + bonus
 		drops.append({"x": x, "y": y, "deck": deck})
@@ -166,3 +168,15 @@ static func _position(state: Dictionary) -> Vector2i:
 	if raw is Dictionary:
 		return Vector2i(int(raw.get("x", 0)), int(raw.get("y", 0)))
 	return Vector2i.ZERO
+
+
+static func _create_all_cards_deck(state: Dictionary) -> void:
+	var result := DebugDecks.create_all_cards_deck(int(state.get("next_card_id", 1)))
+	var position := _position(state)
+	var drops: Array = state.get("floor_deck_drops", [])
+	var deck: Dictionary = result["deck"]
+	# Floor IDs must remain distinct even when the button is used repeatedly.
+	deck["id"] = "debug-all-cards-%d" % int(state.get("next_card_id", 1))
+	drops.append({"x": position.x, "y": position.y, "deck": deck})
+	state["floor_deck_drops"] = drops
+	state["next_card_id"] = int(result["next_card_id"])

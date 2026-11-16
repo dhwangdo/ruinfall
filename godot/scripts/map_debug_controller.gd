@@ -3,16 +3,15 @@ extends RefCounted
 const DebugSession = preload("res://scripts/map_debug_session.gd")
 const DebugActions = preload("res://scripts/map_debug_actions.gd")
 const DebugDecks = preload("res://scripts/debug_decks.gd")
+const CardCatalog = preload("res://scripts/card_catalog.gd")
 const DebugToolbar = preload("res://scripts/map_debug_toolbar.gd")
-const EnemyCodex = preload("res://scripts/map_debug_enemy_codex.gd")
-const CardPoolStats = preload("res://scripts/card_pool_stats_panel.gd")
+const CardCatalogPanel = preload("res://scripts/map_debug_card_catalog_panel.gd")
 const MapRules = preload("res://scripts/map_rules.gd")
 
 var session := DebugSession.new()
 var activation_times: Array[int] = []
 var selector_values := {"spawn_selection": "deck:random", "deck_region": "1", "deck_count": "1"}
-var active_stats: Control
-var _codex_entries: Array = []
+var active_card_catalog: Control
 var _cached_toolbar: Control
 var _toolbar_placeholder: WeakRef
 var _toolbar_trace_file: FileAccess
@@ -29,7 +28,7 @@ func reset() -> void:
 	_toolbar_placeholder = null
 	session.reset()
 	activation_times.clear()
-	active_stats = null
+	active_card_catalog = null
 
 
 func register_activation(now_ms: int = -1) -> bool:
@@ -62,12 +61,12 @@ func count_activation(game) -> void:
 	else:
 		game.run_state = session.enter(game.run_state)
 		_start_toolbar_trace()
-		game.notice = "디버그 덱 ALL 생성: 모든 카드 %d장" % game.run_state["deck"].size()
+		game.notice = "디버그 모드에 진입했습니다."
 	game._save_run()
 	game._show_map()
 
 
-func make_toolbar(game, enemy_codex: Array = [], map_page: Control = null) -> Control:
+func make_toolbar(game, map_page: Control = null) -> Control:
 	var placeholder := Control.new()
 	placeholder.name = "MapDebugToolbarPlaceholder"
 	placeholder.custom_minimum_size.y = 46.0
@@ -77,8 +76,6 @@ func make_toolbar(game, enemy_codex: Array = [], map_page: Control = null) -> Co
 	if is_instance_valid(_cached_toolbar) and not _cached_toolbar.is_queued_for_deletion():
 		_place_toolbar_after_page(game, map_page)
 		return placeholder
-	if _codex_entries.is_empty():
-		_codex_entries = EnemyCodex.get_entries()
 	var choices: Array = [{"group": "덱", "label": "무작위 덱", "value": "deck:random"},
 		{"group": "아이템", "label": "모든 티켓", "value": "consumable:allTickets"}]
 	for type in DebugActions.CONSUMABLE_DATA:
@@ -88,8 +85,7 @@ func make_toolbar(game, enemy_codex: Array = [], map_page: Control = null) -> Co
 	var toolbar := DebugToolbar.new()
 	toolbar.name = "MapDebugToolbar"
 	toolbar.overlay_host = game
-	toolbar.configure({"debug_mode": session.active, "region_count": MapRules.REGION_COUNT,
-		"enemy_codex": _codex_entries if enemy_codex.is_empty() else enemy_codex}, choices, selector_values)
+	toolbar.configure({"debug_mode": session.active, "region_count": MapRules.REGION_COUNT}, choices, selector_values)
 	toolbar.action_requested.connect(func(action: String, payload: Dictionary) -> void:
 		handle_action(game, action, payload)
 	, CONNECT_DEFERRED) # Finish popup input dispatch before a map rebuild removes its Window.
@@ -241,14 +237,14 @@ func handle_action(game, action: String, payload: Dictionary) -> void:
 		"deck_count_changed":
 			selector_values["deck_count"] = str(payload.get("deck_count", ""))
 			return
-		"open_card_stats":
-			_open_stats(game)
+		"open_card_catalog":
+			_open_card_catalog(game)
 			return
 		"add_debug_keys":
 			game.run_state["keys"] = int(game.run_state.get("keys", 0)) + 10
 		"add_debug_gold":
 			game.run_state["gold"] = int(game.run_state.get("gold", 0)) + 999
-		"spawn_item", "generate_region_decks", "create_sticker_test_deck":
+		"spawn_item", "generate_region_decks", "create_sticker_test_deck", "create_all_cards_deck":
 			if action == "generate_region_decks" and not _valid_deck_request(payload):
 				game.notice = "지역·생성 개수를 올바르게 입력하세요."
 				if is_instance_valid(game.active_map_notice_label):
@@ -259,6 +255,8 @@ func handle_action(game, action: String, payload: Dictionary) -> void:
 			if action == "generate_region_decks":
 				game.notice = "디버그 %s지역 덱 %s개를 바닥에 생성했습니다." % [
 					str(payload["region_number"]), str(payload["deck_count"])]
+			elif action == "create_all_cards_deck":
+				game.notice = "모든 카드가 든 ALL 덱을 바닥에 생성했습니다."
 			elif action == "create_sticker_test_deck":
 				game.notice = "스티커 도감 덱 생성: 스티커 %d종을 확인할 수 있습니다." % game.run_state["deck"].size()
 		_:
@@ -290,7 +288,7 @@ func teleport(game, destination: Vector2i) -> void:
 
 
 func on_view_cleared() -> void:
-	active_stats = null
+	active_card_catalog = null
 	_toolbar_placeholder = null
 	if not is_instance_valid(_cached_toolbar):
 		return
@@ -305,19 +303,23 @@ func _valid_deck_request(payload: Dictionary) -> bool:
 		and int(region["value"]) >= 1 and int(region["value"]) <= MapRules.REGION_COUNT and int(count["value"]) >= 1
 
 
-func _open_stats(game) -> void:
-	if is_instance_valid(active_stats):
+func _open_card_catalog(game) -> void:
+	if is_instance_valid(active_card_catalog):
 		return
 	game._clear_map_vault_preview()
-	var panel := CardPoolStats.create(Callable(game, "_show_card_hover_preview"),
-		Callable(game, "_hide_card_hover_preview"), Callable(), game.blue_tooltip_theme)
-	panel.name = "CardPoolStats"
+	var all_cards: Dictionary = DebugDecks.create_all_cards_deck(1)
+	var deck: Dictionary = all_cards.get("deck", {})
+	var cards: Array = deck.get("cards", []).duplicate(true)
+	cards.append(CardCatalog.create_fermented_slime_card(int(all_cards.get("next_card_id", 1))))
+	var panel := CardCatalogPanel.new()
+	panel.name = "MapDebugCardCatalog"
 	panel.z_index = 100
-	active_stats = panel
+	panel.configure(game, cards)
+	active_card_catalog = panel
 	panel.close_requested.connect(func() -> void:
 		game._hide_card_hover_preview()
-		if active_stats == panel:
-			active_stats = null
+		if active_card_catalog == panel:
+			active_card_catalog = null
 		if is_instance_valid(panel):
 			panel.queue_free()
 	)

@@ -17,9 +17,13 @@ const DESCRIPTIONS := {
 	"에너지": "카드를 사용할 때 소모하는 자원입니다. 턴 시작 시 기본적으로 최대 에너지만큼 회복합니다. 이 회복으로는 최대 에너지를 넘지 않습니다.",
 	"버리기 X": "사용 시 손패의 다른 카드 X장을 버립니다. 버릴 카드가 X장보다 적으면 사용할 수 없습니다.",
 	"힘 X": "공격의 각 타격에 피해를 X만큼 추가합니다. 직접 카드를 낼 때만 적용됩니다.",
-	"강인함 X": "방어 또는 마법 방어를 얻을 때 X만큼 추가로 얻습니다. 직접 카드를 낼 때만 적용됩니다.",
+	"강인함 X": "방어를 얻을 때 X만큼 추가로 얻습니다. 직접 카드를 낼 때만 적용됩니다.",
 	"취약 X": "받는 공격 피해가 50% 증가합니다.",
 	"약화 X": "가하는 공격 피해가 50% 감소합니다.",
+	"마법 저항 X": "해로운 효과를 얻을 때마다 X만큼 덜 얻습니다.",
+	"부식 X": "내 턴 종료 시 방어가 절반이 됩니다. 소수점 이하는 버립니다.",
+	"마비 X": "한 턴에 카드를 3장까지만 사용할 수 있습니다.",
+	"혼란 X": "카드 효과 처리 후 손패의 카드 1장을 무작위로 버립니다.",
 	"무적": "피해를 받지 않습니다.",
 	"광채": "피해를 4 줍니다. 전투 중 생성되는 임시 카드입니다. 사용하거나 버리면 사라집니다.",
 }
@@ -51,7 +55,7 @@ static func tooltip_sections(card: Dictionary) -> Array[Dictionary]:
 		_add_keyword(keywords, "사용 불가")
 	if description.contains("★") or effect in ["grimoire", "meteor", "supernova", "osiris_sun"]:
 		_add_keyword(keywords, "★")
-	if card.has("discard_cost") or effect == "saeongjima" or description.contains("버리기"):
+	if card.has("discard_cost") or description.contains("버리기"):
 		_add_keyword(keywords, "버리기 X")
 	if description.contains("힘"):
 		_add_keyword(keywords, "힘 X")
@@ -61,6 +65,9 @@ static func tooltip_sections(card: Dictionary) -> Array[Dictionary]:
 		_add_keyword(keywords, "취약 X")
 	if description.contains("약화"):
 		_add_keyword(keywords, "약화 X")
+	for status_keyword in ["마법 저항", "부식", "마비", "혼란"]:
+		if description.contains(status_keyword):
+			_add_keyword(keywords, status_keyword + " X")
 	if description.contains("무적"):
 		_add_keyword(keywords, "무적")
 	if description.contains("광채"):

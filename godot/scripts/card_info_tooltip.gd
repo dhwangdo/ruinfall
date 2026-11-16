@@ -101,7 +101,7 @@ func _add_section(section: Dictionary) -> void:
 
 	var content := VBoxContainer.new()
 	content.mouse_filter = Control.MOUSE_FILTER_IGNORE
-	content.add_theme_constant_override("separation", 3)
+	content.add_theme_constant_override("separation", 2)
 	if is_preview:
 		content.alignment = BoxContainer.ALIGNMENT_CENTER
 	panel.add_child(content)
@@ -120,7 +120,7 @@ func _add_section(section: Dictionary) -> void:
 		title_label.mouse_filter = Control.MOUSE_FILTER_IGNORE
 		title_label.text = title
 		title_label.add_theme_font_size_override("font_size", 14)
-		title_label.add_theme_constant_override("line_spacing", 1)
+		title_label.add_theme_constant_override("line_spacing", 0)
 		title_label.add_theme_color_override("font_color", TITLE_PURPLE if purple else TITLE_BLUE if blue else TITLE_KEYWORD)
 		_apply_font(title_label, _bold_font)
 		content.add_child(title_label)
@@ -131,7 +131,7 @@ func _add_section(section: Dictionary) -> void:
 		body_label.text = description
 		body_label.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
 		body_label.add_theme_font_size_override("font_size", 14)
-		body_label.add_theme_constant_override("line_spacing", 3)
+		body_label.add_theme_constant_override("line_spacing", 1)
 		body_label.add_theme_color_override("font_color", TEXT_PURPLE if purple else TEXT_BLUE if blue else TEXT_KEYWORD)
 		_apply_font(body_label, _regular_font)
 		content.add_child(body_label)

@@ -4,15 +4,7 @@ class_name PortDeckEditionList
 const DeckEditions = preload("res://scripts/deck_editions.gd")
 const TooltipBindings = preload("res://scripts/tooltip_bindings.gd")
 
-const EDITION_COLORS := {
-	"clever": "#ef4444", "roomy": "#f97316", "lively": "#eab308",
-	"fantastic": "#84cc16", "rampaging": "#06b6d4", "quickHammer": "#e29842",
-	"drawPlus": "#6366f1", "starPlus": "#8b5cf6", "energyPlus": "#a855f7",
-	"persistentDraw": "#d946ef", "frugalPlus": "#ec4899", "defensiveStance": "#f43f5e",
-	"giant": "#7c3aed", "whiteSpace": "#115e59",
-	"invincible": "#be123c", "hammering": "#c2410c", "deckHighlander": "#a16207",
-	"starFive": "#15803d", "energyThree": "#0f766e", "starThree": "#d4a017",
-}
+const EDITION_COLORS := DeckEditions.COLORS
 
 
 static func build(editions: Array, edition_colors: Dictionary = {}, font: Font = null,

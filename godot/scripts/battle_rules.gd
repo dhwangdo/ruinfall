@@ -3,6 +3,7 @@ extends RefCounted
 class_name PortBattleRules
 
 const CardUse = preload("res://scripts/card_use.gd")
+const StatusRules = preload("res://scripts/battle_status_rules.gd")
 
 const STARTING_ENERGY := 3
 const CARDS_PER_FILE := 5
@@ -20,8 +21,11 @@ static func start_battle(deck: Array, player_hp: int, encounter: Dictionary = {}
 	var cards: Array = deck.duplicate(true)
 	var editions: Array = deck_editions.duplicate()
 	var cards_per_file := 4 if editions.has("fantastic") else CARDS_PER_FILE
-	var quick_hammer_forged := editions.has("quickHammer") and _apply_quick_hammer(cards, random)
-	var deck_highlander := editions.has("deckHighlander") and _is_full_highlander_deck(cards, deck_capacity)
+	var quick_hammer_forged := 0
+	if editions.has("quickHammer"):
+		for _attempt in range(2):
+			if _apply_quick_hammer(cards, random):
+				quick_hammer_forged += 1
 	var talisman_strength := 0
 	var talisman_agility := 0
 	for card in cards:
@@ -39,8 +43,6 @@ static func start_battle(deck: Array, player_hp: int, encounter: Dictionary = {}
 	for card_index in range(cards.size()):
 		var pile_index := mini(int(card_index / cards_per_file), pile_count - 1)
 		piles[pile_index].append(cards[card_index])
-	if editions.has("roomy"):
-		piles.append([])
 
 	var enemy := encounter.duplicate(true) if not encounter.is_empty() else EnemyCatalog.create_encounter()
 	var enemies: Array = enemy.get("enemies", [enemy]).duplicate(true)
@@ -78,18 +80,22 @@ static func start_battle(deck: Array, player_hp: int, encounter: Dictionary = {}
 		"battle_seed": random.randi(),
 		"player_hp": player_hp,
 		"max_player_hp": maxi(player_hp, max_player_hp) if max_player_hp >= 0 else player_hp,
-		"player_block": 5 if editions.has("defensiveStance") else 0,
-		"player_magic_block": 0,
-		"agility": talisman_agility + (3 if editions.has("giant") else 0),
+		"player_block": 0,
+		"agility": talisman_agility,
+		"player_corrosion": 0,
+		"player_paralysis": 0,
+		"player_confusion": 0,
+		"magic_resistance": 0,
+		"temporary_magic_resistance": 0,
+		"cards_played_this_turn": 0,
+		"pending_after_play_card_id": -1,
 		"player_weak": 0,
 		"player_vulnerable": 0,
-		"player_invulnerability_turns": 1 if editions.has("invincible") else 0,
+		"player_invulnerability_turns": 0,
 		"energy": STARTING_ENERGY,
-		"max_energy": STARTING_ENERGY + (1 if editions.has("rampaging") or deck_highlander else 0),
-		"stars": 2 + (2 if editions.has("clever") else 0) + (1 if editions.has("starPlus") else 0)
-			+ (5 if editions.has("starFive") else 0) + (3 if editions.has("starThree") else 0)
-			+ (1 if quick_hammer_forged and editions.has("hammering") else 0),
-		"strength": talisman_strength + (3 if editions.has("giant") else 0),
+		"max_energy": STARTING_ENERGY,
+		"stars": 2,
+		"strength": talisman_strength,
 		"temporary_strength": 0,
 		"radiance_played_this_turn": 0,
 		"turn": 1,
@@ -111,7 +117,7 @@ static func start_battle(deck: Array, player_hp: int, encounter: Dictionary = {}
 		"random_draw_sequence": 0,
 		# Generated hand cards must not collide with the -1 "no card" sentinel.
 		"next_generated_card_id": 2000000000,
-		"forge_count": 1 if quick_hammer_forged else 0,
+		"forge_count": quick_hammer_forged,
 		"toxic_slime_added": false,
 		"pending_summoners": [],
 		"solitaire_bonus_used_this_turn": false,
@@ -122,31 +128,41 @@ static func start_battle(deck: Array, player_hp: int, encounter: Dictionary = {}
 		"status": "playing",
 		"message": "각 파일의 맨 위 카드를 손패로 가져왔습니다.",
 	}
-	state["energy"] = maxi(0, int(state["max_energy"]) + (1 if editions.has("energyPlus") else 0)
-		+ (3 if editions.has("energyThree") else 0) - _enemy_energy_recovery_penalty(state["enemies"]))
+	state["energy"] = maxi(0, int(state["max_energy"]) - _enemy_energy_recovery_penalty(state["enemies"]))
+	if editions.has("gambit"):
+		state["energy"] = int(state["energy"]) + 2
 	var setup_random := RandomNumberGenerator.new()
 	setup_random.seed = int(state["battle_seed"])
 	var sticker_setup := CardStickers.place_starting_stickers(state["piles"], setup_random)
 	state["piles"] = sticker_setup.get("piles", state["piles"])
 	state["hand"] = sticker_setup.get("hand", [])
-	if editions.has("whiteSpace"):
+	if editions.has("roomy"):
+		state["piles"].append([])
+		state["piles"].append([])
+	if editions.has("sunkenLegend"):
+		if state["piles"].is_empty():
+			state["piles"].append([])
+		var legend: Dictionary = CardCatalog.LEGENDARY_CARDS[setup_random.randi_range(0, CardCatalog.LEGENDARY_CARDS.size() - 1)].duplicate(true)
+		legend["id"] = int(state["next_generated_card_id"])
+		state["next_generated_card_id"] = int(state["next_generated_card_id"]) - 1
+		legend["token"] = true
+		legend["revealed"] = false
+		state["piles"][0].push_front(legend)
+	if editions.has("prism"):
 		for pile in state["piles"]:
-			if pile.is_empty():
-				state["strength"] = int(state["strength"]) + 2
-	if editions.has("lively"):
-		var adrenaline := CardCatalog.create_adrenaline_card(int(state["next_generated_card_id"]))
-		if not adrenaline.is_empty():
-			adrenaline["revealed"] = true
-			state["hand"].append(adrenaline)
-			state["next_generated_card_id"] = int(state["next_generated_card_id"]) - 1
+			for index in range(pile.size()):
+				if str(pile[index].get("effect", "")) == "radiance":
+					pile[index] = CardStickers.with_random_sticker(pile[index], 1.0, setup_random)
+		for index in range(state["hand"].size()):
+			if str(state["hand"][index].get("effect", "")) == "radiance":
+				state["hand"][index] = CardStickers.with_random_sticker(state["hand"][index], 1.0, setup_random)
 	_add_encounter_start_cards(state)
 	_confiscate_rare_cards(state, setup_random)
 	_prepare_enemy_pile_seals(state, setup_random)
 	_apply_enemy_turn_start(state)
 	_draw_from_files(state, initial_draw_view)
-	var edition_start_draws := (1 if editions.has("drawPlus") else 0) + (1 if editions.has("persistentDraw") else 0)
-	if edition_start_draws > 0:
-		_draw_random_cards(state, edition_start_draws)
+	if editions.has("gambit"):
+		_draw_random_cards(state, 2)
 	_prepare_enemy_discard_targets(state)
 	_add_enemy_intent_tokens_to_files(state)
 	_refresh_enemy_intent(state)
@@ -272,6 +288,8 @@ static func play_card(state: Dictionary, card_id: int, play_view: Variant = null
 	var card: Dictionary = next["hand"][card_index]
 	if not CardUse.is_playable(card):
 		return _with_message(next, "%s은(는) 사용할 수 없습니다." % str(card.get("name", "카드")))
+	if StatusRules.card_limit_reached(next):
+		return _with_message(next, "마비: 이번 턴에는 카드를 3장까지만 사용할 수 있습니다.")
 	if not can_pay_card_cost(next, card):
 		return _with_message(next, "에너지가 부족합니다.")
 	var discard_cost := int(card.get("discard_cost", 0))
@@ -304,7 +322,7 @@ static func _discard_hand_card_for_pending_play_once(state: Dictionary, discarde
 	if discard_index < 0:
 		return _with_message(next, "버릴 카드를 찾을 수 없습니다.")
 	var discarded: Dictionary = next["hand"].pop_at(discard_index)
-	var saeongjima_draws := _discard_card(next, discarded, true, true)
+	var saeongjima_draws := _discard_card(next, discarded, true, true, true)
 	if saeongjima_draws > 0:
 		_draw_random_cards(next, saeongjima_draws)
 	var remaining_discards := maxi(0, int(next.get("pending_discard_count", 1)) - 1)
@@ -375,7 +393,7 @@ static func resolve_pile_operation(state: Dictionary, file_index: int) -> Dictio
 		file_index + 1,
 		"버렸습니다" if operation == "discardTop" else "맨 밑으로 옮겼습니다",
 	]
-	return next
+	return _finish_card_effects(next)
 
 
 static func can_draw_from_file(state: Dictionary, file_index: int) -> bool:
@@ -425,7 +443,7 @@ static func draw_from_file(state: Dictionary, file_index: int) -> Dictionary:
 		next["message"] = "다음 드로우 파일을 선택하세요. (남은 %d장)" % int(next["pending_draws"])
 	else:
 		next["message"] = "%d번 파일에서 %d장 드로우" % [file_index + 1, drawn_count]
-	return next
+	return _finish_card_effects(next)
 
 
 static func move_hand_card_to_file(state: Dictionary, card_id: int, target_file: int) -> Dictionary:
@@ -446,7 +464,7 @@ static func move_cards_to_file(state: Dictionary, payload: Dictionary, target_fi
 	var files: Array = next["piles"]
 	var moving: Array = SolitaireRules.source_cards(next, payload)
 	var from_hand := str(payload.get("source", "")) == "hand"
-	var star_cost := CardStickers.solitaire_star_cost(moving[0])
+	var star_cost := SolitaireRules.solitaire_star_cost(next, moving[0])
 	var target_card: Dictionary = files[target_file].back() if not files[target_file].is_empty() else {}
 	var updated_target: Dictionary = target_card
 	var consumes_target := false
@@ -489,8 +507,7 @@ static func move_cards_to_file(state: Dictionary, payload: Dictionary, target_fi
 	next["hand"].append_array(retrieved)
 	next["forge_count"] = int(next.get("forge_count", 0)) + forge_count
 	next["stars"] = int(next["stars"]) - star_cost
-	if forge_count > 0 and next.get("deck_editions", []).has("hammering"):
-		next["stars"] = int(next["stars"]) + 1
+	next["first_solitaire_used"] = true
 	_arm_solitaire_enemy_bonuses(next)
 	next["message"] = "%d장을 %d번 파일로 옮겼습니다." % [moving.size(), target_file + 1]
 	if forge_count > 0:
@@ -553,48 +570,18 @@ static func _resolve_forge_placement(state: Dictionary, moving_card: Dictionary,
 	return {"applied": true, "card": forged_card, "target": updated_target}
 
 
-static func _is_full_highlander_deck(cards: Array, deck_capacity: int) -> bool:
-	if deck_capacity <= 0 or cards.size() != deck_capacity:
-		return false
-	var seen_names: Dictionary = {}
-	for card in cards:
-		var card_name := str(card.get("name", ""))
-		if seen_names.has(card_name):
-			return false
-		seen_names[card_name] = true
-	return true
-
-
 static func _apply_quick_hammer(cards: Array, random: RandomNumberGenerator) -> bool:
-	var candidates: Array[Vector2i] = []
-	for moving_index in range(cards.size()):
-		var moving_card: Dictionary = cards[moving_index]
-		var moving_effect := str(moving_card.get("effect", ""))
-		if moving_effect in ["exchange", "obsidian_dagger"] or bool(moving_card.get("forged", false)):
+	var candidates: Array[int] = []
+	for index in range(cards.size()):
+		var card: Dictionary = cards[index]
+		if bool(card.get("forged", false)) or str(card.get("effect", "")) in ["exchange", "obsidian_dagger"]:
 			continue
-		for target_index in range(cards.size()):
-			if target_index == moving_index:
-				continue
-			var target_card: Dictionary = cards[target_index]
-			if str(target_card.get("effect", "")) in ["exchange", "obsidian_dagger"]:
-				continue
-			var probe := {"forge_count": 0, "active_rule_cards": []}
-			if bool(_resolve_forge_placement(probe, moving_card, target_card).get("applied", false)):
-				candidates.append(Vector2i(moving_index, target_index))
+		if card.has("forge_cost") or card.has("forge_costs") or card.has("forge_target_name") or bool(card.get("forge_any", false)):
+			candidates.append(index)
 	if candidates.is_empty():
 		return false
-	var selected: Vector2i = candidates[random.randi_range(0, candidates.size() - 1)]
-	var moving_index := selected.x
-	var target_index := selected.y
-	var probe := {"forge_count": 0, "active_rule_cards": []}
-	var result := _resolve_forge_placement(probe, cards[moving_index], cards[target_index])
-	if not bool(result.get("applied", false)):
-		return false
-	cards[moving_index] = result.get("card", cards[moving_index])
-	if bool(result.get("consumes_target", false)):
-		cards.remove_at(target_index)
-	else:
-		cards[target_index] = result.get("target", cards[target_index])
+	var selected: int = candidates[random.randi_range(0, candidates.size() - 1)]
+	cards[selected]["forged"] = true
 	return true
 
 
@@ -629,7 +616,10 @@ static func end_turn(state: Dictionary, draw_view: Variant = null, turn_view: Va
 	next["target_enemy_index"] = primary_enemy_index
 	_load_enemy_aliases(next, primary_enemy_index)
 	var turn_end_hand: Array = next["hand"].duplicate(true)
-	var next_turn_player_status_changes := {"weak": 0, "vulnerable": 0}
+	if int(next.get("player_corrosion", 0)) > 0:
+		next["player_block"] = int(next.get("player_block", 0)) / 2
+		if turn_view is Dictionary:
+			turn_view["corrosion"] = {"player_hp": next["player_hp"], "player_block": next["player_block"]}
 	var steel_storm_count := 0
 	for rule_card in next.get("active_rule_cards", []):
 		if str(rule_card.get("effect", "")) == "steel_storm":
@@ -672,7 +662,6 @@ static func end_turn(state: Dictionary, draw_view: Variant = null, turn_view: Va
 	var toxic_before := {
 		"player_hp": int(next.get("player_hp", 0)),
 		"player_block": int(next.get("player_block", 0)),
-		"player_magic_block": int(next.get("player_magic_block", 0)),
 	}
 	var toxic_blocked := 0
 	var toxic_damage_taken := 0
@@ -694,204 +683,16 @@ static func end_turn(state: Dictionary, draw_view: Variant = null, turn_view: Va
 	if toxic_slime_count > 0 and not toxic_trace_recorded:
 		_record_toxic_slime_turn_view(turn_view, toxic_slime_count, toxic_slime_damage,
 			toxic_damage_taken, toxic_blocked, toxic_before, next, toxic_extra_turn, false)
-	if next.get("deck_editions", []).has("frugalPlus") and int(next.get("energy", 0)) > 0:
-		var gained_stars := int(next["energy"]) * 2
-		next["stars"] = int(next.get("stars", 0)) + gained_stars
-		next["message"] += " · 재활용+: ★ %d 획득" % gained_stars
+
 	if int(next.get("pending_extra_turns", 0)) > 0:
 		next["pending_extra_turns"] = int(next["pending_extra_turns"]) - 1
 		return _begin_extra_turn(next, preferred_target_index, turn_end_hand, draw_view)
 	_clear_enemy_physical_blocks(next)
 	_load_enemy_aliases(next)
-	var actions: Array = next["enemy_actions"]
-	primary_enemy_index = int(next.get("target_enemy_index", primary_enemy_index))
-	var primary_enemies: Array = next.get("enemies", [])
-	var primary_enemy: Dictionary = primary_enemies[primary_enemy_index] if primary_enemy_index >= 0 and primary_enemy_index < primary_enemies.size() else {}
-	if bool(primary_enemy.get("stunned", false)):
-		var stunned_action_index := clampi(int(next.get("enemy_action_index", 0)), 0, actions.size() - 1) if not actions.is_empty() else -1
-		var stunned_action_name := str(actions[stunned_action_index].get("name", "")) if stunned_action_index >= 0 else ""
-		next["enemy_stunned"] = false
-		next["enemy_vulnerable"] = _decay_status(int(next.get("enemy_vulnerable", 0)))
-		next["enemy_weak"] = _decay_status(int(next.get("enemy_weak", 0)))
-		next["message"] = "%s의 행동이 취소되었습니다." % next["enemy_name"]
-		_save_enemy_aliases(next)
-		_record_enemy_turn_message_step(turn_view, primary_enemy_index, primary_enemy,
-			stunned_action_name, "행동 취소", "enemy", "debuff", next)
-		_resolve_other_enemies_turn(next, primary_enemy_index, next_turn_player_status_changes, turn_view)
-		if str(next.get("status", "playing")) != "playing":
-			_discard_turn_end_hand(next, turn_end_hand)
-			return next
-		_apply_player_status_turn_end(next, next_turn_player_status_changes)
-		_ensure_living_target(next)
-		_spawn_enemy_minions(next)
-		_apply_shared_turn_end_strength(next)
-		_discard_turn_end_hand(next, turn_end_hand)
-		next["temporary_strength"] = 0
-		if int(next.get("player_invulnerability_turns", 0)) > 0:
-			next["player_invulnerability_turns"] = int(next["player_invulnerability_turns"]) - 1
-		next["player_block"] = floori(float(next.get("player_block", 0)) / 2.0) if bool(next.get("preserve_block_on_turn_end", false)) else 0
-		next["player_magic_block"] = 0
-		next["turn"] = int(next["turn"]) + 1
-		next["radiance_played_this_turn"] = 0
-		_apply_enemy_turn_start(next)
-		_reset_solitaire_enemy_bonuses(next)
-		_prepare_enemy_pile_seals(next)
-		next["energy"] = _recover_battle_energy(next)
-		_draw_from_files(next, draw_view)
-		_apply_turn_start_effects(next)
-		_prepare_enemy_discard_targets(next)
-		_add_enemy_intent_tokens_to_files(next)
-		_restore_enemy_target(next, preferred_target_index)
-		_refresh_enemy_intent(next)
-		return next
-	if not actions.is_empty():
-		var action_index := int(next["enemy_action_index"])
-		var action: Dictionary = actions[action_index]
-		var temporary_strength := _temporary_enemy_strength(next)
-		var raw_damage := int(action.get("damage", 0)) + int(next.get("enemy_strength", 0)) + temporary_strength
-		var hits := maxi(1, int(action.get("hits", 1)))
-		var total_damage := 0
-		var total_blocked := 0
-		var protected_by_invulnerability := int(next.get("player_invulnerability_turns", 0)) > 0
-		var block_key := "player_magic_block" if str(action.get("damage_type", "physical")) == "magic" else "player_block"
-		if not protected_by_invulnerability:
-			for _hit_index in range(hits):
-				var incoming := _calculate_attack_damage(
-					raw_damage,
-					int(next.get("enemy_weak", 0)),
-					int(next.get("player_vulnerable", 0))
-				)
-				var blocked := mini(incoming, int(next.get(block_key, 0)))
-				var damage := incoming - blocked
-				next[block_key] = int(next.get(block_key, 0)) - blocked
-				total_damage += damage
-				total_blocked += blocked
-				next["player_hp"] = maxi(0, int(next["player_hp"]) - damage)
-				if int(action.get("damage", 0)) > 0:
-					_record_enemy_turn_view_step(turn_view, primary_enemy_index, primary_enemy,
-						str(action.get("name", "")), true, damage, next)
-				if int(next["player_hp"]) <= 0:
-					break
-		elif int(action.get("damage", 0)) > 0:
-			for _hit_index in range(hits):
-				_record_enemy_turn_view_step(turn_view, primary_enemy_index, primary_enemy,
-					str(action.get("name", "")), true, 0, next)
-		if int(next["player_hp"]) <= 0:
-			_discard_turn_end_hand(next, turn_end_hand)
-			next["status"] = "lost"
-			next["message"] = "%s의 공격으로 쓰러졌습니다." % next["enemy_name"]
-			return next
-		var effect_messages: Array[String] = []
-		next["enemy_first_action_completed"] = true
-		var enemy_weak_gain := int(action.get("weak_gain", 0))
-		var enemy_vulnerable_gain := int(action.get("vulnerable_gain", 0))
-		next["enemy_weak"] = _decay_status(int(next.get("enemy_weak", 0))) + enemy_weak_gain
-		next["enemy_vulnerable"] = _decay_status(int(next.get("enemy_vulnerable", 0))) + enemy_vulnerable_gain
-		if enemy_weak_gain > 0:
-			effect_messages.append("약화 %d" % enemy_weak_gain)
-		if enemy_vulnerable_gain > 0:
-			effect_messages.append("취약 %d" % enemy_vulnerable_gain)
-		var powder_gain := int(action.get("powder_gain", 0))
-		if powder_gain > 0:
-			next["enemy_powder"] = int(next.get("enemy_powder", 0)) + powder_gain
-			effect_messages.append("화약 +%d" % powder_gain)
-		var strength_gain := int(action.get("strength_gain", 0))
-		if strength_gain > 0:
-			next["enemy_strength"] = int(next["enemy_strength"]) + strength_gain
-			effect_messages.append("힘 +%d" % strength_gain)
-		var turn_end_strength_gain := int(primary_enemy.get("turn_end_strength_gain", 0))
-		if turn_end_strength_gain > 0:
-			next["enemy_strength"] = int(next["enemy_strength"]) + turn_end_strength_gain
-			effect_messages.append("턴 종료 힘 +%d" % turn_end_strength_gain)
-		var block_gain := int(action.get("block_gain", 0))
-		if block_gain > 0:
-			next["enemy_physical_block"] = int(next.get("enemy_physical_block", 0)) + block_gain
-			effect_messages.append("방어 +%d" % block_gain)
-		var heal_gain := int(action.get("heal_gain", 0))
-		if heal_gain > 0:
-			var healed := mini(heal_gain, int(next.get("enemy_max_hp", 0)) - int(next.get("enemy_hp", 0)))
-			next["enemy_hp"] = int(next.get("enemy_hp", 0)) + healed
-			effect_messages.append("체력 +%d" % healed)
-		var boon_gain := int(action.get("boon_gain", 0))
-		if boon_gain > 0:
-			next["enemy_boon"] = int(next.get("enemy_boon", 0)) + boon_gain
-			effect_messages.append("가호 +%d" % boon_gain)
-		var strength_loss := int(action.get("strength_loss", 0))
-		if strength_loss > 0:
-			next["strength"] = maxi(0, int(next.get("strength", 0)) - strength_loss)
-			effect_messages.append("플레이어 힘 -%d" % strength_loss)
-		var agility_loss := int(action.get("agility_loss", 0))
-		if agility_loss > 0:
-			next["agility"] = maxi(0, int(next.get("agility", 0)) - agility_loss)
-			effect_messages.append("플레이어 강인함 -%d" % agility_loss)
-		var player_weak_gain := int(action.get("next_turn_player_weak_gain", 0))
-		var player_vulnerable_gain := int(action.get("next_turn_player_vulnerable_gain", 0))
-		next_turn_player_status_changes["weak"] += player_weak_gain
-		next_turn_player_status_changes["vulnerable"] += player_vulnerable_gain
-		if player_weak_gain > 0:
-			effect_messages.append("다음 턴 약화 %d" % player_weak_gain)
-		if player_vulnerable_gain > 0:
-			effect_messages.append("다음 턴 취약 %d" % player_vulnerable_gain)
-		var discard_view: Dictionary = {}
-		if int(action.get("discard_count", 0)) > 0:
-			var discarded_name := _discard_targeted_file_top(next, primary_enemy_index, int(action.get("discard_count", 1)), discard_view)
-			if discarded_name != "":
-				effect_messages.append("파일 맨 위 %s 버림" % discarded_name)
-		if bool(action.get("self_destruct", false)):
-			next["enemy_hp"] = 0
-			_save_enemy_aliases(next)
-			effect_messages.append("자폭")
-		if bool(primary_enemy.get("rests_when_blocked", false)) and int(action.get("damage", 0)) > 0:
-			next["enemy_action_index"] = 1 if total_damage == 0 and actions.size() > 1 else 0
-		else:
-			next["enemy_action_index"] = _choose_next_enemy_action_index(next, actions, action_index, primary_enemy_index)
-		next["message"] = "%s의 %s · 피해 %d (방어 %d)" % [next["enemy_name"], action["name"], total_damage, total_blocked]
-		if protected_by_invulnerability:
-			next["message"] += " · 무적"
-		if not effect_messages.is_empty():
-			next["message"] += " · " + " · ".join(effect_messages)
-		if str(action.get("summon", "")) == "roachHatchling":
-			var pending_summoners: Array = next.get("pending_summoners", [])
-			pending_summoners.append(primary_enemy_index)
-			next["pending_summoners"] = pending_summoners
-		if player_vulnerable_gain > 0:
-			_record_enemy_turn_message_step(turn_view, primary_enemy_index, primary_enemy,
-				str(action.get("name", "")), "다음 턴 " + _enemy_turn_status_label("vulnerable", player_vulnerable_gain),
-				"player", "debuff", next)
-		if player_weak_gain > 0:
-			_record_enemy_turn_message_step(turn_view, primary_enemy_index, primary_enemy,
-				str(action.get("name", "")), "다음 턴 " + _enemy_turn_status_label("weak", player_weak_gain),
-				"player", "debuff", next)
-		var player_debuff_parts: Array[String] = []
-		if strength_loss > 0:
-			player_debuff_parts.append("힘 %d 감소" % strength_loss)
-		if agility_loss > 0:
-			player_debuff_parts.append("강인함 %d 감소" % agility_loss)
-		if not player_debuff_parts.is_empty():
-			_record_enemy_turn_message_step(turn_view, primary_enemy_index, primary_enemy,
-				str(action.get("name", "")), " · ".join(player_debuff_parts), "player", "debuff", next)
-		if not discard_view.is_empty():
-			var discarded_count := int(discard_view.get("count", 0))
-			var discard_message := "%d번 파일: %d장 버림" % [int(discard_view["file_index"]) + 1, discarded_count] \
-				if discarded_count > 0 else "%d번 파일은 비어 있음" % (int(discard_view["file_index"]) + 1)
-			_record_enemy_turn_message_step(turn_view, primary_enemy_index, primary_enemy,
-				str(action.get("name", "")), discard_message, "enemy", "debuff", next)
-		var own_effect_message := _enemy_action_effect_message(primary_enemy, action)
-		if own_effect_message != "":
-			var effect_kind := "debuff" if enemy_weak_gain > 0 or enemy_vulnerable_gain > 0 else "buff"
-			_record_enemy_turn_message_step(turn_view, primary_enemy_index, primary_enemy,
-				str(action.get("name", "")), own_effect_message, "enemy", effect_kind, next)
-	else:
-		next["enemy_vulnerable"] = _decay_status(int(next.get("enemy_vulnerable", 0)))
-		next["enemy_weak"] = _decay_status(int(next.get("enemy_weak", 0)))
-		next["message"] = "적 행동이 없습니다."
-	_save_enemy_aliases(next)
-	_clear_enemy_discard_target(next, primary_enemy_index)
-	_resolve_other_enemies_turn(next, int(next.get("target_enemy_index", 0)), next_turn_player_status_changes, turn_view)
+	_resolve_enemies_turn(next, turn_view)
 	if str(next.get("status", "playing")) != "playing":
 		_discard_turn_end_hand(next, turn_end_hand)
 		return next
-	_apply_player_status_turn_end(next, next_turn_player_status_changes)
 	_ensure_living_target(next)
 	_spawn_enemy_minions(next)
 	_apply_shared_turn_end_strength(next)
@@ -900,9 +701,9 @@ static func end_turn(state: Dictionary, draw_view: Variant = null, turn_view: Va
 	if int(next.get("player_invulnerability_turns", 0)) > 0:
 		next["player_invulnerability_turns"] = int(next["player_invulnerability_turns"]) - 1
 	next["player_block"] = floori(float(next.get("player_block", 0)) / 2.0) if bool(next.get("preserve_block_on_turn_end", false)) else 0
-	next["player_magic_block"] = 0
 	next["turn"] = int(next["turn"]) + 1
 	next["radiance_played_this_turn"] = 0
+	StatusRules.begin_turn(next)
 	_apply_enemy_turn_start(next)
 	_reset_solitaire_enemy_bonuses(next)
 	_prepare_enemy_pile_seals(next)
@@ -922,9 +723,9 @@ static func _begin_extra_turn(state: Dictionary, preferred_target_index: int, tu
 	_discard_turn_end_hand(next, turn_end_hand)
 	next["temporary_strength"] = 0
 	next["player_block"] = floori(float(next.get("player_block", 0)) / 2.0) if bool(next.get("preserve_block_on_turn_end", false)) else 0
-	next["player_magic_block"] = 0
 	next["turn"] = int(next.get("turn", 1)) + 1
 	next["radiance_played_this_turn"] = 0
+	StatusRules.begin_turn(next)
 	_decay_enemy_statuses(next)
 	_apply_enemy_turn_start(next)
 	_reset_solitaire_enemy_bonuses(next)
@@ -939,45 +740,33 @@ static func _begin_extra_turn(state: Dictionary, preferred_target_index: int, tu
 	return next
 
 
-static func _resolve_other_enemies_turn(state: Dictionary, skipped_index: int, player_status_changes: Dictionary, turn_view: Variant = null) -> void:
-	if str(state.get("status", "playing")) != "playing":
-		return
+static func _resolve_enemies_turn(state: Dictionary, turn_view: Variant = null) -> void:
+	# Resolve every attack before decay or any action's non-attack effects.
 	var enemies: Array = state.get("enemies", [])
+	var cancelled: Array[int] = []
+	var attack_results: Dictionary = {}
 	for enemy_index in range(enemies.size()):
-		if enemy_index == skipped_index or int(enemies[enemy_index].get("hp", 0)) <= 0:
+		if int(enemies[enemy_index].get("hp", 0)) <= 0:
 			continue
 		_load_enemy_aliases(state, enemy_index)
-		if bool(state.get("enemy_stunned", false)):
-			var stunned_name := ""
-			var stunned_actions: Array = state.get("enemy_actions", [])
-			var stunned_index := int(state.get("enemy_action_index", 0))
-			if not stunned_actions.is_empty() and stunned_index >= 0 and stunned_index < stunned_actions.size():
-				stunned_name = str(stunned_actions[stunned_index].get("name", ""))
-			state["enemy_stunned"] = false
-			state["enemy_vulnerable"] = _decay_status(int(state.get("enemy_vulnerable", 0)))
-			state["enemy_weak"] = _decay_status(int(state.get("enemy_weak", 0)))
-			state["message"] += " · %s의 행동 취소" % state["enemy_name"]
-			_save_enemy_aliases(state)
-			var stunned_enemy: Dictionary = state.get("enemies", [])[enemy_index]
-			_record_enemy_turn_message_step(turn_view, enemy_index, stunned_enemy,
-				stunned_name, "행동 취소", "enemy", "debuff", state)
-			continue
 		var actions: Array = state.get("enemy_actions", [])
-		if actions.is_empty():
-			state["enemy_vulnerable"] = _decay_status(int(state.get("enemy_vulnerable", 0)))
-			state["enemy_weak"] = _decay_status(int(state.get("enemy_weak", 0)))
+		var action_index := clampi(int(state.get("enemy_action_index", 0)), 0, actions.size() - 1) if not actions.is_empty() else -1
+		var action: Dictionary = actions[action_index] if action_index >= 0 else {}
+		if bool(state.get("enemy_stunned", false)):
+			cancelled.append(enemy_index)
+			state["enemy_stunned"] = false
 			_save_enemy_aliases(state)
+			_record_enemy_turn_message_step(turn_view, enemy_index, enemies[enemy_index],
+				str(action.get("name", "")), "행동 취소", "enemy", "cancel", state)
 			continue
-		var action_index := clampi(int(state.get("enemy_action_index", 0)), 0, actions.size() - 1)
-		var action: Dictionary = actions[action_index]
 		var temporary_strength := _temporary_enemy_strength(state)
 		var raw_damage := int(action.get("damage", 0)) + int(state.get("enemy_strength", 0)) + temporary_strength
 		var hits := maxi(1, int(action.get("hits", 1)))
 		var total_damage := 0
 		var total_blocked := 0
 		var protected_by_invulnerability := int(state.get("player_invulnerability_turns", 0)) > 0
-		var block_key := "player_magic_block" if str(action.get("damage_type", "physical")) == "magic" else "player_block"
-		if not protected_by_invulnerability:
+		var block_key := "player_block"
+		if int(action.get("damage", 0)) > 0 and not protected_by_invulnerability:
 			for _hit_index in range(hits):
 				var incoming := _calculate_attack_damage(
 					raw_damage,
@@ -1002,16 +791,44 @@ static func _resolve_other_enemies_turn(state: Dictionary, skipped_index: int, p
 			state["message"] = "%s의 공격으로 쓰러졌습니다." % state["enemy_name"]
 			_save_enemy_aliases(state)
 			return
+		attack_results[enemy_index] = {"damage": total_damage, "blocked": total_blocked}
+		if bool(action.get("self_destruct", false)):
+			state["enemy_hp"] = 0
+			_save_enemy_aliases(state)
+			_resolve_enemy_death_effects(state)
+			if str(state.get("status", "playing")) != "playing":
+				return
+			enemies = state.get("enemies", [])
+
+	# Old statuses cover the complete attack phase; new statuses retain their full duration.
+	_apply_player_status_turn_end(state, {})
+	_decay_enemy_statuses(state)
+	for enemy_index in range(enemies.size()):
+		if cancelled.has(enemy_index) or int(enemies[enemy_index].get("hp", 0)) <= 0:
+			continue
+		_load_enemy_aliases(state, enemy_index)
+		var actions: Array = state.get("enemy_actions", [])
+		if actions.is_empty():
+			continue
+		var action_index := clampi(int(state.get("enemy_action_index", 0)), 0, actions.size() - 1)
+		var action: Dictionary = actions[action_index]
+		var total_damage := int(attack_results.get(enemy_index, {}).get("damage", 0))
+		var total_blocked := int(attack_results.get(enemy_index, {}).get("blocked", 0))
+		var protected_by_invulnerability := int(state.get("player_invulnerability_turns", 0)) > 0
 		var effect_messages: Array[String] = []
 		state["enemy_first_action_completed"] = true
 		var enemy_weak_gain := int(action.get("weak_gain", 0))
 		var enemy_vulnerable_gain := int(action.get("vulnerable_gain", 0))
-		state["enemy_weak"] = _decay_status(int(state.get("enemy_weak", 0))) + enemy_weak_gain
-		state["enemy_vulnerable"] = _decay_status(int(state.get("enemy_vulnerable", 0))) + enemy_vulnerable_gain
+		state["enemy_weak"] = int(state.get("enemy_weak", 0)) + enemy_weak_gain
+		state["enemy_vulnerable"] = int(state.get("enemy_vulnerable", 0)) + enemy_vulnerable_gain
+		var self_debuff_parts: Array[String] = []
 		if enemy_weak_gain > 0:
-			effect_messages.append("약화 %d" % enemy_weak_gain)
+			self_debuff_parts.append("약화 %d" % enemy_weak_gain)
 		if enemy_vulnerable_gain > 0:
-			effect_messages.append("취약 %d" % enemy_vulnerable_gain)
+			self_debuff_parts.append("취약 %d" % enemy_vulnerable_gain)
+		if not self_debuff_parts.is_empty():
+			_record_enemy_turn_message_step(turn_view, enemy_index, enemies[enemy_index], str(action.get("name", "")),
+				" · ".join(self_debuff_parts), "enemy", "self_debuff", state)
 		var powder_gain := int(action.get("powder_gain", 0))
 		if powder_gain > 0:
 			state["enemy_powder"] = int(state.get("enemy_powder", 0)) + powder_gain
@@ -1045,20 +862,15 @@ static func _resolve_other_enemies_turn(state: Dictionary, skipped_index: int, p
 		if agility_loss > 0:
 			state["agility"] = maxi(0, int(state.get("agility", 0)) - agility_loss)
 			effect_messages.append("플레이어 강인함 -%d" % agility_loss)
-		var player_weak_gain := int(action.get("next_turn_player_weak_gain", 0))
-		var player_vulnerable_gain := int(action.get("next_turn_player_vulnerable_gain", 0))
-		player_status_changes["weak"] = int(player_status_changes.get("weak", 0)) + player_weak_gain
-		player_status_changes["vulnerable"] = int(player_status_changes.get("vulnerable", 0)) + player_vulnerable_gain
-		if player_weak_gain > 0:
-			effect_messages.append("다음 턴 약화 %d" % player_weak_gain)
-		if player_vulnerable_gain > 0:
-			effect_messages.append("다음 턴 취약 %d" % player_vulnerable_gain)
-		if player_vulnerable_gain > 0:
+		for kind in StatusRules.DEBUFFS:
+			var requested := int(action.get("player_" + kind + "_gain", action.get("next_turn_player_" + kind + "_gain", 0)))
+			if requested <= 0:
+				continue
+			var applied := StatusRules.apply_player_debuff(state, kind, requested)
+			var status_message := "%s %d 부여" % [StatusRules.LABELS[kind], applied] if applied > 0 else "%s 차단" % StatusRules.LABELS[kind]
+			effect_messages.append(status_message)
 			_record_enemy_turn_message_step(turn_view, enemy_index, enemies[enemy_index], str(action.get("name", "")),
-				"다음 턴 " + _enemy_turn_status_label("vulnerable", player_vulnerable_gain), "player", "debuff", state)
-		if player_weak_gain > 0:
-			_record_enemy_turn_message_step(turn_view, enemy_index, enemies[enemy_index], str(action.get("name", "")),
-				"다음 턴 " + _enemy_turn_status_label("weak", player_weak_gain), "player", "debuff", state)
+				status_message, "player", "debuff", state)
 		var player_debuff_parts: Array[String] = []
 		if int(action.get("strength_loss", 0)) > 0:
 			player_debuff_parts.append("힘 %d 감소" % int(action["strength_loss"]))
@@ -1080,12 +892,9 @@ static func _resolve_other_enemies_turn(state: Dictionary, skipped_index: int, p
 				discard_message, "enemy", "debuff", state)
 		var own_effect_message := _enemy_action_effect_message(enemies[enemy_index], action)
 		if own_effect_message != "":
-			var effect_kind := "debuff" if enemy_weak_gain > 0 or enemy_vulnerable_gain > 0 else "buff"
+			var effect_kind := "buff"
 			_record_enemy_turn_message_step(turn_view, enemy_index, enemies[enemy_index], str(action.get("name", "")),
 				own_effect_message, "enemy", effect_kind, state)
-		if bool(action.get("self_destruct", false)):
-			state["enemy_hp"] = 0
-			effect_messages.append("자폭")
 		if bool(enemies[enemy_index].get("rests_when_blocked", false)) and int(action.get("damage", 0)) > 0:
 			state["enemy_action_index"] = 1 if total_damage == 0 and actions.size() > 1 else 0
 		else:
@@ -1099,6 +908,8 @@ static func _resolve_other_enemies_turn(state: Dictionary, skipped_index: int, p
 			var pending_summoners: Array = state.get("pending_summoners", [])
 			pending_summoners.append(enemy_index)
 			state["pending_summoners"] = pending_summoners
+			_record_enemy_turn_message_step(turn_view, enemy_index, enemies[enemy_index], str(action.get("name", "")),
+				EnemyCatalog.roach_summon_description(), "enemy", "buff", state)
 		_save_enemy_aliases(state)
 		_clear_enemy_discard_target(state, enemy_index)
 	_resolve_enemy_death_effects(state)
@@ -1118,10 +929,10 @@ static func _record_enemy_turn_view_step(turn_view: Variant, enemy_index: int, e
 		"enemy_id": enemy.get("id", null),
 		"action_name": action_name,
 		"attack": attack,
+		"motion": "attack" if attack else "none",
 		"damage": damage,
 		"player_hp": int(state.get("player_hp", 0)),
 		"player_block": int(state.get("player_block", 0)),
-		"player_magic_block": int(state.get("player_magic_block", 0)),
 	})
 	turn_view["steps"] = steps
 
@@ -1137,7 +948,8 @@ static func _record_enemy_turn_message_step(turn_view: Variant, enemy_index: int
 	var step: Dictionary = steps.back()
 	step["message"] = message
 	step["message_target"] = message_target
-	step["message_kind"] = message_kind
+	step["message_kind"] = "debuff" if message_kind == "self_debuff" else message_kind
+	step["motion"] = message_kind if message_kind in ["buff", "debuff"] else "none"
 	steps[-1] = step
 	turn_view["steps"] = steps
 
@@ -1161,12 +973,6 @@ static func _enemy_action_effect_message(enemy: Dictionary, action: Dictionary) 
 	var boon_gain := int(action.get("boon_gain", 0))
 	if boon_gain > 0:
 		parts.append("가호 +%d" % boon_gain)
-	var weak_gain := int(action.get("weak_gain", 0))
-	if weak_gain > 0:
-		parts.append(_enemy_turn_status_label("weak", weak_gain))
-	var vulnerable_gain := int(action.get("vulnerable_gain", 0))
-	if vulnerable_gain > 0:
-		parts.append(_enemy_turn_status_label("vulnerable", vulnerable_gain))
 	var powder_gain := int(action.get("powder_gain", 0))
 	if powder_gain > 0:
 		parts.append("화약 +%d" % powder_gain)
@@ -1185,7 +991,6 @@ static func _record_toxic_slime_turn_view(turn_view: Variant, count: int, damage
 		"after": {
 			"player_hp": int(state.get("player_hp", 0)),
 			"player_block": int(state.get("player_block", 0)),
-			"player_magic_block": int(state.get("player_magic_block", 0)),
 		},
 		"extra_turn": extra_turn,
 		"lethal": lethal,
@@ -1193,8 +998,10 @@ static func _record_toxic_slime_turn_view(turn_view: Variant, count: int, damage
 
 
 static func _apply_player_status_turn_end(state: Dictionary, changes: Dictionary) -> void:
-	state["player_weak"] = _decay_status(int(state.get("player_weak", 0))) + int(changes.get("weak", 0))
-	state["player_vulnerable"] = _decay_status(int(state.get("player_vulnerable", 0))) + int(changes.get("vulnerable", 0))
+	StatusRules.decay(state)
+	for kind in StatusRules.DEBUFFS:
+		if int(changes.get(kind, 0)) > 0:
+			StatusRules.apply_player_debuff(state, kind, int(changes[kind]))
 
 
 static func _choose_next_enemy_action_index(state: Dictionary, actions: Array, previous_index: int, enemy_index: int) -> int:
@@ -1298,6 +1105,10 @@ static func _resolve_card_play(state: Dictionary, card_id: int, play_view: Varia
 	var hand: Array = next["hand"]
 	var hand_before_play: Array = hand.duplicate(true)
 	var card: Dictionary = hand[card_index]
+	if StatusRules.card_limit_reached(next):
+		next["pending_play_card_id"] = -1
+		next["pending_discard_count"] = 0
+		return _with_message(next, "마비: 이번 턴에는 카드를 3장까지만 사용할 수 있습니다.")
 	var cost := effective_card_cost(next, card)
 	var economics_research_count := 0
 	for rule_card in next.get("active_rule_cards", []):
@@ -1315,9 +1126,12 @@ static func _resolve_card_play(state: Dictionary, card_id: int, play_view: Varia
 			manual_bonus += int(held_card.get("value", 0))
 	var effect := str(card.get("effect", ""))
 	next["energy"] = int(next["energy"]) - cost
+	next["cards_played_this_turn"] = int(next.get("cards_played_this_turn", 0)) + 1
+	# Cleansing on Brave Strike must occur before damage is calculated.
+	StatusRules.cleanse(next, card.get("remove_player_debuffs", {}))
 	var base_damage := int(card.get("value", 0))
 	if effect == "radiance":
-		base_damage = 4 + maxi(0, int(next.get("radiance_played_this_turn", 0))) * 4
+		base_damage = 4 + maxi(0, int(next.get("radiance_played_this_turn", 0))) * 4 + (3 if next.get("deck_editions", []).has("sharpLight") else 0)
 	var hit_count := 1
 	if effect == "meteor":
 		hit_count = int(next.get("stars", 0))
@@ -1389,39 +1203,16 @@ static func _resolve_card_play(state: Dictionary, card_id: int, play_view: Varia
 		next["message"] = "%s: 피해 %d%s%s%s" % [card.get("name", "카드"), total_damage, hit_suffix, target_suffix, random_suffix]
 	else:
 		next["message"] = str(card.get("name", "카드")) + " 효과를 적용했습니다."
-	var gains_block := str(card.get("kind", "")) == "skill" and not [
-		"beastification", "metalization", "sand_toss", "light_cluster", "combat_manual", "strategy_book", "sweep",
-		"foresight", "transcend", "parallel_mirror", "diy", "adrenaline",
-		"star_ark", "pruning",
-		"large_prism", "nebula", "starlight", "warm_up", "supernova", "super_strategist", "wish",
-		"rapid_fire", "battle_plan", "draw_each_file", "quick_step",
-		"light_travel_time", "plate_armor", "recycling", "osiris_sun", "librarians_privilege",
-		"metallurgy_research", "evolution_theory", "mass_deal", "law_research", "economics_research", "optics_research",
-		"dash", "wolf_talisman", "turtle_talisman", "aries", "cassiopeia", "horologium", "ophiuchus", "orion", "saeongjima",
-		"fermented_slime", "relic",
-	].has(effect)
+	var gains_block := bool(card.get("grants_block", false)) or effect in ["defend", "scale_armor", "deflect", "star_guard", "iron_song", "iron_wave", "water_wave"]
 	var defense := 0
 	if gains_block:
 		defense = int(card.get("value", 0)) + int(next.get("agility", 0)) + manual_bonus
-		var block_key := "player_magic_block" if str(card.get("damage_type", "physical")) == "magic" else "player_block"
+		var block_key := "player_block"
 		next[block_key] = int(next.get(block_key, 0)) + defense
-		var defense_name := "마법 방어" if block_key == "player_magic_block" else "방어"
+		var defense_name := "방어"
 		next["message"] += " · %s %d 획득" % [defense_name, defense]
-	if effect == "star_ark":
-		defense = int(card.get("value", 10)) + int(next.get("agility", 0)) + manual_bonus
-		next["player_block"] = int(next.get("player_block", 0)) + defense
-		next["player_magic_block"] = int(next.get("player_magic_block", 0)) + defense
-		next["message"] += " · 방어·마법 방어 %d 획득" % defense
-	elif effect == "silver_sword":
-		defense = 5 + int(next.get("agility", 0)) + manual_bonus
-		next["player_magic_block"] = int(next.get("player_magic_block", 0)) + defense
-		next["message"] += " · 마법 방어 %d 획득" % defense
-	elif effect == "suppression":
+	if effect == "suppression":
 		defense = mini(total_damage, enemy_hp_before_attack) + int(next.get("agility", 0)) + manual_bonus
-		next["player_block"] = int(next.get("player_block", 0)) + defense
-		next["message"] += " · 방어 %d 획득" % defense
-	elif effect == "odin_spear":
-		defense = int(card.get("defense_value", 15)) + int(next.get("agility", 0)) + manual_bonus
 		next["player_block"] = int(next.get("player_block", 0)) + defense
 		next["message"] += " · 방어 %d 획득" % defense
 	elif effect == "iron_rampage":
@@ -1429,8 +1220,10 @@ static func _resolve_card_play(state: Dictionary, card_id: int, play_view: Varia
 		defense = (8 + int(next.get("agility", 0)) + manual_bonus) * hit_count
 		next["player_block"] = int(next.get("player_block", 0)) + defense
 		next["message"] += " · 방어 %d 획득" % defense
+	next["magic_resistance"] = int(next.get("magic_resistance", 0)) + int(card.get("magic_resistance", 0))
+	next["temporary_magic_resistance"] = int(next.get("temporary_magic_resistance", 0)) + int(card.get("temporary_magic_resistance", 0))
 	match effect:
-		"ruler_compass", "star_guard", "star_ark":
+		"ruler_compass", "star_guard":
 			next["stars"] = int(next["stars"]) + 1
 			next["message"] += " · ★ 1 획득"
 		"battle_plan":
@@ -1454,8 +1247,16 @@ static func _resolve_card_play(state: Dictionary, card_id: int, play_view: Varia
 			next["enemy_weak"] = int(next.get("enemy_weak", 0)) + 1
 			next["message"] += " · 약화 1 부여"
 		"scale_armor":
-			next["enemy_weak"] = int(next.get("enemy_weak", 0)) + 2
-			next["message"] += " · 약화 2 부여"
+			next["enemy_weak"] = int(next.get("enemy_weak", 0)) + 1
+			next["message"] += " · 약화 1 부여"
+		"odin_spear":
+			_save_enemy_aliases(next)
+			for enemy in next.get("enemies", []):
+				if int(enemy.get("hp", 0)) > 0:
+					enemy["weak"] = int(enemy.get("weak", 0)) + 3
+					enemy["vulnerable"] = int(enemy.get("vulnerable", 0)) + 3
+			_load_enemy_aliases(next)
+			next["message"] += " · 모든 적에게 약화·취약 3 부여"
 		"demolish":
 			next["enemy_vulnerable"] = int(next.get("enemy_vulnerable", 0)) + 2
 			next["enemy_weak"] = int(next.get("enemy_weak", 0)) + 2
@@ -1466,21 +1267,17 @@ static func _resolve_card_play(state: Dictionary, card_id: int, play_view: Varia
 			next["message"] += " · 체력 -3 · 에너지 +%d" % int(card.get("value", 2))
 		"iron_song":
 			var pending_song: Array = next.get("pending_iron_song", [])
-			pending_song.append({"turns": 2, "amount": int(card.get("value", 0))})
+			var repeats := 2 if bool(card.get("forged", card.get("upgraded", false))) else 1
+			pending_song.append({"turns": repeats, "amount": int(card.get("value", 0))})
 			next["pending_iron_song"] = pending_song
-			next["message"] += " · 다음 2턴 시작 시 반복"
-		"steel_storm", "sturdy_stance", "recycling", "osiris_sun", "librarians_privilege", "metallurgy_research", "mass_deal", "law_research", "economics_research", "optics_research":
+			next["message"] += " · 다음 %d턴 시작 시 반복" % repeats
+		"steel_storm", "sturdy_stance", "recycling", "osiris_sun", "librarians_privilege", "metallurgy_research", "law_research", "economics_research", "optics_research":
 			var active_rules: Array = next.get("active_rule_cards", [])
 			active_rules.append(card.duplicate(true))
 			next["active_rule_cards"] = active_rules
 			next["message"] += " · 룰 활성화"
 			if effect == "sturdy_stance":
 				next["preserve_block_on_turn_end"] = true
-			if effect == "mass_deal":
-				var files: Array = next.get("piles", [])
-				files.append([])
-				next["piles"] = files
-				next["message"] += " · 빈 파일 1개 추가"
 		"dash":
 			var dash_draw_count := 3 if bool(card.get("forged", card.get("upgraded", false))) else 2
 			var dash_drawn := _draw_random_cards(next, dash_draw_count)
@@ -1544,15 +1341,13 @@ static func _resolve_card_play(state: Dictionary, card_id: int, play_view: Varia
 			next["player_invulnerability_turns"] = int(next.get("player_invulnerability_turns", 0)) + int(card.get("value", 2))
 			next["message"] += " · 무적 %d 획득" % int(card.get("value", 2))
 		"light_cluster":
-			var radiance := CardCatalog.create_radiance_card(int(next["next_generated_card_id"]))
-			next["next_generated_card_id"] = int(next["next_generated_card_id"]) - 1
+			var radiance := _create_battle_radiance(next)
 			next["hand"].append(radiance)
 			next["message"] += " · 광채 1장 생성"
 		"large_prism", "nebula":
 			var radiance_count := 3 if effect == "large_prism" else 1
 			for _radiance_index in range(radiance_count):
-				var generated := CardCatalog.create_radiance_card(int(next["next_generated_card_id"]))
-				next["next_generated_card_id"] = int(next["next_generated_card_id"]) - 1
+				var generated := _create_battle_radiance(next)
 				next["hand"].append(generated)
 			next["message"] += " · 광채 %d장 생성" % radiance_count
 			if effect == "nebula":
@@ -1574,11 +1369,14 @@ static func _resolve_card_play(state: Dictionary, card_id: int, play_view: Varia
 			next["message"] += " · ★ %d 획득" % int(card.get("value", 3))
 		"wish":
 			var wish_random := RandomNumberGenerator.new()
-			wish_random.seed = int(next.get("battle_seed", 0)) + int(next.get("turn", 1)) * 65537 + int(next.get("random_draw_sequence", 0))
+			wish_random.seed = int(next.get("battle_seed", 0))
+			if next.has("wish_random_state"):
+				wish_random.state = int(next["wish_random_state"])
 			for _wish_index in range(int(card.get("value", 3))):
 				var wish_card := CardCatalog.create_random_rare_token(int(next["next_generated_card_id"]), wish_random)
 				next["next_generated_card_id"] = int(next["next_generated_card_id"]) - 1
 				next["hand"].append(wish_card)
+			next["wish_random_state"] = wish_random.state
 			next["message"] += " · 무작위 희귀 카드 %d장 생성" % int(card.get("value", 3))
 		"rapid_fire":
 			next["repeat_next_attack"] = true
@@ -1596,6 +1394,8 @@ static func _resolve_card_play(state: Dictionary, card_id: int, play_view: Varia
 			next["message"] += " · 광채 %d장 복사" % copied_count
 		"diy":
 			next["message"] += " · 효과 없음"
+	for kind in card.get("self_debuffs", {}):
+		StatusRules.apply_player_debuff(next, str(kind), int(card["self_debuffs"][kind]))
 	hand.remove_at(card_index)
 	if effect == "radiance":
 		next["radiance_played_this_turn"] = int(next.get("radiance_played_this_turn", 0)) + 1
@@ -1661,10 +1461,45 @@ static func _resolve_card_play(state: Dictionary, card_id: int, play_view: Varia
 		next["message"] = "승리! 모든 적을 쓰러뜨렸습니다."
 	else:
 		_refresh_enemy_intent(next)
+	next["pending_after_play_card_id"] = card_id
 	next = _auto_resolve_forced_pile_discard(next)
+	next = _finish_card_effects(next)
 	if play_view is Dictionary:
 		play_view["resolved_message"] = str(next.get("message", ""))
 	return next
+
+
+static func _finish_card_effects(state: Dictionary) -> Dictionary:
+	var played_id := int(state.get("pending_after_play_card_id", -1))
+	if played_id < 0:
+		return state
+	if int(state.get("pending_draws", 0)) > 0 or int(state.get("pending_pile_draw_count", 0)) > 0 \
+			or str(state.get("pending_pile_operation", "")) != "" or int(state.get("pending_play_card_id", -1)) >= 0:
+		return state
+	state["pending_after_play_card_id"] = -1
+	if state.get("status") != "playing" or int(state.get("player_confusion", 0)) <= 0:
+		return state
+	var candidates: Array[int] = []
+	for index in state.get("hand", []).size():
+		if int(state["hand"][index].get("id", -1)) != played_id:
+			candidates.append(index)
+	if candidates.is_empty():
+		return state
+	var random := RandomNumberGenerator.new()
+	random.seed = int(state.get("battle_seed", 0)) + 15485863
+	if state.has("confusion_random_state"):
+		random.state = int(state["confusion_random_state"])
+	var index := candidates[random.randi_range(0, candidates.size() - 1)]
+	state["confusion_random_state"] = random.state
+	var discarded: Dictionary = state["hand"].pop_at(index)
+	var draws := _discard_card(state, discarded, false, true, true)
+	state["confusion_sequence"] = int(state.get("confusion_sequence", 0)) + 1
+	state["last_confusion_discard_id"] = int(discarded.get("id", -1))
+	state["message"] += " · 혼란: %s 버림" % discarded.get("name", "카드")
+	if draws > 0:
+		_draw_random_cards(state, draws)
+	_refresh_enemy_intent(state)
+	return state
 
 
 static func _auto_resolve_forced_pile_discard(state: Dictionary) -> Dictionary:
@@ -1684,7 +1519,7 @@ static func _auto_resolve_forced_pile_discard(state: Dictionary) -> Dictionary:
 	next["pending_pile_operation"] = ""
 	next["pending_sweep"] = false
 	next["message"] = "버릴 파일 맨 위 카드가 없습니다."
-	return next
+	return _finish_card_effects(next)
 
 
 static func _resolve_attack_hit(state: Dictionary, target_index: int, base_damage: int, manual_bonus: int) -> Dictionary:
@@ -1813,6 +1648,8 @@ static func _refresh_enemy_intent(state: Dictionary) -> void:
 			state["enemy_intent"] += " · 무적"
 			return
 		var action: Dictionary = actions[int(state["enemy_action_index"])]
+		if int(action.get("damage", 0)) <= 0:
+			return
 		var temporary_strength := _temporary_enemy_strength(state)
 		var raw_per_hit := int(action.get("damage", 0)) + int(state["enemy_strength"]) + temporary_strength
 		for _hit_index in range(maxi(1, int(action.get("hits", 1)))):
@@ -1823,16 +1660,19 @@ static func _refresh_enemy_intent(state: Dictionary) -> void:
 			)
 
 
-static func _discard_card(state: Dictionary, card: Dictionary, is_discard_x: bool = false, counts_for_recycling: bool = false) -> int:
-	if counts_for_recycling:
+static func _discard_card(state: Dictionary, card: Dictionary, is_discard_x: bool = false, explicit_discard: bool = false, from_hand: bool = false) -> int:
+	var triggers_discard := is_discard_x or explicit_discard
+	if triggers_discard:
 		for rule_card in state.get("active_rule_cards", []):
 			if str(rule_card.get("effect", "")) == "recycling":
-				state["stars"] = int(state.get("stars", 0)) + 1
-				state["message"] += " · 재활용: ★ 1 획득"
-	if bool(card.get("token", false)):
-		return 0
-	state["discard"].append(card)
-	if is_discard_x and str(card.get("effect", "")) == "saeongjima":
+				state["strength"] = int(state.get("strength", 0)) + int(rule_card.get("value", 1))
+				state["message"] += " · 이계의 힘: 힘 1 획득"
+	if not bool(card.get("token", false)):
+		state["discard"].append(card)
+	if triggers_discard and from_hand and state.get("deck_editions", []).has("cycle") and not bool(state.get("cycle_used", false)):
+		state["cycle_used"] = true
+		_draw_random_cards(state, 1)
+	if triggers_discard and str(card.get("effect", "")) == "saeongjima":
 		return int(card.get("draw", 2))
 	return 0
 
@@ -1845,7 +1685,7 @@ static func _discard_turn_end_hand(state: Dictionary, original_hand: Array) -> v
 			continue
 		var card_id := int(card.get("id", -1))
 		discarded_ids[card_id] = true
-		saeongjima_draw_count += _discard_card(state, card, false, true)
+		saeongjima_draw_count += _discard_card(state, card)
 	var remaining_hand: Array = []
 	for card in state["hand"]:
 		if not discarded_ids.has(int(card.get("id", -1))):
@@ -1932,18 +1772,13 @@ static func _reshuffle_discard_into_files(state: Dictionary, random: RandomNumbe
 		return
 	_shuffle(eligible, random)
 	state["discard"] = []
-	var even_deal := false
-	for rule_card in state.get("active_rule_cards", []):
-		if str(rule_card.get("effect", "")) == "mass_deal":
-			even_deal = true
-			break
 	var cards_per_file := int(state.get("cards_per_file", CARDS_PER_FILE))
 	var pile_count := maxi(1, state.get("piles", []).size())
 	var new_files: Array = []
 	for _pile_index in range(pile_count):
 		new_files.append([])
 	for card_index in range(eligible.size()):
-		var pile_index := card_index % pile_count if even_deal else mini(int(card_index / cards_per_file), pile_count - 1)
+		var pile_index := mini(int(card_index / cards_per_file), pile_count - 1)
 		var card: Dictionary = eligible[card_index]
 		card["revealed"] = CardStickers.has_sticker(card, "glowDinosaur")
 		new_files[pile_index].append(card)
@@ -2010,8 +1845,7 @@ static func _apply_turn_start_effects(state: Dictionary) -> void:
 		state["agility"] = int(state.get("agility", 0)) + turn_start_evolution
 		state["message"] = "진화론: 힘·강인함 %d 획득" % turn_start_evolution
 	for _radiance_index in range(turn_start_radiance):
-		var optics_radiance := CardCatalog.create_radiance_card(int(state["next_generated_card_id"]))
-		state["next_generated_card_id"] = int(state["next_generated_card_id"]) - 1
+		var optics_radiance := _create_battle_radiance(state)
 		state["hand"].append(optics_radiance)
 	if turn_start_radiance > 0:
 		state["message"] = "광학 연구: 광채 %d장 생성" % turn_start_radiance
@@ -2024,8 +1858,7 @@ static func _apply_turn_start_effects(state: Dictionary) -> void:
 			next_radiance.append({"turns": turns_left, "count": int(event.get("count", 0))})
 			continue
 		for _radiance_index in range(int(event.get("count", 0))):
-			var radiance := CardCatalog.create_radiance_card(int(state["next_generated_card_id"]))
-			state["next_generated_card_id"] = int(state["next_generated_card_id"]) - 1
+			var radiance := _create_battle_radiance(state)
 			state["hand"].append(radiance)
 			radiance_created += 1
 	state["pending_radiance"] = next_radiance
@@ -2033,9 +1866,7 @@ static func _apply_turn_start_effects(state: Dictionary) -> void:
 		state["message"] = "광행시간: 광채 %d장 생성" % radiance_created
 	var foresight_draws := int(state.get("pending_foresight_draws", 0))
 	state["pending_foresight_draws"] = 0
-	if state.get("deck_editions", []).has("persistentDraw"):
-		var edition_drawn := _draw_random_cards(state, 1)
-		state["message"] += " · 지속 드로우: %d장" % edition_drawn
+
 	var scheduled_file_draws := foresight_draws + turn_start_librarian_draws
 	if scheduled_file_draws > 0:
 		state["pending_draws"] = mini(
@@ -2260,36 +2091,30 @@ static func _spawn_enemy_minions(state: Dictionary) -> void:
 		var parent: Dictionary = enemies[parent_index]
 		if int(parent.get("hp", 0)) <= 0:
 			continue
-		var living_children := 0
-		for child in enemies:
-			if child.get("summoner_id", null) == parent.get("id") and int(child.get("hp", 0)) > 0:
-				living_children += 1
-		if living_children >= 2:
-			continue
-		var summon_count := int(parent.get("summons_created", 0)) + 1
-		parent["summons_created"] = summon_count
+		parent["summons_created"] = int(parent.get("summons_created", 0)) + EnemyCatalog.ROACH_SUMMON_COUNT
 		enemies[parent_index] = parent
 		var karma_stage := maxi(0, int(parent.get("karma_stage", 0)))
-		var summon_hp := floori(18.0 * float(10 + karma_stage) / 10.0)
+		var summon_hp := floori(float(EnemyCatalog.ROACH_BASE_HP) * float(10 + karma_stage) / 10.0)
 		summon_hp = floori(float(summon_hp) * float(parent.get("summon_hp_multiplier", 1.0)))
-		enemies.append({
-			"id": next_id,
-			"name": "새끼 바퀴",
-			"hp": summon_hp,
-			"max_hp": summon_hp,
-			"strength": karma_stage,
-			"vulnerable": 0,
-			"weak": 0,
-			"physical_block": 0,
-			"actions": [{"name": "물기", "damage": 4, "cycle": true}],
-			"action_index": 0,
-			"first_action_completed": false,
-			"death_resolved": false,
-			"summoner_id": parent.get("id"),
-			"trait": "",
-		})
-		next_id += 1
-		state["message"] += " · 새끼 바퀴 소환"
+		for _summon_index in EnemyCatalog.ROACH_SUMMON_COUNT:
+			enemies.append({
+				"id": next_id,
+				"name": "새끼 바퀴",
+				"hp": summon_hp,
+				"max_hp": summon_hp,
+				"strength": karma_stage,
+				"vulnerable": 0,
+				"weak": 0,
+				"physical_block": 0,
+				"actions": [{"name": "물기", "damage": EnemyCatalog.ROACH_BASE_DAMAGE, "cycle": true}],
+				"action_index": 0,
+				"first_action_completed": false,
+				"death_resolved": false,
+				"summoner_id": parent.get("id"),
+				"trait": "",
+			})
+			next_id += 1
+		state["message"] += " · " + EnemyCatalog.roach_summon_description()
 	state["enemies"] = enemies
 	state["pending_summoners"] = []
 	_ensure_living_target(state)
@@ -2407,20 +2232,21 @@ static func _discard_targeted_file_top(state: Dictionary, enemy_index: int, disc
 	if discard_view is Dictionary:
 		discard_view["file_index"] = file_index
 	var pile: Array = files[file_index]
-	var discard: Array = state.get("discard", [])
+	var triggered_draws := 0
 	var discarded_names: Array[String] = []
 	var discarded_count := 0
 	for _discard_index in range(maxi(0, discard_count)):
 		if pile.is_empty():
 			break
 		var discarded: Dictionary = pile.pop_back()
-		discard.append(discarded)
+		triggered_draws += _discard_card(state, discarded, false, true)
 		discarded_names.append(str(discarded.get("name", "카드")))
 		discarded_count += 1
 	_reveal_file_top(pile)
 	files[file_index] = pile
 	state["piles"] = files
-	state["discard"] = discard
+	if triggered_draws > 0:
+		_draw_random_cards(state, triggered_draws)
 	if discard_view is Dictionary:
 		discard_view["count"] = discarded_count
 	return ", ".join(discarded_names)
@@ -2509,3 +2335,16 @@ static func can_pay_card_cost(state: Dictionary, card: Dictionary) -> bool:
 		if str(rule_card.get("effect", "")) == "economics_research":
 			economics_research_count += 1
 	return int(state.get("energy", 0)) - effective_card_cost(state, card) >= -3 * economics_research_count
+
+
+static func _create_battle_radiance(state: Dictionary) -> Dictionary:
+	var card := CardCatalog.create_radiance_card(int(state["next_generated_card_id"]))
+	state["next_generated_card_id"] = int(state["next_generated_card_id"]) - 1
+	if state.get("deck_editions", []).has("prism"):
+		var random := RandomNumberGenerator.new()
+		random.seed = int(state.get("battle_seed", 0))
+		if state.has("prism_random_state"):
+			random.state = int(state["prism_random_state"])
+		card = CardStickers.with_random_sticker(card, 1.0, random)
+		state["prism_random_state"] = random.state
+	return card

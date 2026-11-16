@@ -26,24 +26,23 @@ const ENERGY_EFFECTS := [
 	"flood", "end_start", "supernova", "aries", "economics_research",
 ]
 const DEFENSE_EFFECTS := [
-	"scale_armor", "defend", "deflect", "ice_shield", "water_wave", "star_guard",
-	"star_ark", "iron_wave", "iron_rampage", "suppression", "odin_spear", "silver_sword", "sturdy_stance",
-	"iron_song", "steel_storm",
+	"scale_armor", "defend", "deflect", "water_wave", "star_guard",
+	"iron_wave", "iron_rampage", "suppression",
+	"iron_song",
 ]
 const STAR_EFFECTS := [
-	"recycling", "battle_plan", "ruler_compass", "starlight", "star_guard", "star_ark", "super_strategist",
+	"battle_plan", "ruler_compass", "starlight", "star_guard", "super_strategist",
 	"flood", "aries", "astronomy_research", "necromancy_research", "nebula",
 ]
 const STATUS_EFFECTS := [
-	"shatter", "knee_strike", "scale_armor", "demolish", "beastification", "metalization", "sand_toss", "iron_song",
-	"foresight", "transcend", "steel_storm", "warm_up",
+	"shatter", "knee_strike", "scale_armor", "demolish", "odin_spear", "recycling", "beastification", "metalization", "sand_toss", "iron_song",
+	"foresight", "transcend", "warm_up",
 	"rapid_fire", "counter", "supernova", "mirror_image", "light_travel_time", "wolf_talisman", "turtle_talisman",
 ]
 const PHYSICAL_DEFENSE_EFFECTS := [
 	"scale_armor", "deflect", "star_guard", "iron_wave", "iron_rampage", "suppression",
-	"star_ark", "odin_spear", "sturdy_stance", "iron_song", "steel_storm",
+	"iron_song",
 ]
-const MAGIC_DEFENSE_EFFECTS := ["ice_shield", "water_wave", "star_ark", "silver_sword"]
 
 var _tooltip_theme: Theme
 var _hover_enter: Callable
@@ -366,12 +365,8 @@ func _kind_rows() -> Array[Dictionary]:
 	return [
 		_row("kind:attack", "공격 카드", func(card: Dictionary) -> bool:
 			return str(card.get("kind", "")) == "strike" or _canonical_effect(card) in ATTACK_EFFECTS),
-		_row("kind:physical", "방어를 주는 카드", func(card: Dictionary) -> bool:
-			return _gives_physical_defense(card) and not _gives_magic_defense(card)),
-		_row("kind:magic", "마법 방어를 주는 카드", func(card: Dictionary) -> bool:
-			return _gives_magic_defense(card) and not _gives_physical_defense(card)),
-		_row("kind:both", "방어·마법 방어를 모두 주는 카드", func(card: Dictionary) -> bool:
-			return _gives_physical_defense(card) and _gives_magic_defense(card)),
+		_row("kind:defense", "방어를 주는 카드", func(card: Dictionary) -> bool:
+			return _gives_physical_defense(card)),
 	]
 
 
@@ -445,15 +440,8 @@ func _pool_cost(card: Dictionary) -> int:
 func _gives_physical_defense(card: Dictionary) -> bool:
 	var effect := _canonical_effect(card)
 	if effect == "defend":
-		return str(card.get("damage_type", card.get("damageType", "physical"))) == "physical"
+		return true
 	return effect in PHYSICAL_DEFENSE_EFFECTS
-
-
-func _gives_magic_defense(card: Dictionary) -> bool:
-	var effect := _canonical_effect(card)
-	if effect == "defend":
-		return str(card.get("damage_type", card.get("damageType", "physical"))) == "magic"
-	return effect in MAGIC_DEFENSE_EFFECTS
 
 
 func _is_forge_card(card: Dictionary) -> bool:

@@ -8,7 +8,7 @@ const MAX_SAFE_SERVICE_PRICE := 9007199254740991
 const STICKER_PRICES := {
 	"moonstone": 200, "comet": 200, "clockwork": 100, "bookmark": 100,
 	"kite": 100, "bluebird": 100, "hook": 200,
-	"parachute": 50, "anchor": 50, "glowDinosaur": 50,
+	"parachute": 200, "anchor": 40, "glowDinosaur": 40,
 }
 
 
@@ -22,7 +22,7 @@ static func tinkerer_sticker_at(position: Vector2i, map_seed: int) -> String:
 static func service_price(kind: String, uses: int, sticker_id: String = "") -> int:
 	var base_price := 40
 	if kind == "stickerAltar":
-		base_price = 100
+		base_price = 200
 	elif kind == "tinkerer":
 		base_price = int(STICKER_PRICES.get(sticker_id, 40))
 	var scaled_price := float(base_price) * pow(1.5, float(maxi(0, uses)))
@@ -33,6 +33,8 @@ static func service_price(kind: String, uses: int, sticker_id: String = "") -> i
 
 static func transmuter_candidates(card: Dictionary) -> Array[Dictionary]:
 	var candidates: Array[Dictionary] = []
+	if bool(card.get("edition_bound", false)):
+		return candidates
 	for pool in [CardCatalog.STARTER_CARDS, CardCatalog.BASIC_CARDS, CardCatalog.SPECIAL_CARDS,
 		CardCatalog.RARE_CARDS, CardCatalog.LEGENDARY_CARDS]:
 		for blueprint in pool:
@@ -184,6 +186,8 @@ static func resolve(
 
 
 static func _altar_transfer_problem(donor: Dictionary, target: Dictionary) -> String:
+	if bool(donor.get("edition_bound", false)):
+		return "에디션에 귀속된 카드는 제물로 사용할 수 없습니다."
 	var donor_stickers := CardStickers.card_sticker_ids(donor)
 	if donor_stickers.is_empty():
 		return "제물 카드에 스티커가 없습니다."

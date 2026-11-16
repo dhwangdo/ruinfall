@@ -17,3 +17,7 @@ static func add_card_error(cards: Array, card: Dictionary, capacity: int, rare_s
 		if rare_count >= rare_slot_capacity:
 			return "rare-slots-full"
 	return ""
+
+
+static func is_bound(card: Dictionary) -> bool:
+	return bool(card.get("edition_bound", false))

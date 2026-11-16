@@ -1,8 +1,6 @@
 extends Control
 class_name MapDebugToolbar
 
-const EnemyCodexPanel = preload("res://scripts/map_debug_enemy_codex_panel.gd")
-
 signal action_requested(action: String, payload: Dictionary)
 
 var snapshot: Dictionary = {}
@@ -13,7 +11,6 @@ var _selection: OptionButton
 var _region_input: LineEdit
 var _count_input: LineEdit
 var _quick_popup: PopupPanel
-var _codex_panel: PanelContainer
 
 
 func configure(next_snapshot: Dictionary, next_catalog_choices: Array, next_selector_values: Dictionary = {}) -> void:
@@ -29,7 +26,6 @@ func _ready() -> void:
 
 
 func _rebuild() -> void:
-	_clear_codex_panel()
 	for child in get_children():
 		remove_child(child)
 		child.queue_free()
@@ -67,9 +63,7 @@ func _rebuild() -> void:
 	_add_spacer(row)
 	_add_score_group(row)
 	_add_spacer(row)
-	_add_card_stats(row)
-	_add_spacer(row)
-	_add_codex(row)
+	_add_card_catalog(row)
 	call_deferred("_sync_height", row)
 
 
@@ -79,6 +73,8 @@ func _add_spawn_group(row: HBoxContainer) -> void:
 	group.add_theme_constant_override("separation", 7)
 	row.add_child(group)
 	_selection = OptionButton.new()
+	# Width is fixed; do not shape every card name just to size a closed selector.
+	_selection.fit_to_longest_item = false
 	_selection.name = "SpawnSelection"
 	_selection.custom_minimum_size.x = 190
 	_selection.size_flags_vertical = Control.SIZE_SHRINK_CENTER
@@ -120,6 +116,7 @@ func _add_quick_actions(row: HBoxContainer) -> void:
 	popup_box.oversampling_with_scale = CanvasItem.OVERSAMPLING_WITH_SCALE_ENABLED
 	popup_box.add_theme_constant_override("separation", 5)
 	_quick_popup.add_child(popup_box)
+	_add_popup_button(popup_box, "ALL 덱 생성", "create_all_cards_deck", {})
 	_add_popup_button(popup_box, "스티커 덱 생성", "create_sticker_test_deck", {})
 	_add_popup_button(popup_box, "열쇠 +10", "add_debug_keys", {"amount": 10})
 	_add_popup_button(popup_box, "골드 +999", "add_debug_gold", {"amount": 999})
@@ -156,54 +153,14 @@ func _add_score_group(row: HBoxContainer) -> void:
 	group.resized.connect(func() -> void: call_deferred("_sync_height", row))
 
 
-func _add_card_stats(row: HBoxContainer) -> void:
-	var button := _button("카드 풀 통계", 11)
-	button.name = "CardPoolStatsButton"
-	button.pressed.connect(func() -> void: _request("open_card_stats", {}))
+func _add_card_catalog(row: HBoxContainer) -> void:
+	var button := _button("전체 카드 보기", 11)
+	button.name = "CardCatalogButton"
+	button.pressed.connect(func() -> void: _request("open_card_catalog", {}))
 	row.add_child(button)
-
-
-func _add_codex(row: HBoxContainer) -> void:
-	var entries: Array = snapshot.get("enemy_codex", [])
-	var button := _button("▸ 적 도감 (%d)" % entries.size(), 11, true)
-	button.name = "EnemyCodexSummary"
-	button.pressed.connect(func() -> void:
-		if is_instance_valid(_codex_panel) and _codex_panel.visible:
-			_codex_panel.hide()
-			button.text = "▸ 적 도감 (%d)" % entries.size()
-			return
-		if not is_instance_valid(_codex_panel):
-			_codex_panel = EnemyCodexPanel.new()
-			_codex_panel.name = "EnemyCodexPanel"
-			# GUI hit testing follows control order, unlike drawing z_index.
-			# Place the panel after the map, as with the map's vault preview.
-			var host: Node = overlay_host if is_instance_valid(overlay_host) else get_tree().root
-			host.add_child(_codex_panel)
-		_codex_panel.configure(entries, button.get_global_rect())
-		_codex_panel.show()
-		button.text = "▾ 적 도감 (%d)" % entries.size()
-	)
-	button.item_rect_changed.connect(func() -> void:
-		if is_inside_tree() and button.is_inside_tree() and is_instance_valid(_codex_panel) \
-			and _codex_panel.is_inside_tree() and _codex_panel.visible:
-			_codex_panel.anchor_to(button.get_global_rect())
-	)
-	row.add_child(button)
-
-
-func _clear_codex_panel() -> void:
-	if is_instance_valid(_codex_panel):
-		_codex_panel.hide()
-		_codex_panel.queue_free()
-	_codex_panel = null
-
-
-func _exit_tree() -> void:
-	_clear_codex_panel()
 
 
 func prepare_for_reuse() -> void:
-	_clear_codex_panel()
 	if is_instance_valid(_quick_popup):
 		_quick_popup.hide()
 	if is_instance_valid(_selection):
@@ -239,14 +196,14 @@ func _add_popup_button(parent: VBoxContainer, title: String, action: String, pay
 	parent.add_child(button)
 
 
-func _popup(is_codex: bool = false) -> PopupPanel:
+func _popup() -> PopupPanel:
 	var popup := PopupPanel.new()
-	popup.name = "EnemyCodexPopup" if is_codex else "QuickActionsPopup"
+	popup.name = "QuickActionsPopup"
 	popup.add_theme_stylebox_override("panel", _popup_style())
-	popup.add_theme_constant_override("margin_left", 10 if is_codex else 6)
-	popup.add_theme_constant_override("margin_right", 10 if is_codex else 6)
-	popup.add_theme_constant_override("margin_top", 10 if is_codex else 6)
-	popup.add_theme_constant_override("margin_bottom", 10 if is_codex else 6)
+	popup.add_theme_constant_override("margin_left", 6)
+	popup.add_theme_constant_override("margin_right", 6)
+	popup.add_theme_constant_override("margin_top", 6)
+	popup.add_theme_constant_override("margin_bottom", 6)
 	return popup
 
 

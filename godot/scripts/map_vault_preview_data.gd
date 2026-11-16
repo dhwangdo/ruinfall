@@ -19,5 +19,5 @@ static func resolve(state: Dictionary, position: Vector2i, debug_mode: bool = fa
 	var random := RandomNumberGenerator.new()
 	random.seed = int(state.get("map_seed", 0)) ^ ((position.x + 17) * 73856093) ^ ((position.y + 31) * 19349663)
 	var first_id := int(state.get("next_card_id", state.get("deck", []).size() + 1))
-	var generated: Dictionary = CardCatalog.create_region_deck(MapRules.region_index_at(position) + 1, first_id, random, 0.02)
+	var generated: Dictionary = CardCatalog.create_region_deck(MapRules.region_index_at(position) + 1, first_id, random)
 	return generated["deck"]

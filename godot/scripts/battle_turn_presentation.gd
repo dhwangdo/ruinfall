@@ -22,6 +22,11 @@ func present(game, before: Dictionary, final_state: Dictionary, draw_view: Dicti
 	var ticket: int = await presenter.play_departures(game, departures, final_state, "discard")
 	if ticket < 0:
 		return
+	if turn_view.has("corrosion"):
+		_render_vitals(game, turn_view["corrosion"])
+		_show_player_popup(game, "부식: 방어 절반", "debuff")
+		if not await _wait(game, ticket, 0.18):
+			return
 	if not await _present_toxic_slime(game, ticket, before, turn_view.get("toxic_slime", {})):
 		return
 	for step in turn_view.get("steps", []):
@@ -87,20 +92,22 @@ func _present_enemy_step(game, ticket: int, step: Dictionary) -> bool:
 	var presenter = game.battle_draw_presentation
 	var reduced: bool = presenter._reduced_motion()
 	var attack := bool(step.get("attack", false))
-	var duration := 0.05 if reduced else (0.35 if attack else 0.195)
-	var impact := 0.02 if reduced else (0.193 if attack else 0.105)
+	var motion := str(step.get("motion", "attack" if attack else "none"))
+	var lunging := motion == "attack" or motion == "debuff"
+	var duration := 0.05 if reduced else (0.35 if lunging else 0.18)
+	var impact := 0.02 if reduced else (0.133 if lunging else 0.072)
 	var gap := 0.03 if reduced or attack else 0.025
 	var completion: Array[bool] = []
 	var layer: Control
 	var enemy_index := int(step.get("enemy_index", -1))
 	var source: Control = game.battle_enemy_widgets.get(enemy_index)
-	if attack and is_instance_valid(source):
+	if motion != "none" and is_instance_valid(source):
 		layer = EnemyStrike.new()
 		layer.name = "BattleEnemyStrike"
 		layer.z_index = 30
 		presenter.active_flights = layer
 		game.add_child(layer)
-		layer.configure(source, Callable(game, "_battle_enemy_visual").bind(enemy_index), reduced)
+		layer.configure(source, Callable(game, "_battle_enemy_visual").bind(enemy_index), reduced, motion)
 		_connect_layer(game, ticket, layer, completion)
 		layer.play()
 	if not await _wait(game, ticket, impact):
@@ -182,8 +189,8 @@ func _render_vitals(game, values: Dictionary) -> void:
 	for child in strip.get_children():
 		strip.remove_child(child)
 		child.queue_free()
-	for damage_type in ["physical", "magic"]:
-		var key := "player_block" if damage_type == "physical" else "player_magic_block"
+	for damage_type in ["physical"]:
+		var key := "player_block"
 		var value := int(values.get(key, 0))
 		if value > 0:
 			var shield = DefenseShield.new()

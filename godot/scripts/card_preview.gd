@@ -1,7 +1,6 @@
 extends RefCounted
 
 const CardStickers = preload("res://scripts/stickers.gd")
-const CardKeywords = preload("res://scripts/card_keywords.gd")
 const PretendardCardFont = preload("res://assets/fonts/PretendardVariable.woff2")
 
 static var _name_font: FontVariation
@@ -121,7 +120,6 @@ static func compact(
 	description_label.offset_right = -3
 	description_label.offset_bottom = -25
 	description_label.text = description
-	description_label.tooltip_text = CardKeywords.tooltip_text(card)
 	description_label.add_theme_font_size_override("font_size", 7)
 	description_label.add_theme_font_override("font", _body_font)
 	description_label.add_theme_color_override("font_color", Color("#292b28"))
@@ -153,8 +151,6 @@ static func compact(
 		if tooltip_theme != null:
 			icon.theme = tooltip_theme
 		icon.mouse_filter = Control.MOUSE_FILTER_PASS
-		var sticker_info: Dictionary = CardStickers.STICKERS.get(str(sticker_id), {})
-		icon.tooltip_text = "%s\n%s" % [sticker_info.get("name", ""), sticker_info.get("description", "")]
 		icon.mouse_entered.connect(sticker_hover)
 		icon.mouse_exited.connect(hover_enter.bind(card_panel, card.duplicate(true)))
 		sticker_row.add_child(icon)

@@ -82,7 +82,7 @@ func run() -> void:
 	# A previous card's expiry must not cancel a newly held card.
 	key(KEY_1, true)
 	assert(game.battle_keyboard_drag.card_id == 902)
-	await create_timer(0.22).timeout
+	await create_timer(0.37).timeout
 	assert(root.gui_is_dragging(), "stale grace timer cancelled another selection")
 	key(KEY_1, false)
 	assert(not root.gui_is_dragging(), "long hold must cancel immediately on release")
@@ -90,7 +90,7 @@ func run() -> void:
 	key(KEY_2, true)
 	key(KEY_2, false)
 	assert(root.gui_is_dragging())
-	await create_timer(0.22).timeout
+	await create_timer(0.37).timeout
 	assert(not root.gui_is_dragging(), "grace must expire without any new input")
 	assert(not game._battle_hand_card(903).is_empty(), "expiry used the card")
 	assert(not game.battle_play_queue.contains(903))
@@ -106,7 +106,7 @@ func run() -> void:
 		if not game.battle_play_queue.busy and game.battle_play_queue.entries.is_empty():
 			break
 	assert(game.battle_state["energy"] == 8, "grace duplicated or lost a queued action")
-	print("PASS: rapid key-up/click use and queue, 150ms expiry, ordinary long release, immediate right cancel, stale-timer isolation")
+	print("PASS: rapid key-up/click use and queue, 300ms expiry, ordinary long release, immediate right cancel, stale-timer isolation")
 	game.queue_free()
 	await process_frame
 	quit()

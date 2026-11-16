@@ -6,11 +6,10 @@ var amount := 0
 var shield_color := Color("#de7024")
 
 
-func configure(kind: String, value: int) -> void:
+func configure(_kind: String, value: int) -> void:
 	amount = maxi(0, value)
 	shield_color = Color("#e87e22")
 	custom_minimum_size = Vector2(58, 58)
-	tooltip_text = "마법 방어 %d" % amount if kind == "magic" else "방어 %d" % amount
 	queue_redraw()
 
 

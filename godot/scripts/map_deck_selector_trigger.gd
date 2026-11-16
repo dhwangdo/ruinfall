@@ -9,6 +9,7 @@ const SELECTOR_NAME_WIDTH := 66.0 * 1.2
 const CARD_FONT: FontFile = preload("res://assets/fonts/PretendardVariable.woff2")
 const STACK_ICON_SCALE := 0.76 * 1.2
 
+var _large_deck_menu: PopupMenu
 var _deck_name := ""
 var _deck_count := 0
 var _deck_capacity := 0
@@ -49,7 +50,6 @@ func _init() -> void:
 	text = ""
 	custom_minimum_size = Vector2(SELECTOR_SIZE, SELECTOR_SIZE)
 	size = custom_minimum_size
-	tooltip_text = "전투에 사용할 덱 선택"
 
 
 func _ready() -> void:
@@ -91,22 +91,41 @@ func _create_menu() -> void:
 	menu.connect("deck_picked", Callable(self, "_on_menu_deck_picked"))
 	menu.connect("closed", Callable(self, "_on_menu_closed"))
 	pressed.connect(_on_selector_pressed)
+	_large_deck_menu = PopupMenu.new()
+	_large_deck_menu.name = "LargeDeckSelection"
+	_large_deck_menu.max_size = Vector2i(420, 480)
+	_large_deck_menu.id_pressed.connect(func(index: int) -> void:
+		if index >= 0 and index < _owned_decks.size():
+			_on_menu_deck_picked(str(_owned_decks[index].get("id", ""))))
+	_large_deck_menu.popup_hide.connect(func() -> void: menu_closed.emit())
+	add_child(_large_deck_menu)
 	_configure_menu()
 
 
 func _configure_menu() -> void:
+	if is_instance_valid(_large_deck_menu):
+		_large_deck_menu.clear()
+		for index in range(_owned_decks.size()):
+			var deck: Dictionary = _owned_decks[index]
+			_large_deck_menu.add_radio_check_item(str(deck.get("name", "덱")), index)
+			_large_deck_menu.set_item_checked(index, str(deck.get("id", "")) == _active_deck_id)
 	if not is_instance_valid(_menu):
 		return
-	_menu.call("configure", _owned_decks, _max_owned_decks, _active_deck_id,
+	_menu.call("configure", _owned_decks if _owned_decks.size() <= 3 else [], mini(_max_owned_decks, 3), _active_deck_id,
 		_active_deck_count, _active_deck_capacity)
 
 
 func _on_selector_pressed() -> void:
+	if _owned_decks.size() > 3 and is_instance_valid(_large_deck_menu):
+		_large_deck_menu.popup_centered(Vector2i(360, 480))
+		return
 	if is_instance_valid(_menu):
 		_menu.call("toggle_menu")
 
 
 func close_menu() -> void:
+	if is_instance_valid(_large_deck_menu):
+		_large_deck_menu.hide()
 	if is_instance_valid(_menu):
 		_menu.call("close_menu")
 

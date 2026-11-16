@@ -1,9 +1,14 @@
 extends RefCounted
 class_name PortEnemyCatalog
 
+const ROACH_SUMMON_COUNT := 2
+const ROACH_BASE_HP := 6
+const ROACH_BASE_DAMAGE := 4
+
+const REGION_ONE_PAIR_IDS := [66, 68, 69, 70, 72, 73, 78, 79, 81, 82, 83, 85]
 const REGION_ONE_SINGLES := [1, 5, 19, 20, 22, 25]
-const REGION_TWO_SINGLES := [2, 4, 6, 27, 30, 33, 34]
-const REGION_THREE_SINGLES := [10, 11, 12, 13]
+const REGION_TWO_SINGLES := [2, 4, 6, 27, 30, 34]
+const REGION_THREE_SINGLES := [11, 13]
 
 
 static func pick_region_encounter(region_index: int, random: RandomNumberGenerator) -> int:
@@ -22,7 +27,8 @@ static func pick_region_encounter(region_index: int, random: RandomNumberGenerat
 		_:
 			singles = REGION_THREE_SINGLES
 	if pair_start >= 0 and random.randf() < 0.5:
-		return random.randi_range(pair_start, pair_end)
+		var pair_ids: Array = REGION_ONE_PAIR_IDS if region_index == 0 else range(pair_start, pair_end + 1)
+		return int(pair_ids[random.randi_range(0, pair_ids.size() - 1)])
 	return int(singles[random.randi_range(0, singles.size() - 1)])
 
 
@@ -44,8 +50,8 @@ static func pick_region_encounter_from_roll(region_index: int, roll: float) -> i
 
 	var value := clampf(roll, 0.0, 0.999999999)
 	if pair_start >= 0 and value < 0.5:
-		var pair_count := pair_end - pair_start + 1
-		return pair_start + floori(value * 2.0 * pair_count)
+		var pair_ids: Array = REGION_ONE_PAIR_IDS if region_index == 0 else range(pair_start, pair_end + 1)
+		return int(pair_ids[floori(value * 2.0 * pair_ids.size())])
 	if pair_start >= 0:
 		value = (value - 0.5) * 2.0
 	return int(singles[floori(value * singles.size())])
@@ -66,13 +72,7 @@ static func create_encounter(encounter_index: int = 1, random: RandomNumberGener
 		blueprints.append(candidates[first_index])
 		blueprints.append(candidates[second_index])
 	elif encounter_index >= 66 and encounter_index < 86:
-		var pair := encounter_index - 66
-		var candidates := _region_one_pair_candidates()
-		var first_index := int(pair / 4)
-		var second_order := pair % 4
-		var second_index := second_order if second_order < first_index else second_order + 1
-		blueprints.append(candidates[first_index])
-		blueprints.append(candidates[second_index])
+		blueprints = _region_one_pair_blueprints(encounter_index)
 	else:
 		blueprints = _single_encounter_blueprints(encounter_index)
 	if blueprints.is_empty():
@@ -90,13 +90,13 @@ static func _single_encounter_blueprints(encounter_index: int) -> Array[Dictiona
 		1:
 			return [_enemy("주황 슬라임", 50, [
 				{"name": "점액 충돌", "damage": 10, "random_no_repeat": true},
-				{"name": "무기력 점액", "next_turn_player_weak_gain": 2, "random_no_repeat": true},
+				{"name": "부식성 점액", "player_corrosion_gain": 2, "random_no_repeat": true},
 				{"name": "몸통 내려찍기", "damage": 7, "strength_gain": 3, "random_no_repeat": true},
 			], {"gives_toxic_slime": true, "trait": "전투 시작 시 유독성 점액을 손패에 넣습니다."})]
 		2:
 			return [_enemy("골렘", 112, [
 				{"name": "위압", "next_turn_player_weak_gain": 2, "cycle": true},
-				{"name": "석화 갑주", "next_turn_player_weak_gain": 2, "cycle": true},
+				{"name": "석화", "player_paralysis_gain": 2, "cycle": true},
 				{"name": "분쇄", "damage": 25, "strength_gain": 5, "cycle": true},
 			])]
 		4:
@@ -111,28 +111,19 @@ static func _single_encounter_blueprints(encounter_index: int) -> Array[Dictiona
 				rats.append(_enemy("쥐", 13, [{"name": "물기", "damage": 4, "cycle": true}]))
 			return rats
 		6:
-			return [_enemy("저주술사", 68, [
-				{"name": "쇠약의 저주", "next_turn_player_vulnerable_gain": 3, "cycle": true},
-				{"name": "저주의 일격", "damage": 20, "loop_to": 1},
-			])]
-		10:
-			return [_enemy("미라 사제", 87, [
-				{"name": "가호의 의식", "boon_gain": 2, "next_turn_player_vulnerable_gain": 1, "cycle": true},
-				{"name": "마력의 저주", "damage": 16, "damage_type": "magic", "cycle": true},
-				{"name": "붕대 강타", "damage": 20, "cycle": true},
-			], {"boon": 5, "trait": "전투 시작 시 가호 5를 얻습니다."})]
+			var curses: Array = []
+			var labels := {"vulnerable": "취약", "weak": "약화", "corrosion": "부식", "paralysis": "마비", "confusion": "혼란"}
+			for kind in labels:
+				var action := {"name": "%s의 저주" % labels[kind], "damage": 12, "random_each_turn": true}
+				action["player_" + kind + "_gain"] = 2
+				curses.append(action)
+			return [_enemy("저주술사", 68, curses)]
 		11:
 			return [_enemy("미라 전사", 125, [
 				{"name": "삼연격", "damage": 4, "hits": 3, "cycle": true},
 				{"name": "강타", "damage": 16, "cycle": true},
 				{"name": "약화 연타", "damage": 5, "hits": 2, "next_turn_player_vulnerable_gain": 1, "cycle": true},
 			], {"berserk": 1, "trait": "턴 시작 시 힘 1을 얻습니다."})]
-		12:
-			return [_enemy("지룡", 118, [
-				{"name": "흙", "soil_count": 1, "next_turn_player_vulnerable_gain": 1, "cycle": true},
-				{"name": "지각 강타", "damage": 15, "cycle": true},
-				{"name": "대지 마력", "damage": 20, "damage_type": "magic", "cycle": true},
-			], {"trait": "행동에 따라 모든 파일 맨 위에 흙을 놓습니다."})]
 		13:
 			var beetles: Array[Dictionary] = []
 			for _beetle_index in range(2):
@@ -172,16 +163,16 @@ static func _single_encounter_blueprints(encounter_index: int) -> Array[Dictiona
 			]), _enemy("인형술사", 12, [{"name": "조종 유지"}], {"fixed_max_hp": true, "stun_ally_on_death": "puppetColossus", "trait": "쓰러지면 함께 나온 꼭두각시 거병의 다음 행동을 한 번 취소합니다."})]
 		22:
 			return [_enemy("실을 짜는 거미", 60, [
-				{"name": "물기", "damage": 8, "next_turn_player_vulnerable_gain": 1, "random_no_repeat": true},
+				{"name": "끈끈한 거미줄", "player_vulnerable_gain": 2, "random_no_repeat": true},
 				{"name": "송곳니 연타", "damage": 6, "hits": 2, "random_no_repeat": true},
-				{"name": "포식 준비", "strength_gain": 4, "random_no_repeat": true},
+				{"name": "포식", "damage": 8, "strength_gain": 3, "random_no_repeat": true},
 		], {"solitaire_hit_bonus": 6, "trait": "매 턴 첫 솔리테어 행동 후 받는 다음 한 타격의 피해가 6 증가합니다. 턴 종료 시 사라집니다."})]
 		25:
 			return [_enemy("알집 바퀴", 48, [
 				{"name": "물기", "damage": 10, "random_no_repeat": true},
 				{"name": "새끼 부화", "summon": "roachHatchling", "random_no_repeat": true},
 				{"name": "부식액", "next_turn_player_weak_gain": 2, "random_no_repeat": true},
-		], {"opening_action_index": 1, "trait": "첫 행동은 새끼 소환으로 고정하고 이후 3랜덤1로 행동합니다. 새끼는 최대 2마리이며 소환된 턴에는 행동하지 않습니다."})]
+		], {"opening_action_index": 1, "trait": "첫 행동은 새끼 2마리 소환으로 고정하고 이후 3랜덤1로 행동합니다. 새끼는 소환된 턴에는 행동하지 않습니다."})]
 		27:
 			return [_enemy("핏빛 광전사", 88, [
 				{"name": "도끼질", "damage": 11, "random_no_repeat": true},
@@ -194,8 +185,6 @@ static func _single_encounter_blueprints(encounter_index: int) -> Array[Dictiona
 				{"name": "제압", "damage": 6, "next_turn_player_weak_gain": 1, "random_no_repeat": true},
 				{"name": "간수의 응축", "next_turn_player_vulnerable_gain": 2, "random_no_repeat": true},
 			], {"energy_recovery_penalty": 1, "trait": "살아 있는 동안 플레이어의 매 턴 기본 에너지 회복량이 1 감소합니다. 카드 효과에는 적용되지 않습니다."})]
-		33:
-			return [_enemy("공허 해파리", 60, [{"name": "공허의 파동", "damage": 8, "damage_type": "magic", "cycle": true}])]
 		34:
 			return [_enemy("피의 기수", 90, [
 				{"name": "쌍격", "damage": 6, "hits": 2, "random_no_repeat": true},
@@ -206,27 +195,36 @@ static func _single_encounter_blueprints(encounter_index: int) -> Array[Dictiona
 			return []
 
 
+static func _region_one_pair_blueprints(encounter_index: int) -> Array[Dictionary]:
+	# Keep surviving ids stable. Retired bandit pairs resolve to a valid current pair.
+	var id := encounter_index
+	if id not in REGION_ONE_PAIR_IDS:
+		id = int(REGION_ONE_PAIR_IDS[posmod(id - 66, REGION_ONE_PAIR_IDS.size())])
+	var legacy_pair := id - 66
+	var legacy_first := int(legacy_pair / 4)
+	var order := legacy_pair % 4
+	var legacy_second := order if order < legacy_first else order + 1
+	var retained := [0, 1, 3, 4]
+	var candidates := _region_one_pair_candidates()
+	return [candidates[retained.find(legacy_first)], candidates[retained.find(legacy_second)]]
+
+
 static func _region_one_pair_candidates() -> Array[Dictionary]:
 	return [
 		_enemy("굶주린 들개", 24, [
-			{"name": "돌진 준비", "damage": 5, "preview": "다음 턴 돌진 12", "cycle": true},
-			{"name": "돌진", "damage": 12, "cycle": true},
-			{"name": "물어뜯기", "damage": 5, "loop_to": 2},
+			{"name": "돌진 준비", "damage": 6, "player_paralysis_gain": 2, "cycle": true},
+			{"name": "위협", "player_vulnerable_gain": 2, "cycle": true},
+			{"name": "물어뜯기", "damage": 9, "loop_to": 2},
 		]),
 		_enemy("칼잡이", 20, [
 			{"name": "칼질", "damage": 6, "next_turn_player_weak_gain": 1, "random_no_repeat": true},
 			{"name": "연속 베기", "damage": 4, "hits": 2, "random_no_repeat": true},
 			{"name": "기세 올리기", "damage": 6, "strength_gain": 3, "random_no_repeat": true},
 		]),
-		_enemy("눈치보는 산적", 26, [
-			{"name": "기습", "damage": 4, "next_turn_player_weak_gain": 1, "random_no_repeat": true},
-			{"name": "연속 베기", "damage": 3, "hits": 2, "random_no_repeat": true},
-			{"name": "강타", "damage": 6, "random_no_repeat": true},
-		], {"empty_energy_strength_gain": 5, "trait": "플레이어의 에너지가 0 이하이면 이번 행동에만 힘 5를 얻습니다."}),
-		_enemy("화약 두꺼비", 26, [
+		_enemy("화약 두꺼비", 31, [
 			{"name": "도화선 점화", "damage": 4, "preview": "두 행동 뒤 자폭", "cycle": true},
 			{"name": "타오르는 도화선", "damage": 4, "preview": "다음 턴 자폭", "cycle": true},
-			{"name": "자폭", "damage": 12, "self_destruct": true, "loop_to": 2},
+			{"name": "자폭", "damage": 20, "self_destruct": true, "loop_to": 2},
 		]),
 		_enemy("하수구 쥐", 28, [
 			{"name": "물어뜯기", "damage": 3, "hits": 2, "discard_count": 1, "discard_priority": "rarity", "random_no_repeat": true},
@@ -321,13 +319,13 @@ static func intent_text(enemy: Dictionary, player_energy: int = 3, hand_count: i
 	var temporary_strength := int(enemy.get("empty_energy_strength_gain", 0)) if player_energy <= 0 else 0
 	if hand_count > 0:
 		temporary_strength += int(enemy.get("hand_strength_gain", 0))
-	var damage := int(action.get("damage", 0)) + int(enemy.get("strength", 0)) + temporary_strength
+	var damage := int(action.get("damage", 0)) + int(enemy.get("strength", 0)) + temporary_strength if int(action.get("damage", 0)) > 0 else 0
 	if damage > 0:
 		var hits := maxi(1, int(action.get("hits", 1)))
 		var outgoing_modifier := -50 if int(enemy.get("weak", 0)) > 0 else 0
 		var incoming_modifier := 50 if int(enemy.get("player_vulnerable", 0)) > 0 else 0
 		var total_damage := maxi(0, int(floor(float(damage) * (100 + outgoing_modifier + incoming_modifier) / 100.0))) * hits
-		result += " · %s %d" % ["마법 피해" if str(action.get("damage_type", "physical")) == "magic" else "피해", total_damage]
+		result += " · %s %d" % ["피해", total_damage]
 		if hits > 1:
 			result += " ×%d" % hits
 	for key in ["strength_gain", "boon_gain", "strength_loss", "agility_loss", "powder_gain", "soil_count", "heal_gain", "block_gain"]:
@@ -340,15 +338,22 @@ static func intent_text(enemy: Dictionary, player_energy: int = 3, hand_count: i
 			"powder_gain": "화약 +%d", "soil_count": "모든 파일에 흙 %d장", "heal_gain": "체력 +%d", "block_gain": "방어 +%d",
 		}[key])
 		result += " · " + (label % value)
-	for status_key in ["weak_gain", "vulnerable_gain", "next_turn_player_weak_gain", "next_turn_player_vulnerable_gain"]:
-		var status_value := int(action.get(status_key, 0))
-		if status_value <= 0:
-			continue
-		var status_label := "약화" if status_key.contains("weak") else "취약"
-		var target_label := "다음 턴 플레이어 " if status_key.begins_with("next_turn_player_") else ""
-		result += " · %s%s %d" % [target_label, status_label, status_value]
+	for kind in ["weak", "vulnerable", "corrosion", "paralysis", "confusion"]:
+		var label: String = preload("res://scripts/battle_status_rules.gd").LABELS[kind]
+		var own_amount := int(action.get(kind + "_gain", 0))
+		if own_amount > 0:
+			result += " · %s %d" % [label, own_amount]
+		var amount := int(action.get("player_" + kind + "_gain", action.get("next_turn_player_" + kind + "_gain", 0)))
+		if amount > 0:
+			result += " · %s %d 부여" % [label, amount]
+	if str(action.get("summon", "")) == "roachHatchling":
+		result += " · " + roach_summon_description()
 	if bool(action.get("self_destruct", false)):
 		result += " · 자폭"
 	if action.has("preview"):
 		result += " · " + str(action["preview"])
 	return result
+
+
+static func roach_summon_description() -> String:
+	return "새끼 바퀴 %d마리 소환 (체력 %d, 피해 %d)" % [ROACH_SUMMON_COUNT, ROACH_BASE_HP, ROACH_BASE_DAMAGE]

@@ -2,50 +2,47 @@ extends RefCounted
 class_name PortCardDescriptionText
 
 const EMPHASIS_700_FONT := "res://assets/fonts/PretendardVariable700.tres"
-const STRONG_STAR_TOKEN := "__PORT_STRONG_STAR__"
-const STRONG_DEFENSE_TOKEN := "__PORT_STRONG_DEFENSE__"
-const STRONG_MAGIC_DAMAGE_TOKEN := "__PORT_STRONG_MAGIC_DAMAGE__"
-
+const Colors = preload("res://scripts/keyword_colors.gd")
 const EMPHASIZED_KEYWORDS := [
-	"힘", "강인함", "취약", "약화", "무적", "광채",
-	"에너지", "소멸", "보존", "토큰", "재련", "버리기", "룰.", "피해",
-	"사용 불가", "사용불가",
+	"사용 불가", "사용불가", "마법 저항", "강인함", "에너지", "버리기", "방어",
+	"취약", "약화", "부식", "마비", "혼란", "무적", "광채", "소멸", "보존", "토큰", "재련", "룰.", "피해", "힘",
 ]
+static var _tokens: RegEx
 
 
-static func to_bbcode(source: String, context_source: String = "") -> String:
+static func _escape(text: String) -> String:
+	var escaped := ""
+	for character in text:
+		escaped += "[lb]" if character == "[" else ("[rb]" if character == "]" else character)
+	return escaped
+
+
+static func to_bbcode(source: String, _context_source: String = "") -> String:
+	if _tokens == null:
+		_tokens = RegEx.new()
+		var patterns: Array[String] = []
+		for keyword in EMPHASIZED_KEYWORDS:
+			patterns.append(keyword.replace(".", "\\."))
+		patterns.append("★")
+		patterns.append("\\d+(?:\\.\\d+)?")
+		_tokens.compile("|".join(patterns))
 	var result := ""
-	var semantic_context := context_source if not context_source.is_empty() else source
-	semantic_context = semantic_context.replace("\n", " ")
-	for character in source:
-		if character == "[":
-			result += "[lb]"
-		elif character == "]":
-			result += "[rb]"
-		else:
-			result += character
-	var number_pattern := RegEx.new()
-	number_pattern.compile("(\\d+(?:\\.\\d+)?)")
-	result = number_pattern.sub(result, "[b]$1[/b]", true)
-	result = result.replace("★", STRONG_STAR_TOKEN)
-	if semantic_context.contains("턴 종료 시 방어를 절반 보존합니다."):
-		result = result.replace("방어", STRONG_DEFENSE_TOKEN)
-	if semantic_context.contains("카드를 낼 때마다 마법 피해를 1 받고"):
-		result = result.replace("마법 피해", STRONG_MAGIC_DAMAGE_TOKEN)
-
-	result = result.replace("마법 방어", "__PORT_MAGIC_DEFENSE__")
-	result = result.replace("물리 피해", "__PORT_PHYSICAL_DAMAGE__")
-	result = result.replace("방어", "[color=#c55200][b]방어[/b][/color]")
-	for keyword in EMPHASIZED_KEYWORDS:
-		result = result.replace(keyword, "[b]%s[/b]" % keyword)
-	result = result.replace("__PORT_MAGIC_DEFENSE__", "[color=#0068b7][b]마법 방어[/b][/color]")
-	result = result.replace("__PORT_PHYSICAL_DAMAGE__", "[color=#c55200][b]물리 피해[/b][/color]")
-	result = result.replace(STRONG_STAR_TOKEN, "[font=%s]★[/font]" % EMPHASIS_700_FONT)
-	result = result.replace(STRONG_DEFENSE_TOKEN,
-		"[b][color=#c55200]방어[/color][/b]")
-	result = result.replace(STRONG_MAGIC_DAMAGE_TOKEN,
-		"[b]마법 피해[/b]")
-	return result
+	var offset := 0
+	# Tokenize the plain source once; never run replacements over generated BBCode tags.
+	for matched in _tokens.search_all(source):
+		result += _escape(source.substr(offset, matched.get_start() - offset))
+		var token := matched.get_string()
+		var rendered := "[b]%s[/b]" % _escape(token)
+		var is_keyword := token in EMPHASIZED_KEYWORDS or token == "★"
+		if token == "★":
+			rendered = "[font=%s]★[/font]" % EMPHASIS_700_FONT
+		if is_keyword:
+			var color := Colors.color_for(token)
+			if color != "":
+				rendered = "[color=%s]%s[/color]" % [color, rendered]
+		result += rendered
+		offset = matched.get_end()
+	return result + _escape(source.substr(offset))
 
 
 static func wrap_words(source: String, label: RichTextLabel, max_width: float,

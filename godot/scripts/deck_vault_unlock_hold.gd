@@ -219,7 +219,6 @@ func _update_label() -> void:
 		return
 	_label.text = "열쇠 %d개로 개방" % KEY_COST
 	_label.add_theme_color_override("font_color", DISABLED_TEXT if _is_disabled() else ENABLED_TEXT)
-	tooltip_text = "열쇠 %d개가 필요합니다" % KEY_COST if _is_disabled() else "2초간 눌러 개방"
 	mouse_default_cursor_shape = Control.CURSOR_FORBIDDEN if _is_disabled() else Control.CURSOR_POINTING_HAND
 
 

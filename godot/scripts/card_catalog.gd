@@ -1,6 +1,8 @@
 extends RefCounted
 class_name PortCardCatalog
 
+const GenerationModel = preload("res://scripts/deck_generation_model.gd")
+
 const CardStickers = preload("res://scripts/stickers.gd")
 const DeckEditions = preload("res://scripts/deck_editions.gd")
 
@@ -80,6 +82,8 @@ const BASIC_CARDS: Array[Dictionary] = [
 		"value": 2, "playable": false,
 		"description": "사용 불가. 손패에 있는 동안 힘과 강인함을 2 얻습니다.",
 	},
+	{"name": "빈틈 메우기", "kind": "skill", "effect": "patch_gap", "use_mode": "untargeted", "rarity": "basic", "cost": 1, "remove_player_debuffs": {"vulnerable": 2}, "description": "나에게 걸린 취약을 2만큼 제거합니다."},
+	{"name": "날 세우기", "kind": "skill", "effect": "sharpen_edge", "use_mode": "untargeted", "rarity": "basic", "cost": 1, "remove_player_debuffs": {"weak": 2}, "description": "나에게 걸린 약화를 2만큼 제거합니다."},
 ]
 
 # Legacy special cards remain excluded from normal rewards and generated pools.
@@ -99,16 +103,17 @@ const LEGACY_SPECIAL_CARDS: Array[Dictionary] = [
 ]
 
 const SPECIAL_CARDS: Array[Dictionary] = [
+	{"name": "돌격!!", "kind": "strike", "effect": "strike", "use_mode": "targeted", "rarity": "special", "cost": 0, "value": 12, "self_debuffs": {"vulnerable": 1}, "description": "피해를 12 줍니다.\n취약을 1 얻습니다."},
+	{"name": "광학 연구", "kind": "skill", "effect": "optics_research", "use_mode": "untargeted", "rarity": "special", "cost": 1, "value": 1, "exhaust": true, "rule": true, "playable": true, "description": "룰. 턴 시작 시 광채 1장을 얻습니다."},
 	{"name": "빛무리", "kind": "skill", "effect": "light_cluster", "use_mode": "untargeted", "rarity": "special", "cost": 0, "value": 1, "playable": true, "description": "광채 1장을 얻습니다."},
 	{"name": "파쇄", "kind": "strike", "effect": "shatter", "use_mode": "targeted", "rarity": "special", "cost": 1, "value": 6, "playable": true, "description": "피해를 6 줍니다. 취약을 1 부여합니다."},
 	{"name": "무릎차기", "kind": "strike", "effect": "knee_strike", "use_mode": "targeted", "rarity": "special", "cost": 2, "value": 12, "playable": true, "description": "피해를 12 줍니다. 약화를 1 부여합니다."},
-	{"name": "위압", "kind": "skill", "effect": "scale_armor", "use_mode": "targeted", "rarity": "special", "cost": 1, "value": 8, "playable": true, "description": "방어를 8 얻습니다. 약화를 2 부여합니다."},
+	{"name": "위압", "kind": "skill", "effect": "scale_armor", "use_mode": "targeted", "rarity": "special", "cost": 2, "value": 8, "playable": true, "description": "방어를 8 얻습니다. 약화를 1 부여합니다."},
 	{"name": "야수화", "kind": "skill", "effect": "beastification", "use_mode": "untargeted", "rarity": "special", "cost": 1, "value": 3, "upgraded_value": 6, "exhaust": true, "playable": true, "forge_target_name": "소멸 카드", "description": "힘을 3[6] 얻습니다.\n소멸.\n재련: [소멸 카드]"},
 	{"name": "금속화", "kind": "skill", "effect": "metalization", "use_mode": "untargeted", "rarity": "special", "cost": 1, "value": 2, "upgraded_value": 4, "exhaust": true, "playable": true, "forge_target_name": "사용 불가 카드", "description": "강인함을 2[4] 얻습니다.\n소멸.\n재련: [사용 불가 카드]"},
 	{"name": "모래 뿌리기", "kind": "skill", "effect": "sand_toss", "use_mode": "targeted", "rarity": "special", "cost": 0, "value": 1, "discard_cost": 1, "playable": true, "description": "버리기 1.\n약화를 1 부여합니다."},
-	{"name": "새옹지마", "kind": "skill", "effect": "saeongjima", "use_mode": "unplayable", "rarity": "special", "value": 2, "draw": 2, "playable": false, "description": "사용 불가. 버리기 X 효과로 버려지면 카드를 무작위로 2장 뽑습니다."},
-	{"name": "철의 노래", "kind": "skill", "effect": "iron_song", "use_mode": "untargeted", "rarity": "special", "cost": 1, "value": 5, "playable": true, "description": "방어를 5 얻습니다.\n내 다음 턴과 다다음 턴 시작 시 반복합니다."},
-	{"name": "재활용", "kind": "skill", "effect": "recycling", "use_mode": "untargeted", "rarity": "special", "cost": 1, "value": 1, "exhaust": true, "rule": true, "playable": true, "description": "내 턴 동안 카드를 버릴 때마다 ★를 얻습니다."},
+	{"name": "탁월수", "kind": "skill", "effect": "saeongjima", "use_mode": "unplayable", "rarity": "special", "value": 2, "draw": 2, "playable": false, "description": "사용 불가.\n이 카드가 버려지면 무작위 카드 2장을 뽑습니다."},
+	{"name": "철의 노래", "kind": "skill", "effect": "iron_song", "use_mode": "untargeted", "rarity": "special", "cost": 1, "value": 5, "forge_target_name": "사용 불가 카드", "playable": true, "description": "방어를 5 얻습니다.\n내 다음 턴[과 다다음 턴] 시작 시 반복합니다.\n재련: [사용 불가 카드]"},
 	{"name": "별의 샘", "kind": "skill", "effect": "osiris_sun", "use_mode": "untargeted", "rarity": "special", "cost": 1, "value": 1, "exhaust": true, "rule": true, "playable": true, "description": "턴 시작 시 ★를 얻습니다."},
 	{"name": "백스텝", "kind": "skill", "effect": "defend", "use_mode": "untargeted", "rarity": "special", "cost": 0, "value": 5, "playable": true, "description": "방어를 5 얻습니다."},
 	{"name": "정리 타격", "kind": "strike", "effect": "boomerang", "use_mode": "targeted", "rarity": "special", "cost": 1, "value": 9, "draw": 1, "discard_pile_top": true, "playable": true, "description": "피해를 9 줍니다.\n파일에서 카드를 1장 버립니다.\n카드를 1장 뽑습니다."},
@@ -120,34 +125,39 @@ const SPECIAL_CARDS: Array[Dictionary] = [
 	{"name": "전략가", "kind": "skill", "effect": "battle_plan", "use_mode": "untargeted", "rarity": "special", "cost": 1, "value": 2, "draw": 1, "playable": true, "description": "★★을 얻습니다.\n카드를 1장 뽑습니다."},
 	{"name": "과감한 결단", "kind": "skill", "effect": "pruning", "use_mode": "untargeted", "rarity": "special", "cost": 0, "value": 2, "discard_cost": 1, "discard_energy_gain": 2, "playable": true, "description": "버리기 1. 에너지를 2 얻습니다."},
 	{"name": "과감한 돌진", "kind": "strike", "effect": "strike", "use_mode": "targeted", "rarity": "special", "cost": 1, "value": 15, "discard_cost": 1, "playable": true, "description": "버리기 1. 피해를 15 줍니다."},
-	{"name": "과감한 회피", "kind": "skill", "effect": "defend", "use_mode": "untargeted", "rarity": "special", "cost": 1, "value": 13, "discard_cost": 2, "playable": true, "description": "버리기 2. 방어를 13 얻습니다."},
+	{"name": "과감한 회피", "kind": "skill", "effect": "defend", "use_mode": "untargeted", "rarity": "special", "cost": 1, "value": 15, "discard_cost": 2, "playable": true, "description": "버리기 2. 방어를 15 얻습니다."},
 	{"name": "묵직한 한 방", "kind": "strike", "effect": "strike", "use_mode": "targeted", "rarity": "special", "cost": 3, "value": 30, "playable": true, "description": "피해를 30 줍니다."},
-	{"name": "얼음 방패", "kind": "skill", "effect": "ice_shield", "use_mode": "untargeted", "rarity": "special", "cost": 1, "value": 11, "damage_type": "magic", "playable": true, "description": "마법 방어를 11 얻습니다."},
 	{"name": "대형 프리즘", "kind": "skill", "effect": "large_prism", "use_mode": "untargeted", "rarity": "special", "cost": 3, "value": 3, "playable": true, "description": "광채 3장을 얻습니다."},
 	{"name": "성운", "kind": "skill", "effect": "nebula", "use_mode": "untargeted", "rarity": "special", "cost": 1, "value": 2, "playable": true, "description": "광채 1장을 가져옵니다.\n★★를 얻습니다."},
 	{"name": "별빛", "kind": "skill", "effect": "starlight", "use_mode": "untargeted", "rarity": "special", "cost": 0, "value": 2, "playable": true, "description": "★★을 얻습니다."},
 	{"name": "준비 운동", "kind": "skill", "effect": "warm_up", "use_mode": "untargeted", "rarity": "special", "cost": 0, "value": 4, "playable": true, "description": "힘을 1 얻습니다. 이번 턴 힘을 4 추가로 얻습니다."},
 	{"name": "퀵스텝", "kind": "skill", "effect": "quick_step", "use_mode": "untargeted", "rarity": "special", "cost": 1, "draw": 2, "playable": true, "description": "카드를 2장 뽑습니다."},
 	{"name": "5연격", "kind": "strike", "effect": "five_hit", "use_mode": "targeted", "rarity": "special", "cost": 1, "value": 2, "playable": true, "description": "피해를 2씩 5번 줍니다."},
-	{"name": "별의 방주", "kind": "skill", "effect": "star_ark", "use_mode": "untargeted", "rarity": "special", "cost": 3, "value": 10, "playable": true, "description": "방어와 마법 방어를 10 얻습니다. ★을 얻습니다."},
-	{"name": "은검", "kind": "strike", "effect": "silver_sword", "use_mode": "targeted", "rarity": "special", "cost": 1, "value": 12, "playable": true, "description": "피해를 12 줍니다. 마법 방어를 5 얻습니다."},
-	{"name": "진압", "kind": "strike", "effect": "suppression", "use_mode": "targeted", "rarity": "special", "cost": 3, "value": 13, "playable": true, "description": "피해를 13 줍니다. 준 피해만큼 방어를 얻습니다."},
+	{"name": "진압", "kind": "strike", "effect": "suppression", "use_mode": "targeted", "rarity": "special", "cost": 3, "value": 12, "playable": true, "description": "피해를 12 줍니다. 준 피해만큼 방어를 얻습니다."},
 	{"name": "사서의 특권", "kind": "skill", "effect": "librarians_privilege", "use_mode": "untargeted", "rarity": "special", "cost": 2, "value": 1, "exhaust": true, "rule": true, "playable": true, "description": "룰. 턴 시작 시 원하는 파일에서 카드를 1장 뽑습니다."},
 	{"name": "금속학 연구", "kind": "skill", "effect": "metallurgy_research", "use_mode": "untargeted", "rarity": "special", "cost": 1, "value": 1, "exhaust": true, "rule": true, "playable": true, "description": "룰. 재련한 카드를 손패로 가져옵니다."},
 	{"name": "질주", "kind": "skill", "effect": "dash", "use_mode": "untargeted", "rarity": "special", "cost": 1, "value": 0, "forge_cost": 3, "playable": true, "description": "카드를 무작위로 2[3]장 뽑습니다.\n재련: [3코스트]"},
 	{"name": "치환 합금", "kind": "strike", "effect": "exchange", "use_mode": "targeted", "rarity": "special", "cost": 3, "value": 15, "forge_any": true, "playable": true, "description": "피해를 15 줍니다.\n재련: [아무거나]"},
 	{"name": "늑대 부적", "kind": "skill", "effect": "wolf_talisman", "use_mode": "unplayable", "rarity": "special", "value": 1, "playable": false, "description": "전투 덱에 있는 동안 힘을 1 얻습니다.\n사용 불가."},
 	{"name": "거북이 부적", "kind": "skill", "effect": "turtle_talisman", "use_mode": "unplayable", "rarity": "special", "value": 1, "playable": false, "description": "전투 덱에 있는 동안 강인함을 1 얻습니다.\n사용 불가."},
+	{"name": "가호", "kind": "skill", "effect": "blessing", "use_mode": "untargeted", "rarity": "special", "cost": 1, "temporary_magic_resistance": 2, "description": "이번 턴 동안 마법 저항을 2 얻습니다."},
+	{"name": "은검", "kind": "strike", "effect": "silver_sword", "use_mode": "targeted", "rarity": "special", "cost": 1, "value": 10, "temporary_magic_resistance": 1, "description": "피해를 10 줍니다.\n이번 턴 동안 마법 저항을 1 얻습니다."},
+	{"name": "얼음 방패", "kind": "skill", "effect": "ice_shield", "use_mode": "untargeted", "rarity": "special", "cost": 1, "value": 9, "grants_block": true, "temporary_magic_resistance": 1, "description": "방어를 9 얻습니다.\n이번 턴 동안 마법 저항을 1 얻습니다."},
+	{"name": "수호", "kind": "skill", "effect": "safeguard", "use_mode": "untargeted", "rarity": "special", "cost": 2, "value": 10, "grants_block": true, "temporary_magic_resistance": 2, "description": "방어를 10 얻습니다.\n이번 턴 동안 마법 저항을 2 얻습니다."},
+	{"name": "평정", "kind": "skill", "effect": "composure", "use_mode": "untargeted", "rarity": "special", "cost": 0, "remove_player_debuffs": {"weak": 1, "vulnerable": 1}, "description": "나에게 걸린 약화와 취약을 1만큼 제거합니다."},
+	{"name": "약점 보완", "kind": "skill", "effect": "cover_weakness", "use_mode": "untargeted", "rarity": "special", "cost": 1, "value": 6, "grants_block": true, "remove_player_debuffs": {"vulnerable": 2}, "description": "방어를 6 얻습니다.\n나에게 걸린 취약을 2만큼 제거합니다."},
+	{"name": "용맹한 일격", "kind": "strike", "effect": "brave_strike", "use_mode": "targeted", "rarity": "special", "cost": 1, "value": 12, "remove_player_debuffs": {"weak": 3}, "description": "나에게 걸린 약화를 3만큼 제거합니다.\n피해를 12 줍니다."},
 ]
 
 const RARE_CARDS: Array[Dictionary] = [
+	{"name": "이계의 힘", "kind": "skill", "effect": "recycling", "use_mode": "untargeted", "rarity": "rare", "cost": 1, "value": 1, "exhaust": true, "rule": true, "playable": true, "description": "룰. 카드를 버릴 때마다 힘을 1 얻습니다."},
 	{"name": "개박살", "kind": "strike", "effect": "demolish", "use_mode": "targeted", "rarity": "rare", "cost": 3, "value": 20, "playable": true, "description": "피해를 20 줍니다. 취약과 약화를 2 부여합니다."},
 	{"name": "아드레날린", "kind": "skill", "effect": "adrenaline", "use_mode": "untargeted", "rarity": "rare", "cost": 0, "value": 2, "draw": 2, "exhaust": true, "playable": true, "description": "체력을 3 잃습니다. 에너지를 2 얻고 카드를 2장 뽑습니다.\n소멸."},
 	{"name": "예지", "kind": "skill", "effect": "foresight", "use_mode": "untargeted", "rarity": "rare", "cost": 0, "draw": 2, "playable": true, "description": "다음 턴 시작 시 카드를 2장 뽑습니다."},
 	{"name": "초월", "kind": "skill", "effect": "transcend", "use_mode": "untargeted", "rarity": "rare", "cost": 4, "value": 2, "exhaust": true, "playable": true, "description": "무적을 2 얻습니다.\n소멸."},
-	{"name": "강철의 폭풍", "kind": "skill", "effect": "steel_storm", "use_mode": "untargeted", "rarity": "rare", "cost": 3, "value": 12, "exhaust": true, "rule": true, "playable": true, "description": "방어를 12 얻습니다.\n턴 종료 시 모든 적에게 현재 방어만큼 피해를 줍니다."},
+	{"name": "강철의 폭풍", "kind": "skill", "effect": "steel_storm", "use_mode": "untargeted", "rarity": "rare", "cost": 3, "value": 0, "exhaust": true, "rule": true, "playable": true, "description": "턴 종료 시 모든 적에게 현재 방어만큼 피해를 줍니다."},
 	{"name": "평행 거울", "kind": "skill", "effect": "parallel_mirror", "use_mode": "untargeted", "rarity": "rare", "cost": 3, "exhaust": true, "playable": true, "description": "내 손에 있는 광채를 전부 복사해서 가져옵니다.\n소멸."},
-	{"name": "견고한 태세", "kind": "skill", "effect": "sturdy_stance", "use_mode": "untargeted", "rarity": "rare", "cost": 2, "value": 15, "exhaust": true, "rule": true, "playable": true, "description": "방어를 15 얻습니다.\n턴 종료 시 방어를 절반 보존합니다."},
+	{"name": "견고한 태세", "kind": "skill", "effect": "sturdy_stance", "use_mode": "untargeted", "rarity": "rare", "cost": 2, "value": 0, "exhaust": true, "rule": true, "playable": true, "description": "턴 종료 시 방어를 절반 보존합니다."},
 	{"name": "흑요석 단검", "kind": "strike", "effect": "obsidian_dagger", "use_mode": "targeted", "rarity": "rare", "cost": 2, "value": 1, "playable": true, "description": "피해를 1 줍니다.\n[밑패를 소멸시키고 피해량을 이 카드에 추가합니다.]"},
 	{"name": "DIY", "kind": "skill", "effect": "diy", "use_mode": "untargeted", "rarity": "rare", "cost": 0, "playable": true, "description": "이 카드는 스티커를 3개까지 붙일 수 있습니다. (중복 불가)"},
 	{"name": "초신성", "kind": "skill", "effect": "supernova", "use_mode": "untargeted", "rarity": "rare", "cost": 0, "value": 3, "exhaust": true, "playable": true, "description": "★★★를 잃고 에너지를 3 얻습니다.\n소멸."},
@@ -156,22 +166,16 @@ const RARE_CARDS: Array[Dictionary] = [
 	{"name": "소원", "kind": "skill", "effect": "wish", "use_mode": "untargeted", "rarity": "rare", "cost": 0, "value": 3, "exhaust": true, "playable": true, "description": "무작위 희귀 카드 3장을 가져옵니다. 그 카드들에 토큰 속성을 부여합니다.\n소멸."},
 	{"name": "연사", "kind": "skill", "effect": "rapid_fire", "use_mode": "untargeted", "rarity": "rare", "cost": 1, "exhaust": true, "playable": true, "description": "다음 공격 카드가 2회 발동합니다.\n소멸."},
 	{"name": "광행시간", "kind": "skill", "effect": "light_travel_time", "use_mode": "untargeted", "rarity": "rare", "cost": 1, "value": 3, "playable": true, "description": "다다음 턴 시작 시 광채 3장을 얻습니다."},
-	{"name": "오딘의 창", "kind": "strike", "effect": "odin_spear", "use_mode": "untargeted", "rarity": "rare", "cost": 6, "value": 40, "defense_value": 15, "all_targets": true, "playable": true, "description": "모든 적에게 피해를 40 줍니다. 방어를 15 얻습니다. 다른 카드를 재련할 때마다 비용이 1 감소합니다."},
+	{"name": "오딘의 창", "kind": "skill", "effect": "odin_spear", "use_mode": "untargeted", "rarity": "rare", "cost": 6, "value": 3, "all_targets": true, "playable": true, "description": "모든 적에게 약화와 취약을 3 부여합니다.\n다른 카드를 재련할 때마다 이 카드의 비용이 1 감소합니다."},
 	{"name": "병법서", "kind": "skill", "effect": "strategy_book", "use_mode": "untargeted", "rarity": "rare", "cost": 2, "value": 4, "exhaust": true, "playable": true, "description": "힘과 강인함을 4 얻습니다.\n이 효과는 손패에 있는 동안에도 적용됩니다.\n소멸."},
 	{"name": "진화론", "kind": "skill", "effect": "evolution_theory", "use_mode": "untargeted", "rarity": "rare", "cost": 2, "value": 1, "exhaust": true, "rule": true, "playable": true, "description": "힘과 강인함을 1 얻습니다.\n룰. 내 턴 시작 시 반복합니다."},
 	{"name": "유성우", "kind": "strike", "effect": "meteor", "use_mode": "untargeted", "rarity": "rare", "cost": 2, "value": 9, "playable": true, "description": "★를 모두 소모해, 무작위 적에게 별 하나당 피해를 9 줍니다."},
-	{"name": "대분배", "kind": "skill", "effect": "mass_deal", "use_mode": "untargeted", "rarity": "rare", "cost": 0, "exhaust": true, "rule": true, "playable": true, "description": "빈 파일을 하나 만듭니다.\n룰. 카드를 섞을 때마다 파일에 카드를 최대한 고르게 나눕니다."},
 	{"name": "법학 연구", "kind": "skill", "effect": "law_research", "use_mode": "untargeted", "rarity": "rare", "cost": 0, "value": 1, "exhaust": true, "rule": true, "playable": true, "description": "룰. 내 룰 카드의 비용이 1 감소합니다."},
-	{"name": "경제학 연구", "kind": "skill", "effect": "economics_research", "use_mode": "untargeted", "rarity": "rare", "cost": 2, "value": 3, "exhaust": true, "rule": true, "playable": true, "description": "룰. 에너지가 -3이 될 때까지 카드를 사용할 수 있습니다. 이 효과는 중첩됩니다."},
-	{"name": "광학 연구", "kind": "skill", "effect": "optics_research", "use_mode": "untargeted", "rarity": "rare", "cost": 0, "value": 1, "exhaust": true, "rule": true, "playable": true, "description": "룰. 턴 시작 시 광채 1장을 얻습니다."},
+	{"name": "경제학 연구", "kind": "skill", "effect": "economics_research", "use_mode": "untargeted", "rarity": "rare", "cost": 2, "value": 3, "exhaust": true, "rule": true, "playable": true, "description": "룰. 에너지가 -3이 될 때까지 카드를 사용할 수 있습니다."},
+	{"name": "저항력", "kind": "skill", "effect": "resilience", "use_mode": "untargeted", "rarity": "rare", "cost": 1, "magic_resistance": 1, "exhaust": true, "description": "마법 저항을 1 얻습니다.\n소멸."},
 ]
 
 const LEGENDARY_CARDS: Array[Dictionary] = [
-	{"name": "호롤로지움", "kind": "skill", "effect": "horologium", "use_mode": "untargeted", "rarity": "legendary", "cost": 0, "value": 1, "exhaust": true, "playable": true, "description": "내 턴을 한 번 더 진행합니다.\n소멸."},
-	{"name": "오피쿠우스", "kind": "skill", "effect": "ophiuchus", "use_mode": "untargeted", "rarity": "legendary", "cost": 1, "value": 5, "exhaust": true, "playable": true, "description": "체력을 5 회복합니다.\n소멸."},
-	{"name": "아리에스", "kind": "skill", "effect": "aries", "use_mode": "untargeted", "rarity": "legendary", "cost": 0, "value": 5, "exhaust": true, "playable": true, "description": "에너지를 5 얻습니다.\n★★★★★을 얻습니다.\n소멸."},
-	{"name": "히드라", "kind": "strike", "effect": "hydra", "use_mode": "untargeted", "rarity": "legendary", "cost": 2, "value": 9, "playable": true, "description": "무작위 적에게 피해를 9씩 9번 줍니다."},
-	{"name": "오리온", "kind": "skill", "effect": "orion", "use_mode": "untargeted", "rarity": "legendary", "cost": 1, "value": 10, "exhaust": true, "playable": true, "description": "힘을 10 얻습니다.\n소멸."},
 	{"name": "카시오페이아", "kind": "skill", "effect": "cassiopeia", "use_mode": "untargeted", "rarity": "legendary", "cost": -3, "value": 0, "playable": true, "description": "에너지를 3 얻습니다."},
 ]
 
@@ -181,6 +185,8 @@ static func create_starter_deck() -> Array[Dictionary]:
 	for blueprint in STARTER_CARDS:
 		deck.append(_make_card(blueprint, deck.size() + 1))
 	for blueprint in BASIC_CARDS:
+		if str(blueprint.get("effect", "")) in ["patch_gap", "sharpen_edge"]:
+			continue
 		deck.append(_make_card(blueprint, deck.size() + 1))
 	for blueprint in STARTER_CARDS:
 		for copy_index in range(5):
@@ -205,75 +211,71 @@ static func create_reward_cards(first_id: int, random: RandomNumberGenerator, fo
 	return rewards
 
 
-static func create_region_deck(region_number: int, first_id: int, random: RandomNumberGenerator, sticker_chance: float = 0.02) -> Dictionary:
+static func create_region_deck(region_number: int, first_id: int, random: RandomNumberGenerator) -> Dictionary:
 	var k := maxi(1, region_number)
-	var deck_sum := random.randi_range(1, 3) + random.randi_range(1, 3) + random.randi_range(1, 3) - 6
-	var candidates: Array[Dictionary] = []
-	var total_weight := 0.0
-	var distance_scale := sqrt(1.0 + 0.2 * float(k - 1))
-	for x in range(-k - 1, deck_sum + 2 * k + 1):
-		for y in range(-k, deck_sum - x + k + 1):
-			var z := deck_sum - x - y
-			var capacity := 20 + 5 * (k + x)
-			var rare_slot_capacity := k + y
-			if rare_slot_capacity > capacity:
-				continue
-			var distance := sqrt(float(x * x + y * y + z * z))
-			var weight := pow(1.75, -distance / distance_scale)
-			candidates.append({"x": x, "y": y, "z": z, "capacity": capacity,
-				"rare_slot_capacity": rare_slot_capacity, "weight": weight})
-			total_weight += weight
-	var cursor := random.randf() * total_weight
-	var shape: Dictionary = candidates.back() if not candidates.is_empty() else {
-		"x": 0, "y": 0, "z": 0, "capacity": 20 + 5 * k, "rare_slot_capacity": k, "weight": 1.0,
-	}
-	for candidate in candidates:
-		cursor -= float(candidate["weight"])
-		if cursor < 0.0:
-			shape = candidate
-			break
-	var rare_slot_capacity := int(shape["rare_slot_capacity"])
-	var rare_count := 0
-	for _slot in range(rare_slot_capacity):
-		if random.randf() < 0.8:
-			rare_count += 1
-	var cards: Array[Dictionary] = []
-	var next_id := first_id
-	var rare_bag := RARE_CARDS.duplicate()
-	for _rare_index in range(rare_count):
-		if rare_bag.is_empty():
-			rare_bag = RARE_CARDS.duplicate()
-		var rare_index := random.randi_range(0, rare_bag.size() - 1)
-		var rare_blueprint: Dictionary = rare_bag.pop_at(rare_index)
-		var rare_card := _make_card(rare_blueprint, next_id)
-		next_id += 1
-		cards.append(rare_card)
-	var edition_budget := 10 * (k + int(shape["z"]))
-	var editions := DeckEditions.roll(edition_budget, random)
-	for _slot in range(maxi(0, int(shape["capacity"]) - rare_slot_capacity)):
-		var filler_kind := random.randi_range(0, 3)
-		if filler_kind == 0:
+	var shape := roll_region_shape(k, random)
+	var editions := GenerationModel.editions_for(shape, random)
+	while true:
+		var capacity := 20 + 5 * int(shape.x)
+		if editions.has("gambit"):
+			capacity -= 20
+		if editions.has("fantastic"):
+			capacity = floori(float(capacity) * 0.8)
+		var bound_legend := editions.has("legendCassiopeia")
+		var rare_slots := int(shape.y1) + int(shape.y2) + (1 if bound_legend else 0)
+		if capacity <= 0 or rare_slots > capacity:
 			continue
-		var pool: Array = STARTER_CARDS if filler_kind == 1 else BASIC_CARDS if filler_kind == 2 else SPECIAL_CARDS
-		var blueprint: Dictionary = pool[random.randi_range(0, pool.size() - 1)]
-		var card := _make_card(blueprint, next_id)
-		next_id += 1
-		cards.append(card)
-	if sticker_chance > 0.0:
-		for card_index in range(cards.size()):
-			cards[card_index] = CardStickers.with_random_sticker(cards[card_index], sticker_chance, random)
-	return {
-		"deck": {
-			"id": "found-r%d-%d" % [k, first_id],
-			"name": _create_deck_name(int(shape["capacity"]), random),
-			"capacity": int(shape["capacity"]),
-			"rare_slot_capacity": rare_slot_capacity,
-			"cards": cards,
-			"editions": editions,
-			"generation": {"k": k, "s": deck_sum, "x": int(shape["x"]), "y": int(shape["y"]), "z": int(shape["z"])},
-		},
-		"next_card_id": next_id,
-	}
+		var cards: Array[Dictionary] = []
+		var next_id := first_id
+		var rare_bag := RARE_CARDS.duplicate()
+		for _slot in range(int(shape.y1)):
+			if rare_bag.is_empty():
+				rare_bag = RARE_CARDS.duplicate()
+			cards.append(_make_card(rare_bag.pop_at(random.randi_range(0, rare_bag.size() - 1)), next_id))
+			next_id += 1
+		if bound_legend:
+			var legend := _make_card(LEGENDARY_CARDS[0], next_id)
+			legend["edition_bound"] = true
+			cards.append(legend)
+			next_id += 1
+		# y2 rare slots stay empty. Only the non-rare capacity receives filler.
+		for _slot in range(capacity - rare_slots):
+			var filler_kind := random.randi_range(0, 3)
+			if filler_kind == 0:
+				continue
+			var pool: Array = STARTER_CARDS if filler_kind == 1 else BASIC_CARDS if filler_kind == 2 else SPECIAL_CARDS
+			cards.append(_make_card(pool[random.randi_range(0, pool.size() - 1)], next_id))
+			next_id += 1
+		var sticker_candidates: Array[int] = []
+		for index in range(cards.size()):
+			if not CardStickers.compatible_stickers(cards[index]).is_empty():
+				sticker_candidates.append(index)
+		while sticker_candidates.size() < int(shape.w) and cards.size() < capacity - int(shape.y2):
+			var blueprint: Dictionary = BASIC_CARDS[random.randi_range(0, BASIC_CARDS.size() - 1)]
+			var extra := _make_card(blueprint, next_id)
+			if CardStickers.compatible_stickers(extra).is_empty():
+				continue
+			sticker_candidates.append(cards.size())
+			cards.append(extra)
+			next_id += 1
+		if int(shape.w) > sticker_candidates.size():
+			continue
+		for _sticker in range(int(shape.w)):
+			var index: int = sticker_candidates.pop_at(random.randi_range(0, sticker_candidates.size() - 1))
+			cards[index] = CardStickers.with_random_sticker(cards[index], 1.0, random)
+		return {
+			"deck": {
+				"id": "found-r%d-%d" % [k, first_id], "name": _create_deck_name(capacity, random),
+				"capacity": capacity, "rare_slot_capacity": rare_slots, "cards": cards,
+				"editions": editions, "generation": shape,
+			},
+			"next_card_id": next_id,
+		}
+	return {}
+
+
+static func roll_region_shape(region_number: int, random: RandomNumberGenerator) -> Dictionary:
+	return GenerationModel.roll(region_number, random)
 
 
 static func _create_deck_name(capacity: int, random: RandomNumberGenerator) -> String:

@@ -10,30 +10,24 @@ var _lock_shackle_progress := 1.0
 var _lock_shackle_lift_progress := 1.0
 var _lock_color_progress := 1.0
 var _animate_unlock_on_ready := false
+var _show_lock := true
 
 
 func _ready() -> void:
 	if _animate_unlock_on_ready:
 		_start_unlock_animation()
 
-const EDITION_COLORS := {
-	"clever": "#ef4444", "roomy": "#f97316", "lively": "#eab308",
-	"fantastic": "#84cc16", "rampaging": "#06b6d4", "quickHammer": "#e29842",
-	"drawPlus": "#6366f1", "starPlus": "#8b5cf6", "energyPlus": "#a855f7",
-	"persistentDraw": "#d946ef", "frugalPlus": "#ec4899", "defensiveStance": "#f43f5e",
-	"giant": "#7c3aed", "whiteSpace": "#115e59",
-	"invincible": "#be123c", "hammering": "#c2410c", "deckHighlander": "#a16207",
-	"starFive": "#15803d", "energyThree": "#0f766e", "starThree": "#d4a017",
-}
+const EDITION_COLORS := DeckEditions.COLORS
 
 const NAME_SIZE := 15
-const EDITION_SIZE := 11
+const EDITION_SIZE := 12
 const COUNT_SIZE := 12
 const MUTED_COLOR := Color("#c5c3ba")
 
 
 func configure(deck_name: String, editions: Array, card_count: int, capacity: int,
-	can_edit: bool, animate_unlock := false) -> void:
+	can_edit: bool, animate_unlock := false, show_lock := true, centered := false) -> void:
+	_show_lock = show_lock
 	mouse_filter = Control.MOUSE_FILTER_IGNORE
 	set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
 	clip_contents = true
@@ -41,7 +35,7 @@ func configure(deck_name: String, editions: Array, card_count: int, capacity: in
 	content.name = "DeckCaseHeadingContent"
 	content.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
 	content.offset_left = 12.0
-	content.offset_right = -48.0
+	content.offset_right = -48.0 if _show_lock else -12.0
 	content.add_theme_constant_override("separation", 2)
 	content.alignment = BoxContainer.ALIGNMENT_CENTER
 	content.mouse_filter = Control.MOUSE_FILTER_IGNORE
@@ -50,6 +44,7 @@ func configure(deck_name: String, editions: Array, card_count: int, capacity: in
 	var name_label := Label.new()
 	name_label.name = "DeckCaseNameLabel"
 	name_label.text = "덱 「%s」" % deck_name
+	name_label.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER if centered else HORIZONTAL_ALIGNMENT_LEFT
 	name_label.add_theme_font_override("font", _font_800())
 	name_label.add_theme_font_size_override("font_size", NAME_SIZE)
 	name_label.add_theme_color_override("font_color", Color.WHITE)
@@ -62,6 +57,7 @@ func configure(deck_name: String, editions: Array, card_count: int, capacity: in
 
 	var editions_row := HBoxContainer.new()
 	editions_row.name = "DeckCaseEditions"
+	editions_row.alignment = BoxContainer.ALIGNMENT_CENTER if centered else BoxContainer.ALIGNMENT_BEGIN
 	editions_row.add_theme_constant_override("separation", 0)
 	editions_row.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	editions_row.clip_contents = true
@@ -87,12 +83,15 @@ func configure(deck_name: String, editions: Array, card_count: int, capacity: in
 	var count_label := Label.new()
 	count_label.name = "DeckCaseCountLabel"
 	count_label.text = "%d / %d" % [card_count, capacity]
+	count_label.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER if centered else HORIZONTAL_ALIGNMENT_LEFT
 	count_label.add_theme_font_override("font", _font_arial_700())
 	count_label.add_theme_font_size_override("font_size", COUNT_SIZE)
 	count_label.add_theme_color_override("font_color", MUTED_COLOR)
 	count_label.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	count_label.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	content.add_child(count_label)
+	if not _show_lock:
+		return
 	var lock_hitbox := Control.new()
 	lock_hitbox.name = "DeckCaseLockTooltip"
 	lock_hitbox.mouse_filter = Control.MOUSE_FILTER_PASS
@@ -121,6 +120,8 @@ func configure(deck_name: String, editions: Array, card_count: int, capacity: in
 
 
 func _draw() -> void:
+	if not _show_lock:
+		return
 	var can_edit := bool(get_meta("deck_case_can_edit", false))
 	var color := Color("#e6a04b") if bool(get_meta("deck_case_lock_hovered", false)) \
 		else MUTED_COLOR.lerp(Color("#f0cd56"), _lock_color_progress) if can_edit else MUTED_COLOR

@@ -2,7 +2,7 @@ extends RefCounted
 
 const CardUse = preload("res://scripts/card_use.gd")
 const LIFT_HOLD_DISTANCE := 12.0
-const KEY_CLICK_GRACE_MS := 150
+const KEY_CLICK_GRACE_MS := 300
 
 # Keep keyboard selection on the same payload and validators as pointer dragging.
 var card_id := -1

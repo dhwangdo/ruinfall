@@ -8,16 +8,18 @@ const BEZIER_Y2 := 1.0
 var source: Control
 var visual_builder: Callable
 var reduced_motion := false
+var motion_kind := "attack"
 var ghost: Control
 var _original_modulate := Color.WHITE
 var _base_position := Vector2.ZERO
 var _done := false
 var _tween: Tween
 
-func configure(source_control: Control, builder: Callable, reduced: bool = false) -> void:
+func configure(source_control: Control, builder: Callable, reduced: bool = false, motion: String = "attack") -> void:
     source = source_control
     visual_builder = builder
     reduced_motion = reduced
+    motion_kind = motion
     if is_instance_valid(source):
         _original_modulate = source.modulate
         source.tree_exiting.connect(_on_source_exiting, CONNECT_ONE_SHOT)
@@ -52,11 +54,14 @@ func play() -> void:
     _make_inert(ghost)
     source.modulate.a = 0.0
     _tween = create_tween()
-    var points := [Vector3(0, 0, 1), Vector3(0.18, -16, 0.96), Vector3(0.55, 610, 1.07), Vector3(0.67, 575, 1.03), Vector3(1, 0, 1)]
+    var duration := 0.18 if motion_kind == "buff" else DURATION
+    var points := [Vector3(0, 0, 1), Vector3(0.38, -28, 1), Vector3(1, 0, 1)]
+    if motion_kind == "buff":
+        points = [Vector3(0, 0, 1), Vector3(0.4, 0, 1.08), Vector3(1, 0, 1)]
     for i in range(points.size() - 1):
         var a: Vector3 = points[i]
         var b: Vector3 = points[i + 1]
-        _tween.tween_method(Callable(self, "_set_segment").bind(a, b), 0.0, 1.0, float(b.x - a.x) * DURATION).set_trans(Tween.TRANS_LINEAR)
+        _tween.tween_method(Callable(self, "_set_segment").bind(a, b), 0.0, 1.0, float(b.x - a.x) * duration).set_trans(Tween.TRANS_LINEAR)
     _tween.finished.connect(func(): _finish(false), CONNECT_ONE_SHOT)
 
 func cancel() -> void:
@@ -65,7 +70,7 @@ func cancel() -> void:
 func _set_segment(t: float, a: Vector3, b: Vector3) -> void:
     if _done: return
     var eased := _bezier_ease(t)
-    position.y = _base_position.y + lerpf(float(a.y), float(b.y), eased)
+    position.x = _base_position.x + lerpf(float(a.y), float(b.y), eased)
     scale = Vector2.ONE * lerpf(float(a.z), float(b.z), eased)
 
 func _bezier_ease(x: float) -> float:
