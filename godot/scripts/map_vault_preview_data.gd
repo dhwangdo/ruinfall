@@ -7,7 +7,8 @@ const CardCatalog = preload("res://scripts/card_catalog.gd")
 static func resolve(state: Dictionary, position: Vector2i, debug_mode: bool = false) -> Dictionary:
 	var map_data: Dictionary = state.get("map", {})
 	var key := "%d,%d" % [position.x, position.y]
-	if (not debug_mode and not map_data.get("seen", {}).has(position)) \
+	var visibility := MapRules.display_visibility(map_data, Vector2i(state.get("position", Vector2i.ZERO)), debug_mode)
+	if (not visibility.seen.has(position) and not map_data.get("known_deck_vaults", {}).has(position)) \
 		or MapRules.room_type_at(map_data, position) != "deckVault" \
 		or bool(map_data.get("opened_deck_vaults", {}).get(key, false)):
 		return {}

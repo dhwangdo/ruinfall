@@ -18,12 +18,21 @@ static func bind_edition(control: Control, edition_id: String) -> void:
 	_bind(control, "edition", edition_id)
 
 
-static func bind_status(control: Control, title: String, description: String) -> void:
-	_bind(control, "status", {"name": title, "description": description})
+static func bind_status(control: Control, title: String, description: String, icon_id := "") -> void:
+	_bind(control, "status", {"name": title, "description": description, "icon_id": icon_id})
 
 
-static func bind_enemy(control: Control, title: String, description: String) -> void:
-	_bind(control, "enemy", {"name": title, "description": description})
+static func bind_debuff(control: Control, title: String, description: String, icon_id := "") -> void:
+	_bind(control, "debuff", {"name": title, "description": description, "icon_id": icon_id})
+
+
+static func bind_rule(control: Control, card: Dictionary, icon_id := "rule") -> void:
+	_bind(control, "rule", {"name": str(card.get("name", "룰")),
+		"description": str(card.get("description", "")), "icon_id": icon_id})
+
+
+static func bind_enemy(control: Control, title: String, description: String, icon_id := "") -> void:
+	_bind(control, "enemy", {"name": title, "description": description, "icon_id": icon_id})
 
 
 static func _bind(control: Control, kind: String, payload: Variant) -> void:

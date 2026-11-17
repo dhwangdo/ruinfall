@@ -89,6 +89,6 @@ static func move_error(state: Dictionary, payload: Dictionary, target_file: int)
 
 
 static func solitaire_star_cost(state: Dictionary, card: Dictionary) -> int:
-	if state.get("deck_editions", []).has("firstSolitaire") and not bool(state.get("first_solitaire_used", false)):
+	if int(state.get("temporary_solitaire_actions", 0)) > 0 and CardStickers.solitaire_star_cost(card) > 0:
 		return 0
 	return CardStickers.solitaire_star_cost(card)

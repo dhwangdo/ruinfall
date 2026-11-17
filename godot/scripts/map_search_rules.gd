@@ -6,6 +6,7 @@ const StickerServices = preload("res://scripts/sticker_services.gd")
 const CardStickers = preload("res://scripts/stickers.gd")
 const DeckEditions = preload("res://scripts/deck_editions.gd")
 const DeckVaultCardView = preload("res://scripts/deck_vault_card_view.gd")
+const VaultPreview = preload("res://scripts/map_vault_preview_data.gd")
 
 const CARD_RARITY_ORDER := {"legendary": 0, "rare": 1, "special": 2, "basic": 3, "starter": 4, "status": 5}
 
@@ -28,10 +29,12 @@ static func build_entries(run_state: Dictionary) -> Array[Dictionary]:
 	var entries: Array[Dictionary] = []
 	var map_data: Dictionary = run_state.get("map", {})
 	var seen: Dictionary = map_data.get("seen", {})
+	var searchable := seen.duplicate()
+	searchable.merge(map_data.get("known_deck_vaults", {}))
 	var map_seed := int(run_state.get("map_seed", map_data.get("seed", 0)))
 	var vaults: Dictionary = map_data.get("deck_vaults", {})
 	var opened_vaults: Dictionary = map_data.get("opened_deck_vaults", {})
-	for raw_position in seen.keys():
+	for raw_position in searchable.keys():
 		if not (raw_position is Vector2i):
 			continue
 		var seen_position: Vector2i = raw_position
@@ -53,10 +56,12 @@ static func build_entries(run_state: Dictionary) -> Array[Dictionary]:
 				continue
 			var vault: Dictionary = vaults.get(vault_key, {})
 			if vault.is_empty():
+				vault = VaultPreview.resolve(run_state, seen_position)
+			if vault.is_empty():
 				continue
 			var deck_name := str(vault.get("name", "덱 금고"))
 			_add_entry(entries, "deck", "덱 「%s」" % deck_name, region, seen_position,
-				"덱 금고 %s %s %s" % [deck_name, _deck_search_text(vault), _edition_search_text(vault)], -1, "미개방 금고", "", {"deck": vault.duplicate(true)})
+				"덱 금고 %s %s %s" % [deck_name, _deck_search_text(vault), _edition_search_text(vault)], -1, "미개방 금고", "", {"deck": vault.duplicate(true), "in_vault": true})
 			_add_card_entries(entries, vault.get("cards", []), region, seen_position,
 				"미개방 금고 · 덱 「%s」" % deck_name, deck_name, _edition_search_text(vault))
 
@@ -105,7 +110,7 @@ static func build_entries(run_state: Dictionary) -> Array[Dictionary]:
 		if int(left["region"]) != int(right["region"]):
 			return int(left["region"]) < int(right["region"])
 		if str(left["label"]) != str(right["label"]):
-			return DeckVaultCardView.name_less(str(left["label"]), str(right["label"]))
+			return str(left["name_sort_key"]) < str(right["name_sort_key"])
 		var left_position: Vector2i = left["position"]
 		var right_position: Vector2i = right["position"]
 		return left_position.y < right_position.y if left_position.y != right_position.y else left_position.x < right_position.x
@@ -126,7 +131,7 @@ static func filter_entries(entries: Array[Dictionary], kind: String, region: int
 			continue
 		if region > 0 and int(entry["region"]) != region:
 			continue
-		var search_text := _normalize(str(entry["search_text"]))
+		var search_text := str(entry["search_text"])
 		var matches_query := true
 		for term in query_terms:
 			if not search_text.contains(term):
@@ -142,7 +147,7 @@ static func filter_entries(entries: Array[Dictionary], kind: String, region: int
 			if int(left["rarity_order"]) != int(right["rarity_order"]):
 				return int(left["rarity_order"]) < int(right["rarity_order"])
 			if str(left["label"]) != str(right["label"]):
-				return DeckVaultCardView.name_less(str(left["label"]), str(right["label"]))
+				return str(left["name_sort_key"]) < str(right["name_sort_key"])
 			var left_position: Vector2i = left["position"]
 			var right_position: Vector2i = right["position"]
 			return left_position.y < right_position.y if left_position.y != right_position.y else left_position.x < right_position.x
@@ -156,6 +161,8 @@ static func _add_entry(entries: Array[Dictionary], kind: String, label: String, 
 	if region <= 0:
 		return
 	entries.append({
+		"search_entry_key": str(entries.size()),
+		"name_sort_key": DeckVaultCardView.korean_name_key(label),
 		"kind": kind,
 		"label": label,
 		"region": region,
@@ -166,6 +173,7 @@ static func _add_entry(entries: Array[Dictionary], kind: String, label: String, 
 		"sticker_id": sticker_id,
 		"card": payload.get("card", {}),
 		"deck": payload.get("deck", {}),
+		"in_vault": bool(payload.get("in_vault", false)),
 		"consumable": payload.get("consumable", {}),
 		"count": int(payload.get("count", 1)),
 	})

@@ -33,7 +33,7 @@ func request(game: Node, kind: String, payload: Variant, anchor: Control,
 		placement_anchor: Control = null, preview_factory: Callable = Callable()) -> void:
 	if not is_instance_valid(game) or not is_instance_valid(anchor):
 		return
-	if not ["keyword", "sticker", "edition", "status", "enemy"].has(kind):
+	if not ["keyword", "sticker", "edition", "status", "debuff", "enemy", "rule"].has(kind):
 		return
 	var next_placement_anchor := placement_anchor if is_instance_valid(placement_anchor) else anchor
 	var next_key := _make_payload_key(kind, payload)
@@ -108,7 +108,10 @@ static func _anchor_bounds(anchor: Control) -> Rect2:
 func _sections_for(kind: String, payload: Variant) -> Array[Dictionary]:
 	if kind == "keyword":
 		if payload is Dictionary:
-			return CardKeywords.tooltip_sections(payload)
+			var card_sections: Array[Dictionary] = CardKeywords.tooltip_sections(payload)
+			if not card_sections.is_empty() and payload.has("tooltip_icon_id"):
+				card_sections[0]["icon_id"] = str(payload["tooltip_icon_id"])
+			return card_sections
 		return []
 	if kind == "sticker":
 		var sticker_id := str(payload)
@@ -129,20 +132,22 @@ func _sections_for(kind: String, payload: Variant) -> Array[Dictionary]:
 			"title": DeckEditions.tooltip_title(edition_id),
 			"description": edition_description,
 			"kind": "edition",
+			"icon_id": "edition_%s" % edition_id,
 		}]
-	if kind in ["status", "enemy"] and payload is Dictionary:
+	if kind in ["status", "debuff", "enemy", "rule"] and payload is Dictionary:
 		var title := str(payload.get("name", ""))
 		var description := str(payload.get("description", ""))
 		if title.is_empty() and description.is_empty():
 			return []
-		return [{"title": title, "description": description, "kind": kind}]
+		return [{"title": title, "description": description, "kind": kind,
+			"icon_id": str(payload.get("icon_id", ""))}]
 	return []
 
 
 func _width_for(kind: String, payload: Variant, sections: Array[Dictionary], anchor: Control) -> float:
 	if kind == "sticker":
 		return minf(STICKER_WIDTH, _viewport_size().x - VIEWPORT_MARGIN * 2.0)
-	if kind in ["edition", "status", "enemy"]:
+	if kind in ["edition", "status", "debuff", "enemy", "rule"]:
 		var rect := _anchor_bounds(anchor)
 		var left_space := maxf(0.0, rect.position.x - EDITION_GAP - VIEWPORT_MARGIN)
 		var right_space := maxf(0.0, _viewport_size().x - rect.end.x - EDITION_GAP - VIEWPORT_MARGIN)
@@ -226,7 +231,37 @@ func _position_for(kind: String, anchor: Control, measured: Vector2, width: floa
 		y = maxf(VIEWPORT_MARGIN, rect.position.y)
 		x = minf(x, viewport.x - actual_width - VIEWPORT_MARGIN)
 		y = minf(y, viewport.y - measured.y - VIEWPORT_MARGIN)
+		var initial := Vector2(maxf(VIEWPORT_MARGIN, x), maxf(VIEWPORT_MARGIN, y))
+		if Rect2(initial, Vector2(actual_width, measured.y)).intersects(rect):
+			return _keyword_position_avoiding_card(rect, measured, actual_width, viewport, initial)
 	return Vector2(maxf(VIEWPORT_MARGIN, x), maxf(VIEWPORT_MARGIN, y))
+
+
+func _keyword_position_avoiding_card(card_rect: Rect2, measured: Vector2,
+		width: float, viewport: Vector2, initial: Vector2) -> Vector2:
+	var max_x := maxf(VIEWPORT_MARGIN, viewport.x - width - VIEWPORT_MARGIN)
+	var max_y := maxf(VIEWPORT_MARGIN, viewport.y - measured.y - VIEWPORT_MARGIN)
+	var top_y := clampf(card_rect.position.y - measured.y - KEYWORD_GAP,
+		VIEWPORT_MARGIN, max_y)
+	var bottom_y := clampf(card_rect.end.y + KEYWORD_GAP, VIEWPORT_MARGIN, max_y)
+	var candidates: Array[Vector2] = [
+		Vector2(clampf(card_rect.end.x + KEYWORD_GAP, VIEWPORT_MARGIN, max_x), initial.y),
+		Vector2(clampf(card_rect.position.x - width - KEYWORD_GAP, VIEWPORT_MARGIN, max_x), initial.y),
+		Vector2(initial.x, top_y),
+		Vector2(initial.x, bottom_y),
+	]
+	var best := initial
+	var best_overlap := INF
+	var best_distance := INF
+	for candidate in candidates:
+		var overlap := Rect2(candidate, Vector2(width, measured.y)).intersection(card_rect)
+		var area := overlap.size.x * overlap.size.y
+		var distance := candidate.distance_squared_to(initial)
+		if area < best_overlap or (is_equal_approx(area, best_overlap) and distance < best_distance):
+			best = candidate
+			best_overlap = area
+			best_distance = distance
+	return best
 
 
 func _reposition_visible() -> void:

@@ -91,9 +91,9 @@ static func create(
 	hover_exit: Callable,
 	sticker_enter: Callable,
 	tooltip_theme: Theme = null,
-	interactive: bool = true,
-	card_size: Vector2 = CARD_SIZE
+	interactive: bool = true
 ) -> Control:
+	var card_size := CARD_SIZE
 	_ensure_fonts()
 	var rarity := str(card.get("rarity", ""))
 	var band_color := _rarity_band(rarity)
@@ -105,6 +105,8 @@ static func create(
 	source.oversampling_with_scale = CanvasItem.OVERSAMPLING_WITH_SCALE_ENABLED
 	source.custom_minimum_size = card_size
 	source.size = card_size
+	source.size_flags_horizontal = Control.SIZE_SHRINK_CENTER
+	source.size_flags_vertical = Control.SIZE_SHRINK_CENTER
 	source.mouse_filter = Control.MOUSE_FILTER_STOP if interactive else Control.MOUSE_FILTER_IGNORE
 	source.add_theme_stylebox_override("panel", frame_style)
 	if interactive and hover_enter.is_valid():

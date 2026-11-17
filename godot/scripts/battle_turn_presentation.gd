@@ -5,6 +5,7 @@ const EnemyStrike = preload("res://scripts/battle_enemy_strike.gd")
 const HitPopup = preload("res://scripts/battle_hit_popup.gd")
 const CardStickers = preload("res://scripts/stickers.gd")
 const DefenseShield = preload("res://scripts/battle_defense_shield.gd")
+const BattleHPBar = preload("res://scripts/battle_hp_bar.gd")
 
 var active_popup: Control
 var player_popup_kind := "damage"
@@ -181,8 +182,8 @@ func _render_vitals(game, values: Dictionary) -> void:
 	var hp: ProgressBar = game.active_battle_player_hp
 	if is_instance_valid(hp):
 		var value := int(values.get("player_hp", hp.value))
-		hp.value = clampf(value, 0.0, hp.max_value)
-		game.active_battle_player_hp_text.text = "%d / %d" % [value, int(hp.max_value)]
+		BattleHPBar.set_display_hp(hp, game.active_battle_player_hp_text, value,
+			not game.battle_draw_presentation._reduced_motion())
 	var strip: HBoxContainer = game.active_battle_defense_strip
 	if not is_instance_valid(strip):
 		return

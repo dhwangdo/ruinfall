@@ -7,7 +7,7 @@ const SELECTOR_SIZE := 82.0 * 1.2
 const SELECTOR_BORDER := 3.0 * 1.2
 const SELECTOR_NAME_WIDTH := 66.0 * 1.2
 const CARD_FONT: FontFile = preload("res://assets/fonts/PretendardVariable.woff2")
-const STACK_ICON_SCALE := 0.76 * 1.2
+const DeckIconArt = preload("res://scripts/deck_icon_art.gd")
 
 var _large_deck_menu: PopupMenu
 var _deck_name := ""
@@ -21,28 +21,27 @@ var _max_owned_decks := 0
 var _active_deck_id := ""
 var _active_deck_count := -1
 var _active_deck_capacity := -1
+var _pointer_down := false
+var _repositioning := false
+var _drag_moved := false
+var _drag_origin := Vector2.ZERO
+var _position_origin := Vector2.ZERO
 
 signal deck_picked(deck_id: String)
 signal menu_closed
+signal position_changed(new_position: Vector2)
 
 
 class DeckStackIcon extends Control:
 	func _ready() -> void:
 		mouse_filter = Control.MOUSE_FILTER_IGNORE
+		texture_filter = CanvasItem.TEXTURE_FILTER_NEAREST
+		material = DeckIconArt.palette_material()
 
 	func _draw() -> void:
-		var card_size := Vector2(23.0, 29.0) * STACK_ICON_SCALE
-		var origin := (size - card_size) * 0.5 + Vector2(0.0, 5.0 * STACK_ICON_SCALE)
-		var card_rect := Rect2(origin, card_size)
-		draw_rect(Rect2(origin + Vector2(-4.0, 4.0) * STACK_ICON_SCALE, card_size), Color("#82796b"))
-		var back_rect := Rect2(origin + Vector2(-6.0, 6.0) * STACK_ICON_SCALE - Vector2.ONE * STACK_ICON_SCALE,
-			card_size + Vector2.ONE * 2.0 * STACK_ICON_SCALE)
-		draw_rect(back_rect, Color("#5b5348"), false, STACK_ICON_SCALE)
-		draw_rect(card_rect, Color("#c9c4b8"))
-		draw_rect(card_rect, Color("#6a6154"), false, 2.0 * STACK_ICON_SCALE)
-		var inset := 5.0 * STACK_ICON_SCALE
-		draw_rect(Rect2(origin + Vector2.ONE * inset, card_size - Vector2.ONE * inset * 2.0),
-			Color("#827660"), false, STACK_ICON_SCALE)
+		var side := floorf(minf(size.x, size.y))
+		draw_texture_rect(DeckIconArt.RARE,
+			Rect2(((size - Vector2.ONE * side) * 0.5).round(), Vector2.ONE * side), false)
 
 
 func _init() -> void:
@@ -116,11 +115,54 @@ func _configure_menu() -> void:
 
 
 func _on_selector_pressed() -> void:
+	if _drag_moved:
+		return
 	if _owned_decks.size() > 3 and is_instance_valid(_large_deck_menu):
 		_large_deck_menu.popup_centered(Vector2i(360, 480))
 		return
 	if is_instance_valid(_menu):
+		var desired := global_position + Vector2(92.0 * 1.2, 22.0 * 1.2) - Vector2(180, 160)
+		var upper := (get_viewport_rect().size - _menu.size).max(Vector2.ZERO)
+		_menu.global_position = desired.clamp(Vector2.ZERO, upper)
 		_menu.call("toggle_menu")
+
+
+func is_repositioning() -> bool:
+	return _repositioning
+
+
+func _gui_input(event: InputEvent) -> void:
+	if event is InputEventMouseButton and event.button_index == MOUSE_BUTTON_LEFT:
+		if event.pressed:
+			_pointer_down = true
+			_drag_moved = false
+			_drag_origin = get_parent().get_local_mouse_position()
+			_position_origin = position
+		else:
+			_pointer_down = false
+			if _repositioning:
+				_repositioning = false
+				position_changed.emit(position)
+				accept_event()
+	elif event is InputEventMouseMotion and _pointer_down:
+		_update_reposition(get_parent().get_local_mouse_position())
+		if _repositioning:
+			accept_event()
+	elif event is InputEventKey and event.pressed:
+		_drag_moved = false
+
+
+func _update_reposition(pointer: Vector2) -> void:
+	var delta := pointer - _drag_origin
+	if not _repositioning and delta.length() < 6.0:
+		return
+	if not _repositioning:
+		_repositioning = true
+		_drag_moved = true
+		close_menu()
+		set_anchors_and_offsets_preset(Control.PRESET_TOP_LEFT, Control.PRESET_MODE_KEEP_SIZE)
+	var bounds := (get_parent() as Control).size - size
+	position = (_position_origin + delta).clamp(Vector2.ZERO, bounds.max(Vector2.ZERO))
 
 
 func close_menu() -> void:
@@ -201,7 +243,5 @@ func _selector_style(background: Color, border: Color) -> StyleBoxFlat:
 	style.content_margin_top = 0
 	style.content_margin_right = 0
 	style.content_margin_bottom = 0
-	style.shadow_color = Color(0.0, 0.0, 0.0, 0.4)
-	style.shadow_size = 12
-	style.shadow_offset = Vector2(0.0, 4.8)
+	style.shadow_size = 0
 	return style

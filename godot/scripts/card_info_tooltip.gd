@@ -86,8 +86,8 @@ func _add_section(section: Dictionary) -> void:
 	var title := str(section.get("title", ""))
 	var description := str(section.get("description", ""))
 	var kind := str(section.get("kind", "keyword"))
-	var blue := kind in ["sticker", "edition", "status"]
-	var purple := kind == "enemy"
+	var blue := kind in ["sticker", "edition", "status", "enemy", "rule"]
+	var purple := kind == "debuff"
 	var is_preview := str(section.get("preview", "")) == "radiance" and _preview_factory.is_valid()
 
 	var panel := PanelContainer.new()
@@ -116,6 +116,20 @@ func _add_section(section: Dictionary) -> void:
 			return
 
 	if not title.is_empty():
+		var title_row := HBoxContainer.new()
+		title_row.mouse_filter = Control.MOUSE_FILTER_IGNORE
+		title_row.add_theme_constant_override("separation", 5)
+		content.add_child(title_row)
+		var icon_id := str(section.get("icon_id", ""))
+		var icon_path := "res://assets/ui/status/%s.svg" % icon_id
+		if not icon_id.is_empty() and ResourceLoader.exists(icon_path):
+			var title_icon := TextureRect.new()
+			title_icon.mouse_filter = Control.MOUSE_FILTER_IGNORE
+			title_icon.texture = load(icon_path)
+			title_icon.expand_mode = TextureRect.EXPAND_IGNORE_SIZE
+			title_icon.stretch_mode = TextureRect.STRETCH_KEEP_ASPECT_CENTERED
+			title_icon.custom_minimum_size = Vector2(20, 20)
+			title_row.add_child(title_icon)
 		var title_label := Label.new()
 		title_label.mouse_filter = Control.MOUSE_FILTER_IGNORE
 		title_label.text = title
@@ -123,7 +137,7 @@ func _add_section(section: Dictionary) -> void:
 		title_label.add_theme_constant_override("line_spacing", 0)
 		title_label.add_theme_color_override("font_color", TITLE_PURPLE if purple else TITLE_BLUE if blue else TITLE_KEYWORD)
 		_apply_font(title_label, _bold_font)
-		content.add_child(title_label)
+		title_row.add_child(title_label)
 
 	if not description.is_empty():
 		var body_label := Label.new()

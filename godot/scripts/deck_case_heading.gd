@@ -2,6 +2,7 @@ extends Control
 
 const DeckEditions = preload("res://scripts/deck_editions.gd")
 const TooltipBindings = preload("res://scripts/tooltip_bindings.gd")
+const DeckIconArt = preload("res://scripts/deck_icon_art.gd")
 const HeadingFontRegular = preload("res://assets/fonts/PretendardVariable.woff2")
 const HeadingFont = preload("res://assets/fonts/PretendardVariable700.tres")
 static var _name_font: FontVariation
@@ -11,6 +12,7 @@ var _lock_shackle_lift_progress := 1.0
 var _lock_color_progress := 1.0
 var _animate_unlock_on_ready := false
 var _show_lock := true
+var _compact_text_width := 0.0
 
 
 func _ready() -> void:
@@ -26,7 +28,7 @@ const MUTED_COLOR := Color("#c5c3ba")
 
 
 func configure(deck_name: String, editions: Array, card_count: int, capacity: int,
-	can_edit: bool, animate_unlock := false, show_lock := true, centered := false) -> void:
+	can_edit: bool, animate_unlock := false, show_lock := true, centered := false, show_icon := false) -> void:
 	_show_lock = show_lock
 	mouse_filter = Control.MOUSE_FILTER_IGNORE
 	set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
@@ -34,12 +36,29 @@ func configure(deck_name: String, editions: Array, card_count: int, capacity: in
 	var content := VBoxContainer.new()
 	content.name = "DeckCaseHeadingContent"
 	content.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
-	content.offset_left = 12.0
-	content.offset_right = -48.0 if _show_lock else -12.0
+	content.offset_left = (48.0 if _show_lock else 50.0) if show_icon else 12.0
+	content.offset_right = -48.0 if _show_lock else (-20.0 if show_icon else -12.0)
 	content.add_theme_constant_override("separation", 2)
 	content.alignment = BoxContainer.ALIGNMENT_CENTER
 	content.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	add_child(content)
+	if show_icon:
+		var icon := TextureRect.new()
+		icon.name = "DeckCaseIcon"
+		icon.texture = DeckIconArt.RARE
+		icon.material = DeckIconArt.palette_material()
+		icon.texture_filter = CanvasItem.TEXTURE_FILTER_NEAREST
+		icon.expand_mode = TextureRect.EXPAND_IGNORE_SIZE
+		icon.stretch_mode = TextureRect.STRETCH_KEEP_ASPECT_CENTERED
+		icon.anchor_top = 0.5
+		icon.anchor_bottom = 0.5
+		var icon_side := 36.0 if _show_lock else 44.0
+		icon.offset_left = 6.0
+		icon.offset_right = 6.0 + icon_side
+		icon.offset_top = -icon_side * 0.5
+		icon.offset_bottom = icon_side * 0.5
+		icon.mouse_filter = Control.MOUSE_FILTER_IGNORE
+		add_child(icon)
 
 	var name_label := Label.new()
 	name_label.name = "DeckCaseNameLabel"
@@ -90,6 +109,16 @@ func configure(deck_name: String, editions: Array, card_count: int, capacity: in
 	count_label.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	count_label.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	content.add_child(count_label)
+	if show_icon and centered:
+		_compact_text_width = maxf(_font_800().get_string_size(name_label.text,
+			HORIZONTAL_ALIGNMENT_LEFT, -1, NAME_SIZE).x,
+			_font_arial_700().get_string_size(count_label.text, HORIZONTAL_ALIGNMENT_LEFT, -1, COUNT_SIZE).x)
+		var edition_width := 0.0
+		for label in editions_row.get_children():
+			edition_width += HeadingFont.get_string_size(label.text, HORIZONTAL_ALIGNMENT_LEFT, -1, EDITION_SIZE).x
+		_compact_text_width = ceilf(maxf(_compact_text_width, edition_width))
+		resized.connect(_layout_compact_heading)
+		_layout_compact_heading.call_deferred()
 	if not _show_lock:
 		return
 	var lock_hitbox := Control.new()
@@ -117,6 +146,21 @@ func configure(deck_name: String, editions: Array, card_count: int, capacity: in
 		_lock_color_progress = 0.0
 		_animate_unlock_on_ready = true
 	queue_redraw()
+
+
+func _layout_compact_heading() -> void:
+	if size.x <= 0.0:
+		return
+	var content := get_node("DeckCaseHeadingContent") as Control
+	var icon := get_node("DeckCaseIcon") as Control
+	var icon_side := icon.size.x
+	var gap := 8.0
+	var text_width := minf(_compact_text_width, maxf(1.0, size.x - 24.0 - icon_side - gap))
+	var left := roundf((size.x - icon_side - gap - text_width) * 0.5)
+	icon.offset_left = left
+	icon.offset_right = left + icon_side
+	content.offset_left = left + icon_side + gap
+	content.offset_right = content.offset_left + text_width - size.x
 
 
 func _draw() -> void:

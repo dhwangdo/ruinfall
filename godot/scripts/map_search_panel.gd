@@ -4,6 +4,8 @@ class_name PortMapSearchPanel
 const SearchRules = preload("res://scripts/map_search_rules.gd")
 const CardStickers = preload("res://scripts/stickers.gd")
 const DeckEditionList = preload("res://scripts/deck_edition_list.gd")
+const DeckIconArt = preload("res://scripts/deck_icon_art.gd")
+const DeckHeading = preload("res://scripts/deck_case_heading.gd")
 const SearchTilePreview = preload("res://scripts/map_search_tile.gd")
 const ConsumableTicketVisual = preload("res://scripts/consumable_ticket_visual.gd")
 const SearchRegionMinimap = preload("res://scripts/map_search_region_minimap.gd")
@@ -12,6 +14,15 @@ const CardHoverPreview = preload("res://scripts/card_hover_preview.gd")
 const StickerArt = preload("res://scripts/sticker_art.gd")
 const SearchFont = preload("res://assets/fonts/PretendardVariable.woff2")
 const SearchBoldFont = preload("res://assets/fonts/PretendardVariable700.tres")
+
+const RESULT_PAGE_SIZE := 24
+const RESULT_PREVIEW_SIDE := 82.0
+
+var filtered_results: Array[Dictionary] = []
+var result_page := 0
+var previous_page_button: Button
+var next_page_button: Button
+var results_scroll: ScrollContainer
 
 signal ping_requested(position: Vector2i, label: String)
 
@@ -152,7 +163,7 @@ func _build() -> void:
 	content.size_flags_vertical = Control.SIZE_EXPAND_FILL
 	body.add_child(content)
 	result_panel = PanelContainer.new()
-	result_panel.custom_minimum_size.x = maxf(160.0, minf(365.0, modal_panel.custom_minimum_size.x * 0.31))
+	result_panel.custom_minimum_size.x = maxf(160.0, minf(372.0, modal_panel.custom_minimum_size.x * 0.31824))
 	result_panel.size_flags_vertical = Control.SIZE_EXPAND_FILL
 	result_panel.add_theme_stylebox_override("panel", _result_list_style())
 	content.add_child(result_panel)
@@ -161,12 +172,24 @@ func _build() -> void:
 	result_panel.add_child(result_body)
 	result_count = Label.new()
 	result_count.add_theme_font_size_override("font_size", 13)
+	result_count.clip_text = true
 	result_count.add_theme_color_override("font_color", Color("#a7aa9f"))
 	result_body.add_child(result_count)
-	var results_scroll := ScrollContainer.new()
+	var page_controls := HBoxContainer.new()
+	result_body.add_child(page_controls)
+	previous_page_button = Button.new()
+	previous_page_button.text = "이전"
+	previous_page_button.pressed.connect(_change_result_page.bind(-1))
+	page_controls.add_child(previous_page_button)
+	next_page_button = Button.new()
+	next_page_button.text = "다음"
+	next_page_button.pressed.connect(_change_result_page.bind(1))
+	page_controls.add_child(next_page_button)
+	results_scroll = ScrollContainer.new()
 	results_scroll.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	results_scroll.size_flags_vertical = Control.SIZE_EXPAND_FILL
 	results_scroll.horizontal_scroll_mode = ScrollContainer.SCROLL_MODE_DISABLED
+	results_scroll.vertical_scroll_mode = ScrollContainer.SCROLL_MODE_SHOW_ALWAYS
 	result_body.add_child(results_scroll)
 	results_scroll.get_v_scroll_bar().value_changed.connect(_on_result_scroll_changed)
 	result_list = VBoxContainer.new()
@@ -204,66 +227,86 @@ func _resize_modal() -> void:
 		minf(900.0, maxf(420.0, viewport_size.y - 36.0))
 	)
 	if is_instance_valid(result_panel):
-		result_panel.custom_minimum_size.x = maxf(160.0, minf(365.0, modal_panel.custom_minimum_size.x * 0.31))
+		result_panel.custom_minimum_size.x = maxf(160.0, minf(372.0, modal_panel.custom_minimum_size.x * 0.31824))
 
 
 func _refresh_results(_text: String = "") -> void:
 	if not is_instance_valid(result_list):
 		return
+	filtered_results = SearchRules.filter_entries(entries, selected_kind, selected_region, search_input.text)
+	var selected_index := -1
+	for index in range(filtered_results.size()):
+		if _entry_key(filtered_results[index]) == selected_entry_key:
+			selected_index = index
+			break
+	if selected_index < 0:
+		selected_index = 0
+		selected_entry_key = _entry_key(filtered_results[0]) if not filtered_results.is_empty() else ""
+	result_page = selected_index / RESULT_PAGE_SIZE
+	_render_result_page()
+
+
+func _change_result_page(direction: int) -> void:
+	var last_page := maxi(0, (filtered_results.size() - 1) / RESULT_PAGE_SIZE)
+	result_page = clampi(result_page + direction, 0, last_page)
+	var index := result_page * RESULT_PAGE_SIZE
+	selected_entry_key = _entry_key(filtered_results[index]) if index < filtered_results.size() else ""
+	_render_result_page()
+
+
+func _render_result_page() -> void:
 	_hide_card_preview()
 	for child in result_list.get_children():
 		result_list.remove_child(child)
 		child.queue_free()
-	var results := SearchRules.filter_entries(entries, selected_kind, selected_region, search_input.text)
-	result_count.text = "%d개 발견" % results.size()
-	var keep_selection := false
-	for entry in results:
-		if _entry_key(entry) == selected_entry_key:
-			keep_selection = true
-			break
-	if not keep_selection:
-		selected_entry_key = _entry_key(results[0]) if not results.is_empty() else ""
-	for entry in results:
+	var first := result_page * RESULT_PAGE_SIZE
+	var last := mini(first + RESULT_PAGE_SIZE, filtered_results.size())
+	result_count.text = "%d개 발견" % filtered_results.size()
+	if not filtered_results.is_empty():
+		result_count.text += " · %d–%d" % [first + 1, last]
+	previous_page_button.disabled = first == 0
+	next_page_button.disabled = last >= filtered_results.size()
+	var selected: Dictionary = {}
+	for index in range(first, last):
+		var entry: Dictionary = filtered_results[index]
 		result_list.add_child(_result_row(entry))
-	if results.is_empty():
+		if _entry_key(entry) == selected_entry_key:
+			selected = entry
+	if filtered_results.is_empty():
 		var empty_row := Label.new()
 		empty_row.text = "발견한 장소나 물품 중 일치하는 결과가 없습니다."
 		empty_row.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
 		empty_row.add_theme_color_override("font_color", Color("#bfc0b3"))
 		result_list.add_child(empty_row)
-	var selected: Dictionary = {}
-	for entry in results:
-		if _entry_key(entry) == selected_entry_key:
-			selected = entry
-			break
+	results_scroll.scroll_vertical = 0
 	_render_detail(selected)
 
 
 func _result_row(entry: Dictionary) -> Control:
 	var row := PanelContainer.new()
-	row.custom_minimum_size.y = 82
+	row.custom_minimum_size.y = RESULT_PREVIEW_SIDE + 24.0
 	row.mouse_filter = Control.MOUSE_FILTER_STOP
 	row.mouse_default_cursor_shape = Control.CURSOR_POINTING_HAND
 	var is_selected := _entry_key(entry) == selected_entry_key
-	var row_style := _panel_style(Color("#3a3328") if is_selected else Color("#202521"),
-		Color("#e3a246") if is_selected else Color("#52574f"), 0)
+	var row_style := _panel_style(Color("#292319") if is_selected else Color("#0c0d0c"),
+		Color("#efb45e") if is_selected else Color("#80613e"), 0)
+	row_style.set_border_width_all(2)
 	row.add_theme_stylebox_override("panel", row_style)
 	row.gui_input.connect(_on_result_row_input.bind(_entry_key(entry)))
 	var row_margin := MarginContainer.new()
 	row_margin.mouse_filter = Control.MOUSE_FILTER_PASS
-	row_margin.add_theme_constant_override("margin_left", 9)
-	row_margin.add_theme_constant_override("margin_right", 9)
-	row_margin.add_theme_constant_override("margin_top", 9)
-	row_margin.add_theme_constant_override("margin_bottom", 9)
+	for side in ["left", "right", "top", "bottom"]:
+		row_margin.add_theme_constant_override("margin_" + side, 10)
 	row.add_child(row_margin)
 	var line := HBoxContainer.new()
 	line.mouse_filter = Control.MOUSE_FILTER_PASS
-	line.add_theme_constant_override("separation", 10)
+	line.add_theme_constant_override("separation", 12)
 	row_margin.add_child(line)
 	var copy := VBoxContainer.new()
 	copy.mouse_filter = Control.MOUSE_FILTER_PASS
 	copy.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	copy.add_theme_constant_override("separation", 3)
+	copy.alignment = BoxContainer.ALIGNMENT_CENTER
 	line.add_child(copy)
 	var title_row := HBoxContainer.new()
 	title_row.mouse_filter = Control.MOUSE_FILTER_PASS
@@ -271,8 +314,8 @@ func _result_row(entry: Dictionary) -> Control:
 	copy.add_child(title_row)
 	var name_label := Label.new()
 	name_label.text = str(entry["label"])
-	name_label.add_theme_font_override("font", SearchBoldFont)
-	name_label.add_theme_font_size_override("font_size", 14)
+	name_label.add_theme_font_override("font", DeckHeading._font_800())
+	name_label.add_theme_font_size_override("font_size", DeckHeading.NAME_SIZE)
 	name_label.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	name_label.clip_text = true
 	name_label.mouse_filter = Control.MOUSE_FILTER_PASS
@@ -290,27 +333,63 @@ func _result_row(entry: Dictionary) -> Control:
 		meta_parts.append("x%d" % count)
 	var subtitle := Label.new()
 	subtitle.text = " · ".join(meta_parts)
-	subtitle.add_theme_font_size_override("font_size", 12)
-	subtitle.add_theme_color_override("font_color", Color("#a7aa9f"))
+	subtitle.add_theme_font_override("font", DeckHeading._font_arial_700())
+	subtitle.add_theme_font_size_override("font_size", DeckHeading.COUNT_SIZE)
+	subtitle.add_theme_color_override("font_color", DeckHeading.MUTED_COLOR)
 	subtitle.clip_text = true
 	subtitle.mouse_filter = Control.MOUSE_FILTER_PASS
 	copy.add_child(subtitle)
 	if not deck.is_empty():
 		var editions: Array = deck.get("editions", [])
 		if not editions.is_empty():
-			var edition_list := DeckEditionList.build(editions, deck.get("edition_colors", {}), null,
-				12, Color("#db8a3d"), 3)
-			copy.add_child(edition_list)
+			var edition_list := DeckEditionList.build(editions, deck.get("edition_colors", {}), DeckHeading.HeadingFont,
+				DeckHeading.EDITION_SIZE, Color("#db8a3d"), 3)
+			for label in edition_list.get_children():
+				var label_width: float = minf(label.get_combined_minimum_size().x, 120.0)
+				label.clip_text = true
+				label.custom_minimum_size.x = label_width
+			var edition_clip := Control.new()
+			edition_clip.custom_minimum_size.y = 30.0
+			edition_clip.clip_contents = true
+			edition_clip.mouse_filter = Control.MOUSE_FILTER_PASS
+			copy.add_child(edition_clip)
+			edition_list.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
+			edition_clip.add_child(edition_list)
+			copy.move_child(subtitle, copy.get_child_count() - 1)
+	var thumbnail := CenterContainer.new()
+	thumbnail.name = "SearchResultThumbnail"
+	thumbnail.custom_minimum_size = Vector2.ONE * RESULT_PREVIEW_SIDE
+	thumbnail.size_flags_vertical = Control.SIZE_SHRINK_CENTER
+	thumbnail.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	line.add_child(thumbnail)
 	var card: Dictionary = entry.get("card", {})
 	if not card.is_empty():
 		# Search rows already show xN in the subtitle. Browser search previews a single card,
 		# so don't draw a second stacked-card badge/band here.
-		line.add_child(_compact_card_preview(card, 1.0))
-	elif str(entry["kind"]) in ["deck", "place"]:
+		thumbnail.add_child(_compact_card_preview(card))
+	elif str(entry["kind"]) == "deck" and not bool(entry.get("in_vault", false)):
+		var icon := TextureRect.new()
+		icon.name = "SearchDeckIcon"
+		icon.texture = DeckIconArt.RARE
+		icon.material = DeckIconArt.palette_material()
+		icon.texture_filter = CanvasItem.TEXTURE_FILTER_NEAREST
+		icon.expand_mode = TextureRect.EXPAND_IGNORE_SIZE
+		icon.stretch_mode = TextureRect.STRETCH_KEEP_ASPECT_CENTERED
+		icon.custom_minimum_size = Vector2.ONE * RESULT_PREVIEW_SIDE
+		icon.size_flags_vertical = Control.SIZE_SHRINK_CENTER
+		icon.mouse_filter = Control.MOUSE_FILTER_IGNORE
+		thumbnail.add_child(icon)
+	elif str(entry["kind"]) == "place" or bool(entry.get("in_vault", false)):
 		var tile := SearchTilePreview.new()
 		var map_seed := int(run_state.get("map_seed", run_state.get("map", {}).get("seed", 0)))
-		tile.configure(run_state.get("map", {}), position, Vector2(48, 48), map_seed)
-		line.add_child(tile)
+		tile.configure(run_state.get("map", {}), position, Vector2.ONE * RESULT_PREVIEW_SIDE, map_seed)
+		thumbnail.add_child(tile)
+	elif not entry.get("consumable", {}).is_empty():
+		var ticket := Control.new()
+		var ticket_front := Panel.new()
+		ConsumableTicketVisual.configure_compact(ticket, ticket_front, entry["consumable"], 1)
+		ticket_front.mouse_filter = Control.MOUSE_FILTER_IGNORE
+		thumbnail.add_child(ticket)
 	return row
 
 
@@ -345,7 +424,7 @@ func _render_detail(entry: Dictionary) -> void:
 	selection.add_child(title_row)
 	var title := Label.new()
 	title.text = str(entry["label"])
-	title.add_theme_font_override("font", SearchBoldFont)
+	title.add_theme_font_override("font", DeckHeading._font_800())
 	title.add_theme_font_size_override("font_size", 20 if deck.is_empty() else 26)
 	title.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	title.clip_text = true
@@ -356,6 +435,7 @@ func _render_detail(entry: Dictionary) -> void:
 	var ping_button := Button.new()
 	ping_button.text = "핑 해제" if ping_position == position else "핑 찍기"
 	ping_button.custom_minimum_size = Vector2(112, 38)
+	_style_ping_button(ping_button)
 	ping_button.pressed.connect(_emit_ping.bind(position, ping_label))
 	title_row.add_child(ping_button)
 	if deck.is_empty():
@@ -364,14 +444,17 @@ func _render_detail(entry: Dictionary) -> void:
 		meta.add_theme_color_override("font_color", Color("#a7aa9f"))
 		selection.add_child(meta)
 	else:
-		selection.add_child(_detail_label("%d/%d장" % [int(deck.get("cards", []).size()), int(deck.get("capacity", 0))],
-			16, Color("#e7e4da")))
+		var deck_count := _detail_label("%d / %d" % [int(deck.get("cards", []).size()), int(deck.get("capacity", 0))],
+			DeckHeading.COUNT_SIZE, DeckHeading.MUTED_COLOR)
+		deck_count.add_theme_font_override("font", DeckHeading._font_arial_700())
+		selection.add_child(deck_count)
 	if not deck.is_empty():
 		var editions: Array = deck.get("editions", [])
 		if not editions.is_empty():
-			var edition_list := DeckEditionList.build(editions, deck.get("edition_colors", {}), null,
-				14, Color("#db8a3d"), 4)
+			var edition_list := DeckEditionList.build(editions, deck.get("edition_colors", {}), DeckHeading.HeadingFont,
+				DeckHeading.EDITION_SIZE, Color("#db8a3d"), 4)
 			selection.add_child(edition_list)
+			selection.move_child(edition_list, 1)
 	var sticker_id := str(entry.get("sticker_id", ""))
 	if not sticker_id.is_empty():
 		var sticker_info: Dictionary = CardStickers.STICKERS.get(sticker_id, {})
@@ -413,6 +496,10 @@ func _render_detail(entry: Dictionary) -> void:
 	summary.add_child(region_minimap)
 
 	if not deck.is_empty():
+		var deck_gap := Control.new()
+		deck_gap.custom_minimum_size.y = 8.0
+		deck_gap.mouse_filter = Control.MOUSE_FILTER_IGNORE
+		detail_content.add_child(deck_gap)
 		var grouped_cards: Array = SearchRules.group_cards(deck.get("cards", []))
 		var all_cards: Array = deck.get("cards", [])
 		if grouped_cards.is_empty() and int(deck.get("capacity", 0)) <= 0:
@@ -435,7 +522,7 @@ func _render_detail(entry: Dictionary) -> void:
 			for deck_card_value in grouped_cards:
 				var deck_card: Dictionary = deck_card_value["card"]
 				if str(deck_card.get("rarity", "")) in ["rare", "legendary"]:
-					card_flow.add_child(_compact_card_preview(deck_card, 1.0, int(deck_card_value["count"]), true))
+					card_flow.add_child(_compact_card_preview(deck_card, int(deck_card_value["count"]), true))
 			for _slot_index in range(maxi(0, rare_slot_capacity - rare_card_count)):
 				card_flow.add_child(_deck_slot_preview(true))
 			if rare_slot_capacity > 0:
@@ -446,7 +533,7 @@ func _render_detail(entry: Dictionary) -> void:
 			for deck_card_value in grouped_cards:
 				var deck_card: Dictionary = deck_card_value["card"]
 				if str(deck_card.get("rarity", "")) not in ["rare", "legendary"]:
-					card_flow.add_child(_compact_card_preview(deck_card, 1.0, int(deck_card_value["count"]), true))
+					card_flow.add_child(_compact_card_preview(deck_card, int(deck_card_value["count"]), true))
 			for _slot_index in range(maxi(0, normal_slot_capacity - normal_card_count)):
 				card_flow.add_child(_deck_slot_preview(false))
 
@@ -464,10 +551,10 @@ func _deck_slot_preview(rare: bool) -> Control:
 	return slot
 
 
-func _compact_card_preview(card: Dictionary, scale: float, count: int = 1, allow_hover_preview: bool = false) -> Control:
+func _compact_card_preview(card: Dictionary, count: int = 1, allow_hover_preview: bool = false) -> Control:
 	var stack_layers := mini(5, maxi(0, count - 1))
 	var slot := Control.new()
-	slot.custom_minimum_size = Vector2(82.0 * scale + stack_layers * 7.0, 82.0 * scale)
+	slot.custom_minimum_size = CompactCardView.CARD_SIZE + Vector2(stack_layers * 7.0, 0.0)
 	slot.mouse_filter = Control.MOUSE_FILTER_PASS if allow_hover_preview else Control.MOUSE_FILTER_IGNORE
 	var card_view: Control = CompactCardView.create(
 		card, count,
@@ -476,9 +563,9 @@ func _compact_card_preview(card: Dictionary, scale: float, count: int = 1, allow
 		Callable(self, "_hide_card_preview"), null, allow_hover_preview
 	)
 	card_view.position = Vector2(stack_layers * 7.0, 0.0)
-	card_view.size = Vector2.ONE * 82.0
+	card_view.size = CompactCardView.CARD_SIZE
 	card_view.pivot_offset = Vector2.ZERO
-	card_view.scale = Vector2.ONE * scale
+	card_view.scale = Vector2.ONE
 	card_view.mouse_filter = Control.MOUSE_FILTER_PASS if allow_hover_preview else Control.MOUSE_FILTER_IGNORE
 	slot.add_child(card_view)
 	return slot
@@ -516,6 +603,23 @@ func _consumable_preview(consumable: Dictionary) -> Control:
 	return ConsumableTicketVisual.create_full(consumable)
 
 
+func _style_ping_button(button: Button) -> void:
+	button.add_theme_font_override("font", DeckHeading.HeadingFont)
+	button.add_theme_font_size_override("font_size", 14)
+	for mode in ["normal", "hover", "pressed", "hover_pressed"]:
+		var background := Color("#e8b45d")
+		if mode == "hover":
+			background = Color("#ffd589")
+		elif mode in ["pressed", "hover_pressed"]:
+			background = Color("#cd963e")
+		var style := _panel_style(background, Color("#ffcf7a"), 8)
+		style.set_border_width_all(2)
+		style.set_corner_radius_all(5)
+		button.add_theme_stylebox_override(mode, style)
+	for mode in ["font_color", "font_hover_color", "font_pressed_color", "font_hover_pressed_color", "font_focus_color"]:
+		button.add_theme_color_override(mode, Color("#191c16"))
+
+
 func _detail_label(text: String, font_size: int, color: Color) -> Label:
 	var label := Label.new()
 	label.text = text
@@ -526,6 +630,8 @@ func _detail_label(text: String, font_size: int, color: Color) -> Label:
 
 
 func _entry_key(entry: Dictionary) -> String:
+	if entry.has("search_entry_key"):
+		return str(entry.search_entry_key)
 	var position: Vector2i = entry.get("position", Vector2i.ZERO)
 	var payload_key := "%s|%s|%s|%d" % [str(entry.get("detail", "")),
 		str(entry.get("card", {})), str(entry.get("consumable", {})), int(entry.get("count", 1))]

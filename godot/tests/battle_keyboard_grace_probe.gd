@@ -60,7 +60,7 @@ func run() -> void:
 	await process_frame
 	await process_frame
 	var enemy: Control = game.battle_enemy_widgets[0]
-	var destination := enemy.get_global_rect().get_center() if targeted else Vector2(640, 460)
+	var destination := preload("res://scripts/battle_enemy_target_area.gd").global_rect(enemy).get_center() if targeted else Vector2(640, 460)
 	pointer(destination)
 	await process_frame
 	key(KEY_1, true)

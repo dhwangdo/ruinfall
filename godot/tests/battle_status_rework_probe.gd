@@ -48,11 +48,15 @@ func _initialize() -> void:
 	var after := Rules.end_turn(before)
 	assert(after.player_weak == 1 and after.player_vulnerable == 0 and after.player_corrosion == 0)
 	assert(after.player_paralysis == 1 and after.player_confusion == 0)
-	assert(after.temporary_magic_resistance == 0 and after.strength == 3)
+	assert(after.pending_magic_resistance_loss == 0 and after.magic_resistance == 0 and after.strength == 3)
 	before = play(play(state(), "resilience"), "resilience")
 	assert(before.magic_resistance == 2 and before.exhausted.size() == 2)
 	after = Rules.end_turn(before)
 	assert(after.magic_resistance == 2)
+	before = play(play(state(), "resilience"), "blessing")
+	assert(before.magic_resistance == 3 and before.pending_magic_resistance_loss == 2)
+	after = Rules.end_turn(before)
+	assert(after.magic_resistance == 1 and after.pending_magic_resistance_loss == 0)
 
 	# Cleanse before damage, including its preview; resistance grants no magic block.
 	before = state()
@@ -73,9 +77,23 @@ func _initialize() -> void:
 	for effect in ["silver_sword", "ice_shield", "safeguard"]:
 		before = state()
 		after = play(before, effect)
-		assert(after.temporary_magic_resistance == int(card(effect).temporary_magic_resistance))
+		assert(after.magic_resistance == int(card(effect).temporary_magic_resistance))
+		assert(after.pending_magic_resistance_loss == int(card(effect).temporary_magic_resistance))
 		assert(after.player_block == int(card(effect).get("value", 0)) if effect != "silver_sword" else after.player_block == 0)
 		assert(not after.has("player_magic_block"))
+		var expired := Rules.end_turn(after)
+		assert(expired.magic_resistance == 0 and expired.pending_magic_resistance_loss == 0)
+
+	# Temporary strength is part of the actual strength stat, so preview and damage agree.
+	before = play(state(), "warm_up")
+	assert(before.strength == 5 and before.pending_strength_loss == 4)
+	var warm_up_strike := card("strike")
+	assert(Preview.describe(warm_up_strike, warm_up_strike.description, before).contains("피해를 11"))
+	before.hand = [warm_up_strike]
+	after = Rules.play_card(before, warm_up_strike.id)
+	assert(after.enemies[0].hp == 989)
+	after = Rules.end_turn(after)
+	assert(after.strength == 1 and after.pending_strength_loss == 0)
 
 	# Corrosion halves first, then enemy attacks, then Sturdy Stance preserves remaining block.
 	before = state({"damage": 4})

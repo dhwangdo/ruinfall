@@ -3,6 +3,7 @@ class_name PortMapSearchTile
 
 const MapRules = preload("res://scripts/map_rules.gd")
 const TileAppearance = preload("res://scripts/map_tile_appearance.gd")
+const TILE_INSET := 1.0
 
 var map_data: Dictionary = {}
 var world_position := Vector2i.ZERO
@@ -25,11 +26,16 @@ func _draw() -> void:
 	if map_data.is_empty():
 		return
 	var room_type := MapRules.room_type_at(map_data, world_position)
-	var rect := Rect2(Vector2.ONE, size - Vector2.ONE * 2.0)
+	var rect := Rect2(Vector2.ONE * TILE_INSET, size - Vector2.ONE * TILE_INSET * 2.0)
 	draw_rect(rect, TileAppearance.full_map_fill(world_position, room_type, MapRules.region_index_at(world_position)))
 	draw_rect(rect, TileAppearance.full_map_edge(room_type), false, 1.0)
 	if room_type == "deckVault":
+		texture_filter = CanvasItem.TEXTURE_FILTER_NEAREST
 		TileAppearance.draw_vault_symbol(self, rect, minf(rect.size.x, rect.size.y))
+		return
+	if TileAppearance.ROOM_TEXTURES.has(room_type):
+		texture_filter = CanvasItem.TEXTURE_FILTER_NEAREST
+		TileAppearance.draw_room_art(self, rect, room_type)
 		return
 	if room_type == "tinkerer":
 		TileAppearance.draw_tinkerer_sticker(self, rect, minf(size.x, size.y), world_position, map_seed)

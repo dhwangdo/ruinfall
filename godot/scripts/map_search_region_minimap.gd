@@ -33,7 +33,8 @@ func _process(delta: float) -> void:
 func _draw() -> void:
 	var background := Rect2(Vector2.ZERO, size)
 	draw_rect(background, TileAppearance.MINIMAP_BACKGROUND)
-	draw_rect(background, Color("#52615b"), false, 1.0)
+	# Keep the entire border inside this clipped control, including its bottom edge.
+	draw_rect(background.grow(-0.5), Color("#52615b"), false, 1.0)
 	if map_data.is_empty() or region < 1 or region > MapRules.REGION_COUNT:
 		return
 	var region_index := region - 1

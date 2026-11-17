@@ -70,7 +70,7 @@ static func start_battle(deck: Array, player_hp: int, encounter: Dictionary = {}
 		"enemy_first_action_completed": bool(primary_enemy.get("first_action_completed", false)),
 		"enemy_stunned": bool(primary_enemy.get("stunned", false)),
 		"enemy_solitaire_hit_bonus": int(primary_enemy.get("solitaire_hit_bonus", 0)),
-		"enemy_solitaire_hit_bonus_ready": bool(primary_enemy.get("solitaire_hit_bonus_ready", false)),
+		"enemy_solitaire_hit_bonus_stacks": int(primary_enemy.get("solitaire_hit_bonus_stacks", 0)),
 		"enemy_is_boss": bool(primary_enemy.get("is_boss", false)),
 		"enemy_actions": primary_enemy.get("actions", []).duplicate(true),
 		"enemy_action_index": int(primary_enemy.get("action_index", 0)),
@@ -86,7 +86,7 @@ static func start_battle(deck: Array, player_hp: int, encounter: Dictionary = {}
 		"player_paralysis": 0,
 		"player_confusion": 0,
 		"magic_resistance": 0,
-		"temporary_magic_resistance": 0,
+		"pending_magic_resistance_loss": 0,
 		"cards_played_this_turn": 0,
 		"pending_after_play_card_id": -1,
 		"player_weak": 0,
@@ -94,9 +94,10 @@ static func start_battle(deck: Array, player_hp: int, encounter: Dictionary = {}
 		"player_invulnerability_turns": 0,
 		"energy": STARTING_ENERGY,
 		"max_energy": STARTING_ENERGY,
-		"stars": 2,
+		"stars": 1,
+		"temporary_solitaire_actions": 1 + int(editions.has("firstSolitaire")),
 		"strength": talisman_strength,
-		"temporary_strength": 0,
+		"pending_strength_loss": 0,
 		"radiance_played_this_turn": 0,
 		"turn": 1,
 		"piles": piles,
@@ -120,7 +121,6 @@ static func start_battle(deck: Array, player_hp: int, encounter: Dictionary = {}
 		"forge_count": quick_hammer_forged,
 		"toxic_slime_added": false,
 		"pending_summoners": [],
-		"solitaire_bonus_used_this_turn": false,
 		"repeat_next_attack": false,
 		"pending_play_card_id": -1,
 		"pending_discard_count": 0,
@@ -206,7 +206,7 @@ static func _load_enemy_aliases(state: Dictionary, enemy_index: int = -1) -> voi
 	state["enemy_first_action_completed"] = bool(enemy.get("first_action_completed", false))
 	state["enemy_stunned"] = bool(enemy.get("stunned", false))
 	state["enemy_solitaire_hit_bonus"] = int(enemy.get("solitaire_hit_bonus", 0))
-	state["enemy_solitaire_hit_bonus_ready"] = bool(enemy.get("solitaire_hit_bonus_ready", false))
+	state["enemy_solitaire_hit_bonus_stacks"] = int(enemy.get("solitaire_hit_bonus_stacks", 0))
 	state["enemy_is_boss"] = bool(enemy.get("is_boss", false))
 	state["enemy_actions"] = enemy.get("actions", []).duplicate(true)
 	state["enemy_action_index"] = int(enemy.get("action_index", 0))
@@ -234,7 +234,7 @@ static func _save_enemy_aliases(state: Dictionary) -> void:
 	enemy["berserk"] = int(state.get("enemy_berserk", enemy.get("berserk", 0)))
 	enemy["first_action_completed"] = bool(state.get("enemy_first_action_completed", enemy.get("first_action_completed", false)))
 	enemy["stunned"] = bool(state.get("enemy_stunned", enemy.get("stunned", false)))
-	enemy["solitaire_hit_bonus_ready"] = bool(state.get("enemy_solitaire_hit_bonus_ready", enemy.get("solitaire_hit_bonus_ready", false)))
+	enemy["solitaire_hit_bonus_stacks"] = int(state.get("enemy_solitaire_hit_bonus_stacks", enemy.get("solitaire_hit_bonus_stacks", 0)))
 	enemy["action_index"] = int(state.get("enemy_action_index", enemy.get("action_index", 0)))
 	enemy["actions"] = state.get("enemy_actions", enemy.get("actions", [])).duplicate(true)
 	enemies[index] = enemy
@@ -465,6 +465,8 @@ static func move_cards_to_file(state: Dictionary, payload: Dictionary, target_fi
 	var moving: Array = SolitaireRules.source_cards(next, payload)
 	var from_hand := str(payload.get("source", "")) == "hand"
 	var star_cost := SolitaireRules.solitaire_star_cost(next, moving[0])
+	var uses_temporary_action := CardStickers.solitaire_star_cost(moving[0]) > 0 \
+		and int(next.get("temporary_solitaire_actions", 0)) > 0
 	var target_card: Dictionary = files[target_file].back() if not files[target_file].is_empty() else {}
 	var updated_target: Dictionary = target_card
 	var consumes_target := false
@@ -506,8 +508,10 @@ static func move_cards_to_file(state: Dictionary, payload: Dictionary, target_fi
 	_reveal_file_top(files[target_file])
 	next["hand"].append_array(retrieved)
 	next["forge_count"] = int(next.get("forge_count", 0)) + forge_count
-	next["stars"] = int(next["stars"]) - star_cost
-	next["first_solitaire_used"] = true
+	if uses_temporary_action:
+		next["temporary_solitaire_actions"] = int(next["temporary_solitaire_actions"]) - 1
+	else:
+		next["stars"] = int(next["stars"]) - star_cost
 	_arm_solitaire_enemy_bonuses(next)
 	next["message"] = "%d장을 %d번 파일로 옮겼습니다." % [moving.size(), target_file + 1]
 	if forge_count > 0:
@@ -602,6 +606,7 @@ static func end_turn(state: Dictionary, draw_view: Variant = null, turn_view: Va
 	_save_enemy_aliases(next)
 	if str(next.get("pending_pile_operation", "")) != "":
 		return _with_message(next, "파일을 선택해 카드 효과를 마무리하세요.")
+	next["temporary_solitaire_actions"] = 0
 	var preferred_target_index := int(next.get("target_enemy_index", 0))
 	var primary_enemy_index := -1
 	var enemies_for_turn: Array = next.get("enemies", [])
@@ -697,7 +702,7 @@ static func end_turn(state: Dictionary, draw_view: Variant = null, turn_view: Va
 	_spawn_enemy_minions(next)
 	_apply_shared_turn_end_strength(next)
 	_discard_turn_end_hand(next, turn_end_hand)
-	next["temporary_strength"] = 0
+	_expire_temporary_bonuses(next)
 	if int(next.get("player_invulnerability_turns", 0)) > 0:
 		next["player_invulnerability_turns"] = int(next["player_invulnerability_turns"]) - 1
 	next["player_block"] = floori(float(next.get("player_block", 0)) / 2.0) if bool(next.get("preserve_block_on_turn_end", false)) else 0
@@ -717,11 +722,22 @@ static func end_turn(state: Dictionary, draw_view: Variant = null, turn_view: Va
 	return next
 
 
+static func _expire_temporary_bonuses(state: Dictionary) -> void:
+	var strength_loss := int(state.get("pending_strength_loss", 0))
+	if strength_loss != 0:
+		state["strength"] = int(state.get("strength", 0)) - strength_loss
+		state["pending_strength_loss"] = 0
+	var resistance_loss := int(state.get("pending_magic_resistance_loss", 0))
+	if resistance_loss != 0:
+		state["magic_resistance"] = maxi(0, int(state.get("magic_resistance", 0)) - resistance_loss)
+		state["pending_magic_resistance_loss"] = 0
+
+
 static func _begin_extra_turn(state: Dictionary, preferred_target_index: int, turn_end_hand: Array, draw_view: Variant = null) -> Dictionary:
 	var next := state
 	_clear_enemy_physical_blocks(next)
 	_discard_turn_end_hand(next, turn_end_hand)
-	next["temporary_strength"] = 0
+	_expire_temporary_bonuses(next)
 	next["player_block"] = floori(float(next.get("player_block", 0)) / 2.0) if bool(next.get("preserve_block_on_turn_end", false)) else 0
 	next["turn"] = int(next.get("turn", 1)) + 1
 	next["radiance_played_this_turn"] = 0
@@ -817,6 +833,19 @@ static func _resolve_enemies_turn(state: Dictionary, turn_view: Variant = null) 
 		var protected_by_invulnerability := int(state.get("player_invulnerability_turns", 0)) > 0
 		var effect_messages: Array[String] = []
 		state["enemy_first_action_completed"] = true
+		var toxic_slime_count := maxi(0, int(action.get("toxic_slime_count", 0)))
+		if toxic_slime_count > 0:
+			var hand: Array = state.get("hand", [])
+			var generated_id := int(state.get("next_generated_card_id", -1))
+			for _slime_index in range(toxic_slime_count):
+				hand.append(CardCatalog.create_toxic_slime_card(generated_id))
+				generated_id -= 1
+			state["hand"] = hand
+			state["next_generated_card_id"] = generated_id
+			var slime_message := "유독성 점액 %d장 추가" % toxic_slime_count
+			effect_messages.append("손패에 " + slime_message)
+			_record_enemy_turn_message_step(turn_view, enemy_index, enemies[enemy_index], str(action.get("name", "")),
+				slime_message, "player", "debuff", state)
 		var enemy_weak_gain := int(action.get("weak_gain", 0))
 		var enemy_vulnerable_gain := int(action.get("vulnerable_gain", 0))
 		state["enemy_weak"] = int(state.get("enemy_weak", 0)) + enemy_weak_gain
@@ -1096,6 +1125,14 @@ static func _is_attack_card(card: Dictionary) -> bool:
 	]
 
 
+static func hand_manual_bonus(state: Dictionary) -> int:
+	var bonus := 0
+	for held_card in state.get("hand", []):
+		if str(held_card.get("effect", "")) in ["combat_manual", "strategy_book"]:
+			bonus += int(held_card.get("value", 0))
+	return bonus
+
+
 static func _resolve_card_play(state: Dictionary, card_id: int, play_view: Variant = null) -> Dictionary:
 	var next: Dictionary = state
 	_load_enemy_aliases(next)
@@ -1120,10 +1157,7 @@ static func _resolve_card_play(state: Dictionary, card_id: int, play_view: Varia
 	if str(card.get("effect", "")) == "supernova" and int(next.get("stars", 0)) < 3:
 		next["pending_play_card_id"] = -1
 		return _with_message(next, "초신성: ★★★가 필요합니다.")
-	var manual_bonus := 0
-	for held_card in hand:
-		if str(held_card.get("effect", "")) in ["combat_manual", "strategy_book"]:
-			manual_bonus += int(held_card.get("value", 0))
+	var manual_bonus := hand_manual_bonus(next)
 	var effect := str(card.get("effect", ""))
 	next["energy"] = int(next["energy"]) - cost
 	next["cards_played_this_turn"] = int(next.get("cards_played_this_turn", 0)) + 1
@@ -1134,7 +1168,7 @@ static func _resolve_card_play(state: Dictionary, card_id: int, play_view: Varia
 		base_damage = 4 + maxi(0, int(next.get("radiance_played_this_turn", 0))) * 4 + (3 if next.get("deck_editions", []).has("sharpLight") else 0)
 	var hit_count := 1
 	if effect == "meteor":
-		hit_count = int(next.get("stars", 0))
+		hit_count = int(next.get("stars", 0)) + int(next.get("temporary_solitaire_actions", 0))
 	elif effect == "hydra":
 		hit_count = 9
 	elif effect == "five_hit":
@@ -1221,7 +1255,9 @@ static func _resolve_card_play(state: Dictionary, card_id: int, play_view: Varia
 		next["player_block"] = int(next.get("player_block", 0)) + defense
 		next["message"] += " · 방어 %d 획득" % defense
 	next["magic_resistance"] = int(next.get("magic_resistance", 0)) + int(card.get("magic_resistance", 0))
-	next["temporary_magic_resistance"] = int(next.get("temporary_magic_resistance", 0)) + int(card.get("temporary_magic_resistance", 0))
+	var temporary_resistance := int(card.get("temporary_magic_resistance", 0))
+	next["magic_resistance"] = int(next.get("magic_resistance", 0)) + temporary_resistance
+	next["pending_magic_resistance_loss"] = int(next.get("pending_magic_resistance_loss", 0)) + temporary_resistance
 	match effect:
 		"ruler_compass", "star_guard":
 			next["stars"] = int(next["stars"]) + 1
@@ -1292,6 +1328,7 @@ static func _resolve_card_play(state: Dictionary, card_id: int, play_view: Varia
 			next["message"] += " · 힘·강인함 %d 획득 · 룰 활성화" % evolution_gain
 		"meteor":
 			next["stars"] = 0
+			next["temporary_solitaire_actions"] = 0
 			next["message"] += " · ★ 모두 소모"
 		"aries":
 			next["energy"] = int(next.get("energy", 0)) + 5
@@ -1357,9 +1394,10 @@ static func _resolve_card_play(state: Dictionary, card_id: int, play_view: Varia
 			next["stars"] = int(next.get("stars", 0)) + int(card.get("value", 2))
 			next["message"] += " · ★ %d 획득" % int(card.get("value", 2))
 		"warm_up":
-			next["strength"] = int(next.get("strength", 0)) + 1
-			next["temporary_strength"] = int(next.get("temporary_strength", 0)) + int(card.get("value", 4))
-			next["message"] += " · 이번 턴 힘 %d 획득" % int(card.get("value", 4))
+			var temporary_gain := int(card.get("value", 4))
+			next["strength"] = int(next.get("strength", 0)) + 1 + temporary_gain
+			next["pending_strength_loss"] = int(next.get("pending_strength_loss", 0)) + temporary_gain
+			next["message"] += " · 힘 %d 획득 · 턴 종료 시 힘 %d 감소" % [1 + temporary_gain, temporary_gain]
 		"supernova":
 			next["stars"] = int(next.get("stars", 0)) - 3
 			next["energy"] = int(next.get("energy", 0)) + 3
@@ -1526,10 +1564,8 @@ static func _resolve_attack_hit(state: Dictionary, target_index: int, base_damag
 	_load_enemy_aliases(state, target_index)
 	if int(state.get("enemy_hp", 0)) <= 0:
 		return {"damage": 0, "thorns": 0}
-	var solitaire_bonus := int(state.get("enemy_solitaire_hit_bonus", 0)) if bool(state.get("enemy_solitaire_hit_bonus_ready", false)) else 0
-	var raw_attack_damage := base_damage + int(state.get("strength", 0)) + int(state.get("temporary_strength", 0)) + manual_bonus + solitaire_bonus
-	if solitaire_bonus > 0:
-		state["enemy_solitaire_hit_bonus_ready"] = false
+	var solitaire_bonus := int(state.get("enemy_solitaire_hit_bonus", 0)) * int(state.get("enemy_solitaire_hit_bonus_stacks", 0))
+	var raw_attack_damage := base_damage + int(state.get("strength", 0)) + manual_bonus + solitaire_bonus
 	var hit_damage := _calculate_attack_damage(
 		raw_attack_damage,
 		int(state.get("player_weak", 0)),
@@ -1806,6 +1842,7 @@ static func _move_card_to_empty_file(state: Dictionary, card: Dictionary) -> boo
 
 
 static func _apply_turn_start_effects(state: Dictionary) -> void:
+	state["temporary_solitaire_actions"] = 1 + int(state.get("deck_editions", []).has("firstSolitaire"))
 	var pending_songs: Array = state.get("pending_iron_song", [])
 	var next_songs: Array = []
 	for song in pending_songs:
@@ -2037,11 +2074,11 @@ static func _arm_solitaire_enemy_bonuses(state: Dictionary) -> void:
 		if (
 			int(enemy.get("hp", 0)) > 0
 			and int(enemy.get("solitaire_hit_bonus", 0)) > 0
-			and not bool(enemy.get("solitaire_bonus_used_this_turn", false))
 		):
-			enemy["solitaire_hit_bonus_ready"] = true
-			enemy["solitaire_bonus_used_this_turn"] = true
+			enemy["solitaire_hit_bonus_stacks"] = int(enemy.get("solitaire_hit_bonus_stacks", 0)) + 1
 			enemies[enemy_index] = enemy
+			if enemy_index == int(state.get("target_enemy_index", 0)):
+				state["enemy_solitaire_hit_bonus_stacks"] = int(enemy["solitaire_hit_bonus_stacks"])
 	state["enemies"] = enemies
 
 
@@ -2049,10 +2086,10 @@ static func _reset_solitaire_enemy_bonuses(state: Dictionary) -> void:
 	var enemies: Array = state.get("enemies", [])
 	for enemy_index in range(enemies.size()):
 		var enemy: Dictionary = enemies[enemy_index]
-		enemy["solitaire_hit_bonus_ready"] = false
-		enemy["solitaire_bonus_used_this_turn"] = false
+		enemy["solitaire_hit_bonus_stacks"] = 0
 		enemies[enemy_index] = enemy
 	state["enemies"] = enemies
+	state["enemy_solitaire_hit_bonus_stacks"] = 0
 
 
 static func _check_enemy_half_hp_passive(state: Dictionary, enemy_index: int) -> void:

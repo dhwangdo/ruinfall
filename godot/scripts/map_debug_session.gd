@@ -6,7 +6,7 @@ const DEBUG_HP := 999
 
 var active := false
 var previous_active_deck_id := ""
-var normal_max_hp := 50
+var normal_max_hp := 70
 
 
 static func is_temporary_deck(deck_id: String) -> bool:
@@ -18,7 +18,7 @@ func enter(state: Dictionary) -> Dictionary:
 		return state
 	var next := state.duplicate()
 	previous_active_deck_id = str(state.get("active_deck_id", ""))
-	normal_max_hp = maxi(1, int(state.get("max_hp", 50)))
+	normal_max_hp = maxi(1, int(state.get("max_hp", 70)))
 	next["player_hp"] = DEBUG_HP
 	next["max_hp"] = DEBUG_HP
 	active = true
@@ -63,4 +63,4 @@ func snapshot_for_save(state: Dictionary) -> Dictionary:
 func reset() -> void:
 	active = false
 	previous_active_deck_id = ""
-	normal_max_hp = 50
+	normal_max_hp = 70

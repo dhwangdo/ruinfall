@@ -4,6 +4,20 @@ class_name PortMapTileAppearance
 const StickerServices = preload("res://scripts/sticker_services.gd")
 const CardStickers = preload("res://scripts/stickers.gd")
 const StickerArtDraw = preload("res://scripts/sticker_art_draw.gd")
+const DeckIconArt = preload("res://scripts/deck_icon_art.gd")
+const ALTAR_TEXTURE = preload("res://assets/terrain/dcss/makhleb_flame1.png")
+const TRANSMUTER_TEXTURE = preload("res://assets/terrain/dcss/ru.png")
+const PORTAL_TEXTURE = preload("res://assets/terrain/dcss/zig_portal.png")
+const PARTIAL_HEAL_TEXTURE = preload("res://assets/terrain/dcss/blue_fountain.png")
+const HEAL_TEXTURE = preload("res://assets/terrain/dcss/sparkling_fountain2.png")
+const ROOM_TEXTURES := {
+	"stickerAltar": ALTAR_TEXTURE,
+	"cardTransmuter": TRANSMUTER_TEXTURE,
+	"portal": PORTAL_TEXTURE,
+	"safePortal": PORTAL_TEXTURE,
+	"partialHeal": PARTIAL_HEAL_TEXTURE,
+	"heal": HEAL_TEXTURE,
+}
 
 const ROOM_BADGES := {
 	"shop": "상점",
@@ -137,23 +151,18 @@ static func _region_floor_color(region_index: int) -> Color:
 	return REGION_FLOOR_COLORS[index]
 
 
-static func draw_vault_symbol(canvas: CanvasItem, rect: Rect2, tile_size: float, color := Color("#ef8129")) -> void:
-	var left := rect.position.x + tile_size * 0.29
-	var top := rect.position.y + tile_size * 0.23
-	var right := rect.position.x + tile_size * 0.70
-	var bottom := rect.position.y + tile_size * 0.76
-	var middle_x := rect.position.x + tile_size * 0.41
-	var middle_y := rect.position.y + tile_size * 0.63
-	var inner_right := rect.position.x + tile_size * 0.72
-	var inner_top := rect.position.y + tile_size * 0.19
-	var outer := PackedVector2Array([Vector2(left, top), Vector2(left, bottom), Vector2(right, bottom)])
-	var inner := PackedVector2Array([
-		Vector2(middle_x, inner_top), Vector2(inner_right, inner_top),
-		Vector2(inner_right, middle_y), Vector2(middle_x, middle_y), Vector2(middle_x, inner_top),
-	])
-	var line_width := maxf(1.0, tile_size * 0.06)
-	canvas.draw_polyline(outer, color, line_width, true)
-	canvas.draw_polyline(inner, color, line_width, true)
+static func draw_vault_symbol(canvas: CanvasItem, rect: Rect2, _tile_size: float, color := Color("#db8a3d")) -> void:
+	DeckIconArt.draw_vault(canvas, rect, color)
+
+
+static func draw_altar(canvas: CanvasItem, rect: Rect2) -> void:
+	draw_room_art(canvas, rect, "stickerAltar")
+
+
+static func draw_room_art(canvas: CanvasItem, rect: Rect2, room_type: String) -> void:
+	var side := minf(rect.size.x, rect.size.y) * 0.90
+	canvas.draw_texture_rect(ROOM_TEXTURES[room_type],
+		Rect2(rect.get_center() - Vector2.ONE * side * 0.5, Vector2.ONE * side), false)
 
 
 static func draw_gold_pile(canvas: CanvasItem, art_rect: Rect2, amount: int) -> void:
@@ -275,29 +284,34 @@ static func awareness_symbol(awareness: String) -> String:
 
 static func draw_enemy_badge(canvas: CanvasItem, rect: Rect2, tile_size: float,
 	state_symbol: String, enemy_name: String, remembered: bool, has_horizontal_neighbor: bool,
-	state_font: Font, name_font: Font) -> void:
-	var scale := tile_size / 136.0
+	state_font: Font, name_font: Font, has_sprite: bool = false) -> void:
+	var scale := tile_size / 136.0 * (0.80 if has_sprite else 1.0)
 	var max_design_width := 208.0
 	if has_horizontal_neighbor:
 		max_design_width = minf(max_design_width, 136.0 - 8.0)
 	var max_width := max_design_width * scale
 	var content_max_width := maxf(1.0, max_width - 16.0 * scale)
-	var state_font_size := maxi(1, roundi(18.0 * scale))
+	var state_design_size := 27.0 if has_sprite else 18.0
+	var state_font_size := maxi(1, roundi(state_design_size * scale))
 	var name_font_size := maxi(1, roundi(20.0 * scale))
 	var state_width := state_font.get_string_size(state_symbol, HORIZONTAL_ALIGNMENT_LEFT, -1, state_font_size).x
 	var name_lines := _wrap_enemy_name(name_font, enemy_name, name_font_size, content_max_width)
 	var content_width := state_width
 	for line in name_lines:
 		content_width = maxf(content_width, name_font.get_string_size(line, HORIZONTAL_ALIGNMENT_LEFT, -1, name_font_size).x)
-	var badge_width := clampf(content_width + 16.0 * scale, 124.0 * scale, max_width)
+	var minimum_width := 44.0 if enemy_name.is_empty() else 124.0
+	var badge_width := clampf(content_width + 16.0 * scale, minimum_width * scale, max_width)
 	var inner_width := maxf(1.0, badge_width - 16.0 * scale)
-	var state_line_height := 18.0 * 1.1 * scale
+	var state_line_height := state_design_size * 1.1 * scale
 	var name_line_height := 20.0 * 1.2 * scale
 	var badge_height := (4.0 + 14.0) * scale + state_line_height
 	if not name_lines.is_empty():
 		badge_height += 2.0 * scale + name_line_height * name_lines.size()
 	var badge_rect := Rect2(rect.get_center() - Vector2(badge_width, badge_height) * 0.5,
 		Vector2(badge_width, badge_height))
+	if has_sprite:
+		badge_rect.position = Vector2(rect.end.x - badge_width - tile_size * 0.02,
+			rect.position.y + tile_size * 0.02)
 	var border_color := Color("#302724")
 	var fill_color := Color("#6c5b52")
 	var shadow_color := Color(0.0, 0.0, 0.0, 0.5)
@@ -408,7 +422,7 @@ static func draw_tinkerer_sticker(canvas: CanvasItem, rect: Rect2, tile_size: fl
 
 static func minimap_color(room_type: String) -> Color:
 	match room_type:
-		"empty":
+		"empty", "safeEntry", "safeArea", "vaultInterior":
 			return MINIMAP_FLOOR
 		"rock":
 			return MINIMAP_WALL

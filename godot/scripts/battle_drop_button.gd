@@ -2,6 +2,7 @@ extends Button
 
 const CardDragPreviewLayer = preload("res://scripts/card_drag_preview_layer.gd")
 const BattleFreePlayDrop = preload("res://scripts/battle_free_play_drop.gd")
+const EnemyTargetArea = preload("res://scripts/battle_enemy_target_area.gd")
 
 signal card_dropped(payload: Dictionary, target_kind: String, target_index: int)
 
@@ -21,6 +22,7 @@ var drop_style_resolver: Callable
 var drag_hover_valid := false
 var drag_prompt: Control
 var choice_hovered := false
+var _enemy_click_inside := false
 var _drop_guide_layers: Dictionary = {}
 var _drop_guide_style := "none"
 var _drop_guide_hovered := false
@@ -80,6 +82,9 @@ func _get_drag_data(at_position: Vector2) -> Variant:
 
 
 func _can_drop_data(_at_position: Vector2, data: Variant) -> bool:
+	if target_kind == "enemy" and not _has_point(_at_position):
+		_set_drag_highlight(false)
+		return false
 	var can_accept := false
 	if accepts_battle_drops and typeof(data) == TYPE_DICTIONARY \
 			and str(data.get("kind", "")) == "battle-card":
@@ -136,6 +141,7 @@ func _set_drag_highlight(enabled: bool, data: Variant = {}, hovered: bool = true
 		if not drop_style_resolver.is_valid() and _drop_guide_layers.is_empty():
 			return
 	drag_hover_valid = enabled
+	queue_redraw()
 	if not drop_style_resolver.is_valid() or target_kind != "file":
 		self_modulate = Color("#fff0c2") if enabled else Color.WHITE
 		_apply_drop_guide("none", false)
@@ -149,9 +155,20 @@ func _set_drag_highlight(enabled: bool, data: Variant = {}, hovered: bool = true
 
 func _ready() -> void:
 	_create_drop_guide_layers()
+	mouse_entered.connect(queue_redraw)
+	mouse_exited.connect(queue_redraw)
+
+
+func _draw() -> void:
+	if target_kind == "enemy" and not disabled and ((_has_point(get_local_mouse_position()) and is_hovered()) or drag_hover_valid):
+		var rect := EnemyTargetArea.local_rect(self)
+		draw_rect(rect, Color(1, 1, 1, 0.035))
+		draw_rect(rect, Color("#ffe16a") if drag_hover_valid else Color(1, 1, 1, 0.5), false, 2.0)
 
 
 func _has_point(point: Vector2) -> bool:
+	if target_kind == "enemy":
+		return EnemyTargetArea.local_rect(self).has_point(point)
 	var extension := drop_extension_bottom if _battle_card_drag_active() else 0.0
 	if point.x < 0.0 or point.x > size.x or point.y < 0.0 or point.y > size.y + extension:
 		return false
@@ -161,6 +178,15 @@ func _has_point(point: Vector2) -> bool:
 			if BattleFreePlayDrop.contains_point(control, global_point):
 				return false
 	return true
+
+
+func _gui_input(event: InputEvent) -> void:
+	if target_kind == "enemy" and event is InputEventMouseButton and event.button_index == MOUSE_BUTTON_LEFT:
+		_enemy_click_inside = _has_point(event.position) if event.pressed else _enemy_click_inside and _has_point(event.position)
+
+
+func enemy_click_is_inside() -> bool:
+	return _enemy_click_inside
 
 
 func contains_battle_drop_local_point(point: Vector2) -> bool:
@@ -201,6 +227,10 @@ func _battle_card_drag_active() -> bool:
 func _input(event: InputEvent) -> void:
 	# Native drag validation runs on the target under the pointer; it does not
 	# revisit the previous target to turn its hovered outline off.
+	if target_kind == "enemy" and drag_hover_valid and event is InputEventMouseMotion:
+		var local_point: Vector2 = get_global_transform_with_canvas().affine_inverse() * event.position
+		if not _has_point(local_point):
+			_set_drag_highlight(false)
 	if event is InputEventMouseMotion and _drop_guide_hovered:
 		if BattleFreePlayDrop.contains_point(self, event.position):
 			return

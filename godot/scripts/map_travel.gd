@@ -2,7 +2,7 @@ extends RefCounted
 class_name PortMapTravel
 
 const MapRules = preload("res://scripts/map_rules.gd")
-const VISION_RADIUS := 4
+const VISION_RADIUS := MapRules.PLAYER_VISION_RADIUS
 const ALERT_RESET_DISTANCE := 5
 const INVALID_POSITION := Vector2i(-1, -1)
 const DIRECTIONS := [

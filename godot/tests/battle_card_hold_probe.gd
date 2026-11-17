@@ -221,7 +221,7 @@ func run() -> void:
 	assert(root.gui_is_dragging(), "upward targeted drag must stay held after release")
 	assert(not game._battle_hand_card(301).is_empty(), "lift must not use the card")
 	var enemy: Control = game.battle_enemy_widgets[0]
-	point = enemy.get_global_rect().get_center()
+	point = preload("res://scripts/battle_enemy_target_area.gd").global_rect(enemy).get_center()
 	move_pointer(point)
 	await create_timer(0.4).timeout
 	guide._process(0)
@@ -273,7 +273,7 @@ func run() -> void:
 	root.push_input(lift, true)
 	await process_frame
 	enemy = game.battle_enemy_widgets[0]
-	point = enemy.get_global_rect().get_center()
+	point = preload("res://scripts/battle_enemy_target_area.gd").global_rect(enemy).get_center()
 	lift.position = point
 	lift.relative = point - grab
 	root.push_input(lift, true)

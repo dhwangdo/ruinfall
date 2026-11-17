@@ -3,6 +3,7 @@ class_name PortMapMinimap
 
 const MapRules = preload("res://scripts/map_rules.gd")
 const TileAppearance = preload("res://scripts/map_tile_appearance.gd")
+const MapView = preload("res://scripts/map_view.gd")
 
 signal size_changed(new_size: Vector2)
 signal zoom_changed(new_zoom: float)
@@ -15,8 +16,10 @@ const MIN_SIZE := 140.0
 const MAX_SIZE := 640.0
 const MIN_ZOOM := 0.5
 const MAX_ZOOM := 4.0
+const WHEEL_ZOOM_STEP := MapView.MAP_TILE_SIZE_STEP * MapView.MAP_WHEEL_ZOOM_SENSITIVITY / MapView.MAP_TILE_SIZE_DEFAULT
 
 var map_data: Dictionary = {}
+var debug_mode := false
 var player_position := Vector2i.ZERO
 var marker_id := "outline"
 var item_positions: Dictionary = {}
@@ -69,7 +72,7 @@ func _draw() -> void:
 	var center := Vector2(player_position) + view_offset
 	var first_x := floori(center.x) - floori(float(columns) * 0.5)
 	var first_y := floori(center.y) - floori(float(rows) * 0.5)
-	var seen: Dictionary = map_data.get("seen", {})
+	var seen: Dictionary = MapRules.display_visibility(map_data, player_position, debug_mode).seen
 	var visible_now: Dictionary = map_data.get("visible_now", {})
 	var enemies: Dictionary = {}
 	var enemy_positions: Array = map_data.get("enemy_positions", [])
@@ -154,10 +157,10 @@ func _gui_input(event: InputEvent) -> void:
 	if event is InputEventMouseButton:
 		var button := event as InputEventMouseButton
 		if button.button_index == MOUSE_BUTTON_WHEEL_UP and button.pressed:
-			_zoom_at(button.position, 1.064)
+			_zoom_at(button.position, 1.0)
 			accept_event()
 		elif button.button_index == MOUSE_BUTTON_WHEEL_DOWN and button.pressed:
-			_zoom_at(button.position, 1.0 / 1.064)
+			_zoom_at(button.position, -1.0)
 			accept_event()
 		elif button.button_index == MOUSE_BUTTON_LEFT:
 			if button.pressed:
@@ -260,13 +263,13 @@ func _set_layout_position(requested_position: Vector2) -> void:
 	queue_redraw()
 
 
-func _zoom_at(mouse_position: Vector2, multiplier: float) -> void:
+func _zoom_at(mouse_position: Vector2, direction: float) -> void:
 	var old_tile_pixels := BASE_TILE_PIXELS * zoom
 	var old_columns_rows := _columns_rows(old_tile_pixels)
 	var old_origin := (size - Vector2(old_columns_rows) * old_tile_pixels) * 0.5
 	var old_center := Vector2(player_position) + view_offset
 	var world_before := old_center + (mouse_position - old_origin) / old_tile_pixels
-	zoom = clampf(zoom * multiplier, MIN_ZOOM, MAX_ZOOM)
+	zoom = clampf(zoom + direction * WHEEL_ZOOM_STEP, MIN_ZOOM, MAX_ZOOM)
 	var new_tile_pixels := BASE_TILE_PIXELS * zoom
 	var new_columns_rows := _columns_rows(new_tile_pixels)
 	var new_origin := (size - Vector2(new_columns_rows) * new_tile_pixels) * 0.5

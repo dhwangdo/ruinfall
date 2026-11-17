@@ -5,7 +5,7 @@ const SELECTOR_SIZE := 82.0 * 1.2
 const SELECTOR_BORDER := 3.0 * 1.2
 const SELECTOR_NAME_WIDTH := 66.0 * 1.2
 const CARD_FONT: FontFile = preload("res://assets/fonts/PretendardVariable.woff2")
-const STACK_ICON_SCALE := 0.76 * 1.2
+const DeckIconArt = preload("res://scripts/deck_icon_art.gd")
 
 var _deck_name := ""
 var _deck_count := 0
@@ -17,20 +17,13 @@ var _count_label: Label
 class DeckStackIcon extends Control:
 	func _ready() -> void:
 		mouse_filter = Control.MOUSE_FILTER_IGNORE
+		texture_filter = CanvasItem.TEXTURE_FILTER_NEAREST
+		material = DeckIconArt.palette_material()
 
 	func _draw() -> void:
-		var card_size := Vector2(23.0, 29.0) * STACK_ICON_SCALE
-		var origin := (size - card_size) * 0.5 + Vector2(0.0, 5.0 * STACK_ICON_SCALE)
-		var card_rect := Rect2(origin, card_size)
-		draw_rect(Rect2(origin + Vector2(-4.0, 4.0) * STACK_ICON_SCALE, card_size), Color("#82796b"))
-		var back_rect := Rect2(origin + Vector2(-6.0, 6.0) * STACK_ICON_SCALE - Vector2.ONE * STACK_ICON_SCALE,
-			card_size + Vector2.ONE * 2.0 * STACK_ICON_SCALE)
-		draw_rect(back_rect, Color("#5b5348"), false, STACK_ICON_SCALE)
-		draw_rect(card_rect, Color("#c9c4b8"))
-		draw_rect(card_rect, Color("#6a6154"), false, 2.0 * STACK_ICON_SCALE)
-		var inset := 5.0 * STACK_ICON_SCALE
-		draw_rect(Rect2(origin + Vector2.ONE * inset, card_size - Vector2.ONE * inset * 2.0),
-			Color("#827660"), false, STACK_ICON_SCALE)
+		var side := floorf(minf(size.x, size.y))
+		draw_texture_rect(DeckIconArt.RARE,
+			Rect2(((size - Vector2.ONE * side) * 0.5).round(), Vector2.ONE * side), false)
 
 
 func _init() -> void:
@@ -122,7 +115,5 @@ func _selector_style(background: Color, border: Color) -> StyleBoxFlat:
 	style.content_margin_top = 0
 	style.content_margin_right = 0
 	style.content_margin_bottom = 0
-	style.shadow_color = Color(0.0, 0.0, 0.0, 0.4)
-	style.shadow_size = 12
-	style.shadow_offset = Vector2(0.0, 4.8)
+	style.shadow_size = 0
 	return style

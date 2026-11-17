@@ -76,6 +76,7 @@ func _run_probe() -> void:
 	var file_visual := Control.new()
 	file_visual.size = Vector2(136, 191)
 	file_target.add_child(file_visual)
+	file_target.file_drag_previews[0] = file_visual # Real file choices register their visible cards.
 	file_target.drop_extension_bottom = 48.0
 	var hand_fan := BattleHandFan.new()
 	hand_fan.position = Vector2(0, 350)

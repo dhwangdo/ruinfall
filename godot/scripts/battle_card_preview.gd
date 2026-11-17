@@ -42,11 +42,7 @@ static func _damage_per_hit(card: Dictionary, state: Dictionary) -> int:
 	if effect == "radiance":
 		base_damage = 4 + maxi(0, int(state.get("radiance_played_this_turn", 0))) * 4 + (3 if state.get("deck_editions", []).has("sharpLight") else 0)
 	var strength := int(state.get("strength", 0))
-	var hand_bonus := 0
-	for held_card in state.get("hand", []):
-		if str(held_card.get("effect", "")) in ["combat_manual", "strategy_book"]:
-			hand_bonus += int(held_card.get("value", 0))
-	strength += hand_bonus
+	strength += BattleRules.hand_manual_bonus(state)
 	var selected_index := int(state.get("preview_target_enemy_index", -1))
 	var enemies: Array = state.get("enemies", [])
 	var vulnerable := 0
@@ -69,10 +65,7 @@ static func _preview_defense_text(card: Dictionary, source: String, state: Dicti
 	]:
 		return source
 	var multiplier := float(state.get("defense_multiplier", 1.0))
-	var agility := int(state.get("agility", 0))
-	for held_card in state.get("hand", []):
-		if str(held_card.get("effect", "")) in ["combat_manual", "strategy_book"]:
-			agility += int(held_card.get("value", 0))
+	var agility := int(state.get("agility", 0)) + BattleRules.hand_manual_bonus(state)
 	var defense := int(floor(float(base_value + agility) * multiplier))
 	var pattern := RegEx.new()
 	pattern.compile("(방어를)\\s*\\d+")

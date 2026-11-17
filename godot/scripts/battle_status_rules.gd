@@ -13,7 +13,7 @@ const DESCRIPTIONS := {
 
 
 static func resistance(state: Dictionary) -> int:
-	return maxi(0, int(state.get("magic_resistance", 0)) + int(state.get("temporary_magic_resistance", 0)))
+	return maxi(0, int(state.get("magic_resistance", 0)))
 
 
 static func apply_player_debuff(state: Dictionary, kind: String, amount: int) -> int:
@@ -40,9 +40,7 @@ static func decay(state: Dictionary) -> void:
 
 
 static func begin_turn(state: Dictionary) -> void:
-	state["temporary_magic_resistance"] = 0
 	state["cards_played_this_turn"] = 0
-	state["first_solitaire_used"] = false
 	state["cycle_used"] = false
 
 

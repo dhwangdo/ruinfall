@@ -32,9 +32,9 @@ func _initialize() -> void:
 		before = state(Catalog.create_encounter(22, rng))
 		select_action(before, index)
 		after = Rules.end_turn(before)
-		assert(after.player_hp == 10000 - [0, 12, 8][index])
+		assert(after.player_hp == 10000 - [0, 16, 10][index])
 		assert(after.player_vulnerable == (2 if index == 0 else 0))
-		assert(after.enemies[0].strength == (3 if index == 2 else 0))
+		assert(after.enemies[0].strength == (4 if index == 2 else 0))
 
 	before = state(Catalog.create_encounter(2, rng))
 	assert(before.enemies[0].action_index == 0)
@@ -43,27 +43,32 @@ func _initialize() -> void:
 	after = Rules.end_turn(after)
 	assert(after.player_paralysis == 2 and after.enemies[0].action_index == 2)
 	after = Rules.end_turn(after)
-	assert(after.player_hp == 9975 and after.enemies[0].strength == 5 and after.enemies[0].action_index == 0)
+	assert(after.player_hp == 9967 and after.enemies[0].strength == 7 and after.enemies[0].action_index == 0)
 
 	var candidates := Catalog._region_one_pair_candidates()
 	var dog: Dictionary = candidates[0]
 	assert(dog.name == "굶주린 들개")
-	before = state(Catalog._prepare_enemy(dog, 0, rng))
-	after = Rules.end_turn(before)
-	assert(after.player_hp == 9994 and after.player_paralysis == 2)
-	after = Rules.end_turn(after)
-	assert(after.player_hp == 9994 and after.player_vulnerable == 2)
-	after = Rules.end_turn(after)
-	assert(after.player_hp == 9981 and after.enemies[0].action_index == 2)
+	assert(dog.actions.size() == 3)
+	assert(dog.actions[0].damage == 10 and dog.actions[1].damage == 10)
+	assert(dog.actions[2].player_vulnerable_gain == 2)
+	for action in dog.actions:
+		assert(action.random_no_repeat)
 	var toad: Dictionary = candidates[2]
-	assert(toad.name == "화약 두꺼비" and toad.hp == 31)
+	assert(toad.name == "도깨비불" and toad.hp == 41)
 	before = state(Catalog._prepare_enemy(toad, 0, rng))
-	for damage in [4, 4, 20]:
+	for damage in [5, 5, 26]:
 		var hp: int = before.player_hp
 		after = Rules.end_turn(before)
 		assert(after.player_hp == hp - damage)
 		before = after
 	assert(after.status == "won" and after.enemies[0].hp == 0)
+	var sewer_rat: Dictionary = candidates[3]
+	assert(sewer_rat.name == "하수구 쥐")
+	assert(sewer_rat.actions[0].player_weak_gain == 2)
+	assert(sewer_rat.actions[1].damage == 4 and sewer_rat.actions[1].hits == 2)
+	assert(sewer_rat.actions[2].damage == 6 and sewer_rat.actions[2].player_vulnerable_gain == 1)
+	for action in sewer_rat.actions:
+		assert(action.random_no_repeat and action.discard_count == 1 and action.discard_priority == "rarity")
 
 	# All five curse intents expose their selected effect before the attack/effect phases.
 	var priest := Catalog.create_encounter(6, rng)
@@ -74,7 +79,7 @@ func _initialize() -> void:
 		select_action(before, index)
 		before.magic_resistance = 1
 		var action: Dictionary = before.enemies[0].actions[index]
-		assert(action.damage == 12)
+		assert(action.damage == 16)
 		var selected := ""
 		for kind in Rules.StatusRules.DEBUFFS:
 			if int(action.get("player_" + kind + "_gain", 0)) == 2:
@@ -84,7 +89,7 @@ func _initialize() -> void:
 		assert(Intent.description(action, before.enemies[0]).contains(Rules.StatusRules.LABELS[selected]))
 		var trace := {}
 		after = Rules.end_turn(before, {}, trace)
-		assert(after.player_hp == 9988 and trace.steps[0].attack)
+		assert(after.player_hp == 9984 and trace.steps[0].attack)
 		assert(after["player_" + selected] == 1, "curse did not pass through resistance")
 	assert(kinds.size() == 5)
 	before = state(priest)
@@ -101,18 +106,18 @@ func _initialize() -> void:
 		var hp: int = before.player_hp
 		after = Rules.end_turn(before)
 		assert(after.enemies.size() == 1 + 2 * (use + 1))
-		assert(after.player_hp == hp - use * 2 * 4)
+		assert(after.player_hp == hp - use * 2 * 5)
 		var ids := {}
 		for child in after.enemies:
 			assert(not ids.has(child.id))
 			ids[child.id] = true
 			if child.name == "새끼 바퀴":
-				assert(child.hp == 6 and child.actions[0].damage == 4)
+				assert(child.hp == 7 and child.actions[0].damage == 5)
 		assert(not after.enemies[-1].first_action_completed)
 		before = after
 	var modified := Setup.prepare_encounter(Catalog.create_encounter(25, rng), 5, 1)
 	after = Rules.end_turn(state(modified.encounter))
-	assert(after.enemies[1].hp == 6 and after.enemies[1].strength == 5)
+	assert(after.enemies[1].hp == 7 and after.enemies[1].strength == 5)
 
 	# Removing one member of a pair pool must not leave invalid indexes or weighted stale pairs.
 	assert(Catalog.REGION_ONE_PAIR_IDS.size() == 12)
@@ -136,5 +141,15 @@ func _initialize() -> void:
 	for id in range(66, 86):
 		for enemy in Catalog.create_encounter(id, rng).enemies:
 			assert(enemy.name != "눈치보는 산적")
+	# Non-fixed HP now spans both sides of its baseline; fixed HP remains exact.
+	var observed := {}
+	var hp_blueprint := Catalog._enemy("HP range probe", 100, [])
+	for sample in 1000:
+		var prepared := Catalog._prepare_enemy(hp_blueprint, 0, rng)
+		assert(prepared.hp >= 95 and prepared.hp <= 105 and prepared.max_hp == prepared.hp)
+		observed[prepared.hp] = true
+	assert(observed.has(95) and observed.has(105))
+	for passive in [{"fixed_max_hp": true}, {"is_boss": true}]:
+		assert(Catalog._prepare_enemy(Catalog._enemy("fixed", 100, [], passive), 0, rng).hp == 100)
 	print("PASS: revised patterns, five visible random curses, attack-before-debuff/resistance, unlimited two-child summons, no same-turn summon attack, karma/lament, bandit-free pair pools")
 	quit()

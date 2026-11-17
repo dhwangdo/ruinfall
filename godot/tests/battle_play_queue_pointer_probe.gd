@@ -1,4 +1,5 @@
 extends SceneTree
+const EnemyTargetArea = preload("res://scripts/battle_enemy_target_area.gd")
 
 var untargeted := OS.get_cmdline_user_args().has("--untargeted")
 var discard_first := OS.get_cmdline_user_args().has("--discard-first")
@@ -44,7 +45,7 @@ func play_by_pointer(game: Game, id: int) -> void:
 		root.push_input(key, true)
 		assert(root.gui_is_dragging(), "number key failed to hold " + str(id))
 		var target: Control = game.battle_enemy_widgets[0]
-		var destination := Vector2(640, 460) if untargeted or (discard_first and id == 500) else target.get_global_rect().get_center()
+		var destination := Vector2(640, 460) if untargeted or (discard_first and id == 500) else EnemyTargetArea.global_rect(target).get_center()
 		move_pointer(destination)
 		await process_frame
 		button(destination, true)
@@ -62,7 +63,7 @@ func play_by_pointer(game: Game, id: int) -> void:
 	move_pointer(start - Vector2(0, 24), Vector2(0, -24), true)
 	await process_frame
 	var enemy: Control = game.battle_enemy_widgets[0]
-	var point := enemy.get_global_rect().get_center()
+	var point := EnemyTargetArea.global_rect(enemy).get_center()
 	if untargeted or (discard_first and id == 500):
 		point = Vector2(640, 460)
 	move_pointer(point, point - start, true)

@@ -27,6 +27,15 @@ func state(editions: Array = [], deck: Array = []) -> Dictionary:
 
 func _initialize() -> void:
 	var deck := Catalog.create_starter_deck()
+	assert(deck.size() == 12 + Catalog.BASIC_CARDS.size())
+	for blueprint in Catalog.BASIC_CARDS:
+		var copies := 0
+		for starter_card in deck:
+			if starter_card.name == blueprint.name:
+				copies += 1
+		assert(copies == 1, "Starting deck must include every basic card once: " + str(blueprint.name))
+	# Keep the edition layout fixture at its original 20 cards.
+	deck = deck.slice(0, 20)
 	var before := state([], deck)
 	var after := state(["roomy"], deck)
 	assert(after.piles.size() == before.piles.size() + 2)
@@ -54,21 +63,44 @@ func _initialize() -> void:
 	assert(forged == 2 and after.forge_count == 2)
 	for value in forge_deck:
 		assert(not value.get("forged", false), "battle forging must not mutate saved deck")
-	# The first successful move is free; rejected moves do not consume it. Reset next turn.
+	# Each turn grants a temporary action; the edition grants one more.
 	before = state(["firstSolitaire"])
+	assert(before.stars == 1 and before.temporary_solitaire_actions == 2)
 	var moving := card("defend")
 	before.hand = [moving]
 	before.piles = [[], []]
-	before.stars = 0
 	after = Rules.move_hand_card_to_file(before, moving.id, 99)
-	assert(not after.get("first_solitaire_used", false))
+	assert(after.temporary_solitaire_actions == 2)
 	after = Rules.move_hand_card_to_file(after, moving.id, 0)
-	assert(after.first_solitaire_used and after.stars == 0)
-	assert(Solitaire.solitaire_star_cost(after, moving) == 1)
-	var rejected := Rules.move_top_between_files(after, 0, 1)
-	assert(rejected.piles[0].size() == 1 and rejected.piles[1].is_empty())
+	assert(after.temporary_solitaire_actions == 1 and after.stars == 1)
+	assert(Solitaire.solitaire_star_cost(after, moving) == 0)
+	var moved := Rules.move_top_between_files(after, 0, 1)
+	assert(moved.temporary_solitaire_actions == 0 and moved.stars == 1)
+	assert(Solitaire.solitaire_star_cost(moved, moving) == 1)
+	after = Rules.move_top_between_files(moved, 1, 0)
+	assert(after.temporary_solitaire_actions == 0 and after.stars == 0)
 	after = Rules.end_turn(after)
-	assert(not after.first_solitaire_used and Solitaire.solitaire_star_cost(after, moving) == 0)
+	assert(after.temporary_solitaire_actions == 2 and after.stars == 0)
+	# Meteor counts and spends both permanent and temporary stars.
+	before = state()
+	var meteor := card("meteor")
+	before.hand = [meteor]
+	before.stars = 2
+	assert(before.temporary_solitaire_actions == 1)
+	after = Rules.play_card(before, meteor.id)
+	assert(after.enemies[0].hp == 9973)
+	assert(after.stars == 0 and after.temporary_solitaire_actions == 0)
+	# Manuals in hand contribute to the displayed and applied strength/agility.
+	before = state()
+	var manual := card("combat_manual")
+	var strategy := card("strategy_book")
+	var strike := card("strike")
+	before.hand = [manual, strategy, strike]
+	assert(Rules.hand_manual_bonus(before) == 6)
+	after = Rules.play_card(before, strike.id)
+	assert(after.enemies[0].hp == 9988)
+	before.hand.erase(manual)
+	assert(Rules.hand_manual_bonus(before) == 4)
 	# Cycle only responds to real hand discards, once per turn, including confusion.
 	before = state(["cycle"])
 	before.piles = [[card("strike"), card("defend"), card("strike")]]
@@ -135,5 +167,5 @@ func _initialize() -> void:
 		after = Rules.play_card(before, charge.id)
 		assert(after.enemies[0].hp == 9988)
 		assert(after.player_vulnerable == (1 if mode == "none" else 0))
-	print("PASS: all 10 editions, battle-only forge/legend, first-move reset, cycle origins/reset/confusion, Prism creation/preview, Charge resistance")
+	print("PASS: editions, temporary Solitaire actions, Meteor stars, cycle, Prism, Charge resistance")
 	quit()

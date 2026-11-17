@@ -3,18 +3,20 @@ extends RefCounted
 const Portrait = preload("res://scripts/battle_enemy_portrait.gd")
 const Intent = preload("res://scripts/battle_enemy_intent.gd")
 const BattleHPBar = preload("res://scripts/battle_hp_bar.gd")
-const TooltipBindings = preload("res://scripts/tooltip_bindings.gd")
+const BattleIndicatorBadge = preload("res://scripts/battle_indicator_badge.gd")
 
 
 static func populate(target: Button, enemy: Dictionary, state: Dictionary, statuses: Array,
-		selected: Callable, _trait_text: String, crowded: bool, choosing_target: bool) -> void:
-	target.custom_minimum_size = Vector2(210 if crowded else 230, 232)
+		selected: Callable, _trait_text: String, _crowded: bool, _choosing_target: bool) -> void:
+	target.custom_minimum_size = Vector2(176, 232)
 	target.focus_mode = Control.FOCUS_NONE
-	target.pressed.connect(selected)
+	target.pressed.connect(func() -> void:
+		if not target.has_method("enemy_click_is_inside") or target.call("enemy_click_is_inside"):
+			selected.call())
 	for mode in ["normal", "hover", "pressed", "disabled"]:
 		var style := StyleBoxFlat.new()
-		style.bg_color = Color(1, 1, 1, 0.055 if mode == "hover" else 0.0)
-		style.border_color = Color(1, 1, 1, 0.72 if choosing_target else 0.0)
+		style.bg_color = Color.TRANSPARENT
+		style.border_color = Color.TRANSPARENT
 		style.set_border_width_all(2)
 		style.set_corner_radius_all(5)
 		style.content_margin_left = 0
@@ -31,7 +33,7 @@ static func populate(target: Button, enemy: Dictionary, state: Dictionary, statu
 	inset.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	target.add_child(inset)
 	var contents := VBoxContainer.new()
-	contents.custom_minimum_size.x = 180 if crowded else 220
+	contents.custom_minimum_size.x = 140
 	contents.add_theme_constant_override("separation", 0)
 	contents.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	inset.add_child(contents)
@@ -59,7 +61,7 @@ static func populate(target: Button, enemy: Dictionary, state: Dictionary, statu
 	contents.add_child(hp_center)
 	var hp := ProgressBar.new()
 	hp.name = "EnemyHP"
-	hp.custom_minimum_size = Vector2(160, 28)
+	hp.custom_minimum_size = Vector2(140, 28)
 	hp.show_percentage = false
 	hp.max_value = maxi(1, int(enemy.get("max_hp", enemy.get("hp", 1))))
 	hp.value = int(enemy.get("hp", 0))
@@ -70,6 +72,15 @@ static func populate(target: Button, enemy: Dictionary, state: Dictionary, statu
 	hp_center.add_child(hp)
 	target.set_meta("enemy_hp_bar", hp)
 	target.set_meta("enemy_hp_text", hp_text)
+	if not statuses.is_empty():
+		_spacer(contents, 6)
+		var badges := HFlowContainer.new()
+		badges.mouse_filter = Control.MOUSE_FILTER_IGNORE
+		badges.alignment = FlowContainer.ALIGNMENT_CENTER
+		badges.add_theme_constant_override("h_separation", 2)
+		contents.add_child(badges)
+		for status in statuses:
+			badges.add_child(BattleIndicatorBadge.create(status, 11))
 	if intent.secondary != "":
 		_spacer(contents, 5)
 		var tag_center := CenterContainer.new()
@@ -97,44 +108,21 @@ static func populate(target: Button, enemy: Dictionary, state: Dictionary, statu
 		}
 		font = web_font
 		description.add_theme_font_override("font", web_font)
-		description.custom_minimum_size.x = minf(180, font.get_string_size(intent.secondary, HORIZONTAL_ALIGNMENT_LEFT, -1, 12).x)
+		description.custom_minimum_size.x = minf(124, font.get_string_size(intent.secondary, HORIZONTAL_ALIGNMENT_LEFT, -1, 12).x)
 		tag.add_child(description)
 		tag_center.add_child(tag)
-	if not statuses.is_empty():
-		_spacer(contents, 6)
-		var badges := HFlowContainer.new()
-		badges.mouse_filter = Control.MOUSE_FILTER_IGNORE
-		contents.add_child(badges)
-		for status in statuses:
-			var badge := PanelContainer.new()
-			badge.mouse_filter = Control.MOUSE_FILTER_PASS
-			var status_tooltip := str(status.get("tooltip", ""))
-			if not status_tooltip.is_empty():
-				TooltipBindings.bind_enemy(badge, str(status.get("text", "")), status_tooltip)
-			var badge_style := StyleBoxFlat.new()
-			badge_style.bg_color = Color("#704399") if bool(status.get("debuff", false)) else Color("#2f84b9")
-			badge_style.set_corner_radius_all(3)
-			badge_style.content_margin_left = 8
-			badge_style.content_margin_right = 8
-			badge_style.content_margin_top = 4
-			badge_style.content_margin_bottom = 4
-			badge.add_theme_stylebox_override("panel", badge_style)
-			badge.add_child(_label(str(status.get("text", "")), 11))
-			badges.add_child(badge)
 	if int(enemy.get("hp", 0)) <= 0:
 		target.modulate.a = 0.42
 
 
-static func set_display_hp(target: Control, value: int) -> void:
+static func set_display_hp(target: Control, value: int, animate: bool = true) -> void:
 	if not is_instance_valid(target):
 		return
 	var hp := target.get_meta("enemy_hp_bar", null) as ProgressBar
 	var hp_text := target.get_meta("enemy_hp_text", null) as Label
 	if not is_instance_valid(hp) or not is_instance_valid(hp_text):
 		return
-	var displayed_hp := clampi(value, int(hp.min_value), int(hp.max_value))
-	hp.value = displayed_hp
-	hp_text.text = "%d / %d" % [displayed_hp, int(hp.max_value)]
+	BattleHPBar.set_display_hp(hp, hp_text, value, animate)
 
 
 static func _spacer(parent: Control, height: float) -> void:

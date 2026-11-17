@@ -130,7 +130,7 @@ const SPECIAL_CARDS: Array[Dictionary] = [
 	{"name": "대형 프리즘", "kind": "skill", "effect": "large_prism", "use_mode": "untargeted", "rarity": "special", "cost": 3, "value": 3, "playable": true, "description": "광채 3장을 얻습니다."},
 	{"name": "성운", "kind": "skill", "effect": "nebula", "use_mode": "untargeted", "rarity": "special", "cost": 1, "value": 2, "playable": true, "description": "광채 1장을 가져옵니다.\n★★를 얻습니다."},
 	{"name": "별빛", "kind": "skill", "effect": "starlight", "use_mode": "untargeted", "rarity": "special", "cost": 0, "value": 2, "playable": true, "description": "★★을 얻습니다."},
-	{"name": "준비 운동", "kind": "skill", "effect": "warm_up", "use_mode": "untargeted", "rarity": "special", "cost": 0, "value": 4, "playable": true, "description": "힘을 1 얻습니다. 이번 턴 힘을 4 추가로 얻습니다."},
+	{"name": "준비 운동", "kind": "skill", "effect": "warm_up", "use_mode": "untargeted", "rarity": "special", "cost": 0, "value": 4, "playable": true, "description": "힘을 5 얻습니다. 턴 종료 시 힘을 4 잃습니다."},
 	{"name": "퀵스텝", "kind": "skill", "effect": "quick_step", "use_mode": "untargeted", "rarity": "special", "cost": 1, "draw": 2, "playable": true, "description": "카드를 2장 뽑습니다."},
 	{"name": "5연격", "kind": "strike", "effect": "five_hit", "use_mode": "targeted", "rarity": "special", "cost": 1, "value": 2, "playable": true, "description": "피해를 2씩 5번 줍니다."},
 	{"name": "진압", "kind": "strike", "effect": "suppression", "use_mode": "targeted", "rarity": "special", "cost": 3, "value": 12, "playable": true, "description": "피해를 12 줍니다. 준 피해만큼 방어를 얻습니다."},
@@ -169,7 +169,7 @@ const RARE_CARDS: Array[Dictionary] = [
 	{"name": "오딘의 창", "kind": "skill", "effect": "odin_spear", "use_mode": "untargeted", "rarity": "rare", "cost": 6, "value": 3, "all_targets": true, "playable": true, "description": "모든 적에게 약화와 취약을 3 부여합니다.\n다른 카드를 재련할 때마다 이 카드의 비용이 1 감소합니다."},
 	{"name": "병법서", "kind": "skill", "effect": "strategy_book", "use_mode": "untargeted", "rarity": "rare", "cost": 2, "value": 4, "exhaust": true, "playable": true, "description": "힘과 강인함을 4 얻습니다.\n이 효과는 손패에 있는 동안에도 적용됩니다.\n소멸."},
 	{"name": "진화론", "kind": "skill", "effect": "evolution_theory", "use_mode": "untargeted", "rarity": "rare", "cost": 2, "value": 1, "exhaust": true, "rule": true, "playable": true, "description": "힘과 강인함을 1 얻습니다.\n룰. 내 턴 시작 시 반복합니다."},
-	{"name": "유성우", "kind": "strike", "effect": "meteor", "use_mode": "untargeted", "rarity": "rare", "cost": 2, "value": 9, "playable": true, "description": "★를 모두 소모해, 무작위 적에게 별 하나당 피해를 9 줍니다."},
+	{"name": "유성우", "kind": "strike", "effect": "meteor", "use_mode": "untargeted", "rarity": "rare", "cost": 2, "value": 9, "playable": true, "description": "★를 모두 소모해, 무작위 적에게 ★ 하나당 피해를 9 줍니다. 임시 ★도 포함합니다."},
 	{"name": "법학 연구", "kind": "skill", "effect": "law_research", "use_mode": "untargeted", "rarity": "rare", "cost": 0, "value": 1, "exhaust": true, "rule": true, "playable": true, "description": "룰. 내 룰 카드의 비용이 1 감소합니다."},
 	{"name": "경제학 연구", "kind": "skill", "effect": "economics_research", "use_mode": "untargeted", "rarity": "rare", "cost": 2, "value": 3, "exhaust": true, "rule": true, "playable": true, "description": "룰. 에너지가 -3이 될 때까지 카드를 사용할 수 있습니다."},
 	{"name": "저항력", "kind": "skill", "effect": "resilience", "use_mode": "untargeted", "rarity": "rare", "cost": 1, "magic_resistance": 1, "exhaust": true, "description": "마법 저항을 1 얻습니다.\n소멸."},
@@ -185,8 +185,6 @@ static func create_starter_deck() -> Array[Dictionary]:
 	for blueprint in STARTER_CARDS:
 		deck.append(_make_card(blueprint, deck.size() + 1))
 	for blueprint in BASIC_CARDS:
-		if str(blueprint.get("effect", "")) in ["patch_gap", "sharpen_edge"]:
-			continue
 		deck.append(_make_card(blueprint, deck.size() + 1))
 	for blueprint in STARTER_CARDS:
 		for copy_index in range(5):
@@ -386,7 +384,7 @@ static func create_radiance_card(card_id: int) -> Dictionary:
 		"playable": true,
 		"token": true,
 		"revealed": true,
-		"description": "피해를 4 줍니다.",
+		"description": "피해를 4 줍니다.\n사용한 후 이번 턴 동안 광채의 피해량이 4 증가합니다.",
 	}
 
 

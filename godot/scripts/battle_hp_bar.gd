@@ -25,3 +25,23 @@ static func apply_map_style(bar: ProgressBar, label: Label) -> void:
 	label.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
 	label.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
 	label.mouse_filter = Control.MOUSE_FILTER_IGNORE
+
+
+static func set_display_hp(bar: ProgressBar, label: Label, target: int, animate: bool = true) -> void:
+	var displayed := clampi(target, int(bar.min_value), int(bar.max_value))
+	if int(bar.get_meta("hp_target", roundi(bar.value))) == displayed:
+		return
+	var previous_tween: Tween = bar.get_meta("hp_tween", null)
+	if previous_tween and previous_tween.is_running():
+		previous_tween.kill()
+	bar.set_meta("hp_target", displayed)
+	if not animate or not bar.is_inside_tree():
+		bar.value = displayed
+		label.text = "%d / %d" % [displayed, int(bar.max_value)]
+		return
+	var tween := bar.create_tween()
+	bar.set_meta("hp_tween", tween)
+	var update := func(value: float) -> void:
+		bar.value = value
+		label.text = "%d / %d" % [roundi(value), int(bar.max_value)]
+	tween.tween_method(update, bar.value, float(displayed), 0.38).set_trans(Tween.TRANS_CUBIC).set_ease(Tween.EASE_OUT)

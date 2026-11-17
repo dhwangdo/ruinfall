@@ -1,9 +1,16 @@
 extends Control
 
+const TileArt = preload("res://scripts/enemy_tile_art.gd")
+
 var enemy_variant := ""
+var enemy_data: Dictionary = {}
+var tile_texture: Texture2D
 
 
 func configure(enemy: Dictionary) -> void:
+	enemy_data = enemy.duplicate()
+	tile_texture = TileArt.texture_for(enemy)
+	texture_filter = CanvasItem.TEXTURE_FILTER_NEAREST
 	enemy_variant = str(enemy.get("variant", ""))
 	if str(enemy.get("name", "")) == "굶주린 들개": enemy_variant = "hungryDog"
 	if str(enemy.get("name", "")).contains("쥐"): enemy_variant = "rat"
@@ -15,6 +22,9 @@ func _ready() -> void:
 
 
 func _draw() -> void:
+	if tile_texture != null:
+		draw_texture_rect(tile_texture, TileArt.battle_rect(enemy_data, size), false)
+		return
 	var factor := 0.82 if enemy_variant == "rat" else 0.88 if enemy_variant == "goblin" else 1.0
 	draw_set_transform((size - Vector2(70, 75) * factor) * 0.5, 0, Vector2.ONE * factor)
 	if enemy_variant == "rat":

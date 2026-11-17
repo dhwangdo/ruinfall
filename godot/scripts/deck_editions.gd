@@ -12,14 +12,14 @@ const SCORES := {
 	"fantastic": 3, "legendCassiopeia": 3,
 }
 const NAMES := {
-	"roomy": "추가 파일", "firstSolitaire": "무료 솔리테어 행동", "quickHammer": "자동망치",
+	"roomy": "추가 파일", "firstSolitaire": "추가 솔리테어 행동", "quickHammer": "자동망치",
 	"sharpLight": "날카로운 빛", "cycle": "순환", "gambit": "갬빗",
 	"sunkenLegend": "가라앉은 전설", "prism": "프리즘",
 	"fantastic": "압축", "legendCassiopeia": "카시오페이아",
 }
 const DESCRIPTIONS := {
 	"roomy": "전투 시작 시 빈 추가 파일 2개를 얻습니다.",
-	"firstSolitaire": "매 턴 첫 번째 솔리테어 행동이 ★을 소모하지 않습니다.",
+	"firstSolitaire": "매 턴 시작 시 임시 ★을 1개 더 얻습니다.",
 	"quickHammer": "전투 시작 시 덱의 재련 가능한 무작위 카드 2장을 재련합니다.",
 	"sharpLight": "내 광채의 피해량이 3 증가합니다.",
 	"cycle": "매 턴 처음으로 손패에서 카드를 버리면 무작위 카드 1장을 뽑습니다.",
@@ -27,7 +27,7 @@ const DESCRIPTIONS := {
 	"sunkenLegend": "전투 시작 시 첫 번째 파일 맨 아래에 무작위 전설 카드를 놓습니다.",
 	"prism": "내 광채가 무작위 스티커를 얻습니다.",
 	"fantastic": "파일에 카드를 4장씩 놓습니다. 덱 용량 -20%.",
-	"legendCassiopeia": "이 덱은 카시오페이아를 가집니다. 이 카드는 덱에서 꺼내거나 제거·변환할 수 없습니다. 스티커는 붙일 수 있습니다.",
+	"legendCassiopeia": "이 덱은 카시오페이아를 가집니다.",
 }
 const TIER_COLORS := {1: "#00c8ff", 2: "#e040fb", 3: "#ffc400"}
 const COLORS := {

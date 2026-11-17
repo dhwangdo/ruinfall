@@ -51,9 +51,6 @@ static func move_toward_player(map_data: Dictionary, active_center: Vector2i, pl
 			if awareness == "alerted" and old_distance >= ALERT_RESET_DISTANCE:
 				awareness = "awake"
 				state_changed = true
-			elif awareness == "awake" and old_distance >= MapRules.ENEMY_ACTIVE_RADIUS and random.randf() < 0.1:
-				awareness = "sleeping"
-				state_changed = true
 
 			# Match the browser rule: perception uses shortest walkable-path distance, not straight-line proximity.
 			var detection_chance := 0.0

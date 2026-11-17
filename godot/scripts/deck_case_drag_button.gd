@@ -21,7 +21,8 @@ func _get_drag_data(_at_position: Vector2) -> Variant:
 	preview.add_theme_stylebox_override("panel", style)
 	var heading := DeckCaseHeading.new()
 	heading.configure(str(deck_preview_data.get("name", "덱")), deck_preview_data.get("editions", []),
-		int(deck_preview_data.get("count", 0)), int(deck_preview_data.get("capacity", 0)), false, false, false, true)
+		int(deck_preview_data.get("count", 0)), int(deck_preview_data.get("capacity", 0)), false, false, false, true,
+		bool(deck_preview_data.get("show_icon", false)))
 	preview.add_child(heading)
 	set_drag_preview(CardDragPreviewLayer.create(preview, PREVIEW_SIZE, "DeckCaseDragPreview"))
 	return deck_drag_payload.duplicate(true)

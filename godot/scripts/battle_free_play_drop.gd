@@ -65,6 +65,8 @@ static func contains_point(control: Control, point: Vector2) -> bool:
 	var hit := Rect2(Vector2.ZERO, control.size).has_point(local_point)
 	if control.has_method("contains_battle_drop_local_point"):
 		hit = bool(control.call("contains_battle_drop_local_point", local_point))
+		if control.has_meta("enemy_portrait"):
+			return hit
 	if hit:
 		return true
 	for child in control.get_children():

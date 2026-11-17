@@ -9,12 +9,15 @@ const REGION_STRIDE := REGION_HEIGHT + ROCK_BARRIER_HEIGHT
 const HEIGHT := REGION_COUNT * REGION_HEIGHT + (REGION_COUNT - 1) * ROCK_BARRIER_HEIGHT
 const START := Vector2i(106, 0)
 const MAP_VERSION := 16
+const PLAYER_VISION_RADIUS := 6
+const DEBUG_VISION_RADIUS := 9 # Player-centered 19x19 square; walls do not occlude it.
 const ENEMY_DETECTION_ONE_TILE_CHANCE := 1.0
-const ENEMY_DETECTION_TWO_TILE_CHANCE := 0.10
+const ENEMY_DETECTION_TWO_TILE_CHANCE := 0.20
 const ENEMY_PERCEPTION_RANGE := 2
 const ENEMY_ACTIVE_RADIUS := 4
 const ENEMY_START_SAFE_RADIUS := 4
 const MAP_ENEMY_SPAWN_CHANCE := 0.045
+const ENEMY_CHOKEPOINT_WEIGHT := 4.0
 const EnemyCatalog = preload("res://scripts/enemy_catalog.gd")
 const MapGenerationRules = preload("res://scripts/map_generation_rules.gd")
 
@@ -78,26 +81,19 @@ static func generate_region(map_data: Dictionary, region_index: int, map_seed: i
 		{"id": "spiral-vault", "grid": SPIRAL_VAULT, "entrance": Vector2i(0, 7), "mirror": true, "padding": 1},
 		{"id": "pillar-vault", "grid": PILLAR_VAULT, "entrance": Vector2i(0, 4), "mirror": true, "padding": 1},
 	]
-	var prefab_placements := MapGenerationRules.place_region_prefabs(
+	# Preserve the former vault count when disabling setpiece placement.
+	var former_prefab_count := MapGenerationRules.place_region_prefabs(
 		layout_seed, region_index + 1, WIDTH, REGION_HEIGHT, safe_area_blocked,
 		Vector2i(START.x, 0), local_portals, prefab_definitions
-	)
+	).size()
 	var layout := MapGenerationRules.generate_floor(
 		layout_seed, region_index + 1, WIDTH, REGION_HEIGHT, Vector2i(START.x, 0), local_portals,
-		safe_area_blocked, prefab_placements
+		safe_area_blocked, []
 	)
 	for local_y in range(REGION_HEIGHT):
 		for x in range(WIDTH):
 			if layout["floor"][local_y * WIDTH + x]:
 				map_data["walkable"][Vector2i(x, start_y + local_y)] = true
-	for placement in prefab_placements:
-		var local_top_left: Vector2i = placement["top_left"]
-		_place_prefab(
-			map_data,
-			Vector2i(local_top_left.x, start_y + local_top_left.y),
-			placement["grid"],
-			str(placement["id"])
-		)
 	for local_portal in local_portals:
 		var portal_position := Vector2i(local_portal.x, start_y + local_portal.y)
 		map_data["room_types"][portal_position] = "portal"
@@ -132,6 +128,9 @@ static func generate_region(map_data: Dictionary, region_index: int, map_seed: i
 		map_data["room_types"][safe_portal] = "safePortal"
 		map_data["safe_portals"][region_index] = safe_portal
 
+	# Increase the prior total by another 20%, replacing all setpiece vaults with ordinary vaults.
+	var former_vault_count := roundi(float(int(location_counts["deckVault"]) + former_prefab_count) * 1.2)
+	location_counts["deckVault"] = roundi(float(former_vault_count) * 1.2)
 	var ordinary_locations := MapGenerationRules.place_region_locations(
 		map_data, location_counts, map_seed, region_index, WIDTH, REGION_HEIGHT, start_y, safe_center_local, layout["main"]
 	)
@@ -188,8 +187,10 @@ static func _place_region_enemy_positions(
 	var enemy_count := whole_count + (1 if MapGenerationRules.seeded_roll(browser_anchor, map_seed, 3001) < target_count - whole_count else 0)
 
 	var remaining: Array[Dictionary] = []
+	var chokepoint_patterns: Dictionary = {}
 	for position in candidates:
-		remaining.append({"position": position, "distance": INF, "weight": 1.0})
+		var spawn_weight := ENEMY_CHOKEPOINT_WEIGHT if _is_local_enemy_chokepoint(map_data, position, chokepoint_patterns) else 1.0
+		remaining.append({"position": position, "distance": INF, "base_weight": spawn_weight, "weight": spawn_weight})
 	var selected: Array[Vector2i] = []
 	for selected_index in range(enemy_count):
 		var total_weight := 0.0
@@ -209,8 +210,54 @@ static func _place_region_enemy_positions(
 			var candidate_position: Vector2i = candidate["position"]
 			var distance := maxi(absi(candidate_position.x - chosen_position.x), absi(candidate_position.y - chosen_position.y))
 			candidate["distance"] = minf(float(candidate["distance"]), float(distance))
-			candidate["weight"] = minf(1.0, pow((float(candidate["distance"]) + 0.25) / 5.0, 2.5))
+			candidate["weight"] = float(candidate["base_weight"]) * minf(1.0, pow((float(candidate["distance"]) + 0.25) / 5.0, 2.5))
 	return selected
+
+
+static func _is_local_enemy_chokepoint(map_data: Dictionary, position: Vector2i, pattern_cache: Dictionary = {}) -> bool:
+	var neighbors: Array[Vector2i] = []
+	var mask := 0
+	var bit := 1
+	for dy in range(-1, 2):
+		for dx in range(-1, 2):
+			if dx == 0 and dy == 0:
+				continue
+			var neighbor := position + Vector2i(dx, dy)
+			if is_walkable(map_data, neighbor) and not is_safe_area_tile(map_data, neighbor):
+				neighbors.append(neighbor)
+				mask |= bit
+			bit <<= 1
+	if pattern_cache.has(mask):
+		return bool(pattern_cache[mask])
+	if neighbors.size() < 2:
+		pattern_cache[mask] = false
+		return false
+	var visited := PackedByteArray()
+	visited.resize(neighbors.size())
+	visited.fill(0)
+	var component_count := 0
+	for start_index in range(neighbors.size()):
+		if visited[start_index] != 0:
+			continue
+		component_count += 1
+		if component_count >= 2:
+			pattern_cache[mask] = true
+			return true
+		var queue: Array[int] = [start_index]
+		visited[start_index] = 1
+		var queue_index := 0
+		while queue_index < queue.size():
+			var index := queue[queue_index]
+			queue_index += 1
+			for next_index in range(neighbors.size()):
+				if visited[next_index] != 0:
+					continue
+				var offset: Vector2i = neighbors[next_index] - neighbors[index]
+				if maxi(absi(offset.x), absi(offset.y)) == 1:
+					visited[next_index] = 1
+					queue.append(next_index)
+	pattern_cache[mask] = false
+	return false
 
 
 static func _place_region_prefabs(
@@ -474,7 +521,7 @@ static func _reveal_visible(map_data: Dictionary, position: Vector2i) -> void:
 		var current: Vector2i = queue[queue_index]
 		queue_index += 1
 		var current_distance := int(distance_by_position[current])
-		if current_distance >= 4:
+		if current_distance >= PLAYER_VISION_RADIUS:
 			continue
 		for y_offset in range(-1, 2):
 			for x_offset in range(-1, 2):
@@ -483,8 +530,8 @@ static func _reveal_visible(map_data: Dictionary, position: Vector2i) -> void:
 				var next_position := current + Vector2i(x_offset, y_offset)
 				if next_position.x < 0 or next_position.x >= WIDTH \
 					or next_position.y < -ROCK_BARRIER_HEIGHT or next_position.y >= HEIGHT \
-					or absi(next_position.x - position.x) > 4 \
-					or absi(next_position.y - position.y) > 4:
+					or absi(next_position.x - position.x) > PLAYER_VISION_RADIUS \
+					or absi(next_position.y - position.y) > PLAYER_VISION_RADIUS:
 					continue
 				visible_now[next_position] = true
 				if not is_walkable(map_data, next_position) or traversed.has(next_position):
@@ -496,6 +543,33 @@ static func _reveal_visible(map_data: Dictionary, position: Vector2i) -> void:
 		seen[visible_position] = true
 	map_data["seen"] = seen
 	map_data["visible_now"] = visible_now
+
+
+static func display_visibility(map_data: Dictionary, position: Vector2i, debug_mode: bool = false) -> Dictionary:
+	if not debug_mode:
+		return {"seen": map_data.get("seen", {}), "visible_now": map_data.get("visible_now", {})}
+	var visible: Dictionary = {}
+	var seen: Dictionary = map_data.get("seen", {}).duplicate()
+	for y in range(maxi(-ROCK_BARRIER_HEIGHT, position.y - DEBUG_VISION_RADIUS), mini(HEIGHT - 1, position.y + DEBUG_VISION_RADIUS) + 1):
+		for x in range(maxi(0, position.x - DEBUG_VISION_RADIUS), mini(WIDTH - 1, position.x + DEBUG_VISION_RADIUS) + 1):
+			var cell := Vector2i(x, y)
+			visible[cell] = true
+			seen[cell] = true
+	# Debug display never permanently reveals distant cells in the saved map.
+	return {"seen": seen, "visible_now": visible}
+
+
+static func remember_visible_vaults(map_data: Dictionary, position: Vector2i, debug_mode: bool = false) -> bool:
+	var known: Dictionary = map_data.get("known_deck_vaults", {})
+	var changed := false
+	var visibility := display_visibility(map_data, position, debug_mode)
+	for cell in visibility.visible_now:
+		if room_type_at(map_data, cell) == "deckVault" and not known.has(cell):
+			known[cell] = true
+			changed = true
+	if changed:
+		map_data["known_deck_vaults"] = known
+	return changed
 
 
 static func reveal_visible(map_data: Dictionary, position: Vector2i) -> void:
@@ -601,7 +675,12 @@ static func forget_enemy_memory_at(map_data: Dictionary, position: Vector2i) -> 
 static func room_type_at(map_data: Dictionary, position: Vector2i) -> String:
 	if not is_walkable(map_data, position):
 		return "rock"
-	return _room_type(map_data, position)
+	var room_type := _room_type(map_data, position)
+	if room_type == "deckVault":
+		var room_key := "%d,%d" % [position.x, position.y]
+		if bool(map_data.get("opened_deck_vaults", {}).get(room_key, false)):
+			return "empty"
+	return room_type
 
 
 static func is_safe_area_tile(map_data: Dictionary, position: Vector2i) -> bool:
