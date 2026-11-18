@@ -3663,7 +3663,11 @@ func _card_description(card: Dictionary, use_battle_context: bool = true) -> Str
 			description = description.replace("%d[%d]" % [base_value, forged_value], str(forged_value))
 	description = _browser_star_gain_description(card, description)
 	if screen_name == "battle" and use_battle_context:
-		description = BattleCardPreview.describe(card, description, battle_state)
+		# File/hand cards show ordinary damage. Enemy-specific mitigation belongs
+		# only to the temporary drag preview built while pointing at that enemy.
+		var preview_state: Dictionary = battle_state.duplicate()
+		preview_state.erase("preview_target_enemy_index")
+		description = BattleCardPreview.describe(card, description, preview_state)
 	if bool(card.get("token", false)) and not description.contains("토큰."):
 		description += "\n토큰."
 	if CardStickers.retains_card(card) and not description.contains("보존."):
@@ -3946,7 +3950,7 @@ func _select_enemy_target(enemy_index: int) -> void:
 	if battle_turn_resolving or battle_draw_presentation.active:
 		return
 	battle_state = BattleRules.select_enemy_target(battle_state, enemy_index)
-	battle_state["preview_target_enemy_index"] = enemy_index
+	battle_state.erase("preview_target_enemy_index")
 	if selected_battle_hand_card_id >= 0:
 		var selected_card := _battle_hand_card(selected_battle_hand_card_id)
 		if not selected_card.is_empty() and CardUse.is_playable(selected_card) \
