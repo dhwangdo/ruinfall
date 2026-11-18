@@ -58,6 +58,13 @@ func _run() -> void:
 	selector._on_selector_pressed()
 	assert(selector._menu.visible)
 	selector.close_menu()
+	# F5 creates a fresh zero-sized map surface before the containers finish layout.
+	surface.size = Vector2.ZERO
+	game._update_map_deck_selector_host()
+	assert(not host.visible, "Do not flash the selector at the origin before map layout")
+	surface.size = Vector2(600, 400)
+	game._update_map_deck_selector_host()
+	assert(host.visible and selector.position == Vector2(roundf(600 - selector.size.x), 0))
 	game.queue_free()
 	await process_frame
 	print("PASS: click threshold, bounded drag, no menu on drag, saved relative position, resize, normal click")

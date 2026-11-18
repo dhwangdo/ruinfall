@@ -233,7 +233,7 @@ func _draw() -> void:
 				draw_rect(rect, edge, false, 1.0)
 			if tile_size >= 10.0 and TileAppearance.ROOM_TEXTURES.has(room_type):
 				_terrain_icon_draws.append({"rect": rect, "room_type": room_type})
-			elif tile_size >= 38.0 and room_type == "tinkerer":
+			elif room_type == "tinkerer":
 				TileAppearance.draw_tinkerer_sticker(self, rect, tile_size, position,
 					int(map_data.get("seed", map_data.get("map_seed", 0))))
 			elif tile_size >= 38.0 and ROOM_BADGES.has(room_type):

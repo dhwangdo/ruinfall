@@ -61,5 +61,5 @@ func _arrange() -> void:
 	row.size = natural
 	row.pivot_offset = Vector2.ZERO
 	row.scale = Vector2.ONE * factor
-	row.position = Vector2(maxf(SIDE_PADDING, (size.x - visual.x) * 0.5), VERTICAL_PADDING)
+	row.position = Vector2(SIDE_PADDING, VERTICAL_PADDING)
 	layout_changed.emit()

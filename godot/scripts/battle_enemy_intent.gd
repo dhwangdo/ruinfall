@@ -2,6 +2,7 @@ extends Control
 
 var damage := 0
 var hits := 1
+var consumed_hits := 0
 var secondary := ""
 var portrait_scale := 1.0
 var intent_font: Font
@@ -20,9 +21,16 @@ func configure(enemy: Dictionary, state: Dictionary) -> void:
 	hits = maxi(1, int(action.get("hits", 1)))
 	damage = int(state.get("enemy_attack", 0)) / hits if action.has("damage") else 0
 	secondary = description(action, enemy)
-	var width := float(hits * 46 + (20 if secondary != "" else 0)) if damage > 0 else 24.0
-	custom_minimum_size = Vector2(width, 65) * portrait_scale
+	var width := float(hits * 46) if damage > 0 else 0.0
+	custom_minimum_size = Vector2(width, 65 if damage > 0 else 0) * portrait_scale
+	visible = damage > 0
 	size = custom_minimum_size
+	queue_redraw()
+
+
+func set_consumed_hits(count: int) -> void:
+	consumed_hits = clampi(count, 0, hits)
+	visible = damage > 0 and consumed_hits < hits
 	queue_redraw()
 
 
@@ -48,15 +56,13 @@ static func description(action: Dictionary, enemy: Dictionary) -> String:
 			var label: String = preload("res://scripts/battle_status_rules.gd").LABELS[kind]
 			parts.append("%s %d 부여" % [label, amount])
 	if action.has("summon"): parts.append(preload("res://scripts/enemy_catalog.gd").roach_summon_description())
-	if bool(action.get("self_destruct", false)): parts.append("자폭")
-	if action.has("preview"): parts.append(str(action["preview"]))
 	return " · ".join(parts)
 
 
 func _draw() -> void:
 	draw_set_transform(Vector2.ZERO, 0, Vector2.ONE * portrait_scale)
 	if damage > 0:
-		for index in range(hits):
+		for index in range(consumed_hits, hits):
 			var origin := Vector2(float(index) * 46, 0)
 			var blade := PackedVector2Array([
 				Vector2(22, 0), Vector2(40, 11), Vector2(33, 41),
@@ -67,5 +73,3 @@ func _draw() -> void:
 			for point in range(blade.size()): blade[point] += origin
 			draw_colored_polygon(blade, Color("#e87e22"))
 			draw_string(intent_font, origin + Vector2(0, 35), str(damage), HORIZONTAL_ALIGNMENT_CENTER, 44, 25, Color.WHITE)
-	if secondary != "":
-		draw_string(intent_font, Vector2(float(hits * 46) if damage > 0 else 0.0, 39), "*", HORIZONTAL_ALIGNMENT_CENTER, 24, 42, Color("#a23fc4"))

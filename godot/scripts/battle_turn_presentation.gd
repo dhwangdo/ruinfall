@@ -5,6 +5,8 @@ const EnemyStrike = preload("res://scripts/battle_enemy_strike.gd")
 const HitPopup = preload("res://scripts/battle_hit_popup.gd")
 const CardStickers = preload("res://scripts/stickers.gd")
 const DefenseShield = preload("res://scripts/battle_defense_shield.gd")
+const TooltipBindings = preload("res://scripts/tooltip_bindings.gd")
+const EnemyView = preload("res://scripts/battle_enemy_view.gd")
 const BattleHPBar = preload("res://scripts/battle_hp_bar.gd")
 
 var active_popup: Control
@@ -30,7 +32,7 @@ func present(game, before: Dictionary, final_state: Dictionary, draw_view: Dicti
 			return
 	if not await _present_toxic_slime(game, ticket, before, turn_view.get("toxic_slime", {})):
 		return
-	for step in turn_view.get("steps", []):
+	for step in _completed_intent_steps(turn_view.get("steps", [])):
 		if not await _present_enemy_step(game, ticket, step):
 			return
 	if not presenter._is_current(game, ticket):
@@ -89,19 +91,38 @@ func _present_toxic_slime(game, ticket: int, before: Dictionary, slime: Dictiona
 	return await _finish_layer(game, ticket, layer, completion)
 
 
+func _completed_intent_steps(steps: Array) -> Array:
+	var result := steps.duplicate(true)
+	var seen_attack: Dictionary = {}
+	var seen_any: Dictionary = {}
+	for index in range(result.size() - 1, -1, -1):
+		var step: Dictionary = result[index]
+		var enemy := int(step.get("enemy_index", -1))
+		var attack := bool(step.get("attack", false))
+		step["attack_complete"] = (attack and not seen_attack.has(enemy)) or str(step.get("message_kind", "")) == "cancel"
+		step["effects_complete"] = not seen_any.has(enemy)
+		seen_any[enemy] = true
+		if attack:
+			seen_attack[enemy] = true
+	return result
+
+
 func _present_enemy_step(game, ticket: int, step: Dictionary) -> bool:
 	var presenter = game.battle_draw_presentation
 	var reduced: bool = presenter._reduced_motion()
 	var attack := bool(step.get("attack", false))
 	var motion := str(step.get("motion", "attack" if attack else "none"))
 	var lunging := motion == "attack" or motion == "debuff"
-	var duration := 0.05 if reduced else (0.35 if lunging else 0.18)
-	var impact := 0.02 if reduced else (0.133 if lunging else 0.072)
+	var duration := 0.05 if reduced else (EnemyStrike.DURATION if lunging else 0.18)
+	var impact := 0.02 if reduced else (EnemyStrike.DURATION * 0.38 if lunging else 0.072)
 	var gap := 0.03 if reduced or attack else 0.025
 	var completion: Array[bool] = []
 	var layer: Control
 	var enemy_index := int(step.get("enemy_index", -1))
 	var source: Control = game.battle_enemy_widgets.get(enemy_index)
+	game._refresh_battle_step_effects(step.get("effect_state", {}))
+	if not attack and is_instance_valid(source):
+		EnemyView.consume_effect_description(source, str(step.get("message", "")), bool(step.get("effects_complete", false)))
 	if motion != "none" and is_instance_valid(source):
 		layer = EnemyStrike.new()
 		layer.name = "BattleEnemyStrike"
@@ -110,18 +131,26 @@ func _present_enemy_step(game, ticket: int, step: Dictionary) -> bool:
 		game.add_child(layer)
 		layer.configure(source, Callable(game, "_battle_enemy_visual").bind(enemy_index), reduced, motion)
 		_connect_layer(game, ticket, layer, completion)
+		var saved_state: Dictionary = game.battle_state
+		game.battle_state = step.get("effect_state", saved_state)
 		layer.play()
+		game.battle_state = saved_state
 	if not await _wait(game, ticket, impact):
 		return false
 	_render_vitals(game, step)
 	if attack:
 		_show_hit(game, int(step.get("damage", 0)))
-	if not str(step.get("message", "")).is_empty():
-		_show_message(game, step)
+		if is_instance_valid(source):
+			var consumed := int(source.get_meta("consumed_attack_hits", 0)) + 1
+			EnemyView.set_consumed_attack_hits(source, consumed)
+			if is_instance_valid(layer) and is_instance_valid(layer.ghost):
+				EnemyView.set_consumed_attack_hits(layer.ghost, consumed)
 	if not await _wait(game, ticket, duration - impact):
 		return false
 	if not await _finish_layer(game, ticket, layer, completion):
 		return false
+	if is_instance_valid(source):
+		EnemyView.consume_intent(source, bool(step.get("attack_complete", false)), bool(step.get("effects_complete", false)))
 	return await _wait(game, ticket, gap)
 
 
@@ -190,13 +219,18 @@ func _render_vitals(game, values: Dictionary) -> void:
 	for child in strip.get_children():
 		strip.remove_child(child)
 		child.queue_free()
-	for damage_type in ["physical"]:
-		var key := "player_block"
+	for damage_type in ["physical", "magic"]:
+		var key := "player_block" if damage_type == "physical" else "magic_resistance"
 		var value := int(values.get(key, 0))
 		if value > 0:
 			var shield = DefenseShield.new()
 			shield.configure(damage_type, value)
 			strip.add_child(shield)
+			var title := "방어" if damage_type == "physical" else "마법 저항"
+			TooltipBindings.bind_status(shield, "%s %d" % [title, value], game._battle_status_tooltip(title + " " + str(value)), "shield" if damage_type == "physical" else "magic_resistance")
+	var panel: Control = game.find_child("BattlePlayerPanel", true, false)
+	if is_instance_valid(panel):
+		game._bind_battle_player_effects(panel)
 
 
 func _show_hit(game, damage: int) -> void:
@@ -215,16 +249,6 @@ func _show_player_popup(game, text: String, kind: String) -> void:
 	active_popup.configure(text, game.active_battle_player_hp.get_global_rect(), kind,
 		Callable(self, "_player_popup_anchor").bind(game))
 	active_popup.play()
-
-
-func _show_message(game, step: Dictionary) -> void:
-	var text := str(step.get("message", ""))
-	var kind := str(step.get("message_kind", "buff"))
-	if str(step.get("message_target", "enemy")) == "player":
-		_show_player_popup(game, text, kind)
-		return
-	var index := int(step.get("enemy_index", -1))
-	show_enemy_popup(game, index, text, kind)
 
 
 func show_enemy_popup(game, index: int, text: String, kind: String = "damage") -> void:

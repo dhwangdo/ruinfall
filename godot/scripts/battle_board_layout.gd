@@ -26,12 +26,12 @@ func arrange() -> void:
 	var player_height := maxf(139.0, player.get_combined_minimum_size().y) if is_instance_valid(player) else 139.0
 	var screen_center := size.x * 0.5
 	var resource_width := maxf(160.0, 2.0 * (screen_center - actor_center) - actor_width - 32.0)
-	var play_center := size.x * 0.46
+	var play_center := size.x * 0.40
 	var enemy_width := clampf(size.x * 0.25, 200.0, 320.0)
 	var enemy_left := size.x - enemy_width - 12.0
 	var file_right := enemy_left - 24.0
-	var file_width := maxf(160.0, minf(play_center - 24.0, file_right - play_center) * 2.0)
-	var files_left := play_center - file_width * 0.5
+	var files_left := 0.0
+	var file_width := maxf(160.0, file_right - files_left)
 	# Identical column widths and mirrored centers keep both sides symmetric.
 	_place(player, Rect2(actor_center - actor_width * 0.5, size.y * 0.5 - player_height * 0.5, actor_width, player_height))
 	_place(files, Rect2(files_left, 0, file_width, first_row))

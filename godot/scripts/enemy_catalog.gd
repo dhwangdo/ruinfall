@@ -223,15 +223,16 @@ static func _region_one_pair_candidates() -> Array[Dictionary]:
 			{"name": "기세 올리기", "damage": 7, "strength_gain": 3, "random_no_repeat": true},
 		]),
 		_enemy("도깨비불", 41, [
-			{"name": "도화선 점화", "damage": 5, "preview": "두 행동 뒤 자폭", "cycle": true},
-			{"name": "타오르는 도화선", "damage": 5, "preview": "다음 턴 자폭", "cycle": true},
+			{"name": "도화선 점화", "damage": 5, "cycle": true},
+			{"name": "타오르는 도화선", "damage": 5, "cycle": true},
 			{"name": "자폭", "damage": 23, "self_destruct": true, "loop_to": 2},
 		]),
 		_enemy("하수구 쥐", 37, [
-			{"name": "약화시키기", "player_weak_gain": 2, "discard_count": 1, "discard_priority": "rarity", "random_no_repeat": true},
-			{"name": "물어뜯기", "damage": 4, "hits": 2, "discard_count": 1, "discard_priority": "rarity", "random_no_repeat": true},
-			{"name": "맹독 이빨", "damage": 6, "player_vulnerable_gain": 1, "discard_count": 1, "discard_priority": "rarity", "random_no_repeat": true},
-		], {"trait": "버리기: 파일 맨 위 카드 중 희귀도가 높은 카드를 우선해 턴 종료 시 버립니다."}),
+			{"name": "약화시키기", "player_weak_gain": 2, "random_no_repeat": true},
+			{"name": "물어뜯기", "damage": 4, "hits": 2, "random_no_repeat": true},
+			{"name": "맹독 이빨", "damage": 6, "player_vulnerable_gain": 1, "random_no_repeat": true},
+		], {"action_discard_count": 1, "discard_priority": "rarity",
+			"trait": "행동할 때마다 파일에서 카드를 1장 버립니다. 파일 맨 위 카드 중 희귀도가 높은 카드를 우선합니다."}),
 	]
 
 

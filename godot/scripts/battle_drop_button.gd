@@ -160,10 +160,10 @@ func _ready() -> void:
 
 
 func _draw() -> void:
-	if target_kind == "enemy" and not disabled and ((_has_point(get_local_mouse_position()) and is_hovered()) or drag_hover_valid):
+	if target_kind == "enemy" and not disabled and drag_hover_valid:
 		var rect := EnemyTargetArea.local_rect(self)
 		draw_rect(rect, Color(1, 1, 1, 0.035))
-		draw_rect(rect, Color("#ffe16a") if drag_hover_valid else Color(1, 1, 1, 0.5), false, 2.0)
+		draw_rect(rect, Color("#ffe16a"), false, 2.0)
 
 
 func _has_point(point: Vector2) -> bool:

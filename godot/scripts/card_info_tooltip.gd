@@ -14,7 +14,7 @@ const TITLE_BLUE := TITLE_KEYWORD
 const TITLE_PURPLE := TITLE_KEYWORD
 const Typefaces = preload("res://scripts/card_typefaces.gd")
 
-var _sections_root: VBoxContainer
+var _sections_root: BoxContainer
 var _configured_width := 310.0
 var _regular_font: Font
 var _bold_font: Font
@@ -82,6 +82,38 @@ func constrain_height(max_height: float) -> void:
 	_overflow_scroll.get_h_scroll_bar().mouse_filter = Control.MOUSE_FILTER_IGNORE
 
 
+func spread_columns(max_height: float, max_width: float) -> void:
+	var panels := _sections_root.get_children()
+	var column_width := _configured_width
+	var max_columns := maxi(1, floori((max_width + 8.0) / (column_width + 8.0)))
+	if max_columns == 1:
+		return
+	var previous := _sections_root
+	_sections_root = HBoxContainer.new()
+	_sections_root.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	_sections_root.add_theme_constant_override("separation", 8)
+	_sections_root.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
+	add_child(_sections_root)
+	var column: VBoxContainer
+	var used := 0.0
+	for panel in panels:
+		var height: float = panel.get_combined_minimum_size().y
+		if column == null or (used + height + 8.0 > max_height and _sections_root.get_child_count() < max_columns):
+			column = VBoxContainer.new()
+			column.mouse_filter = Control.MOUSE_FILTER_IGNORE
+			column.custom_minimum_size.x = column_width
+			column.add_theme_constant_override("separation", 8)
+			_sections_root.add_child(column)
+			used = 0.0
+		panel.reparent(column)
+		used += height + 8.0
+	remove_child(previous)
+	previous.queue_free()
+	_configured_width = column_width * _sections_root.get_child_count() + 8.0 * (_sections_root.get_child_count() - 1)
+	custom_minimum_size = Vector2(_configured_width, 0)
+	size.x = _configured_width
+
+
 func _add_section(section: Dictionary) -> void:
 	var title := str(section.get("title", ""))
 	var description := str(section.get("description", ""))
@@ -126,6 +158,11 @@ func _add_section(section: Dictionary) -> void:
 			var title_icon := TextureRect.new()
 			title_icon.mouse_filter = Control.MOUSE_FILTER_IGNORE
 			title_icon.texture = load(icon_path)
+			if icon_id == "edition":
+				var deck_art = preload("res://scripts/deck_icon_art.gd")
+				title_icon.texture = deck_art.RARE
+				title_icon.material = deck_art.palette_material()
+				title_icon.texture_filter = CanvasItem.TEXTURE_FILTER_NEAREST
 			title_icon.expand_mode = TextureRect.EXPAND_IGNORE_SIZE
 			title_icon.stretch_mode = TextureRect.STRETCH_KEEP_ASPECT_CENTERED
 			title_icon.custom_minimum_size = Vector2(20, 20)

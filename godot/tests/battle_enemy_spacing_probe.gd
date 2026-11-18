@@ -34,7 +34,7 @@ func _run() -> void:
 		game.size = Vector2(variant[0])
 		var enemies := []
 		for index in variant[1]:
-			enemies.append({"name": "쥐", "hp": 12, "max_hp": 12, "actions": [{"damage": 4}]})
+			enemies.append({"name": "쥐", "hp": 12, "max_hp": 12, "actions": [{"damage": 4, "player_weak_gain": 1}]})
 		game.run_state = {"deck": cards, "max_hp": 50, "player_name": "배치 확인"}
 		game.battle_state = Rules.start_battle(cards, 50, {"enemies": enemies}, 50)
 		game.battle_state.hand = cards.slice(0, 4)
@@ -49,16 +49,23 @@ func _run() -> void:
 		var files: Rect2 = board.files.get_global_rect()
 		var rail: Rect2 = board.enemies.get_global_rect()
 		assert(files.end.x + 12.0 <= rail.position.x, "File viewport and enemy rail must be horizontally separate")
-		assert(absf(files.get_center().x - board.hand.get_global_rect().get_center().x) < 1.0)
+		assert(is_equal_approx(files.position.x, board.global_position.x), "Files can extend left independently of the hand center")
 		assert(files.get_center().x < board.get_global_rect().get_center().x)
 		var squares: Array[Rect2] = []
 		for target in game.battle_enemy_widgets.values():
+			var portrait: Control = target.get_meta("enemy_portrait")
+			var intent_row: Control = portrait.get_node("EnemyIntentRow")
+			var intent_description: Control = intent_row.get_node("EnemyIntentDescription")
+			assert(intent_description.get_global_rect().end.y < portrait.get_global_rect().position.y,
+				"Intent description must sit above the portrait, apart from current status icons")
+			assert(absf(intent_row.get_child(0).get_global_rect().get_center().y - intent_description.get_global_rect().get_center().y) < 1.0,
+				"Attack/effect symbols and description must share the same row")
 			var local := Area.local_rect(target)
 			var square := Area.global_rect(target)
 			assert(is_equal_approx(square.size.x, square.size.y))
 			assert(square.position.x >= files.end.x + 12.0)
-			assert(target._has_point(local.get_center() + Vector2(47, 47)))
-			assert(not target._has_point(local.get_center() + Vector2(49, 0)))
+			assert(target._has_point(local.get_center() + Vector2(Area.SIDE * 0.5 - 1, Area.SIDE * 0.5 - 1)))
+			assert(not target._has_point(local.get_center() + Vector2(Area.SIDE * 0.5 + 1, 0)))
 			var hp: Control = target.get_meta("enemy_hp_bar")
 			assert(not FreeDrop.contains_point(target, hp.get_global_rect().get_center()), "HP/labels cannot enlarge the targeting square")
 			for other in squares:
@@ -70,6 +77,8 @@ func _run() -> void:
 		motion.position = point
 		root.push_input(motion, true)
 		await process_frame
+		var enemy_name := first_target.find_child("EnemyName", true, false) as Label
+		assert(enemy_name.modulate.a == 1.0, "Enemy name should appear on portrait hover")
 		var before := game.selected_events
 		for down in [true, false]:
 			var click := InputEventMouseButton.new()
@@ -82,6 +91,7 @@ func _run() -> void:
 		motion.position = point
 		root.push_input(motion, true)
 		await process_frame
+		assert(enemy_name.modulate.a == 1.0, "Enemy name should remain visible without hover")
 		for down in [true, false]:
 			var click := InputEventMouseButton.new()
 			click.position = point
@@ -97,5 +107,5 @@ func _run() -> void:
 			root.get_texture().get_image().save_png(ProjectSettings.globalize_path("res://../work/battle-enemy-spacing.png"))
 	game.queue_free()
 	await process_frame
-	print("PASS: 4 viewport/formation cases, separate file/enemy x ranges, shared left-shifted center, precise nonoverlapping square targets")
+	print("PASS: 4 viewport/formation cases, separate file/enemy x ranges, independent left-aligned files, precise nonoverlapping square targets")
 	quit()

@@ -13,16 +13,16 @@ class Motion extends RefCounted:
 
 func _initialize() -> void:
 	var player := Vector2i(50, 50)
-	var near := player + Vector2i(9, 9)
-	var far := player + Vector2i(10, 0)
+	var near := player + Vector2i(18, 18)
+	var far := player + Vector2i(19, 0)
 	var memory := player + Vector2i(20, 0)
 	var map := {"seen": {player: true, memory: true}, "visible_now": {player: true},
 		"walkable": {player: true, near: true, far: true}, "room_types": {near: "deckVault", far: "deckVault"},
-		"deck_vaults": {"59,59": {"id": "near"}, "60,50": {"id": "far"}},
+		"deck_vaults": {"68,68": {"id": "near"}, "69,50": {"id": "far"}},
 		"enemy_positions": [near, far], "enemy_states": [{}, {}]}
 	var before := map.duplicate(true)
 	var debug := Rules.display_visibility(map, player, true)
-	assert(debug.visible_now.size() == 361)
+	assert(debug.visible_now.size() == 1369)
 	assert(debug.visible_now.has(near) and not debug.visible_now.has(far))
 	# Even solid walls and tiles behind them are fully visible.
 	assert(not Rules.is_walkable(map, player + Vector2i(1, 0)))
@@ -34,9 +34,9 @@ func _initialize() -> void:
 	assert(normal.visible_now == before.visible_now and normal.seen == before.seen)
 	var moved := Rules.display_visibility(map, player + Vector2i(1, 0), true)
 	assert(moved.visible_now.has(far))
-	assert(not moved.visible_now.has(player + Vector2i(-9, 0)))
+	assert(not moved.visible_now.has(player + Vector2i(-18, 0)))
 	var corner := Rules.display_visibility(map, Vector2i(0, -Rules.ROCK_BARRIER_HEIGHT), true)
-	assert(corner.visible_now.size() == 100)
+	assert(corner.visible_now.size() == 361)
 	var view := MapView.new()
 	var motion := Motion.new()
 	view.map_data = map
@@ -54,5 +54,5 @@ func _initialize() -> void:
 	assert(Preview.resolve(state, far, true).is_empty())
 	assert(Preview.resolve(state, near, false).is_empty())
 	assert(Editions.description("legendCassiopeia") == "이 덱은 카시오페이아를 가집니다.")
-	print("PASS: 19x19 square, wall transparency, bounds/movement, no saved reveal, enemy/preview visibility, concise edition text")
+	print("PASS: 37x37 square, wall transparency, bounds/movement, no saved reveal, enemy/preview visibility, concise edition text")
 	quit()

@@ -1,3 +1,3 @@
 Status icons from Twemoji (https://github.com/jdecked/twemoji), graphics licensed under CC BY 4.0 (https://creativecommons.org/licenses/by/4.0/).
 Source files: 2b07.svg, 1f3af.svg, 1f9ea.svg, 26a1.svg, 1f300.svg, 1f4d6.svg, 1f4dc.svg, 2728.svg, 1f4aa.svg, 1f6e1.svg, 1fa84.svg, 1f501.svg, 1f4ab.svg, 1f578.svg, 1f5c2.svg, 2b50.svg, 1f528.svg, 1f4a1.svg, 1f504.svg, 1f3b2.svg, 2693.svg, 1f308.svg, 1f4e6.svg, 1f30c.svg, 23f3.svg.
-The artwork is unchanged; files are renamed for their in-game meanings.
+Vulnerable uses 1f494.svg (broken heart), from Twemoji v17.0.1. The Twemoji artwork is unchanged; files are renamed for their in-game meanings. rule.svg (card) and weak.svg (broken sword) are custom icons.

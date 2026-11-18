@@ -68,7 +68,8 @@ func _initialize() -> void:
 	assert(sewer_rat.actions[1].damage == 4 and sewer_rat.actions[1].hits == 2)
 	assert(sewer_rat.actions[2].damage == 6 and sewer_rat.actions[2].player_vulnerable_gain == 1)
 	for action in sewer_rat.actions:
-		assert(action.random_no_repeat and action.discard_count == 1 and action.discard_priority == "rarity")
+		assert(action.random_no_repeat and not action.has("discard_count"))
+	assert(sewer_rat.action_discard_count == 1 and sewer_rat.discard_priority == "rarity")
 
 	# All five curse intents expose their selected effect before the attack/effect phases.
 	var priest := Catalog.create_encounter(6, rng)

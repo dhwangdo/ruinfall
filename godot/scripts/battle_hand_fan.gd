@@ -8,9 +8,9 @@ const CardVisualScale = preload("res://scripts/card_visual_scale.gd")
 const CARD_WIDTH := 149.6
 const CARD_HEIGHT := 210.1
 const MAX_VISIBLE_CARDS := 9
-const HAND_ANGLE_STEP := 3.4
-const HAND_ARC_RADIUS := 1700.0
-const PREFERRED_CARD_STEP := CARD_WIDTH * 0.88
+const HAND_ANGLE_STEP := 4.2
+const PREFERRED_CARD_STEP := CARD_WIDTH * 0.84
+const MIN_CARD_STEP := CARD_WIDTH * 0.56
 const HAND_EDGE_MARGIN := 12.0
 
 var card_controls: Array[Control] = []
@@ -104,7 +104,8 @@ func _layout_cards() -> void:
 	var fitting_count := 1
 	for candidate in [9, 7, 5, 3, 1]:
 		var edge_angle := deg_to_rad(float(candidate - 1) / 2.0 * HAND_ANGLE_STEP)
-		var outer_edge := HAND_ARC_RADIUS * sin(edge_angle) \
+		var minimum_radius := MIN_CARD_STEP / sin(deg_to_rad(HAND_ANGLE_STEP))
+		var outer_edge := minimum_radius * sin(edge_angle) \
 			+ CARD_WIDTH / 2.0 * cos(edge_angle) \
 			+ CARD_HEIGHT * sin(edge_angle)
 		if outer_edge * 2.0 + HAND_EDGE_MARGIN * 2.0 <= viewport_width:
@@ -115,7 +116,7 @@ func _layout_cards() -> void:
 	window_start = clampi(window_start, 0, maxi(0, available_cards.size() - visible_count))
 	var edge_distance := maxf(0.0, float(visible_count - 1) / 2.0)
 	var edge_angle := deg_to_rad(edge_distance * HAND_ANGLE_STEP)
-	var fan_radius := HAND_ARC_RADIUS
+	var fan_radius := 0.0
 	if visible_count > 1:
 		var preferred_radius := PREFERRED_CARD_STEP / sin(deg_to_rad(HAND_ANGLE_STEP))
 		var edge_extent := CARD_WIDTH / 2.0 * cos(edge_angle) + CARD_HEIGHT * sin(edge_angle)
@@ -147,7 +148,7 @@ func _layout_cards() -> void:
 			card.position.y = 8.0 - CARD_HEIGHT * 0.3
 			card.pivot_offset = Vector2.ZERO
 			card.z_index = MAX_VISIBLE_CARDS + 10
-	# The board owns the width and shared file/hand centerline, including on resize.
+	# The board owns the hand width and center, including on resize.
 	custom_minimum_size = Vector2(0.0, fan_height)
 	layout_in_progress = false
 	if not is_equal_approx(layout_height, fan_height):

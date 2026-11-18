@@ -1,6 +1,6 @@
 extends RefCounted
 
-const SIDE := 96.0 # 64px sprite plus 16px padding on each side.
+const SIDE := 115.2 # Previous 96px target square enlarged by 1.2 around the portrait.
 
 
 static func local_rect(target: Control) -> Rect2:

@@ -20,7 +20,7 @@ const NAMES := {
 	"metallurgy": "금속학", "giant": "거인", "freeEdit": "자유 편집", "royal": "로열",
 }
 const DESCRIPTIONS := {
-	"roomy": "전투 시작 시 빈 추가 파일 2개를 얻습니다.",
+	"roomy": "전투 시작 시 빈 추가 파일 1개를 얻습니다.",
 	"firstSolitaire": "매 턴 시작 시 임시 ★을 1개 더 얻습니다.",
 	"quickHammer": "전투 시작 시 덱의 재련 가능한 무작위 카드 2장을 재련합니다.",
 	"sharpLight": "내 광채의 피해량이 3 증가합니다.",
@@ -36,6 +36,7 @@ const DESCRIPTIONS := {
 	"royal": "모든 슬롯이 희귀 슬롯으로 바뀝니다.",
 }
 const TIER_COLORS := {1: "#00c8ff", 2: "#e040fb", 3: "#ffc400"}
+const PERSISTENT_BATTLE_IDS := ["firstSolitaire", "sharpLight", "cycle", "metallurgy", "prism", "giant"]
 const COLORS := {
 	"roomy": TIER_COLORS[1], "firstSolitaire": TIER_COLORS[1], "quickHammer": TIER_COLORS[1],
 	"sharpLight": TIER_COLORS[1], "cycle": TIER_COLORS[1], "gambit": TIER_COLORS[2],

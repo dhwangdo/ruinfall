@@ -18,15 +18,15 @@ func _ready() -> void:
 		return
 	var stamp := Label.new()
 	stamp.name = "CommitVersionStamp"
-	stamp.anchor_left = 1.0
-	stamp.anchor_top = 1.0
-	stamp.anchor_right = 1.0
-	stamp.anchor_bottom = 1.0
-	stamp.offset_left = -430.0
-	stamp.offset_top = -25.0
-	stamp.offset_right = -12.0
-	stamp.offset_bottom = -5.0
-	stamp.horizontal_alignment = HORIZONTAL_ALIGNMENT_RIGHT
+	stamp.anchor_left = 0.0
+	stamp.anchor_top = 0.0
+	stamp.anchor_right = 0.0
+	stamp.anchor_bottom = 0.0
+	stamp.offset_left = 12.0
+	stamp.offset_top = 8.0
+	stamp.offset_right = 430.0
+	stamp.offset_bottom = 28.0
+	stamp.horizontal_alignment = HORIZONTAL_ALIGNMENT_LEFT
 	stamp.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
 	stamp.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	stamp.add_theme_font_override("font", FONT)

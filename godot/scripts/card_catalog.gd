@@ -189,7 +189,7 @@ static func create_starter_deck() -> Array[Dictionary]:
 	for blueprint in BASIC_CARDS:
 		deck.append(_make_card(blueprint, deck.size() + 1))
 	for blueprint in STARTER_CARDS:
-		for copy_index in range(5):
+		for copy_index in range(4):
 			deck.append(_make_card(blueprint, deck.size() + 1))
 	return deck
 
@@ -411,7 +411,7 @@ static func create_radiance_card(card_id: int) -> Dictionary:
 		"playable": true,
 		"token": true,
 		"revealed": true,
-		"description": "피해를 4 줍니다.\n사용한 후 이번 턴 동안 광채의 피해량이 4 증가합니다.",
+		"description": "피해를 4 줍니다.\n이번 턴 동안 광채의 피해량이 4 증가합니다.",
 	}
 
 

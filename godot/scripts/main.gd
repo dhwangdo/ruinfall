@@ -1708,6 +1708,7 @@ func _configure_map_deck_selector() -> void:
 	if not is_instance_valid(active_map_deck_selector_host):
 		active_map_deck_selector_host = Control.new()
 		active_map_deck_selector_host.name = "MapDeckSelectorHost"
+		active_map_deck_selector_host.hide()
 		active_map_deck_selector_host.mouse_filter = Control.MOUSE_FILTER_IGNORE
 		add_child(active_map_deck_selector_host)
 		var selector := MapDeckSelector.new()
@@ -1736,11 +1737,15 @@ func _configure_map_deck_selector() -> void:
 func _update_map_deck_selector_host() -> void:
 	if not is_instance_valid(active_map_deck_selector_host):
 		return
+	# Container layout may still be zero-sized during F5's first frame.
+	if not is_instance_valid(active_map_surface) or active_map_surface.size.x <= MapDeckSelector.SELECTOR_SIZE \
+		or active_map_surface.size.y <= MapDeckSelector.SELECTOR_SIZE:
+		active_map_deck_selector_host.hide()
+		return
 	var show_selector := screen_name == "map" and not is_instance_valid(map_settings_overlay) \
 		and not is_instance_valid(active_map_search_panel) and not is_instance_valid(player_name_setup_overlay)
 	if not show_selector and active_map_deck_selector_host.visible:
 		active_map_deck_selector.call("close_menu")
-	active_map_deck_selector_host.visible = show_selector
 	if is_instance_valid(active_map_surface):
 		active_map_deck_selector_host.global_position = active_map_surface.global_position
 		active_map_deck_selector_host.size = active_map_surface.size
@@ -1748,6 +1753,7 @@ func _update_map_deck_selector_host() -> void:
 		var bounds := (active_map_deck_selector_host.size - active_map_deck_selector.size).max(Vector2.ZERO)
 		active_map_deck_selector.set_anchors_preset(Control.PRESET_TOP_LEFT)
 		active_map_deck_selector.position = (bounds * map_deck_selector_position_ratio).round()
+	active_map_deck_selector_host.visible = show_selector
 
 
 func _on_map_deck_selector_position_changed(new_position: Vector2) -> void:
@@ -2615,39 +2621,6 @@ func _show_battle(keep_draw_phase: bool = false) -> void:
 	battle_hud_overlay.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	battle_hud_overlay.z_index = 20
 	add_child(battle_hud_overlay)
-	var battle_ledger := VBoxContainer.new()
-	battle_ledger.add_theme_constant_override("separation", 5)
-	battle_hud_overlay.add_child(battle_ledger)
-	battle_ledger.set_anchors_and_offsets_preset(Control.PRESET_TOP_LEFT)
-	battle_ledger.offset_left = 22
-	battle_ledger.offset_top = 22
-	battle_ledger.offset_right = 145
-	battle_ledger.offset_bottom = 173
-	var pile_card_count := 0
-	for pile in battle_state.get("piles", []):
-		pile_card_count += pile.size()
-	var active_name := "현재 덱"
-	for deck in run_state.get("owned_decks", []):
-		if str(deck.get("id", "")) == str(run_state.get("active_deck_id", "")):
-			active_name = "덱 「%s」" % str(deck.get("name", ""))
-	var ledger_entries := [
-		{"id": "deck", "title": active_name, "count": run_state.get("deck", []).size()},
-		{"id": "piles", "title": "파일", "count": pile_card_count},
-		{"id": "discard", "title": "버린 카드", "count": battle_state.get("discard", []).size()},
-	]
-	for ledger in ledger_entries:
-		var ledger_button := Button.new()
-		ledger_button.text = "%s\n%d장" % [str(ledger["title"]), int(ledger["count"])]
-		ledger_button.custom_minimum_size = Vector2(77, 47)
-		ledger_button.alignment = HORIZONTAL_ALIGNMENT_LEFT
-		ledger_button.add_theme_font_size_override("font_size", 10)
-		var ledger_is_open := battle_card_ledger_open == str(ledger["id"])
-		ledger_button.add_theme_stylebox_override("normal", _button_style(
-			Color("#305641") if ledger_is_open else Color("#17231f"),
-			Color("#c7e5cf") if ledger_is_open else Color(1, 1, 1, 0.34)))
-		ledger_button.add_theme_stylebox_override("hover", _button_style(Color("#305641"), Color("#c7e5cf")))
-		ledger_button.pressed.connect(_toggle_battle_card_ledger.bind(str(ledger["id"])))
-		battle_ledger.add_child(ledger_button)
 	var turn_badge := HBoxContainer.new()
 	turn_badge.set_anchors_and_offsets_preset(Control.PRESET_TOP_RIGHT)
 	turn_badge.offset_left = -74
@@ -2661,6 +2634,7 @@ func _show_battle(keep_draw_phase: bool = false) -> void:
 	turn_badge.add_child(turn_badge_body)
 	battle_hud_overlay.add_child(turn_badge)
 	var player_column := VBoxContainer.new()
+	player_column.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	board.add_child(player_column)
 	board.player = player_column
 	var files_margin := MarginContainer.new()
@@ -2698,20 +2672,23 @@ func _show_battle(keep_draw_phase: bool = false) -> void:
 		center_drop.add_theme_stylebox_override(style_name, center_drop_style)
 	var resource_cluster := _battle_resource_cluster()
 	battle_hud_overlay.add_child(resource_cluster)
-	resource_cluster.set_anchors_and_offsets_preset(Control.PRESET_BOTTOM_LEFT)
-	resource_cluster.offset_left = 58
-	resource_cluster.offset_top = -186
-	resource_cluster.offset_right = 182
-	resource_cluster.offset_bottom = -62
+	resource_cluster.set_anchors_and_offsets_preset(Control.PRESET_BOTTOM_RIGHT)
+	resource_cluster.offset_left = -168
+	resource_cluster.offset_top = -224
+	resource_cluster.offset_right = -44
+	resource_cluster.offset_bottom = -100
 	board.add_child(center_drop)
 	board.center = center_drop
 	var player_panel := VBoxContainer.new()
+	player_panel.name = "BattlePlayerPanel"
+	player_panel.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	player_panel.add_theme_constant_override("separation", 6)
 	player_panel.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	player_panel.size_flags_vertical = Control.SIZE_EXPAND_FILL
 	player_column.add_child(player_panel)
 	player_panel.add_child(_battle_player_identity())
 	var player_indicator_flow := HFlowContainer.new()
+	player_indicator_flow.name = "BattlePlayerIndicators"
 	player_indicator_flow.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	player_indicator_flow.add_theme_constant_override("h_separation", 6)
 	player_indicator_flow.add_theme_constant_override("v_separation", 6)
@@ -2719,50 +2696,7 @@ func _show_battle(keep_draw_phase: bool = false) -> void:
 	enemy_column.vertical_reference = player_panel.find_child("PlayerPortrait", true, false)
 	enemy_column.vertical_reference.item_rect_changed.connect(enemy_column._arrange, CONNECT_DEFERRED)
 	player_column.item_rect_changed.connect(enemy_column._arrange, CONNECT_DEFERRED)
-	var player_statuses: Array[String] = []
-	if int(battle_state.get("player_weak", 0)) > 0:
-		player_statuses.append("약화 %d" % int(battle_state["player_weak"]))
-	if int(battle_state.get("player_vulnerable", 0)) > 0:
-		player_statuses.append("취약 %d" % int(battle_state["player_vulnerable"]))
-	for kind in ["corrosion", "paralysis", "confusion"]:
-		if int(battle_state.get("player_" + kind, 0)) > 0:
-			player_statuses.append("%s %d" % [BattleRules.StatusRules.LABELS[kind], battle_state["player_" + kind]])
-	var hand_manual_bonus := BattleRules.hand_manual_bonus(battle_state)
-	var displayed_strength := int(battle_state.get("strength", 0)) + hand_manual_bonus
-	if displayed_strength != 0:
-		player_statuses.append("힘 %d" % displayed_strength)
-	var displayed_agility := int(battle_state.get("agility", 0)) + hand_manual_bonus
-	if displayed_agility != 0:
-		player_statuses.append("강인함 %d" % displayed_agility)
-	if int(battle_state.get("player_invulnerability_turns", 0)) > 0:
-		player_statuses.append("무적 %d" % int(battle_state["player_invulnerability_turns"]))
-	if bool(battle_state.get("repeat_next_attack", false)):
-		player_statuses.append("다음 공격 ×2")
-	if not player_statuses.is_empty():
-		for status_text in player_statuses:
-			player_indicator_flow.add_child(BattleIndicatorBadge.create(
-				BattleIndicatorBadge.status(status_text, _battle_status_tooltip(status_text))))
-	var expiring_bonuses := PackedStringArray()
-	var pending_strength_loss := int(battle_state.get("pending_strength_loss", 0))
-	if pending_strength_loss > 0:
-		expiring_bonuses.append("턴 종료 시 힘을 %d 잃습니다." % pending_strength_loss)
-	var pending_resistance_loss := int(battle_state.get("pending_magic_resistance_loss", 0))
-	if pending_resistance_loss > 0:
-		expiring_bonuses.append("턴 종료 시 마법 저항을 %d 잃습니다." % pending_resistance_loss)
-	if not expiring_bonuses.is_empty():
-		player_indicator_flow.add_child(BattleIndicatorBadge.create({
-			"id": "expiry", "category": "status", "title": "턴 종료 시 감소",
-			"tooltip": "\n".join(expiring_bonuses), "tooltip_kind": "status",
-		}))
-	var battle_edition_ids: Array = battle_state.get("deck_editions", [])
-	if not battle_edition_ids.is_empty():
-		for edition_value in battle_edition_ids:
-			var edition_id := str(edition_value)
-			player_indicator_flow.add_child(BattleIndicatorBadge.create({
-				"id": "edition_%s" % edition_id, "category": "edition", "text": DeckEditions.label(edition_id),
-				"color": DeckEditions.COLORS.get(edition_id, "#d7caa8"),
-				"tooltip_kind": "edition", "edition_id": edition_id,
-			}, 12))
+	_populate_battle_player_indicators(player_indicator_flow)
 	var battle_content := center_files
 	var encounter_enemies: Array = battle_state.get("enemies", [])
 	if not encounter_enemies.is_empty():
@@ -2782,13 +2716,7 @@ func _show_battle(keep_draw_phase: bool = false) -> void:
 			target_button.disabled = int(enemy.get("hp", 0)) <= 0
 			enemy_column.add_child(target_button)
 			battle_enemy_widgets[enemy_index] = target_button
-	var active_rules: Array = battle_state.get("active_rule_cards", [])
-	if not active_rules.is_empty():
-		for active_rule in active_rules:
-			player_indicator_flow.add_child(BattleIndicatorBadge.create({
-				"id": "rule", "category": "rule", "text": str(active_rule.get("name", "룰")),
-				"tooltip_kind": "card", "card": active_rule,
-			}))
+	_bind_battle_player_effects(player_panel)
 
 	var piles_scroll := ScrollContainer.new()
 	piles_scroll.size_flags_vertical = Control.SIZE_EXPAND_FILL
@@ -2802,9 +2730,8 @@ func _show_battle(keep_draw_phase: bool = false) -> void:
 	var balance_file_margins := func() -> void:
 		if not files_margin.is_inside_tree():
 			return
-		# Mirror the right scrollbar so the visible file group stays screen-centered.
-		var scrollbar_width := roundi(file_vertical_bar.size.x) if file_vertical_bar.visible else 0
-		files_margin.add_theme_constant_override("margin_left", 22 + scrollbar_width)
+		# Files use a fixed left inset; scrollbar visibility must not shift the group.
+		files_margin.add_theme_constant_override("margin_left", 22)
 	file_vertical_bar.visibility_changed.connect(balance_file_margins, CONNECT_DEFERRED)
 	file_vertical_bar.resized.connect(balance_file_margins, CONNECT_DEFERRED)
 	balance_file_margins.call_deferred()
@@ -2815,7 +2742,6 @@ func _show_battle(keep_draw_phase: bool = false) -> void:
 	var piles_layout := BattleFilesLayoutScript.new()
 	piles_layout.layout_changed.connect(enemy_column._arrange, CONNECT_DEFERRED)
 	piles_layout.row = piles_row
-	piles_layout.avoid_controls.append(player_column)
 	piles_layout.add_child(piles_row)
 	piles_scroll.add_child(piles_layout)
 	for pile_index in range(battle_state["piles"].size()):
@@ -2823,6 +2749,9 @@ func _show_battle(keep_draw_phase: bool = false) -> void:
 		battle_pile_widgets.append(pile_widget)
 		piles_row.add_child(pile_widget)
 
+	# The file scroll's empty lower area must not intercept player portrait hover.
+	# Hand cards are added afterwards and retain input priority in their own area.
+	board.move_child(player_column, board.get_child_count() - 1)
 	var hand_fan := BattleHandFanScript.new()
 	hand_fan.reveal_queued_for_choice = int(battle_state.get("pending_discard_count", 0)) > 0
 	active_battle_hand_area = hand_fan
@@ -3072,16 +3001,117 @@ func _refresh_battle_enemy_presentation(enemy_index: int) -> void:
 			not battle_draw_presentation._reduced_motion())
 
 
+func _populate_battle_player_indicators(player_indicator_flow: HFlowContainer) -> void:
+	var player_statuses: Array[String] = []
+	if int(battle_state.get("player_weak", 0)) > 0:
+		player_statuses.append("약화 %d" % int(battle_state["player_weak"]))
+	if int(battle_state.get("player_vulnerable", 0)) > 0:
+		player_statuses.append("취약 %d" % int(battle_state["player_vulnerable"]))
+	for kind in ["corrosion", "paralysis", "confusion"]:
+		if int(battle_state.get("player_" + kind, 0)) > 0:
+			player_statuses.append("%s %d" % [BattleRules.StatusRules.LABELS[kind], battle_state["player_" + kind]])
+	var hand_manual_bonus := BattleRules.hand_manual_bonus(battle_state)
+	var displayed_strength := int(battle_state.get("strength", 0)) + hand_manual_bonus
+	if displayed_strength != 0:
+		player_statuses.append("힘 %d" % displayed_strength)
+	var displayed_agility := int(battle_state.get("agility", 0)) + hand_manual_bonus
+	if displayed_agility != 0:
+		player_statuses.append("강인함 %d" % displayed_agility)
+	if int(battle_state.get("player_invulnerability_turns", 0)) > 0:
+		player_statuses.append("무적 %d" % int(battle_state["player_invulnerability_turns"]))
+	if bool(battle_state.get("repeat_next_attack", false)):
+		player_statuses.append("다음 공격 ×2")
+	if not player_statuses.is_empty():
+		for status_text in player_statuses:
+			player_indicator_flow.add_child(BattleIndicatorBadge.create(
+				BattleIndicatorBadge.status(status_text, _battle_status_tooltip(status_text))))
+	var expiring_bonuses := PackedStringArray()
+	var pending_strength_loss := int(battle_state.get("pending_strength_loss", 0))
+	if pending_strength_loss > 0:
+		expiring_bonuses.append("턴 종료 시 힘을 %d 잃습니다." % pending_strength_loss)
+	var pending_resistance_loss := int(battle_state.get("pending_magic_resistance_loss", 0))
+	if pending_resistance_loss > 0:
+		expiring_bonuses.append("턴 종료 시 마법 저항을 %d 잃습니다." % pending_resistance_loss)
+	if not expiring_bonuses.is_empty():
+		player_indicator_flow.add_child(BattleIndicatorBadge.create({
+			"id": "expiry", "category": "status", "title": "턴 종료 시 감소",
+			"tooltip": "\n".join(expiring_bonuses), "tooltip_kind": "status",
+		}))
+	var battle_edition_ids: Array = battle_state.get("deck_editions", [])
+	if not battle_edition_ids.is_empty():
+		for edition_value in battle_edition_ids:
+			var edition_id := str(edition_value)
+			if not DeckEditions.PERSISTENT_BATTLE_IDS.has(edition_id):
+				continue
+			player_indicator_flow.add_child(BattleIndicatorBadge.create({
+				"id": "edition", "category": "edition", "text": DeckEditions.label(edition_id),
+				"color": DeckEditions.COLORS.get(edition_id, "#d7caa8"),
+				"tooltip_kind": "edition", "edition_id": edition_id,
+			}, 12))
+	var active_rules: Array = battle_state.get("active_rule_cards", [])
+	if not active_rules.is_empty():
+		for active_rule in active_rules:
+			player_indicator_flow.add_child(BattleIndicatorBadge.create({
+				"id": "rule", "category": "rule", "text": str(active_rule.get("name", "룰")),
+				"tooltip_kind": "card", "card": active_rule,
+			}))
+
+
+func _refresh_battle_step_effects(snapshot: Dictionary) -> void:
+	if snapshot.is_empty():
+		return
+	# Render the recorded step without advancing the authoritative battle state.
+	var saved := battle_state
+	battle_state = snapshot
+	var flow := find_child("BattlePlayerIndicators", true, false) as HFlowContainer
+	if is_instance_valid(flow):
+		for child in flow.get_children():
+			flow.remove_child(child)
+			child.queue_free()
+		_populate_battle_player_indicators(flow)
+		_bind_battle_player_effects(flow.get_parent())
+	var enemies: Array = snapshot.get("enemies", [])
+	for index in enemies.size():
+		var widget: Control = battle_enemy_widgets.get(index)
+		if not is_instance_valid(widget):
+			continue
+		var statuses: Array = []
+		for text in _enemy_status_text(enemies[index]).split(" · ", false):
+			statuses.append(BattleIndicatorBadge.status(text, _enemy_status_tooltip(enemies[index], text), true))
+		BattleEnemyView.refresh_statuses(widget, statuses)
+	battle_state = saved
+
+
 func _battle_enemy_visual(enemy_index: int) -> Button:
 	var button := Button.new()
 	var enemies: Array = battle_state.get("enemies", [])
 	if enemy_index >= 0 and enemy_index < enemies.size():
 		_build_enemy_target_button(button, enemies[enemy_index], enemy_index)
+		var source: Control = battle_enemy_widgets.get(enemy_index)
+		if is_instance_valid(source):
+			BattleEnemyView.set_consumed_attack_hits(button, int(source.get_meta("consumed_attack_hits", 0)))
+			if source.has_meta("remaining_intent_description"):
+				BattleEnemyView.set_effect_description(button, str(source.get_meta("remaining_intent_description")))
+			BattleEnemyView.consume_intent(button, bool(source.get_meta("attack_done", false)), bool(source.get_meta("effects_done", false)))
 	return button
+
+
+func _enemy_self_destruct_countdown(enemy: Dictionary) -> int:
+	var actions: Array = enemy.get("actions", [])
+	var current := int(enemy.get("action_index", 0))
+	for index in actions.size():
+		if bool(actions[index].get("self_destruct", false)):
+			return maxi(0, index - current)
+	return -1
 
 
 func _enemy_status_text(enemy: Dictionary) -> String:
 	var statuses: Array[String] = []
+	var countdown := _enemy_self_destruct_countdown(enemy)
+	if countdown >= 0:
+		statuses.append("자폭 %d" % countdown)
+	if int(enemy.get("action_discard_count", 0)) > 0:
+		statuses.append("갉아먹기")
 	var vulnerable := int(enemy.get("vulnerable", 0))
 	var weak := int(enemy.get("weak", 0))
 	if vulnerable > 0:
@@ -3153,6 +3183,9 @@ func _enemy_status_text(enemy: Dictionary) -> String:
 
 
 func _enemy_status_tooltip(enemy: Dictionary, status_text: String) -> String:
+	if status_text.begins_with("자폭 "):
+		var countdown := _enemy_self_destruct_countdown(enemy)
+		return "이번 공격 후 자폭합니다." if countdown == 0 else "공격을 %d번 더 한 뒤, 다음 공격 후 자폭합니다." % countdown
 	if status_text.begins_with("취약 "):
 		return "받는 공격 피해가 50% 증가합니다."
 	if status_text.begins_with("약화 "):
@@ -3404,7 +3437,7 @@ func _discard_target_count_for_file(pile_index: int) -> int:
 		var action_index := int(enemy.get("action_index", 0))
 		if action_index >= 0 and action_index < actions.size():
 			var action: Dictionary = actions[action_index]
-			count += maxi(0, int(action.get("discard_count", 0)))
+			count += maxi(0, int(action.get("discard_count", 0)) + int(enemy.get("action_discard_count", 0)))
 	return count
 
 
@@ -6476,6 +6509,7 @@ func _battle_player_identity() -> VBoxContainer:
 	avatar_style.set_corner_radius_all(0)
 	avatar.add_theme_stylebox_override("panel", avatar_style)
 	var avatar_text := _label("@", 36, Color("#32270b"))
+	avatar_text.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	avatar_text.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 	avatar_text.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
 	avatar.add_child(avatar_text)
@@ -6527,15 +6561,35 @@ func _battle_resource_strip() -> HBoxContainer:
 	if physical_block > 0:
 		var physical_shield = BattleDefenseShieldScript.new()
 		physical_shield.configure("physical", physical_block)
+		TooltipBindings.bind_status(physical_shield, "방어 %d" % physical_block,
+			"받는 공격 피해를 먼저 흡수합니다.", "shield")
 		strip.add_child(physical_shield)
 	var magic_resistance := int(battle_state.get("magic_resistance", 0))
 	if magic_resistance > 0:
 		var magic_shield = BattleDefenseShieldScript.new()
 		magic_shield.configure("magic", magic_resistance)
 		TooltipBindings.bind_status(magic_shield, "마법 저항 %d" % magic_resistance,
-			BattleRules.StatusRules.DESCRIPTIONS.magic_resistance)
+			BattleRules.StatusRules.DESCRIPTIONS.magic_resistance, "magic_resistance")
 		strip.add_child(magic_shield)
 	return strip
+
+
+func _bind_battle_player_effects(player_panel: Control) -> void:
+	var avatar := player_panel.find_child("PlayerPortrait", true, false) as Control
+	if not is_instance_valid(avatar):
+		return
+	var effects := TooltipBindings.collect_effects(player_panel)
+	var future_draws := int(battle_state.get("pending_foresight_draws", 0))
+	if future_draws > 0:
+		effects.append({"kind": "status", "payload": {"name": "예지", "icon_id": "rule",
+			"description": "다음 턴 시작 시 카드를 %d장 뽑습니다." % future_draws}})
+	for pending in battle_state.get("pending_iron_song", []):
+		effects.append({"kind": "status", "payload": {"name": "철의 노래", "icon_id": "rule",
+			"description": "앞으로 %d번의 내 턴 시작 시 방어를 %d 얻습니다." % [pending.get("turns", 0), pending.get("amount", 0)]}})
+	for pending in battle_state.get("pending_radiance", []):
+		effects.append({"kind": "status", "payload": {"name": "광행시간", "icon_id": "rule",
+			"description": "%d턴 뒤 턴 시작 시 광채 %d장을 얻습니다." % [pending.get("turns", 0), pending.get("count", 0)]}})
+	TooltipBindings.bind_effects(avatar, effects)
 
 
 func _flash_energy_shortage() -> void:

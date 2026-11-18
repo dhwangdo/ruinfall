@@ -150,7 +150,6 @@ static func start_battle(deck: Array, player_hp: int, encounter: Dictionary = {}
 					_reveal_file_top(pile)
 	if editions.has("roomy"):
 		state["piles"].append([])
-		state["piles"].append([])
 	if editions.has("sunkenLegend"):
 		if state["piles"].is_empty():
 			state["piles"].append([])
@@ -921,8 +920,9 @@ static func _resolve_enemies_turn(state: Dictionary, turn_view: Variant = null) 
 			_record_enemy_turn_message_step(turn_view, enemy_index, enemies[enemy_index], str(action.get("name", "")),
 				" · ".join(player_debuff_parts), "player", "debuff", state)
 		var discard_view: Dictionary = {}
-		if int(action.get("discard_count", 0)) > 0:
-			var discarded_name := _discard_targeted_file_top(state, enemy_index, int(action.get("discard_count", 1)), discard_view)
+		var discard_count := int(action.get("discard_count", 0)) + int(enemies[enemy_index].get("action_discard_count", 0))
+		if discard_count > 0:
+			var discarded_name := _discard_targeted_file_top(state, enemy_index, discard_count, discard_view)
 			if discarded_name != "":
 				effect_messages.append("파일 맨 위 %s 버림" % discarded_name)
 		if not discard_view.is_empty():
@@ -961,6 +961,18 @@ static func _resolve_enemies_turn(state: Dictionary, turn_view: Variant = null) 
 		state["message"] += " · 모든 적을 쓰러뜨렸습니다."
 
 
+static func _enemy_step_effect_snapshot(state: Dictionary) -> Dictionary:
+	var snapshot: Dictionary = {}
+	for key in state:
+		if not state[key] is Array and not state[key] is Dictionary:
+			snapshot[key] = state[key]
+	for key in ["enemies", "hand", "deck_editions", "active_rule_cards", "pending_iron_song", "pending_radiance"]:
+		if state.has(key):
+			snapshot[key] = state[key].duplicate(true) if state[key] is Array or state[key] is Dictionary else state[key]
+	_save_enemy_aliases(snapshot)
+	return snapshot
+
+
 static func _record_enemy_turn_view_step(turn_view: Variant, enemy_index: int, enemy: Dictionary, action_name: String, attack: bool, damage: int, state: Dictionary) -> void:
 	if not turn_view is Dictionary:
 		return
@@ -974,6 +986,8 @@ static func _record_enemy_turn_view_step(turn_view: Variant, enemy_index: int, e
 		"damage": damage,
 		"player_hp": int(state.get("player_hp", 0)),
 		"player_block": int(state.get("player_block", 0)),
+		"magic_resistance": int(state.get("magic_resistance", 0)),
+		"effect_state": _enemy_step_effect_snapshot(state),
 	})
 	turn_view["steps"] = steps
 
@@ -1271,6 +1285,11 @@ static func _resolve_card_play(state: Dictionary, card_id: int, play_view: Varia
 	next["magic_resistance"] = int(next.get("magic_resistance", 0)) + temporary_resistance
 	next["pending_magic_resistance_loss"] = int(next.get("pending_magic_resistance_loss", 0)) + temporary_resistance
 	match effect:
+		"strategy_book":
+			var gain := int(card.get("value", 4))
+			next["strength"] = int(next.get("strength", 0)) + gain
+			next["agility"] = int(next.get("agility", 0)) + gain
+			next["message"] += " · 힘·강인함 %d 획득" % gain
 		"ruler_compass", "star_guard":
 			next["stars"] = int(next["stars"]) + 1
 			next["message"] += " · ★ 1 획득"
@@ -2256,9 +2275,9 @@ static func _prepare_enemy_discard_targets(state: Dictionary) -> void:
 		var action_index := int(enemy.get("action_index", 0))
 		if int(enemy.get("hp", 0)) > 0 and action_index >= 0 and action_index < actions.size():
 			var action: Dictionary = actions[action_index]
-			if int(action.get("discard_count", 0)) > 0 and not fallback_candidates.is_empty():
+			if int(action.get("discard_count", 0)) + int(enemy.get("action_discard_count", 0)) > 0 and not fallback_candidates.is_empty():
 				var candidates: Array[int] = fallback_candidates.duplicate()
-				if str(action.get("discard_priority", "")) == "rarity" and not non_empty_file_indexes.is_empty():
+				if str(action.get("discard_priority", enemy.get("discard_priority", ""))) == "rarity" and not non_empty_file_indexes.is_empty():
 					var highest_rarity_candidates: Array[int] = []
 					var highest_rarity := -1
 					for file_index in non_empty_file_indexes:

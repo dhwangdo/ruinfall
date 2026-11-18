@@ -31,7 +31,7 @@ static func set_display_hp(bar: ProgressBar, label: Label, target: int, animate:
 	var displayed := clampi(target, int(bar.min_value), int(bar.max_value))
 	if int(bar.get_meta("hp_target", roundi(bar.value))) == displayed:
 		return
-	var previous_tween: Tween = bar.get_meta("hp_tween", null)
+	var previous_tween: Tween = bar.get_meta("hp_tween") if bar.has_meta("hp_tween") else null
 	if previous_tween and previous_tween.is_running():
 		previous_tween.kill()
 	bar.set_meta("hp_target", displayed)

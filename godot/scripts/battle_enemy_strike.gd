@@ -1,6 +1,6 @@
 extends Control
 signal finished(cancelled: bool)
-const DURATION := 0.350
+const DURATION := 0.440
 const BEZIER_X1 := 0.2
 const BEZIER_Y1 := 0.76
 const BEZIER_X2 := 0.3
@@ -55,7 +55,7 @@ func play() -> void:
     source.modulate.a = 0.0
     _tween = create_tween()
     var duration := 0.18 if motion_kind == "buff" else DURATION
-    var points := [Vector3(0, 0, 1), Vector3(0.38, -28, 1), Vector3(1, 0, 1)]
+    var points := [Vector3(0, 0, 1), Vector3(0.38, -40, 1), Vector3(1, 0, 1)]
     if motion_kind == "buff":
         points = [Vector3(0, 0, 1), Vector3(0.4, 0, 1.08), Vector3(1, 0, 1)]
     for i in range(points.size() - 1):

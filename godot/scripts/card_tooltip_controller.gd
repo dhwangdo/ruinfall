@@ -33,7 +33,7 @@ func request(game: Node, kind: String, payload: Variant, anchor: Control,
 		placement_anchor: Control = null, preview_factory: Callable = Callable()) -> void:
 	if not is_instance_valid(game) or not is_instance_valid(anchor):
 		return
-	if not ["keyword", "sticker", "edition", "status", "debuff", "enemy", "rule"].has(kind):
+	if not ["keyword", "sticker", "edition", "status", "debuff", "enemy", "rule", "effects"].has(kind):
 		return
 	var next_placement_anchor := placement_anchor if is_instance_valid(placement_anchor) else anchor
 	var next_key := _make_payload_key(kind, payload)
@@ -106,6 +106,12 @@ static func _anchor_bounds(anchor: Control) -> Rect2:
 
 
 func _sections_for(kind: String, payload: Variant) -> Array[Dictionary]:
+	if kind == "effects" and payload is Array:
+		var sections: Array[Dictionary] = []
+		for effect in payload:
+			if effect is Dictionary and str(effect.get("kind", "")) in ["status", "debuff", "edition", "rule"]:
+				sections.append_array(_sections_for(str(effect.kind), effect.get("payload")))
+		return sections
 	if kind == "keyword":
 		if payload is Dictionary:
 			var card_sections: Array[Dictionary] = CardKeywords.tooltip_sections(payload)
@@ -132,11 +138,14 @@ func _sections_for(kind: String, payload: Variant) -> Array[Dictionary]:
 			"title": DeckEditions.tooltip_title(edition_id),
 			"description": edition_description,
 			"kind": "edition",
-			"icon_id": "edition_%s" % edition_id,
+			"icon_id": "edition",
 		}]
 	if kind in ["status", "debuff", "enemy", "rule"] and payload is Dictionary:
 		var title := str(payload.get("name", ""))
 		var description := str(payload.get("description", ""))
+		if kind == "rule":
+			title = "룰 : " + title
+			description = description.replace("룰. ", "").replace("룰.\n", "").replace("룰.", "").strip_edges()
 		if title.is_empty() and description.is_empty():
 			return []
 		return [{"title": title, "description": description, "kind": kind,
@@ -172,6 +181,21 @@ func _create_and_place(request_generation: int) -> void:
 	game.add_child(view)
 	_view_ref = weakref(view)
 	view.configure(_sections, _width, _preview_factory)
+	if current_kind == "effects":
+		# Wrapped labels need several container passes at their final width.
+		# Measuring the first pass can mistake a narrow, very tall label for overflow.
+		view.size = Vector2(_width, maxf(1.0, _viewport_size().y - VIEWPORT_MARGIN * 2.0))
+		var previous_height := -1.0
+		var stable_passes := 0
+		for layout_pass in range(10):
+			await game.get_tree().process_frame
+			if not _request_is_current(request_generation):
+				return
+			var height: float = view.get_preferred_size().y
+			stable_passes = stable_passes + 1 if is_equal_approx(height, previous_height) else 0
+			previous_height = height
+			if layout_pass >= 3 and stable_passes >= 2:
+				break
 	await game.get_tree().process_frame
 	if not _request_is_current(request_generation):
 		if is_instance_valid(view):
@@ -179,6 +203,12 @@ func _create_and_place(request_generation: int) -> void:
 		return
 	var measured: Vector2 = view.get_preferred_size()
 	var max_height := maxf(1.0, _viewport_size().y - VIEWPORT_MARGIN * 2.0)
+	if current_kind == "effects" and measured.y > max_height:
+		view.spread_columns(max_height, _viewport_size().x - VIEWPORT_MARGIN * 2.0)
+		await game.get_tree().process_frame
+		if not _request_is_current(request_generation):
+			return
+		measured = view.get_preferred_size()
 	if measured.y > max_height:
 		view.constrain_height(max_height)
 		await game.get_tree().process_frame
@@ -212,6 +242,13 @@ func _position_for(kind: String, anchor: Control, measured: Vector2, width: floa
 	var original_rect := _anchor_bounds(anchor)
 	var viewport := _viewport_size()
 	var actual_width := minf(width, viewport.x - VIEWPORT_MARGIN * 2.0)
+	if kind == "effects":
+		actual_width = measured.x
+		var group_x := rect.end.x + EDITION_GAP
+		if group_x + actual_width > viewport.x - VIEWPORT_MARGIN:
+			group_x = rect.position.x - actual_width - EDITION_GAP
+		return Vector2(clampf(group_x, VIEWPORT_MARGIN, maxf(VIEWPORT_MARGIN, viewport.x - actual_width - VIEWPORT_MARGIN)),
+			clampf(rect.get_center().y - measured.y * 0.5, VIEWPORT_MARGIN, maxf(VIEWPORT_MARGIN, viewport.y - measured.y - VIEWPORT_MARGIN)))
 	var x := rect.position.x
 	var y := rect.position.y
 	if kind == "sticker":

@@ -12,8 +12,8 @@ func _initialize() -> void:
 
 func run() -> void:
 	var player := Vector2i(30, 10)
-	var vault := player + Vector2i(9, 0)
-	var hidden := player + Vector2i(10, 0)
+	var vault := player + Vector2i(18, 0)
+	var hidden := player + Vector2i(19, 0)
 	var map := {"walkable": {player: true, vault: true, hidden: true},
 		"room_types": {vault: "deckVault", hidden: "deckVault"}, "seen": {player: true},
 		"visible_now": {player: true}, "deck_vaults": {}, "opened_deck_vaults": {}}
@@ -32,7 +32,7 @@ func run() -> void:
 	var restored: Dictionary = bytes_to_var(var_to_bytes(state))
 	assert(Search.filter_entries(Search.build_entries(restored), "deck", 1, "").size() == 1)
 	assert(Preview.resolve(state, vault).name == decks[0].deck.name)
-	map.opened_deck_vaults["39,10"] = true
+	map.opened_deck_vaults["48,10"] = true
 	assert(Search.filter_entries(Search.build_entries(state), "deck", 1, "").is_empty())
 	# Existing saves with only seen, and no discovery ledger, also find unvisited vaults.
 	map.opened_deck_vaults.clear()

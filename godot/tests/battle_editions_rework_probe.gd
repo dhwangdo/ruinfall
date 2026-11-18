@@ -27,7 +27,7 @@ func state(editions: Array = [], deck: Array = []) -> Dictionary:
 
 func _initialize() -> void:
 	var deck := Catalog.create_starter_deck()
-	assert(deck.size() == 12 + Catalog.BASIC_CARDS.size())
+	assert(deck.size() == 10 + Catalog.BASIC_CARDS.size())
 	for blueprint in Catalog.BASIC_CARDS:
 		var copies := 0
 		for starter_card in deck:
@@ -38,8 +38,8 @@ func _initialize() -> void:
 	deck = deck.slice(0, 20)
 	var before := state([], deck)
 	var after := state(["roomy"], deck)
-	assert(after.piles.size() == before.piles.size() + 2)
-	assert(after.piles[-1].is_empty() and after.piles[-2].is_empty())
+	assert(after.piles.size() == before.piles.size() + 1)
+	assert(after.piles[-1].is_empty())
 	after = state(["gambit"], deck)
 	assert(after.hand.size() == before.hand.size() + 3 and after.energy == 6 and after.max_energy == 3)
 	after = Rules.end_turn(after)

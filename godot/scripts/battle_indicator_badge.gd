@@ -1,6 +1,8 @@
 extends RefCounted
 
 const TooltipBindings = preload("res://scripts/tooltip_bindings.gd")
+const DeckIconArt = preload("res://scripts/deck_icon_art.gd")
+static var _debuff_aura_texture: GradientTexture2D
 
 const ICONS := {
 	"weak": preload("res://assets/ui/status/weak.svg"),
@@ -74,14 +76,29 @@ static func status(text: String, tooltip: String, enemy := false) -> Dictionary:
 static func create(indicator: Dictionary, _font_size := 13) -> Control:
 	var category := str(indicator.get("category", "trait"))
 	var icon_id := str(indicator.get("id", category))
+	if category == "edition":
+		icon_id = "edition"
 	if not ICONS.has(icon_id):
 		icon_id = category if ICONS.has(category) else "trait"
 	var badge := Control.new()
 	badge.custom_minimum_size = Vector2(36, 36)
-	var icon := _icon(icon_id, 32)
-	icon.position = Vector2(2, 2)
+	var icon_size := 36 if category == "edition" else 32
+	var icon := _icon(icon_id, icon_size)
+	icon.position = (Vector2(36, 36) - icon.size) * 0.5
 	badge.add_child(icon)
+	if category == "debuff":
+		var aura := TextureRect.new()
+		aura.name = "DebuffAura"
+		aura.mouse_filter = Control.MOUSE_FILTER_IGNORE
+		aura.texture = _debuff_aura()
+		aura.texture_filter = CanvasItem.TEXTURE_FILTER_LINEAR
+		aura.expand_mode = TextureRect.EXPAND_IGNORE_SIZE
+		aura.position = Vector2(-4, -4)
+		aura.size = Vector2(44, 44)
+		aura.z_index = -1
+		badge.add_child(aura)
 	var number := str(indicator.get("number", ""))
+	badge.set_meta("tooltip_effect_number", number)
 	if not number.is_empty():
 		var count_label := Label.new()
 		count_label.text = number
@@ -90,17 +107,17 @@ static func create(indicator: Dictionary, _font_size := 13) -> Control:
 		count_label.anchor_top = 1.0
 		count_label.anchor_right = 1.0
 		count_label.anchor_bottom = 1.0
-		count_label.offset_left = -30
-		count_label.offset_top = -24
-		count_label.offset_right = 1
-		count_label.offset_bottom = 1
+		count_label.offset_left = -27
+		count_label.offset_top = -15
+		count_label.offset_right = 4
+		count_label.offset_bottom = 10
 		count_label.horizontal_alignment = HORIZONTAL_ALIGNMENT_RIGHT
 		count_label.vertical_alignment = VERTICAL_ALIGNMENT_BOTTOM
 		count_label.add_theme_font_override("font", preload("res://assets/fonts/PretendardVariable700.tres"))
 		count_label.add_theme_font_size_override("font_size", 20)
 		count_label.add_theme_color_override("font_color", Color.WHITE)
 		count_label.add_theme_color_override("font_outline_color", Color.BLACK)
-		count_label.add_theme_constant_override("outline_size", 6)
+		count_label.add_theme_constant_override("outline_size", 12)
 		badge.add_child(count_label)
 	badge.mouse_filter = Control.MOUSE_FILTER_PASS
 	var tooltip_kind := str(indicator.get("tooltip_kind", ""))
@@ -122,9 +139,27 @@ static func create(indicator: Dictionary, _font_size := 13) -> Control:
 static func _icon(icon_id: String, size: int) -> TextureRect:
 	var icon := TextureRect.new()
 	icon.mouse_filter = Control.MOUSE_FILTER_IGNORE
-	icon.texture = ICONS[icon_id]
+	icon.texture = DeckIconArt.RARE if icon_id == "edition" else ICONS[icon_id]
+	if icon_id == "edition":
+		icon.material = DeckIconArt.palette_material()
+		icon.texture_filter = CanvasItem.TEXTURE_FILTER_NEAREST
 	icon.expand_mode = TextureRect.EXPAND_IGNORE_SIZE
 	icon.stretch_mode = TextureRect.STRETCH_KEEP_ASPECT_CENTERED
 	icon.custom_minimum_size = Vector2(size, size)
 	icon.size = Vector2(size, size)
 	return icon
+
+
+static func _debuff_aura() -> GradientTexture2D:
+	if _debuff_aura_texture == null:
+		var gradient := Gradient.new()
+		gradient.offsets = PackedFloat32Array([0.0, 0.55, 1.0])
+		gradient.colors = PackedColorArray([Color("#9847cf", 0.95), Color("#9847cf", 0.70), Color("#9847cf", 0.0)])
+		_debuff_aura_texture = GradientTexture2D.new()
+		_debuff_aura_texture.width = 64
+		_debuff_aura_texture.height = 64
+		_debuff_aura_texture.gradient = gradient
+		_debuff_aura_texture.fill = GradientTexture2D.FILL_RADIAL
+		_debuff_aura_texture.fill_from = Vector2(0.5, 0.5)
+		_debuff_aura_texture.fill_to = Vector2(1.0, 0.5)
+	return _debuff_aura_texture

@@ -10,6 +10,27 @@ static func bind_card(control: Control, card: Dictionary) -> void:
 	_bind(control, "keyword", card)
 
 
+static func bind_effects(control: Control, effects: Array) -> void:
+	_bind(control, "effects", effects)
+
+
+static func collect_effects(control: Control) -> Array[Dictionary]:
+	var effects: Array[Dictionary] = []
+	var kind := str(control.get_meta(KIND_META, ""))
+	if kind in ["status", "debuff", "edition", "rule"]:
+		var payload: Variant = control.get_meta(PAYLOAD_META)
+		if payload is Dictionary:
+			payload = payload.duplicate(true)
+			var number := str(control.get_meta("tooltip_effect_number", ""))
+			if not number.is_empty():
+				payload["name"] = str(payload.get("name", "")) + " " + number
+		effects.append({"kind": kind, "payload": payload})
+	for child in control.get_children():
+		if child is Control:
+			effects.append_array(collect_effects(child))
+	return effects
+
+
 static func bind_sticker(control: Control, sticker_id: String) -> void:
 	_bind(control, "sticker", sticker_id)
 
@@ -39,7 +60,7 @@ static func _bind(control: Control, kind: String, payload: Variant) -> void:
 	if not is_instance_valid(control):
 		return
 	control.set_meta(KIND_META, kind)
-	control.set_meta(PAYLOAD_META, payload.duplicate(true) if payload is Dictionary else payload)
+	control.set_meta(PAYLOAD_META, payload.duplicate(true) if payload is Dictionary or payload is Array else payload)
 	if control.has_meta(BINDING_META):
 		return
 	control.set_meta(BINDING_META, true)
