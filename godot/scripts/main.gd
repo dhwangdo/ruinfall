@@ -2758,6 +2758,8 @@ func _show_battle(keep_draw_phase: bool = false) -> void:
 	hand_fan.z_index = 6
 	board.add_child(hand_fan)
 	board.hand = hand_fan
+	piles_layout.center_reference = hand_fan
+	hand_fan.item_rect_changed.connect(piles_layout._queue_layout, CONNECT_DEFERRED)
 	hand_fan.layout_height_changed.connect(func(height: float) -> void:
 		board.hand_height = height
 		board.arrange()
@@ -3654,6 +3656,7 @@ func _card_description(card: Dictionary, use_battle_context: bool = true) -> Str
 	elif bool(card.get("forged", false)):
 		if str(card.get("effect", "")) == "double_hit":
 			description = description.replace("1[2]번", "2번")
+			description = description.replace("[한 번 더 공격합니다.]", "한 번 더 공격합니다.")
 		if card.has("upgraded_value"):
 			var base_value := int(card.get("value", 0))
 			var forged_value := int(card.get("upgraded_value", base_value))

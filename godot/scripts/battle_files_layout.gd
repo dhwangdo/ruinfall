@@ -7,6 +7,7 @@ const SIDE_PADDING := 12.0
 const VERTICAL_PADDING := 20.0
 const ACTOR_GAP := 8.0
 
+var center_reference: Control
 var row: HBoxContainer
 var avoid_controls: Array[Control] = []
 var _layout_queued := false
@@ -61,5 +62,10 @@ func _arrange() -> void:
 	row.size = natural
 	row.pivot_offset = Vector2.ZERO
 	row.scale = Vector2.ONE * factor
-	row.position = Vector2(SIDE_PADDING, VERTICAL_PADDING)
+	var preferred_center := viewport.size.x * 0.5
+	if is_instance_valid(center_reference):
+		preferred_center = (inverse * (center_reference.get_global_transform_with_canvas() * (center_reference.size * 0.5))).x
+	var left := clampf(preferred_center - visual.x * 0.5, SIDE_PADDING,
+		maxf(SIDE_PADDING, viewport.size.x - visual.x - SIDE_PADDING))
+	row.position = Vector2(left, VERTICAL_PADDING)
 	layout_changed.emit()

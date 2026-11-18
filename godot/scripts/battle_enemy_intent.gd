@@ -55,7 +55,7 @@ static func description(action: Dictionary, enemy: Dictionary) -> String:
 		if amount > 0:
 			var label: String = preload("res://scripts/battle_status_rules.gd").LABELS[kind]
 			parts.append("%s %d 부여" % [label, amount])
-	if action.has("summon"): parts.append(preload("res://scripts/enemy_catalog.gd").roach_summon_description())
+	if action.has("summon"): parts.append("소환")
 	return " · ".join(parts)
 
 

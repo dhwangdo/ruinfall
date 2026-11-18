@@ -47,6 +47,7 @@ const STARTER_CARDS: Array[Dictionary] = [
 ]
 
 const BASIC_CARDS: Array[Dictionary] = [
+	{"name": "연속 베기", "kind": "strike", "effect": "double_hit", "use_mode": "targeted", "rarity": "basic", "cost": 1, "value": 6, "forge_cost": 1, "description": "피해를 6 줍니다.\n[한 번 더 공격합니다.]\n재련: [1코스트]"},
 	{
 		"name": "몸 사리기", "kind": "skill", "effect": "defend", "use_mode": "untargeted", "rarity": "basic",
 		"cost": 1, "value": 8, "discard_cost": 1,

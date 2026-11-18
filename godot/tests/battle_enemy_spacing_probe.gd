@@ -51,6 +51,10 @@ func _run() -> void:
 		assert(files.end.x + 12.0 <= rail.position.x, "File viewport and enemy rail must be horizontally separate")
 		assert(is_equal_approx(files.position.x, board.global_position.x), "Files can extend left independently of the hand center")
 		assert(files.get_center().x < board.get_global_rect().get_center().x)
+		if variant[0].x == 1280 and variant[2] == 4:
+			var row: Control = game.battle_pile_widgets[0].get_parent()
+			assert(absf(row.get_global_rect().get_center().x - board.hand.get_global_rect().get_center().x) < 1.0,
+				"When four files fit, center them with the hand instead of pinning them left")
 		var squares: Array[Rect2] = []
 		for target in game.battle_enemy_widgets.values():
 			var portrait: Control = target.get_meta("enemy_portrait")
