@@ -39,7 +39,7 @@ func _initialize() -> void:
 		var generated := Vault.generate(map, p, 500)
 		var deck: Dictionary = generated.deck
 		assert(deck.id.begins_with("found-r%d-" % (MapRules.region_index_at(p) + 1 + offset)))
-		assert(Vault.key_cost(deck) == 3 + 2 * offset)
+		assert(Vault.key_cost(deck) == 3 + 3 * offset)
 		var state := {"map": map, "position": p, "next_card_id": 500}
 		assert(Preview.resolve(state, p) == deck)
 		assert(map.deck_vaults.is_empty())
@@ -71,5 +71,5 @@ func _initialize() -> void:
 	var p: Vector2i = examples[2]
 	map.deck_vaults["%d,%d" % [p.x, p.y]] = {"name": "existing"}
 	assert(Vault.region_offset(map, p) == 0)
-	print("PASS: all vault tiers, preview/generation/save consistency, 3/5/7 key gates and deductions, no duplicate reward")
+	print("PASS: all vault tiers, preview/generation/save consistency, 3/6/9 key gates and deductions, no duplicate reward")
 	quit()

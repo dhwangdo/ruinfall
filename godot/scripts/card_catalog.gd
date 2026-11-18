@@ -5,7 +5,7 @@ const GenerationModel = preload("res://scripts/deck_generation_model.gd")
 
 const CardStickers = preload("res://scripts/stickers.gd")
 const DeckEditions = preload("res://scripts/deck_editions.gd")
-const SINGLE_CARD_DECK_CHANCE := 0.005
+const SINGLE_CARD_DECK_CHANCE := 0.01
 const SINGLE_CARD_DECK_NAMES := ["돌격!!", "늑대 부적", "거북이 부적"]
 const ROYAL_SINGLE_CARD_DECK_NAMES := ["소원", "예지"]
 

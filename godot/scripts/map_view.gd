@@ -55,6 +55,7 @@ var _enemy_badge_draws: Array[Dictionary] = []
 var _vault_icon_draws: Array[Dictionary] = []
 var _terrain_icon_draws: Array[Dictionary] = []
 var _enemy_sprite_layer: Node2D
+var _future_vault_layer: Node2D
 var _deck_icon_draws: Array[Rect2] = []
 var _deck_icon_layer: Node2D
 var _enemy_state_font: Font
@@ -67,6 +68,11 @@ func _ready() -> void:
 	mouse_exited.connect(_clear_deck_vault_hover)
 	_enemy_state_font = _web_map_font(900)
 	_enemy_name_font = _web_map_font(700)
+	_future_vault_layer = Node2D.new()
+	_future_vault_layer.name = "FutureVaultBackgrounds"
+	_future_vault_layer.material = DeckIconArt.future_material()
+	_future_vault_layer.draw.connect(_draw_future_vault_backgrounds)
+	add_child(_future_vault_layer)
 	_enemy_sprite_layer = Node2D.new()
 	_enemy_sprite_layer.name = "EnemyTiles"
 	_enemy_sprite_layer.texture_filter = CanvasItem.TEXTURE_FILTER_NEAREST
@@ -145,6 +151,8 @@ func set_ping(position: Vector2i, label: String) -> void:
 
 func _draw() -> void:
 	_vault_icon_draws.clear()
+	if is_instance_valid(_future_vault_layer):
+		_future_vault_layer.queue_redraw()
 	_terrain_icon_draws.clear()
 	_deck_icon_draws.clear()
 	if is_instance_valid(_deck_icon_layer):
@@ -418,6 +426,12 @@ func _draw_enemy_overlays(visible_enemies: Dictionary, remembered_enemies: Dicti
 			"remembered": is_remembered, "neighbor": has_horizontal_neighbor, "has_sprite": not tiles.is_empty()})
 	if is_instance_valid(_enemy_sprite_layer):
 		_enemy_sprite_layer.queue_redraw()
+
+
+func _draw_future_vault_backgrounds() -> void:
+	for item in _vault_icon_draws:
+		if item.future:
+			DeckIconArt.draw_future_background(_future_vault_layer, item.rect.grow(-1.0))
 
 
 func _draw_enemy_sprites() -> void:

@@ -11,11 +11,11 @@ static func region_offset(map_data: Dictionary, position: Vector2i) -> int:
 	if vaults.has(key):
 		return int(vaults[key].get("vault_region_offset", 0))
 	var roll := Generation.seeded_roll(position, int(map_data.get("seed", 0)), 9137)
-	return 1 if roll < 0.005 else 2 if roll < 0.01 else 0
+	return 1 if roll < 0.015 else 2 if roll < 0.03 else 0
 
 
 static func key_cost(deck: Dictionary) -> int:
-	return 3 + 2 * int(deck.get("vault_region_offset", 0))
+	return 3 + 3 * int(deck.get("vault_region_offset", 0))
 
 
 static func generate(map_data: Dictionary, position: Vector2i, first_id: int) -> Dictionary:
