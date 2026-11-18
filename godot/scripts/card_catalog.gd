@@ -5,6 +5,9 @@ const GenerationModel = preload("res://scripts/deck_generation_model.gd")
 
 const CardStickers = preload("res://scripts/stickers.gd")
 const DeckEditions = preload("res://scripts/deck_editions.gd")
+const SINGLE_CARD_DECK_CHANCE := 0.005
+const SINGLE_CARD_DECK_NAMES := ["돌격!!", "늑대 부적", "거북이 부적"]
+const ROYAL_SINGLE_CARD_DECK_NAMES := ["소원", "예지"]
 
 const DECK_NAME_SYLLABLES: Array[String] = [
 	"아", "에", "이", "오", "우", "야", "예", "요", "유",
@@ -212,6 +215,9 @@ static func create_region_deck(region_number: int, first_id: int, random: Random
 	var k := maxi(1, region_number)
 	var shape := roll_region_shape(k, random)
 	var editions := GenerationModel.editions_for(shape, random)
+	# Roll once per eligible deck, not again when sticker placement retries.
+	var single_card_deck := not editions.has("legendCassiopeia") and random.randf() < SINGLE_CARD_DECK_CHANCE
+	var single_blueprint: Dictionary = _single_card_deck_blueprint(editions, random) if single_card_deck else {}
 	while true:
 		var capacity := 20 + 5 * int(shape.x)
 		if editions.has("gambit"):
@@ -237,12 +243,22 @@ static func create_region_deck(region_number: int, first_id: int, random: Random
 			next_id += 1
 		# y2 rare slots stay empty. Only the non-rare capacity receives filler.
 		for _slot in range(capacity - rare_slots):
+			if single_card_deck:
+				cards.append(_make_card(single_blueprint, next_id))
+				next_id += 1
+				continue
 			var filler_kind := random.randi_range(0, 3)
 			if filler_kind == 0:
 				continue
 			var pool: Array = STARTER_CARDS if filler_kind == 1 else BASIC_CARDS if filler_kind == 2 else SPECIAL_CARDS
 			cards.append(_make_card(pool[random.randi_range(0, pool.size() - 1)], next_id))
 			next_id += 1
+		if single_card_deck and editions.has("royal"):
+			cards.clear()
+			next_id = first_id
+			for _slot in range(capacity):
+				cards.append(_make_card(single_blueprint, next_id))
+				next_id += 1
 		var sticker_candidates: Array[int] = []
 		for index in range(cards.size()):
 			if not CardStickers.compatible_stickers(cards[index]).is_empty():
@@ -273,6 +289,18 @@ static func create_region_deck(region_number: int, first_id: int, random: Random
 
 static func roll_region_shape(region_number: int, random: RandomNumberGenerator) -> Dictionary:
 	return GenerationModel.roll(region_number, random)
+
+
+static func _single_card_deck_blueprint(editions: Array, random: RandomNumberGenerator) -> Dictionary:
+	var royal := editions.has("royal")
+	var names: Array = ROYAL_SINGLE_CARD_DECK_NAMES if royal else SINGLE_CARD_DECK_NAMES
+	var chosen: String = names[random.randi_range(0, names.size() - 1)]
+	var pool: Array = RARE_CARDS if royal else SPECIAL_CARDS
+	for blueprint in pool:
+		if str(blueprint.name) == chosen:
+			return blueprint
+	assert(false, "Missing single-card deck blueprint: " + chosen)
+	return {}
 
 
 static func _create_deck_name(capacity: int, random: RandomNumberGenerator) -> String:

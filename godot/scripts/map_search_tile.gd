@@ -8,6 +8,7 @@ const TILE_INSET := 1.0
 var map_data: Dictionary = {}
 var world_position := Vector2i.ZERO
 var map_seed := 0
+const VaultRules = preload("res://scripts/deck_vault_rules.gd")
 
 
 func configure(data: Dictionary, position: Vector2i, display_size := Vector2(48, 48), seed := 0) -> void:
@@ -31,7 +32,11 @@ func _draw() -> void:
 	draw_rect(rect, TileAppearance.full_map_edge(room_type), false, 1.0)
 	if room_type == "deckVault":
 		texture_filter = CanvasItem.TEXTURE_FILTER_NEAREST
-		TileAppearance.draw_vault_symbol(self, rect, minf(rect.size.x, rect.size.y))
+		if VaultRules.region_offset(map_data, world_position) > 0:
+			draw_rect(rect, Color("#101a32"))
+			draw_rect(rect, Color("#eed079"), false, 1.0)
+		TileAppearance.draw_vault_symbol(self, rect, minf(rect.size.x, rect.size.y), Color("#db8a3d"),
+			VaultRules.region_offset(map_data, world_position) > 0)
 		return
 	if TileAppearance.ROOM_TEXTURES.has(room_type):
 		texture_filter = CanvasItem.TEXTURE_FILTER_NEAREST

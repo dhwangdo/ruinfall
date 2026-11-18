@@ -151,8 +151,8 @@ static func _region_floor_color(region_index: int) -> Color:
 	return REGION_FLOOR_COLORS[index]
 
 
-static func draw_vault_symbol(canvas: CanvasItem, rect: Rect2, _tile_size: float, color := Color("#db8a3d")) -> void:
-	DeckIconArt.draw_vault(canvas, rect, color)
+static func draw_vault_symbol(canvas: CanvasItem, rect: Rect2, _tile_size: float, color := Color("#db8a3d"), future: bool = false) -> void:
+	DeckIconArt.draw_vault(canvas, rect, color, future)
 
 
 static func draw_altar(canvas: CanvasItem, rect: Rect2) -> void:

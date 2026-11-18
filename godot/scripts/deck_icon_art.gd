@@ -5,6 +5,7 @@ const RARE = preload("res://assets/ui/dcss/misc_deck_rare.png")
 const PALETTE = preload("res://shaders/deck_palette.gdshader")
 const DECK_COLOR := Color("#db8a3d")
 static var _vault_texture: ImageTexture
+static var _future_background: GradientTexture2D
 
 
 static func vault_texture() -> Texture2D:
@@ -24,10 +25,19 @@ static func vault_texture() -> Texture2D:
 	return _vault_texture
 
 
-static func draw_vault(canvas: CanvasItem, cell: Rect2, border: Color = DECK_COLOR) -> void:
+static func draw_vault(canvas: CanvasItem, cell: Rect2, border: Color = DECK_COLOR, future: bool = false) -> void:
 	var side := minf(cell.size.x, cell.size.y)
 	var plate := Rect2(cell.get_center() - Vector2.ONE * side * 0.43, Vector2.ONE * side * 0.86)
-	canvas.draw_rect(plate, Color("#0c0d0c"))
+	if future:
+		if _future_background == null:
+			_future_background = GradientTexture2D.new()
+			_future_background.gradient = Gradient.new()
+			_future_background.gradient.colors = PackedColorArray([Color("#243858"), Color("#101a32")])
+			_future_background.fill_to = Vector2(1, 1)
+		canvas.draw_texture_rect(_future_background, plate, false)
+		border = Color("#eed079")
+	else:
+		canvas.draw_rect(plate, Color("#0c0d0c"))
 	canvas.draw_rect(plate, border, false, maxf(1.0, side * 0.025))
 	var icon := Rect2(cell.get_center() - Vector2.ONE * side * 0.36, Vector2.ONE * side * 0.72)
 	canvas.draw_texture_rect(vault_texture(), icon, false)

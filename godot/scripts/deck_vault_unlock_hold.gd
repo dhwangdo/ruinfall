@@ -19,6 +19,7 @@ const DISABLED_TEXT := Color("#bebfbb")
 const HOLD_GLOW := Color(143.0 / 255.0, 212.0 / 255.0, 243.0 / 255.0, 0.4)
 
 var _keys: int = 0
+var _key_cost: int = KEY_COST
 var _opened: bool = false
 var _reduced_motion: bool = false
 var _hold_sources: Dictionary = {}
@@ -33,8 +34,9 @@ var _disabled_border: StyleBoxFlat
 var _label: Label
 
 
-func configure(keys: int, opened: bool, reduced_motion: bool = false) -> void:
+func configure(keys: int, opened: bool, reduced_motion: bool = false, key_cost: int = KEY_COST) -> void:
 	_keys = maxi(0, keys)
+	_key_cost = key_cost
 	_opened = opened
 	_reduced_motion = reduced_motion
 	if _is_disabled() and not _hold_sources.is_empty():
@@ -203,7 +205,7 @@ func _emit_progress(progress: float) -> void:
 
 
 func _is_disabled() -> bool:
-	return _opened or _keys < KEY_COST
+	return _opened or _keys < _key_cost
 
 
 func _on_mouse_exited() -> void:
@@ -217,7 +219,7 @@ func _on_focus_exited() -> void:
 func _update_label() -> void:
 	if _label == null:
 		return
-	_label.text = "열쇠 %d개로 개방" % KEY_COST
+	_label.text = "열쇠 %d개로 개방" % _key_cost
 	_label.add_theme_color_override("font_color", DISABLED_TEXT if _is_disabled() else ENABLED_TEXT)
 	mouse_default_cursor_shape = Control.CURSOR_FORBIDDEN if _is_disabled() else Control.CURSOR_POINTING_HAND
 

@@ -232,6 +232,7 @@ var mechanic_tooltip_anchor: Control
 var run_map_generation_job: RefCounted
 
 const DECK_VAULT_KEY_COST := 3
+const VaultRules = preload("res://scripts/deck_vault_rules.gd")
 
 
 func _ready() -> void:
@@ -2245,10 +2246,8 @@ func _show_deck_vault(position: Vector2i) -> void:
 	var map_data: Dictionary = run_state["map"]
 	var vaults: Dictionary = map_data.get("deck_vaults", {})
 	if not vaults.has(room_key):
-		var vault_random := RandomNumberGenerator.new()
-		vault_random.seed = int(run_state.get("map_seed", 0)) ^ ((position.x + 17) * 73856093) ^ ((position.y + 31) * 19349663)
-		var generated := CardCatalog.create_region_deck(MapRules.region_index_at(position) + 1,
-			int(run_state.get("next_card_id", run_state["deck"].size() + 1)), vault_random)
+		var generated := VaultRules.generate(map_data, position,
+			int(run_state.get("next_card_id", run_state["deck"].size() + 1)))
 		vaults[room_key] = generated["deck"]
 		map_data["deck_vaults"] = vaults
 		run_state["map"] = map_data
@@ -2287,15 +2286,16 @@ func _unlock_deck_vault(position: Vector2i) -> void:
 	if screen_name != "deckVault" or position != run_state.get("position", Vector2i(-1, -1)) \
 		or MapRules.room_type_at(run_state["map"], position) != "deckVault":
 		return
-	if int(run_state.get("keys", 0)) < DECK_VAULT_KEY_COST:
-		_show_deck_vault(position)
-		return
 	var room_key := "%d,%d" % [position.x, position.y]
 	var map_data: Dictionary = run_state["map"]
 	var vaults: Dictionary = map_data.get("deck_vaults", {})
 	var opened_vaults: Dictionary = map_data.get("opened_deck_vaults", {})
 	if not vaults.has(room_key) or bool(opened_vaults.get(room_key, false)):
 		_show_map()
+		return
+	var key_cost := VaultRules.key_cost(vaults[room_key])
+	if int(run_state.get("keys", 0)) < key_cost:
+		_show_deck_vault(position)
 		return
 	var vault_deck_id := "vault-%d-%d" % [position.x, position.y]
 	if _owned_deck_id_exists(vault_deck_id) or _floor_deck_id_exists(vault_deck_id):
@@ -2320,7 +2320,7 @@ func _unlock_deck_vault(position: Vector2i) -> void:
 	}})
 	run_state["floor_consumable_drops"] = pending_consumables
 	run_state["next_consumable_id"] = consumable_id + 1
-	run_state["keys"] = int(run_state.get("keys", 0)) - DECK_VAULT_KEY_COST
+	run_state["keys"] = int(run_state.get("keys", 0)) - key_cost
 	opened_vaults[room_key] = true
 	map_data["opened_deck_vaults"] = opened_vaults
 	run_state["map"] = map_data

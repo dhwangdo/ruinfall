@@ -11,6 +11,7 @@ func _initialize() -> void:
 	var random := RandomNumberGenerator.new()
 	random.seed = 20261116
 	var observed := {}
+	var single_card_count := 0
 	for region in range(1, 11):
 		for sample in range(150):
 			var generated := Catalog.create_region_deck(region, 100, random)
@@ -23,8 +24,20 @@ func _initialize() -> void:
 				capacity = floori(capacity * 0.8)
 			assert(deck.capacity == capacity and capacity > 0)
 			var bound := 1 if deck.editions.has("legendCassiopeia") else 0
+			var royal: bool = deck.editions.has("royal")
+			var single_cards: Array = []
+			for card in deck.cards:
+				if royal or not Editor.is_high_rarity(card):
+					single_cards.append(card)
+			var single_card: bool = not single_cards.is_empty() and single_cards.size() == (capacity if royal else capacity - int(g.y1) - int(g.y2) - bound)
+			var single_names: Array = Catalog.ROYAL_SINGLE_CARD_DECK_NAMES if deck.editions.has("royal") else Catalog.SINGLE_CARD_DECK_NAMES
+			for card in single_cards:
+				single_card = single_card and single_names.has(card.name) and card.name == single_cards[0].name
+			if single_card:
+				single_card_count += 1
+				assert(bound == 0)
 			assert(deck.rare_slot_capacity == (capacity if deck.editions.has("royal") else g.y1 + g.y2 + bound))
-			assert(deck.rare_slot_capacity <= capacity and deck.cards.size() <= capacity - int(g.y2))
+			assert(deck.rare_slot_capacity <= capacity and deck.cards.size() <= capacity - (0 if single_card and royal else int(g.y2)))
 			var rare := 0
 			var sticker_count := 0
 			var bound_count := 0
@@ -38,7 +51,8 @@ func _initialize() -> void:
 					bound_count += 1
 					assert(card.effect == "cassiopeia" and Services.transmuter_candidates(card).is_empty())
 			assert(generated.next_card_id == id)
-			assert(rare == g.y1 + bound and bound_count == bound)
+			assert(rare == (capacity if single_card and royal else g.y1 + bound))
+			assert(bound_count == bound)
 			assert(sticker_count == g.w)
 			var score := 0
 			var seen := {}
@@ -51,6 +65,14 @@ func _initialize() -> void:
 			for edition in Editions.IDS:
 				assert(seen.has(edition) or int(Editions.SCORES[edition]) > int(g.z) - score)
 	assert(observed.size() == Editions.IDS.size())
+	assert(single_card_count > 0)
+	var single_choices := {}
+	for sample in range(100):
+		for edition_list in [[], ["royal"]]:
+			var blueprint := Catalog._single_card_deck_blueprint(edition_list, random)
+			assert((blueprint.rarity == "rare") == edition_list.has("royal"))
+			single_choices[blueprint.name] = true
+	assert(single_choices.size() == 5)
 	# First tier probability must be 1:2:3, independent of catalogue size in each tier.
 	var counts := {1: 0, 2: 0, 3: 0}
 	var names := {}

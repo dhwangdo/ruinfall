@@ -7,6 +7,7 @@ const EmptySlotView = preload("res://scripts/deck_editor_empty_slot.gd")
 const DeckEditionList = preload("res://scripts/deck_edition_list.gd")
 const DeckVaultUnlockHold = preload("res://scripts/deck_vault_unlock_hold.gd")
 const GameFonts = preload("res://scripts/game_fonts.gd")
+const VaultRules = preload("res://scripts/deck_vault_rules.gd")
 
 const PANEL_MAX_WIDTH := 1040.0
 const VIEWPORT_MARGIN := 24.0
@@ -164,7 +165,7 @@ func _build_modal() -> void:
 
 	_hold_button = DeckVaultUnlockHold.new()
 	_hold_button.name = "DeckVaultUnlockHold"
-	_hold_button.call("configure", _keys, _opened, _reduced_motion)
+	_hold_button.call("configure", _keys, _opened, _reduced_motion, VaultRules.key_cost(_deck))
 	_hold_button.connect("hold_progress_changed", Callable(self, "_on_hold_progress_changed"))
 	_hold_button.connect("unlock_phase_changed", Callable(self, "_on_unlock_phase_changed"))
 	_hold_button.connect("shake_changed", Callable(self, "_on_shake_changed"))

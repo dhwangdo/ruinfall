@@ -6,6 +6,7 @@ const TileAppearance = preload("res://scripts/map_tile_appearance.gd")
 const EnemyCatalog = preload("res://scripts/enemy_catalog.gd")
 const EnemyTileArt = preload("res://scripts/enemy_tile_art.gd")
 const DeckIconArt = preload("res://scripts/deck_icon_art.gd")
+const VaultRules = preload("res://scripts/deck_vault_rules.gd")
 const CompactCardView = preload("res://scripts/compact_card_view.gd")
 const ConsumableTicketVisual = preload("res://scripts/consumable_ticket_visual.gd")
 const WEB_MAP_FONT: FontFile = preload("res://assets/fonts/PretendardVariable.woff2")
@@ -51,7 +52,7 @@ var _enemy_name_cache: Dictionary = {}
 var _enemy_tile_cache: Dictionary = {}
 var _enemy_sprite_draws: Array[Dictionary] = []
 var _enemy_badge_draws: Array[Dictionary] = []
-var _vault_icon_draws: Array[Rect2] = []
+var _vault_icon_draws: Array[Dictionary] = []
 var _terrain_icon_draws: Array[Dictionary] = []
 var _enemy_sprite_layer: Node2D
 var _deck_icon_draws: Array[Rect2] = []
@@ -210,6 +211,9 @@ func _draw() -> void:
 				continue
 			var fill := TileAppearance.full_map_fill(position, room_type, MapRules.region_index_at(position))
 			var edge := TileAppearance.full_map_edge(room_type)
+			if room_type == "deckVault" and VaultRules.region_offset(map_data, position) > 0:
+				fill = Color("#101a32")
+				edge = Color("#eed079")
 			if position == player_position:
 				fill = Color("#d9b852")
 				edge = Color("#a7771f")
@@ -234,7 +238,7 @@ func _draw() -> void:
 			elif visible_floor_card_cells.has(position):
 				_draw_card_drop(rect, floor_card_positions[position])
 			if room_type == "deckVault" and tile_size >= 10.0:
-				_draw_vault_symbol(rect)
+				_draw_vault_symbol(rect, VaultRules.region_offset(map_data, position) > 0)
 			if visible_floor_deck_cells.has(position):
 				_draw_deck_drop_symbol(rect)
 			if visible_floor_consumable_cells.has(position):
@@ -370,8 +374,8 @@ func _is_ping_arrow_at(point: Vector2) -> bool:
 	return _has_ping() and _ping_center_is_offscreen() and point.distance_to(_ping_arrow_center()) <= 24.0
 
 
-func _draw_vault_symbol(rect: Rect2) -> void:
-	_vault_icon_draws.append(rect)
+func _draw_vault_symbol(rect: Rect2, future: bool = false) -> void:
+	_vault_icon_draws.append({"rect": rect, "future": future})
 
 
 func _draw_room_badge(rect: Rect2, label: String) -> void:
@@ -419,8 +423,8 @@ func _draw_enemy_overlays(visible_enemies: Dictionary, remembered_enemies: Dicti
 func _draw_enemy_sprites() -> void:
 	for item in _terrain_icon_draws:
 		TileAppearance.draw_room_art(_enemy_sprite_layer, item.rect, item.room_type)
-	for rect in _vault_icon_draws:
-		TileAppearance.draw_vault_symbol(_enemy_sprite_layer, rect, tile_size, VAULT_COLOR)
+	for item in _vault_icon_draws:
+		TileAppearance.draw_vault_symbol(_enemy_sprite_layer, item.rect, tile_size, VAULT_COLOR, item.future)
 	for item in _enemy_sprite_draws:
 		_enemy_sprite_layer.draw_texture_rect(item.texture, item.rect, false, item.color)
 	# Status markers are drawn last, above every monster in the group.
