@@ -2736,6 +2736,7 @@ func _show_battle(keep_draw_phase: bool = false) -> void:
 	file_vertical_bar.resized.connect(balance_file_margins, CONNECT_DEFERRED)
 	balance_file_margins.call_deferred()
 	var piles_row := HBoxContainer.new()
+	enemy_column.files_reference = piles_row
 	piles_row.add_theme_constant_override("separation", 12)
 	piles_row.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	piles_row.alignment = BoxContainer.ALIGNMENT_CENTER
@@ -3004,6 +3005,7 @@ func _refresh_battle_enemy_presentation(enemy_index: int) -> void:
 
 
 func _populate_battle_player_indicators(player_indicator_flow: HFlowContainer) -> void:
+	BattleRules.sync_hand_stats(battle_state)
 	var player_statuses: Array[String] = []
 	if int(battle_state.get("player_weak", 0)) > 0:
 		player_statuses.append("약화 %d" % int(battle_state["player_weak"]))
@@ -3012,11 +3014,10 @@ func _populate_battle_player_indicators(player_indicator_flow: HFlowContainer) -
 	for kind in ["corrosion", "paralysis", "confusion"]:
 		if int(battle_state.get("player_" + kind, 0)) > 0:
 			player_statuses.append("%s %d" % [BattleRules.StatusRules.LABELS[kind], battle_state["player_" + kind]])
-	var hand_manual_bonus := BattleRules.hand_manual_bonus(battle_state)
-	var displayed_strength := int(battle_state.get("strength", 0)) + hand_manual_bonus
+	var displayed_strength := int(battle_state.get("strength", 0))
 	if displayed_strength != 0:
 		player_statuses.append("힘 %d" % displayed_strength)
-	var displayed_agility := int(battle_state.get("agility", 0)) + hand_manual_bonus
+	var displayed_agility := int(battle_state.get("agility", 0))
 	if displayed_agility != 0:
 		player_statuses.append("강인함 %d" % displayed_agility)
 	if int(battle_state.get("player_invulnerability_turns", 0)) > 0:

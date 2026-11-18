@@ -147,6 +147,7 @@ static func start_battle(deck: Array, player_hp: int, encounter: Dictionary = {}
 					var retrieved_card: Dictionary = pile.pop_at(index)
 					retrieved_card["revealed"] = true
 					state["hand"].append(retrieved_card)
+					sync_hand_stats(state)
 					_reveal_file_top(pile)
 	if editions.has("roomy"):
 		state["piles"].append([])
@@ -182,6 +183,7 @@ static func start_battle(deck: Array, player_hp: int, encounter: Dictionary = {}
 
 static func select_enemy_target(state: Dictionary, enemy_index: int) -> Dictionary:
 	var next: Dictionary = state.duplicate(true)
+	sync_hand_stats(next)
 	var enemies: Array = next.get("enemies", [])
 	if enemy_index < 0 or enemy_index >= enemies.size() or int(enemies[enemy_index].get("hp", 0)) <= 0:
 		return next
@@ -285,6 +287,7 @@ static func play_card(state: Dictionary, card_id: int, play_view: Variant = null
 		play_view["hits"] = []
 		play_view.erase("resolved_message")
 	var next: Dictionary = state.duplicate(true)
+	sync_hand_stats(next)
 	if next.get("status") != "playing":
 		return next
 	if int(next.get("pending_draws", 0)) > 0 or int(next.get("pending_pile_draw_count", 0)) > 0:
@@ -326,6 +329,7 @@ static func discard_hand_card_for_pending_play(state: Dictionary, discarded_card
 static func _discard_hand_card_for_pending_play_once(state: Dictionary, discarded_card_id: int,
 		play_view: Variant = null) -> Dictionary:
 	var next: Dictionary = state.duplicate(true)
+	sync_hand_stats(next)
 	var pending_id := int(next.get("pending_play_card_id", -1))
 	if pending_id < 0 or discarded_card_id == pending_id:
 		return _with_message(next, "사용할 카드와 다른 카드를 선택하세요.")
@@ -373,6 +377,7 @@ static func _auto_discard_if_forced(state: Dictionary, play_view: Variant = null
 
 static func cancel_pending_play(state: Dictionary) -> Dictionary:
 	var next: Dictionary = state.duplicate(true)
+	sync_hand_stats(next)
 	if int(next.get("pending_play_card_id", -1)) >= 0:
 		next["pending_play_card_id"] = -1
 		next["pending_discard_count"] = 0
@@ -382,6 +387,7 @@ static func cancel_pending_play(state: Dictionary) -> Dictionary:
 
 static func resolve_pile_operation(state: Dictionary, file_index: int) -> Dictionary:
 	var next: Dictionary = state.duplicate(true)
+	sync_hand_stats(next)
 	var operation := str(next.get("pending_pile_operation", ""))
 	if operation not in ["discardTop", "moveTopToBottom"]:
 		return next
@@ -418,6 +424,7 @@ static func can_draw_from_file(state: Dictionary, file_index: int) -> bool:
 
 static func draw_from_file(state: Dictionary, file_index: int) -> Dictionary:
 	var next: Dictionary = state.duplicate(true)
+	sync_hand_stats(next)
 	var files: Array = next.get("piles", [])
 	if file_index < 0 or file_index >= files.size():
 		return _with_message(next, "드로우할 파일을 선택하세요.")
@@ -435,6 +442,7 @@ static func draw_from_file(state: Dictionary, file_index: int) -> Dictionary:
 		var drawn_cards := CardStickers.take_pile_cards(pile)
 		for card in drawn_cards:
 			next["hand"].append(card)
+			sync_hand_stats(next)
 		drawn_count += drawn_cards.size()
 	_reveal_file_top(pile)
 	files[file_index] = pile
@@ -472,6 +480,7 @@ static func move_cards_to_file(state: Dictionary, payload: Dictionary, target_fi
 	if error != "":
 		return _with_message(state, error)
 	var next: Dictionary = state.duplicate(true)
+	sync_hand_stats(next)
 	var files: Array = next["piles"]
 	var moving: Array = SolitaireRules.source_cards(next, payload)
 	var from_hand := str(payload.get("source", "")) == "hand"
@@ -518,6 +527,7 @@ static func move_cards_to_file(state: Dictionary, payload: Dictionary, target_fi
 	files[target_file].append_array(placed)
 	_reveal_file_top(files[target_file])
 	next["hand"].append_array(retrieved)
+	sync_hand_stats(next)
 	next["forge_count"] = int(next.get("forge_count", 0)) + forge_count
 	if uses_temporary_action:
 		next["temporary_solitaire_actions"] = int(next["temporary_solitaire_actions"]) - 1
@@ -607,6 +617,7 @@ static func end_turn(state: Dictionary, draw_view: Variant = null, turn_view: Va
 	if draw_view is Dictionary:
 		draw_view.erase("before")
 	var next: Dictionary = state.duplicate(true)
+	sync_hand_stats(next)
 	if next.get("status") != "playing":
 		return next
 	if int(next.get("pending_draws", 0)) > 0 or int(next.get("pending_pile_draw_count", 0)) > 0:
@@ -734,6 +745,7 @@ static func end_turn(state: Dictionary, draw_view: Variant = null, turn_view: Va
 
 
 static func _expire_temporary_bonuses(state: Dictionary) -> void:
+	sync_hand_stats(state)
 	var strength_loss := int(state.get("pending_strength_loss", 0))
 	if strength_loss != 0:
 		state["strength"] = int(state.get("strength", 0)) - strength_loss
@@ -768,6 +780,7 @@ static func _begin_extra_turn(state: Dictionary, preferred_target_index: int, tu
 
 
 static func _resolve_enemies_turn(state: Dictionary, turn_view: Variant = null) -> void:
+	sync_hand_stats(state)
 	# Resolve every attack before decay or any action's non-attack effects.
 	var enemies: Array = state.get("enemies", [])
 	var cancelled: Array[int] = []
@@ -1099,6 +1112,7 @@ static func _resolve_enemy_death_effects(state: Dictionary) -> void:
 			var returned_card: Dictionary = card.duplicate(true)
 			returned_card["revealed"] = true
 			state["hand"].append(returned_card)
+			sync_hand_stats(state)
 		if not confiscated.is_empty():
 			state["message"] += " · 압수된 카드를 손패로 돌려받았습니다."
 		var stun_target_name := str(dead.get("stun_ally_on_death", ""))
@@ -1151,7 +1165,17 @@ static func _is_attack_card(card: Dictionary) -> bool:
 	]
 
 
-static func hand_manual_bonus(state: Dictionary) -> int:
+static func sync_hand_stats(state: Dictionary) -> void:
+	# Track only the contribution already applied, so changes to real strength
+	# and agility remain intact when a book enters/leaves the hand.
+	var amount := _held_stat_amount(state)
+	var delta := amount - int(state.get("applied_hand_stat_bonus", 0))
+	state["strength"] = int(state.get("strength", 0)) + delta
+	state["agility"] = int(state.get("agility", 0)) + delta
+	state["applied_hand_stat_bonus"] = amount
+
+
+static func _held_stat_amount(state: Dictionary) -> int:
 	var bonus := 0
 	for held_card in state.get("hand", []):
 		if str(held_card.get("effect", "")) in ["combat_manual", "strategy_book"]:
@@ -1160,6 +1184,7 @@ static func hand_manual_bonus(state: Dictionary) -> int:
 
 
 static func _resolve_card_play(state: Dictionary, card_id: int, play_view: Variant = null) -> Dictionary:
+	sync_hand_stats(state)
 	var next: Dictionary = state
 	_load_enemy_aliases(next)
 	var card_index := _hand_card_index(next["hand"], card_id)
@@ -1183,7 +1208,6 @@ static func _resolve_card_play(state: Dictionary, card_id: int, play_view: Varia
 	if str(card.get("effect", "")) == "supernova" and int(next.get("stars", 0)) < 3:
 		next["pending_play_card_id"] = -1
 		return _with_message(next, "초신성: ★★★가 필요합니다.")
-	var manual_bonus := hand_manual_bonus(next)
 	var effect := str(card.get("effect", ""))
 	next["energy"] = int(next["energy"]) - cost
 	next["cards_played_this_turn"] = int(next.get("cards_played_this_turn", 0)) + 1
@@ -1229,7 +1253,7 @@ static func _resolve_card_play(state: Dictionary, card_id: int, play_view: Varia
 					break
 				var target_index := living_targets[attack_random.randi_range(0, living_targets.size() - 1)]
 				var before_hp := int(next["enemies"][target_index].get("hp", 0))
-				var random_hit_result := _resolve_attack_hit(next, target_index, base_damage, manual_bonus)
+				var random_hit_result := _resolve_attack_hit(next, target_index, base_damage)
 				var remaining_hp := int(next["enemies"][target_index].get("hp", 0))
 				var dealt := maxi(0, before_hp - remaining_hp)
 				if play_view is Dictionary and dealt > 0:
@@ -1246,7 +1270,7 @@ static func _resolve_card_play(state: Dictionary, card_id: int, play_view: Varia
 					if int(next.get("enemy_hp", 0)) <= 0:
 						break
 					var before_hp := int(next["enemies"][target_index].get("hp", 0))
-					var fixed_hit_result := _resolve_attack_hit(next, target_index, base_damage, manual_bonus)
+					var fixed_hit_result := _resolve_attack_hit(next, target_index, base_damage)
 					var remaining_hp := int(next["enemies"][target_index].get("hp", 0))
 					var dealt := maxi(0, before_hp - remaining_hp)
 					if play_view is Dictionary and dealt > 0:
@@ -1266,18 +1290,18 @@ static func _resolve_card_play(state: Dictionary, card_id: int, play_view: Varia
 	var gains_block := bool(card.get("grants_block", false)) or effect in ["defend", "scale_armor", "deflect", "star_guard", "iron_song", "iron_wave", "water_wave"]
 	var defense := 0
 	if gains_block:
-		defense = int(card.get("value", 0)) + int(next.get("agility", 0)) + manual_bonus
+		defense = int(card.get("value", 0)) + int(next.get("agility", 0))
 		var block_key := "player_block"
 		next[block_key] = int(next.get(block_key, 0)) + defense
 		var defense_name := "방어"
 		next["message"] += " · %s %d 획득" % [defense_name, defense]
 	if effect == "suppression":
-		defense = mini(total_damage, enemy_hp_before_attack) + int(next.get("agility", 0)) + manual_bonus
+		defense = mini(total_damage, enemy_hp_before_attack) + int(next.get("agility", 0))
 		next["player_block"] = int(next.get("player_block", 0)) + defense
 		next["message"] += " · 방어 %d 획득" % defense
 	elif effect == "iron_rampage":
 		# This retired debug card keeps fixed 8 defense even if its attack value changes.
-		defense = (8 + int(next.get("agility", 0)) + manual_bonus) * hit_count
+		defense = (8 + int(next.get("agility", 0))) * hit_count
 		next["player_block"] = int(next.get("player_block", 0)) + defense
 		next["message"] += " · 방어 %d 획득" % defense
 	next["magic_resistance"] = int(next.get("magic_resistance", 0)) + int(card.get("magic_resistance", 0))
@@ -1411,12 +1435,14 @@ static func _resolve_card_play(state: Dictionary, card_id: int, play_view: Varia
 		"light_cluster":
 			var radiance := _create_battle_radiance(next)
 			next["hand"].append(radiance)
+			sync_hand_stats(next)
 			next["message"] += " · 광채 1장 생성"
 		"large_prism", "nebula":
 			var radiance_count := 3 if effect == "large_prism" else 1
 			for _radiance_index in range(radiance_count):
 				var generated := _create_battle_radiance(next)
 				next["hand"].append(generated)
+				sync_hand_stats(next)
 			next["message"] += " · 광채 %d장 생성" % radiance_count
 			if effect == "nebula":
 				next["stars"] = int(next.get("stars", 0)) + 2
@@ -1445,6 +1471,7 @@ static func _resolve_card_play(state: Dictionary, card_id: int, play_view: Varia
 				var wish_card := CardCatalog.create_random_rare_token(int(next["next_generated_card_id"]), wish_random)
 				next["next_generated_card_id"] = int(next["next_generated_card_id"]) - 1
 				next["hand"].append(wish_card)
+				sync_hand_stats(next)
 			next["wish_random_state"] = wish_random.state
 			next["message"] += " · 무작위 희귀 카드 %d장 생성" % int(card.get("value", 3))
 		"rapid_fire":
@@ -1459,6 +1486,7 @@ static func _resolve_card_play(state: Dictionary, card_id: int, play_view: Varia
 					next["next_generated_card_id"] = int(next["next_generated_card_id"]) - 1
 					copy["revealed"] = true
 					next["hand"].append(copy)
+					sync_hand_stats(next)
 					copied_count += 1
 			next["message"] += " · 광채 %d장 복사" % copied_count
 		"diy":
@@ -1466,6 +1494,7 @@ static func _resolve_card_play(state: Dictionary, card_id: int, play_view: Varia
 	for kind in card.get("self_debuffs", {}):
 		StatusRules.apply_player_debuff(next, str(kind), int(card["self_debuffs"][kind]))
 	hand.remove_at(card_index)
+	sync_hand_stats(next)
 	if effect == "radiance":
 		next["radiance_played_this_turn"] = int(next.get("radiance_played_this_turn", 0)) + 1
 	var parachute_pending := false
@@ -1539,6 +1568,7 @@ static func _resolve_card_play(state: Dictionary, card_id: int, play_view: Varia
 
 
 static func _finish_card_effects(state: Dictionary) -> Dictionary:
+	sync_hand_stats(state)
 	var played_id := int(state.get("pending_after_play_card_id", -1))
 	if played_id < 0:
 		return state
@@ -1591,20 +1621,21 @@ static func _auto_resolve_forced_pile_discard(state: Dictionary) -> Dictionary:
 	return _finish_card_effects(next)
 
 
-static func preview_attack_hit(state: Dictionary, target_index: int, base_damage: int, manual_bonus: int = 0) -> int:
+static func preview_attack_hit(state: Dictionary, target_index: int, base_damage: int) -> int:
 	if target_index < 0 or target_index >= state.get("enemies", []).size():
 		return 0
 	var preview_state: Dictionary = state.duplicate(true)
-	var result := _resolve_attack_hit(preview_state, target_index, base_damage, manual_bonus)
+	var result := _resolve_attack_hit(preview_state, target_index, base_damage)
 	return int(result.get("damage", 0))
 
 
-static func _resolve_attack_hit(state: Dictionary, target_index: int, base_damage: int, manual_bonus: int) -> Dictionary:
+static func _resolve_attack_hit(state: Dictionary, target_index: int, base_damage: int) -> Dictionary:
+	sync_hand_stats(state)
 	_load_enemy_aliases(state, target_index)
 	if int(state.get("enemy_hp", 0)) <= 0:
 		return {"damage": 0, "thorns": 0}
 	var solitaire_bonus := int(state.get("enemy_solitaire_hit_bonus", 0)) * int(state.get("enemy_solitaire_hit_bonus_stacks", 0))
-	var raw_attack_damage := base_damage + int(state.get("strength", 0)) + manual_bonus + solitaire_bonus
+	var raw_attack_damage := base_damage + int(state.get("strength", 0)) + solitaire_bonus
 	var hit_damage := _calculate_attack_damage(
 		raw_attack_damage,
 		int(state.get("player_weak", 0)),
@@ -1651,6 +1682,7 @@ static func _draw_from_files(state: Dictionary, draw_view: Variant = null) -> vo
 		if not pile.is_empty() and not blocked.has(file_index):
 			for card in CardStickers.take_pile_cards(pile):
 				hand.append(card)
+				sync_hand_stats(state)
 	var any_files_remaining := false
 	for pile in state["piles"]:
 		if not pile.is_empty():
@@ -1698,11 +1730,13 @@ static func _draw_from_file_indexes(state: Dictionary, file_indexes: Array[int],
 			continue
 		for card in CardStickers.take_pile_cards(pile):
 			state["hand"].append(card)
+			sync_hand_stats(state)
 	if state["hand"].is_empty():
 		state["message"] = "드로우할 카드가 없습니다."
 
 
 static func _refresh_enemy_intent(state: Dictionary) -> void:
+	sync_hand_stats(state)
 	var enemy := {
 		"name": state.get("enemy_name", ""),
 		"actions": state["enemy_actions"],
@@ -1736,6 +1770,7 @@ static func _refresh_enemy_intent(state: Dictionary) -> void:
 
 
 static func _discard_card(state: Dictionary, card: Dictionary, is_discard_x: bool = false, explicit_discard: bool = false, from_hand: bool = false) -> int:
+	sync_hand_stats(state)
 	var triggers_discard := is_discard_x or explicit_discard
 	if triggers_discard:
 		for rule_card in state.get("active_rule_cards", []):
@@ -1766,6 +1801,7 @@ static func _discard_turn_end_hand(state: Dictionary, original_hand: Array) -> v
 		if not discarded_ids.has(int(card.get("id", -1))):
 			remaining_hand.append(card)
 	state["hand"] = remaining_hand
+	sync_hand_stats(state)
 	if saeongjima_draw_count > 0:
 		_draw_random_cards(state, saeongjima_draw_count)
 
@@ -1797,6 +1833,7 @@ static func _draw_random_cards(state: Dictionary, count: int) -> int:
 		var drawn_cards := CardStickers.take_pile_cards(pile)
 		for card in drawn_cards:
 			state["hand"].append(card)
+			sync_hand_stats(state)
 		drawn_count += drawn_cards.size()
 	return drawn_count
 
@@ -1823,6 +1860,7 @@ static func _draw_from_each_file(state: Dictionary) -> int:
 		var drawn_cards := CardStickers.take_pile_cards(pile)
 		for card in drawn_cards:
 			state["hand"].append(card)
+			sync_hand_stats(state)
 		drawn_count += drawn_cards.size()
 	state["message"] += " · 각 파일에서 %d장 드로우" % drawn_count
 	return drawn_count
@@ -1923,6 +1961,7 @@ static func _apply_turn_start_effects(state: Dictionary) -> void:
 	for _radiance_index in range(turn_start_radiance):
 		var optics_radiance := _create_battle_radiance(state)
 		state["hand"].append(optics_radiance)
+		sync_hand_stats(state)
 	if turn_start_radiance > 0:
 		state["message"] = "광학 연구: 광채 %d장 생성" % turn_start_radiance
 	var pending_radiance: Array = state.get("pending_radiance", [])
@@ -1936,6 +1975,7 @@ static func _apply_turn_start_effects(state: Dictionary) -> void:
 		for _radiance_index in range(int(event.get("count", 0))):
 			var radiance := _create_battle_radiance(state)
 			state["hand"].append(radiance)
+			sync_hand_stats(state)
 			radiance_created += 1
 	state["pending_radiance"] = next_radiance
 	if radiance_created > 0:
@@ -2360,6 +2400,7 @@ static func _shuffle(cards: Array, random: RandomNumberGenerator) -> void:
 
 static func _with_message(state: Dictionary, message: String) -> Dictionary:
 	var next: Dictionary = state.duplicate(true)
+	sync_hand_stats(next)
 	next["message"] = message
 	return next
 

@@ -28,7 +28,7 @@ func _run() -> void:
 		var card: Dictionary = Catalog.STARTER_CARDS[index % 2].duplicate(true)
 		card.merge({"id": 100 + index, "revealed": true}, true)
 		cards.append(card)
-	for variant in [[Vector2i(1280, 850), 2, 4], [Vector2i(1280, 850), 3, 8],
+	for variant in [[Vector2i(1280, 850), 1, 4], [Vector2i(1280, 850), 2, 4], [Vector2i(1280, 850), 3, 8],
 		[Vector2i(1920, 1080), 6, 8], [Vector2i(800, 600), 2, 4]]:
 		root.size = variant[0]
 		game.size = Vector2(variant[0])
@@ -48,7 +48,9 @@ func _run() -> void:
 		var board: Control = game.active_battle_play_area
 		var files: Rect2 = board.files.get_global_rect()
 		var rail: Rect2 = board.enemies.get_global_rect()
-		assert(files.end.x + 12.0 <= rail.position.x, "File viewport and enemy rail must be horizontally separate")
+		var row_visual: Control = game.battle_pile_widgets[0].get_parent()
+		var visible_file_end := minf(files.end.x, row_visual.get_global_rect().end.x)
+		assert(visible_file_end + 12.0 <= rail.position.x, "Visible files and enemy field must be horizontally separate")
 		assert(is_equal_approx(files.position.x, board.global_position.x), "Files can extend left independently of the hand center")
 		assert(files.get_center().x < board.get_global_rect().get_center().x)
 		if variant[0].x == 1280 and variant[2] == 4:
@@ -67,7 +69,7 @@ func _run() -> void:
 			var local := Area.local_rect(target)
 			var square := Area.global_rect(target)
 			assert(is_equal_approx(square.size.x, square.size.y))
-			assert(square.position.x >= files.end.x + 12.0)
+			assert(square.position.x >= visible_file_end + 12.0)
 			assert(target._has_point(local.get_center() + Vector2(Area.SIDE * 0.5 - 1, Area.SIDE * 0.5 - 1)))
 			assert(not target._has_point(local.get_center() + Vector2(Area.SIDE * 0.5 + 1, 0)))
 			var hp: Control = target.get_meta("enemy_hp_bar")
@@ -75,6 +77,12 @@ func _run() -> void:
 			for other in squares:
 				assert(not other.intersects(square), "Neighbor target squares must not overlap")
 			squares.append(square)
+		if variant[1] == 1:
+			assert(absf(squares[0].get_center().x - rail.get_center().x) < 1.0,
+				"A single enemy should sit in the center of the available field")
+			var old_rail_center := board.global_position.x + board.size.x - clampf(board.size.x * 0.25, 200.0, 320.0) * 0.5 - 12.0
+			assert(squares[0].get_center().x < old_rail_center - 20.0,
+				"Spare file space should move the enemy away from the right edge")
 		var first_target: Control = game.battle_enemy_widgets[0]
 		var point := Area.global_rect(first_target).get_center()
 		var motion := InputEventMouseMotion.new()
@@ -111,5 +119,5 @@ func _run() -> void:
 			root.get_texture().get_image().save_png(ProjectSettings.globalize_path("res://../work/battle-enemy-spacing.png"))
 	game.queue_free()
 	await process_frame
-	print("PASS: 4 viewport/formation cases, separate file/enemy x ranges, independent left-aligned files, precise nonoverlapping square targets")
+	print("PASS: 5 viewport/formation cases, separate file/enemy x ranges, independent left-aligned files, precise nonoverlapping square targets")
 	quit()

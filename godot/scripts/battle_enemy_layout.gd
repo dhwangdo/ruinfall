@@ -2,6 +2,7 @@ extends Control
 
 const GAP := 8.0
 var vertical_reference: Control
+var files_reference: Control
 
 
 func _ready() -> void:
@@ -11,6 +12,15 @@ func _ready() -> void:
 
 
 func _arrange() -> void:
+	# Use the actual visible file group, rather than reserving the whole
+	# maximum file viewport when only a few files are present.
+	var board := get_parent() as Control
+	if is_instance_valid(board) and is_instance_valid(files_reference) and files_reference.size.x > 0:
+		var file_end := files_reference.get_global_rect().end.x - board.global_position.x
+		var file_clip_end := board.size.x - clampf(board.size.x * 0.25, 200.0, 320.0) - 36.0
+		var left := maxf(board.size.x * 0.5, minf(file_end, file_clip_end) + 24.0)
+		position.x = left
+		size.x = maxf(1.0, board.size.x - left - 12.0)
 	var targets: Array[Control] = []
 	var natural := Vector2(176, 232)
 	for child in get_children():

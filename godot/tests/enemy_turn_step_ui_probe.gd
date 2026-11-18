@@ -45,7 +45,7 @@ func _run() -> void:
 		var index: int = steps.find(step)
 		if index == 0:
 			presenter._present_enemy_step(game, ticket, step)
-			await create_timer(0.21).timeout
+			await create_timer(0.12).timeout
 			var source: Control = game.battle_enemy_widgets[0]
 			var intent = source.find_child("EnemyIntentRow", true, false).get_child(0)
 			assert(intent.consumed_hits == 1 and intent.visible, "First sword disappears at impact, before the lunge finishes")

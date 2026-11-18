@@ -45,6 +45,47 @@ func _initialize() -> void:
 	state = Rules.select_enemy_target(state, 1)
 	var result := Rules.play_card(state, strike.id)
 	assert(result.enemies[1].hp == 97, "Actual damage remains three after temporary/held strength is gone")
+	_check_weakness_paths(game, strike)
 	game.free()
 	print("PASS: stale dead/blocked targets cannot alter ordinary card text; explicit target preview and strength expiry/weakness damage remain correct")
 	quit()
+
+
+func _check_weakness_paths(game, strike: Dictionary) -> void:
+	var cases := 0
+	for weak in [0, 1, 2, 8]:
+		for strength in [0, 1, 5, 12]:
+			for vulnerable in [0, 2]:
+				var state := Rules.start_battle([], 70, {"enemies": [
+					{"hp": 1000, "vulnerable": vulnerable, "actions": [{"damage": 0}]}
+				]}, 70)
+				state.hand = [strike.duplicate(true)]
+				state.player_weak = weak
+				state.strength = strength
+				var ordinary := floori(float(6 + strength) * (0.5 if weak > 0 else 1.0))
+				var targeted := floori(float(6 + strength) * (1.0 - (0.5 if weak > 0 else 0.0) + (0.5 if vulnerable > 0 else 0.0)))
+				game.battle_state = state
+				var source: String = strike.description
+				var targeted_state: Dictionary = state.duplicate(true)
+				targeted_state.preview_target_enemy_index = 0
+				# Re-entering rendering/hover updates must always restart from base
+				# damage, even when its input text already contains reduced damage.
+				for repeat in 20:
+					assert(game._card_description(strike).contains("피해를 %d 줍니다." % ordinary))
+					source = Preview.describe(strike, source, targeted_state)
+					assert(source.contains("피해를 %d 줍니다." % targeted))
+				assert(strike.value == 6 and state.hand[0].value == 6)
+				var trace := {}
+				var after := Rules.play_card(state, strike.id, trace)
+				assert(1000 - int(after.enemies[0].hp) == targeted)
+				assert(trace.hits.size() == 1 and trace.hits[0].damage == targeted)
+				cases += 1
+	# Multiple enemy debuff applications stack duration, not separate damage modifiers.
+	var stacked := Rules.start_battle([], 70, {"enemies": [
+		{"hp": 100, "actions": [{"player_weak_gain": 2}]},
+		{"hp": 100, "actions": [{"player_weak_gain": 2}]}
+	]}, 70)
+	Rules._resolve_enemies_turn(stacked)
+	assert(stacked.player_weak == 4)
+	assert(Preview._damage_per_hit(strike, stacked) == 3)
+	print("PASS: ", cases, " weakness/strength/vulnerability cases, repeated preview updates, actual damage, two enemy weakness applications")

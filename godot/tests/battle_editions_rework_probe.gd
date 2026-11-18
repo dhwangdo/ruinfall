@@ -122,11 +122,13 @@ func _initialize() -> void:
 	var strategy := card("strategy_book")
 	var strike := card("strike")
 	before.hand = [manual, strategy, strike]
-	assert(Rules.hand_manual_bonus(before) == 6)
+	Rules.sync_hand_stats(before)
+	assert(before.strength == 6 and before.agility == 6)
 	after = Rules.play_card(before, strike.id)
 	assert(after.enemies[0].hp == 9988)
 	before.hand.erase(manual)
-	assert(Rules.hand_manual_bonus(before) == 4)
+	Rules.sync_hand_stats(before)
+	assert(before.strength == 4 and before.agility == 4)
 	# Cycle only responds to real hand discards, once per turn, including confusion.
 	before = state(["cycle"])
 	before.piles = [[card("strike"), card("defend"), card("strike")]]

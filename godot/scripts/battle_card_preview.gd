@@ -37,20 +37,21 @@ static func _preview_attack_text(card: Dictionary, source: String, state: Dictio
 
 
 static func _damage_per_hit(card: Dictionary, state: Dictionary) -> int:
+	state = state.duplicate()
+	BattleRules.sync_hand_stats(state)
 	var effect := str(card.get("effect", ""))
 	var base_damage := int(card.get("value", 0))
 	if effect == "radiance":
 		base_damage = 4 + maxi(0, int(state.get("radiance_played_this_turn", 0))) * 4 + (3 if state.get("deck_editions", []).has("sharpLight") else 0)
 	var strength := int(state.get("strength", 0))
-	var manual_bonus := BattleRules.hand_manual_bonus(state)
 	var selected_index := int(state.get("preview_target_enemy_index", -1))
 	var enemies: Array = state.get("enemies", [])
 	var player_weak := maxi(0, int(state.get("player_weak", 0)) - int(card.get("remove_player_debuffs", {}).get("weak", 0)))
 	if selected_index >= 0 and selected_index < enemies.size():
 		var target_state: Dictionary = state.duplicate(true)
 		target_state["player_weak"] = player_weak
-		return BattleRules.preview_attack_hit(target_state, selected_index, base_damage, manual_bonus)
-	var raw_damage := base_damage + strength + manual_bonus
+		return BattleRules.preview_attack_hit(target_state, selected_index, base_damage)
+	var raw_damage := base_damage + strength
 	return BattleRules._calculate_attack_damage(
 		raw_damage,
 		player_weak,
@@ -59,6 +60,8 @@ static func _damage_per_hit(card: Dictionary, state: Dictionary) -> int:
 
 
 static func _preview_defense_text(card: Dictionary, source: String, state: Dictionary) -> String:
+	state = state.duplicate()
+	BattleRules.sync_hand_stats(state)
 	var effect := str(card.get("effect", ""))
 	var base_value := int(FIXED_DEFENSE_VALUES.get(effect, card.get("value", 0)))
 	if not bool(card.get("grants_block", false)) and not FIXED_DEFENSE_VALUES.has(effect) and effect not in [
@@ -66,7 +69,7 @@ static func _preview_defense_text(card: Dictionary, source: String, state: Dicti
 	]:
 		return source
 	var multiplier := float(state.get("defense_multiplier", 1.0))
-	var agility := int(state.get("agility", 0)) + BattleRules.hand_manual_bonus(state)
+	var agility := int(state.get("agility", 0))
 	var defense := int(floor(float(base_value + agility) * multiplier))
 	var pattern := RegEx.new()
 	pattern.compile("(방어를)\\s*\\d+")

@@ -113,9 +113,9 @@ func _present_enemy_step(game, ticket: int, step: Dictionary) -> bool:
 	var attack := bool(step.get("attack", false))
 	var motion := str(step.get("motion", "attack" if attack else "none"))
 	var lunging := motion == "attack" or motion == "debuff"
-	var duration := 0.05 if reduced else (EnemyStrike.DURATION if lunging else 0.18)
-	var impact := 0.02 if reduced else (EnemyStrike.DURATION * 0.38 if lunging else 0.072)
-	var gap := 0.03 if reduced or attack else 0.025
+	var duration := 0.025 if reduced else (EnemyStrike.DURATION if lunging else EnemyStrike.BUFF_DURATION)
+	var impact := 0.01 if reduced else (EnemyStrike.DURATION * 0.38 if lunging else EnemyStrike.BUFF_DURATION * 0.4)
+	var gap := 0.015 if reduced or attack else 0.0125
 	var completion: Array[bool] = []
 	var layer: Control
 	var enemy_index := int(step.get("enemy_index", -1))
