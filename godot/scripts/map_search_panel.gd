@@ -6,6 +6,7 @@ const CardStickers = preload("res://scripts/stickers.gd")
 const DeckEditionList = preload("res://scripts/deck_edition_list.gd")
 const DeckIconArt = preload("res://scripts/deck_icon_art.gd")
 const DeckHeading = preload("res://scripts/deck_case_heading.gd")
+const DeckEditions = preload("res://scripts/deck_editions.gd")
 const SearchTilePreview = preload("res://scripts/map_search_tile.gd")
 const ConsumableTicketVisual = preload("res://scripts/consumable_ticket_visual.gd")
 const SearchRegionMinimap = preload("res://scripts/map_search_region_minimap.gd")
@@ -517,22 +518,23 @@ func _render_detail(entry: Dictionary) -> void:
 					rare_card_count += 1
 				else:
 					normal_card_count += 1
-			var rare_slot_capacity := maxi(int(deck.get("rare_slot_capacity", 0)), rare_card_count)
+			var royal: bool = deck.get("editions", []).has("royal")
+			var rare_slot_capacity := maxi(DeckEditions.rare_slot_capacity(deck), rare_card_count)
 			var normal_slot_capacity := maxi(0, int(deck.get("capacity", all_cards.size())) - rare_slot_capacity)
 			for deck_card_value in grouped_cards:
 				var deck_card: Dictionary = deck_card_value["card"]
-				if str(deck_card.get("rarity", "")) in ["rare", "legendary"]:
+				if royal or str(deck_card.get("rarity", "")) in ["rare", "legendary"]:
 					card_flow.add_child(_compact_card_preview(deck_card, int(deck_card_value["count"]), true))
-			for _slot_index in range(maxi(0, rare_slot_capacity - rare_card_count)):
+			for _slot_index in range(maxi(0, rare_slot_capacity - (all_cards.size() if royal else rare_card_count))):
 				card_flow.add_child(_deck_slot_preview(true))
-			if rare_slot_capacity > 0:
+			if rare_slot_capacity > 0 and not royal:
 				var divider := ColorRect.new()
 				divider.color = Color("#484b40")
 				divider.custom_minimum_size = Vector2(1, 82)
 				card_flow.add_child(divider)
 			for deck_card_value in grouped_cards:
 				var deck_card: Dictionary = deck_card_value["card"]
-				if str(deck_card.get("rarity", "")) not in ["rare", "legendary"]:
+				if not royal and str(deck_card.get("rarity", "")) not in ["rare", "legendary"]:
 					card_flow.add_child(_compact_card_preview(deck_card, int(deck_card_value["count"]), true))
 			for _slot_index in range(maxi(0, normal_slot_capacity - normal_card_count)):
 				card_flow.add_child(_deck_slot_preview(false))

@@ -42,18 +42,19 @@ static func _damage_per_hit(card: Dictionary, state: Dictionary) -> int:
 	if effect == "radiance":
 		base_damage = 4 + maxi(0, int(state.get("radiance_played_this_turn", 0))) * 4 + (3 if state.get("deck_editions", []).has("sharpLight") else 0)
 	var strength := int(state.get("strength", 0))
-	strength += BattleRules.hand_manual_bonus(state)
+	var manual_bonus := BattleRules.hand_manual_bonus(state)
 	var selected_index := int(state.get("preview_target_enemy_index", -1))
 	var enemies: Array = state.get("enemies", [])
-	var vulnerable := 0
+	var player_weak := maxi(0, int(state.get("player_weak", 0)) - int(card.get("remove_player_debuffs", {}).get("weak", 0)))
 	if selected_index >= 0 and selected_index < enemies.size():
-		var target: Dictionary = enemies[selected_index]
-		vulnerable = int(target.get("vulnerable", 0))
-	var raw_damage := base_damage + strength
+		var target_state: Dictionary = state.duplicate(true)
+		target_state["player_weak"] = player_weak
+		return BattleRules.preview_attack_hit(target_state, selected_index, base_damage, manual_bonus)
+	var raw_damage := base_damage + strength + manual_bonus
 	return BattleRules._calculate_attack_damage(
 		raw_damage,
-		maxi(0, int(state.get("player_weak", 0)) - int(card.get("remove_player_debuffs", {}).get("weak", 0))),
-		vulnerable
+		player_weak,
+		0
 	)
 
 

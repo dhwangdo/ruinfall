@@ -56,6 +56,8 @@ GDScript의 `Dictionary`와 `Array`는 실행 중 바뀌는 게임 데이터를 
 
 ## 실행
 
+에디션 갱신(2026-11-18): `DeckEditions.rare_slot_capacity`가 로열의 최종 용량 슬롯 전환을 편집·검색·금고 미리보기에서 공유한다. 생성 시에는 원래 y1/y2에 따른 카드 구성을 만든 뒤 슬롯만 전환한다. `main._deck_allows_free_edit`는 해당 덱의 제거·이동·열린 자물쇠에만 적용한다. `battle_rules.effective_card_cost`는 거인의 대상을 `base_cost`(없으면 `cost`)로 판단한다. 금속학은 솔리테어 재련과 전투 시작 자동망치에 연결하며 후자는 파일 수를 유지한 채 재련 카드를 회수한다. 에디션 목록 변경에 맞춰 최대 엔트로피 계수표도 재생성했다. `battle_editions_rework_probe.gd`, `deck_edit_editions_probe.gd`, `deck_generation_editions_probe.gd`가 각각 전투 효과·편집/UI·생성을 검사한다.
+
 무작위 덱 생성은 `card_catalog.gd`의 `roll_region_shape`와 `create_region_deck`에서 예산·슬롯·스티커·용량 재생성을 처리한다. `deck_editions.gd`가 1·2·3점 등급 우선 추첨과 이름·설명·색상을 공유한다. 전투 효과는 `battle_rules.gd`에 연결되며 광채 생성은 `_create_battle_radiance`를 거친다. `solitaire_rules.gd`가 표시·검증·소모에 같은 에디션 할인을 적용한다. `battle_status_rules.gd`는 마법 저항 판정과 매 턴 에디션 사용 플래그 초기화를 함께 처리한다. 귀속 카드의 `edition_bound` 필드는 `deck_editor_rules.gd`, `main.gd`, `sticker_services.gd`에서 편집 제한에 사용한다. `deck_generation_editions_probe.gd`, `battle_editions_rework_probe.gd`, `deck_bound_edit_probe.gd`로 생성·전투·편집 경로를 검사한다.
 
 Godot 4.7.2 이상에서 `godot/project.godot`을 열거나 저장소 루트의 `godot/Run RUINFALL.cmd`를 사용한다. 내보내기는 `godot/README.md`의 Web·Windows 안내와 `godot/export_presets.cfg`를 따른다.

@@ -2,9 +2,12 @@ extends Control
 
 const PointerArrow = preload("res://scripts/battle_pointer_arrow.gd")
 const CardUse = preload("res://scripts/card_use.gd")
+const EnemyTargetArea = preload("res://scripts/battle_enemy_target_area.gd")
 var game_ref: WeakRef
 var arrow: Control
 var use_glow: Panel
+var _preview_card_id := -1
+var _preview_enemy_index := -2
 
 
 func _ready() -> void:
@@ -38,7 +41,11 @@ func _process(_delta: float) -> void:
 	arrow.hide()
 	use_glow.hide()
 	var game = game_ref.get_ref() if game_ref != null else null
-	if not is_instance_valid(game) or game.screen_name != "battle" or not get_viewport().gui_is_dragging():
+	if not is_instance_valid(game) or game.screen_name != "battle":
+		_reset_preview_cache()
+		return
+	if not get_viewport().gui_is_dragging():
+		_reset_preview_cache()
 		return
 	if not game._battle_drop_available():
 		return
@@ -49,6 +56,12 @@ func _process(_delta: float) -> void:
 	var mode := CardUse.mode(card)
 	if mode == CardUse.UNPLAYABLE:
 		return
+	var card_id := int(payload.get("card_id", -1))
+	var hovered_enemy := _hovered_enemy_index(game) if mode == CardUse.TARGETED else -1
+	if card_id != _preview_card_id or hovered_enemy != _preview_enemy_index:
+		game._update_battle_drag_card_damage_preview(card_id, hovered_enemy)
+		_preview_card_id = card_id
+		_preview_enemy_index = hovered_enemy
 	var origin: Dictionary = game.battle_keyboard_drag.capture_origin(game)
 	if origin.is_empty():
 		return
@@ -67,3 +80,22 @@ func _process(_delta: float) -> void:
 		use_glow.scale = local_pose.get_scale()
 		use_glow.size = origin["size"]
 		use_glow.show()
+
+
+func _reset_preview_cache() -> void:
+	_preview_card_id = -1
+	_preview_enemy_index = -2
+
+
+func _hovered_enemy_index(game: Control) -> int:
+	var enemies: Array = game.battle_state.get("enemies", [])
+	for index_value in game.battle_enemy_widgets:
+		var index := int(index_value)
+		var target: Control = game.battle_enemy_widgets[index_value]
+		if not is_instance_valid(target) or bool(target.get("disabled")) or index < 0 or index >= enemies.size():
+			continue
+		if int(enemies[index].get("hp", 0)) <= 0:
+			continue
+		if EnemyTargetArea.global_rect(target).has_point(game.pointer_position):
+			return index
+	return -1

@@ -29,6 +29,9 @@ const MUTED_COLOR := Color("#c5c3ba")
 
 func configure(deck_name: String, editions: Array, card_count: int, capacity: int,
 	can_edit: bool, animate_unlock := false, show_lock := true, centered := false, show_icon := false) -> void:
+	if editions.has("freeEdit"):
+		can_edit = true
+		animate_unlock = false
 	_show_lock = show_lock
 	mouse_filter = Control.MOUSE_FILTER_IGNORE
 	set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
@@ -132,7 +135,7 @@ func configure(deck_name: String, editions: Array, card_count: int, capacity: in
 	lock_hitbox.mouse_entered.connect(_on_lock_tooltip_mouse_entered)
 	lock_hitbox.mouse_exited.connect(_on_lock_tooltip_mouse_exited)
 	var tooltip_title := "덱 편집 제한 해제" if can_edit else "덱 편집 제한"
-	var tooltip_description := "안전 구역에서 덱을 자유롭게 편집할 수 있습니다." if can_edit \
+	var tooltip_description := "자유 편집: 안전 구역 밖에서도 이 덱을 자유롭게 편집할 수 있습니다." if editions.has("freeEdit") else "안전 구역에서 덱을 자유롭게 편집할 수 있습니다." if can_edit \
 		else "덱 자유 편집은 안전 구역에서 가능합니다."
 	TooltipBindings.bind_status(lock_hitbox, tooltip_title, tooltip_description)
 	add_child(lock_hitbox)

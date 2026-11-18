@@ -3474,6 +3474,7 @@ func _card_widget(card: Dictionary, interactive: bool = true, sticker_tooltips: 
 	header_panel.add_child(header)
 	body.add_child(header_panel)
 	var description := RichTextLabel.new()
+	description.name = "BattleCardDescription"
 	description.bbcode_enabled = true
 	description.fit_content = false
 	description.scroll_active = false
@@ -3877,6 +3878,32 @@ func _battle_hand_card(card_id: int) -> Dictionary:
 		if int(card.get("id", -1)) == card_id:
 			return card
 	return {}
+
+
+func _update_battle_drag_card_damage_preview(card_id: int, enemy_index: int) -> void:
+	if screen_name != "battle":
+		return
+	var card := _battle_hand_card(card_id)
+	if card.is_empty() or not _card_can_target_enemy(card):
+		return
+	var source: Control = battle_hand_card_widgets.get(card_id)
+	if not is_instance_valid(source):
+		return
+	var active_preview := source.get("active_drag_preview") as Control
+	if not is_instance_valid(active_preview) or active_preview.get_child_count() == 0:
+		return
+	var visual := active_preview.get_child(0) as Control
+	var description := visual.find_child("BattleCardDescription", true, false) as RichTextLabel
+	if not is_instance_valid(description):
+		return
+	var preview_text := _card_description(card, true)
+	var enemies: Array = battle_state.get("enemies", [])
+	if enemy_index >= 0 and enemy_index < enemies.size():
+		var preview_state: Dictionary = battle_state.duplicate(true)
+		preview_state["preview_target_enemy_index"] = enemy_index
+		preview_text = BattleCardPreview.describe(card, _card_description(card, false), preview_state)
+	description.text = CardDescriptionText.to_bbcode(preview_text)
+	description.set_meta("card_description_bbcode", description.text)
 
 
 func _select_enemy_target(enemy_index: int) -> void:
@@ -4345,8 +4372,15 @@ func _deck_add_error(card: Dictionary, deck_id: String) -> String:
 			continue
 		var cards: Array = run_state.get("deck", []) if deck_id == str(run_state.get("active_deck_id", "starter")) else deck.get("cards", [])
 		return DeckEditorRules.add_card_error(cards, card,
-			int(deck.get("capacity", 25)), int(deck.get("rare_slot_capacity", 1)))
+			int(deck.get("capacity", 25)), DeckEditions.rare_slot_capacity(deck))
 	return "deck-full"
+
+
+func _deck_allows_free_edit(deck_id: String) -> bool:
+	for deck in run_state.get("owned_decks", []):
+		if str(deck.get("id", "")) == deck_id:
+			return deck.get("editions", []).has("freeEdit")
+	return false
 
 
 func _can_remove_deck_card(card: Dictionary, safe_area: bool, deck_id: String = "") -> bool:
@@ -4356,7 +4390,7 @@ func _can_remove_deck_card(card: Dictionary, safe_area: bool, deck_id: String = 
 	var source_deck_id := deck_id if deck_id != "" else str(run_state.get("active_deck_id", "starter"))
 	if extraction_ticket_mode:
 		return deck_editor_origins_by_card_id.has(card_id) and _origin_deck_id_for_card(card_id) == source_deck_id
-	if safe_area:
+	if safe_area or _deck_allows_free_edit(source_deck_id):
 		return true
 	var return_area := str(deck_editor_high_rarity_return_area_by_card_id.get(card_id, ""))
 	if return_area != "":
@@ -4365,16 +4399,17 @@ func _can_remove_deck_card(card: Dictionary, safe_area: bool, deck_id: String = 
 	return original_deck_id == "" or original_deck_id == source_deck_id
 
 
-func _can_transfer_deck_card(card: Dictionary, safe_area: bool) -> bool:
+func _can_transfer_deck_card(card: Dictionary, safe_area: bool, deck_id: String = "") -> bool:
 	if DeckEditorRules.is_bound(card):
 		return false
-	if safe_area:
+	if safe_area or _deck_allows_free_edit(deck_id):
 		return true
 	return not _is_rare_slot_card(card) and _origin_deck_id_for_card(int(card.get("id", -1))) == ""
 
 
 func _deck_card_remove_label(card: Dictionary, safe_area: bool, deck_id: String = "") -> String:
 	var source_deck_id := deck_id if deck_id != "" else str(run_state.get("active_deck_id", "starter"))
+	safe_area = safe_area or _deck_allows_free_edit(source_deck_id)
 	if extraction_ticket_mode:
 		return "추출 티켓 사용"
 	if not safe_area and deck_editor_high_rarity_return_area_by_card_id.has(int(card.get("id", -1))):
@@ -4528,7 +4563,7 @@ func _move_deck_card_to_floor(card_id: int, source_deck_id: String) -> void:
 		if DeckEditorRules.is_bound(card):
 			return
 		var safe_area: bool = MapRules.is_safe_area_tile(run_state["map"], run_state["position"]) \
-			or run_state.get("blessings", []).has("forbiddenKnowledge")
+			or run_state.get("blessings", []).has("forbiddenKnowledge") or _deck_allows_free_edit(source_deck_id)
 		var original_deck_id := _origin_deck_id_for_card(card_id)
 		var rare_card := _is_rare_slot_card(card)
 		var return_area := str(deck_editor_high_rarity_return_area_by_card_id.get(card_id, "")) if rare_card else ""
@@ -4622,7 +4657,7 @@ func _restore_pending_deck_card(card_id: int) -> void:
 			if str(deck.get("id", "")) == deck_id:
 				deck_cards = deck.get("cards", [])
 				capacity = int(deck.get("capacity", 0))
-				rare_capacity = int(deck.get("rare_slot_capacity", 0))
+				rare_capacity = DeckEditions.rare_slot_capacity(deck)
 				break
 		if deck_cards.size() >= capacity:
 			notice = "덱 용량이 가득 차 제거 예약을 취소할 수 없습니다."
@@ -4663,6 +4698,7 @@ func _move_deck_card_to_inventory(card_id: int, requested_deck_id: String = "") 
 	var safe_area: bool = MapRules.is_safe_area_tile(run_state["map"], run_state["position"]) \
 		or run_state.get("blessings", []).has("forbiddenKnowledge")
 	var source_deck_id := requested_deck_id if requested_deck_id != "" else str(run_state.get("active_deck_id", "starter"))
+	safe_area = safe_area or _deck_allows_free_edit(source_deck_id)
 	var source_deck: Dictionary = {}
 	for deck in run_state.get("owned_decks", []):
 		if str(deck.get("id", "")) == source_deck_id:
@@ -4726,7 +4762,7 @@ func _move_card_between_decks_by_id(card_id: int, source_deck_id: String, target
 			break
 	if card.is_empty():
 		return
-	if not _can_transfer_deck_card(card, safe_area):
+	if not _can_transfer_deck_card(card, safe_area, source_deck_id):
 		notice = "안전 구역에서는 자유롭게 옮길 수 있고, 그 외 지역에서는 덱 밖에서 들어온 일반 카드만 옮길 수 있습니다."
 		_show_deck()
 		return
@@ -5197,7 +5233,7 @@ func _show_deck() -> void:
 			if _is_rare_slot_card(card):
 				deck_rare_count += 1
 		var deck_capacity := int(deck.get("capacity", 25))
-		var rare_slot_capacity := maxi(int(deck.get("rare_slot_capacity", 0)), deck_rare_count)
+		var rare_slot_capacity := maxi(DeckEditions.rare_slot_capacity(deck), deck_rare_count)
 		var deck_row := _new_deck_editor_row(104.0, Color("#0c0d0c", 0.85),
 			Color("#0c0d0c", 0.80), Color("#db8a3d"), 5, Color("#db8a3d"))
 		var deck_drop_area: Control = deck_row["panel"]
@@ -5241,8 +5277,9 @@ func _show_deck() -> void:
 			select_deck.add_theme_color_override(color_name, Color(1.0, 1.0, 1.0, 0.0))
 		select_deck.add_theme_constant_override("outline_size", 0)
 		var heading_visual := DeckCaseHeadingScript.new()
+		var deck_can_edit := can_change_deck or _deck_allows_free_edit(deck_id)
 		heading_visual.configure(deck_name, deck.get("editions", []), deck_cards.size(), deck_capacity,
-			can_change_deck, animate_safe_area_unlock, true, false, true)
+			deck_can_edit, animate_safe_area_unlock and not _deck_allows_free_edit(deck_id), true, false, true)
 		select_deck.add_child(heading_visual)
 		select_deck.gui_input.connect(_on_owned_deck_header_gui_input.bind(deck_id))
 		deck_header.add_child(select_deck)
@@ -5257,9 +5294,10 @@ func _show_deck() -> void:
 		deck_card_list.add_child(deck_scroll_leading_space)
 		var rare_card_groups: Array[Dictionary] = []
 		var normal_card_groups: Array[Dictionary] = []
+		var royal: bool = deck.get("editions", []).has("royal")
 		for group in _group_deck_editor_cards(deck_cards):
 			var grouped_card := _deck_editor_group_representative(group)
-			if _is_rare_slot_card(grouped_card):
+			if royal or _is_rare_slot_card(grouped_card):
 				rare_card_groups.append(group)
 			else:
 				normal_card_groups.append(group)
@@ -5273,11 +5311,11 @@ func _show_deck() -> void:
 				_configure_run_card_drag(deck_card_widget, card, "deck", deck_id, "deck", deck_id)
 			else:
 				deck_card_widget.mouse_filter = Control.MOUSE_FILTER_STOP
-			deck_card_widget.gui_input.connect(_on_owned_deck_card_gui_input.bind(deck_id, card.duplicate(true), can_change_deck))
+			deck_card_widget.gui_input.connect(_on_owned_deck_card_gui_input.bind(deck_id, card.duplicate(true), deck_can_edit))
 			_add_deck_editor_card(deck_card_list, deck_card_widget, card_ids.size())
-		for _empty_rare_slot in range(maxi(0, rare_slot_capacity - deck_rare_count)):
+		for _empty_rare_slot in range(maxi(0, rare_slot_capacity - (deck_cards.size() if royal else deck_rare_count))):
 			deck_card_list.add_child(_deck_editor_empty_slot("rare"))
-		if rare_slot_capacity > 0:
+		if rare_slot_capacity > 0 and not royal:
 			deck_card_list.add_child(_deck_editor_empty_slot("divider"))
 		for group in normal_card_groups:
 			var card := _deck_editor_group_representative(group)
@@ -5289,7 +5327,7 @@ func _show_deck() -> void:
 				_configure_run_card_drag(deck_card_widget, card, "deck", deck_id, "deck", deck_id)
 			else:
 				deck_card_widget.mouse_filter = Control.MOUSE_FILTER_STOP
-			deck_card_widget.gui_input.connect(_on_owned_deck_card_gui_input.bind(deck_id, card.duplicate(true), can_change_deck))
+			deck_card_widget.gui_input.connect(_on_owned_deck_card_gui_input.bind(deck_id, card.duplicate(true), deck_can_edit))
 			_add_deck_editor_card(deck_card_list, deck_card_widget, card_ids.size())
 		var normal_card_count := deck_cards.size() - deck_rare_count
 		var normal_slot_capacity := maxi(0, deck_capacity - rare_slot_capacity)

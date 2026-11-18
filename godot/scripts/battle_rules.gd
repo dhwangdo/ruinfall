@@ -22,10 +22,14 @@ static func start_battle(deck: Array, player_hp: int, encounter: Dictionary = {}
 	var editions: Array = deck_editions.duplicate()
 	var cards_per_file := 4 if editions.has("fantastic") else CARDS_PER_FILE
 	var quick_hammer_forged := 0
+	var quick_hammer_retrieved: Array = []
 	if editions.has("quickHammer"):
 		for _attempt in range(2):
-			if _apply_quick_hammer(cards, random):
+			var forged_index := _apply_quick_hammer(cards, random)
+			if forged_index >= 0:
 				quick_hammer_forged += 1
+				if editions.has("metallurgy"):
+					quick_hammer_retrieved.append(cards[forged_index])
 	var talisman_strength := 0
 	var talisman_agility := 0
 	for card in cards:
@@ -130,12 +134,20 @@ static func start_battle(deck: Array, player_hp: int, encounter: Dictionary = {}
 	}
 	state["energy"] = maxi(0, int(state["max_energy"]) - _enemy_energy_recovery_penalty(state["enemies"]))
 	if editions.has("gambit"):
-		state["energy"] = int(state["energy"]) + 2
+		state["energy"] = int(state["energy"]) + 3
 	var setup_random := RandomNumberGenerator.new()
 	setup_random.seed = int(state["battle_seed"])
 	var sticker_setup := CardStickers.place_starting_stickers(state["piles"], setup_random)
 	state["piles"] = sticker_setup.get("piles", state["piles"])
 	state["hand"] = sticker_setup.get("hand", [])
+	for forged_card in quick_hammer_retrieved:
+		for pile in state["piles"]:
+			for index in range(pile.size() - 1, -1, -1):
+				if int(pile[index].get("id", -1)) == int(forged_card.get("id", -2)):
+					var retrieved_card: Dictionary = pile.pop_at(index)
+					retrieved_card["revealed"] = true
+					state["hand"].append(retrieved_card)
+					_reveal_file_top(pile)
 	if editions.has("roomy"):
 		state["piles"].append([])
 		state["piles"].append([])
@@ -162,7 +174,7 @@ static func start_battle(deck: Array, player_hp: int, encounter: Dictionary = {}
 	_apply_enemy_turn_start(state)
 	_draw_from_files(state, initial_draw_view)
 	if editions.has("gambit"):
-		_draw_random_cards(state, 2)
+		_draw_random_cards(state, 3)
 	_prepare_enemy_discard_targets(state)
 	_add_enemy_intent_tokens_to_files(state)
 	_refresh_enemy_intent(state)
@@ -473,7 +485,7 @@ static func move_cards_to_file(state: Dictionary, payload: Dictionary, target_fi
 	var forge_count := 0
 	var placed: Array = []
 	var retrieved: Array = []
-	var metallurgy := _has_active_rule(next, "metallurgy_research") and not _blocked_pile_indexes(next).has(target_file)
+	var metallurgy: bool = next.get("deck_editions", []).has("metallurgy")
 	for moving_card in moving:
 		# Every card uses the destination and discounts from BEFORE the move.
 		var forge_probe: Dictionary = state.duplicate(false)
@@ -517,7 +529,7 @@ static func move_cards_to_file(state: Dictionary, payload: Dictionary, target_fi
 	if forge_count > 0:
 		next["message"] += " · %d장 재련" % forge_count
 	if not retrieved.is_empty():
-		next["message"] += " · 금속학 연구: %d장 가져옴" % retrieved.size()
+		next["message"] += " · 금속학: %d장 가져옴" % retrieved.size()
 	return next
 
 
@@ -574,7 +586,7 @@ static func _resolve_forge_placement(state: Dictionary, moving_card: Dictionary,
 	return {"applied": true, "card": forged_card, "target": updated_target}
 
 
-static func _apply_quick_hammer(cards: Array, random: RandomNumberGenerator) -> bool:
+static func _apply_quick_hammer(cards: Array, random: RandomNumberGenerator) -> int:
 	var candidates: Array[int] = []
 	for index in range(cards.size()):
 		var card: Dictionary = cards[index]
@@ -583,10 +595,10 @@ static func _apply_quick_hammer(cards: Array, random: RandomNumberGenerator) -> 
 		if card.has("forge_cost") or card.has("forge_costs") or card.has("forge_target_name") or bool(card.get("forge_any", false)):
 			candidates.append(index)
 	if candidates.is_empty():
-		return false
+		return -1
 	var selected: int = candidates[random.randi_range(0, candidates.size() - 1)]
 	cards[selected]["forged"] = true
-	return true
+	return selected
 
 
 static func end_turn(state: Dictionary, draw_view: Variant = null, turn_view: Variant = null) -> Dictionary:
@@ -1307,7 +1319,7 @@ static func _resolve_card_play(state: Dictionary, card_id: int, play_view: Varia
 			pending_song.append({"turns": repeats, "amount": int(card.get("value", 0))})
 			next["pending_iron_song"] = pending_song
 			next["message"] += " · 다음 %d턴 시작 시 반복" % repeats
-		"steel_storm", "sturdy_stance", "recycling", "osiris_sun", "librarians_privilege", "metallurgy_research", "law_research", "economics_research", "optics_research":
+		"steel_storm", "sturdy_stance", "recycling", "osiris_sun", "librarians_privilege", "law_research", "economics_research", "optics_research":
 			var active_rules: Array = next.get("active_rule_cards", [])
 			active_rules.append(card.duplicate(true))
 			next["active_rule_cards"] = active_rules
@@ -1558,6 +1570,14 @@ static func _auto_resolve_forced_pile_discard(state: Dictionary) -> Dictionary:
 	next["pending_sweep"] = false
 	next["message"] = "버릴 파일 맨 위 카드가 없습니다."
 	return _finish_card_effects(next)
+
+
+static func preview_attack_hit(state: Dictionary, target_index: int, base_damage: int, manual_bonus: int = 0) -> int:
+	if target_index < 0 or target_index >= state.get("enemies", []).size():
+		return 0
+	var preview_state: Dictionary = state.duplicate(true)
+	var result := _resolve_attack_hit(preview_state, target_index, base_damage, manual_bonus)
+	return int(result.get("damage", 0))
 
 
 static func _resolve_attack_hit(state: Dictionary, target_index: int, base_damage: int, manual_bonus: int) -> Dictionary:
@@ -2327,6 +2347,8 @@ static func _with_message(state: Dictionary, message: String) -> Dictionary:
 
 static func effective_card_cost(state: Dictionary, card: Dictionary) -> int:
 	var cost := CardStickers.card_energy_cost(card)
+	if state.get("deck_editions", []).has("giant") and int(card.get("base_cost", card.get("cost", 0))) >= 3:
+		cost -= 1
 	if str(card.get("effect", "")) == "odin_spear":
 		cost -= int(state.get("forge_count", 0))
 	if bool(card.get("rule", false)):

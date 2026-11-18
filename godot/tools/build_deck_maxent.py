@@ -43,7 +43,7 @@ def fit(region):
     # Explicit contiguous finite support, generous for the near-geometric empty-slot tail.
     upper = np.ceil(mean+7*scale).astype(int)
     upper[2] = max(upper[2], math.ceil(-math.log(1e-8)/math.log(1+1/mean[2])))
-    upper[3] = min(17, upper[3])
+    upper[3] = min(sum(EDITION_SCORES), upper[3])
     v = np.indices(tuple(upper+1), dtype=np.int16).reshape(5,-1).T
     capacity = 20+5*v[:,0].astype(np.int32)
     valid = np.zeros(len(v), dtype=bool)

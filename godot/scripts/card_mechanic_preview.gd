@@ -43,7 +43,7 @@ var hand_position := Vector2(252, 412)
 
 static func supports(card: Dictionary) -> bool:
 	var effect := str(card.get("effect", ""))
-	if ["metallurgy_research", "odin_spear"].has(effect):
+	if effect == "odin_spear":
 		return false
 	var keywords := CardKeywords.tooltip_text(card)
 	return keywords.contains("재련\n") or keywords.contains("★\n")
@@ -55,7 +55,7 @@ func configure(card: Dictionary, theme_for_tooltips: Theme, card_builder: Callab
 	full_card_builder = card_builder
 	modes.clear()
 	var effect := str(source_card.get("effect", ""))
-	if not ["metallurgy_research", "odin_spear"].has(effect):
+	if effect != "odin_spear":
 		var keywords := CardKeywords.tooltip_text(source_card)
 		if keywords.contains("재련\n"):
 			modes.append("forge")
@@ -265,7 +265,7 @@ func _can_demo_drop(mode: String, index: int) -> bool:
 			return str(target.get("solitaire_rule", "")) == "spell" \
 				and target.has("cost") and int(target.get("cost", -1)) == int(moving.get("cost", -2)) + 1
 		return true
-	if str(moving.get("effect", "")) in ["astronomy_research", "necromancy_research", "metallurgy_research", "odin_spear"]:
+	if str(moving.get("effect", "")) in ["astronomy_research", "necromancy_research", "odin_spear"]:
 		return false
 	if str(moving.get("effect", "")) == "obsidian_dagger":
 		return str(target.get("kind", "")) == "strike"

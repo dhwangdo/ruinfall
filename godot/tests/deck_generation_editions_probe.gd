@@ -23,7 +23,7 @@ func _initialize() -> void:
 				capacity = floori(capacity * 0.8)
 			assert(deck.capacity == capacity and capacity > 0)
 			var bound := 1 if deck.editions.has("legendCassiopeia") else 0
-			assert(deck.rare_slot_capacity == g.y1 + g.y2 + bound)
+			assert(deck.rare_slot_capacity == (capacity if deck.editions.has("royal") else g.y1 + g.y2 + bound))
 			assert(deck.rare_slot_capacity <= capacity and deck.cards.size() <= capacity - int(g.y2))
 			var rare := 0
 			var sticker_count := 0
@@ -63,7 +63,11 @@ func _initialize() -> void:
 	assert(absi(int(counts[2]) - 6000) < 300)
 	assert(absi(int(counts[3]) - 9000) < 350)
 	for edition in Editions.IDS:
-		var expected := 600 if int(Editions.SCORES[edition]) == 1 else 2000 if int(Editions.SCORES[edition]) == 2 else 4500
+		var tier := int(Editions.SCORES[edition])
+		var tier_count := 0
+		for candidate in Editions.IDS:
+			tier_count += 1 if int(Editions.SCORES[candidate]) == tier else 0
+		var expected := 3000 * tier / tier_count
 		assert(absi(int(names.get(edition, 0)) - expected) < 250)
 	var twos := 0
 	for sample in range(9000):

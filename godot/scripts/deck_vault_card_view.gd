@@ -4,6 +4,7 @@ class_name PortDeckVaultCardView
 const CardUse = preload("res://scripts/card_use.gd")
 const CardStickers = preload("res://scripts/stickers.gd")
 const DeckEditorRules = preload("res://scripts/deck_editor_rules.gd")
+const DeckEditions = preload("res://scripts/deck_editions.gd")
 
 const RARITY_RANK := {
 	"legendary": 0,
@@ -41,14 +42,15 @@ static func create(deck: Dictionary) -> Dictionary:
 		groups.append(group)
 	groups.sort_custom(_card_group_less)
 
-	var rare_capacity := maxi(int(deck.get("rare_slot_capacity", deck.get("rareSlotCapacity", 0))), rare_count)
+	var royal: bool = deck.get("editions", []).has("royal")
+	var rare_capacity := maxi(DeckEditions.rare_slot_capacity(deck), rare_count)
 	var capacity := maxi(0, int(deck.get("capacity", 0)))
 	var normal_capacity := maxi(0, capacity - rare_capacity)
 	var rare_cards: Array[Dictionary] = []
 	var normal_cards: Array[Dictionary] = []
 	for group in groups:
 		var card: Dictionary = group["card"]
-		if DeckEditorRules.is_high_rarity(card):
+		if royal or DeckEditorRules.is_high_rarity(card):
 			rare_cards.append(group)
 		else:
 			normal_cards.append(group)
@@ -56,9 +58,9 @@ static func create(deck: Dictionary) -> Dictionary:
 	for group in rare_cards:
 		items.append({"kind": "card", "group": group,
 			"width": 82 + mini(5, maxi(0, group["card_ids"].size() - 1)) * 7})
-	for slot_index in range(maxi(0, rare_capacity - rare_count)):
+	for slot_index in range(maxi(0, rare_capacity - (cards.size() if royal else rare_count))):
 		items.append({"kind": "rare-slot", "slot": slot_index, "width": 82})
-	if rare_capacity > 0:
+	if rare_capacity > 0 and not royal:
 		items.append({"kind": "divider", "width": 11})
 	for group in normal_cards:
 		items.append({"kind": "card", "group": group,

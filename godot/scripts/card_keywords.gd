@@ -45,7 +45,7 @@ static func tooltip_sections(card: Dictionary) -> Array[Dictionary]:
 		_add_keyword(keywords, "보존")
 	if description.contains("에너지"):
 		_add_keyword(keywords, "에너지")
-	if effect in ["obsidian_dagger", "odin_spear", "metallurgy_research"] \
+	if effect in ["obsidian_dagger", "odin_spear"] \
 			or description.contains("재련") or card.has("forge_cost") or card.has("forge_costs") \
 			or card.has("forge_target_name") or bool(card.get("forge_any", false)):
 		_add_keyword(keywords, "재련")

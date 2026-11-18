@@ -41,7 +41,7 @@ func _initialize() -> void:
 	assert(after.piles.size() == before.piles.size() + 2)
 	assert(after.piles[-1].is_empty() and after.piles[-2].is_empty())
 	after = state(["gambit"], deck)
-	assert(after.hand.size() == before.hand.size() + 2 and after.energy == 5 and after.max_energy == 3)
+	assert(after.hand.size() == before.hand.size() + 3 and after.energy == 6 and after.max_energy == 3)
 	after = Rules.end_turn(after)
 	assert(after.energy == 3)
 	after = state(["fantastic"], deck)
@@ -63,6 +63,32 @@ func _initialize() -> void:
 	assert(forged == 2 and after.forge_count == 2)
 	for value in forge_deck:
 		assert(not value.get("forged", false), "battle forging must not mutate saved deck")
+	# Metallurgy retrieves both automatic forges and ordinary Solitaire forges.
+	after = state(["quickHammer", "metallurgy"], forge_deck)
+	forged = 0
+	for value in after.hand:
+		forged += 1 if value.get("forged", false) else 0
+	assert(forged == 2)
+	for pile in after.piles:
+		for value in pile:
+			assert(not value.get("forged", false))
+	before = state(["metallurgy"])
+	var forge_card := card("dash")
+	forge_card.forge_any = true
+	before.hand = [forge_card]
+	before.piles = [[card("strike")]]
+	after = Rules.move_hand_card_to_file(before, forge_card.id, 0)
+	assert(after.hand.size() == 1 and after.hand[0].id == forge_card.id and after.hand[0].forged)
+	assert(after.piles[0].size() == 1 and after.forge_count == 1)
+	# Giant qualifies by original cost, before stickers, swaps and Odin discounts.
+	before = state(["giant"])
+	var costly := {"cost": 3, "stickers": ["moonstone"]}
+	assert(Rules.effective_card_cost(before, costly) == 1)
+	assert(Rules.effective_card_cost(before, {"cost": 2}) == 2)
+	assert(Rules.effective_card_cost(before, {"cost": 2, "base_cost": 3}) == 1)
+	var odin := card("odin_spear")
+	before.forge_count = 2
+	assert(Rules.effective_card_cost(before, odin) == int(odin.cost) - 3)
 	# Each turn grants a temporary action; the edition grants one more.
 	before = state(["firstSolitaire"])
 	assert(before.stars == 1 and before.temporary_solitaire_actions == 2)

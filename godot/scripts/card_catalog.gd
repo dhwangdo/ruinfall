@@ -135,7 +135,6 @@ const SPECIAL_CARDS: Array[Dictionary] = [
 	{"name": "5연격", "kind": "strike", "effect": "five_hit", "use_mode": "targeted", "rarity": "special", "cost": 1, "value": 2, "playable": true, "description": "피해를 2씩 5번 줍니다."},
 	{"name": "진압", "kind": "strike", "effect": "suppression", "use_mode": "targeted", "rarity": "special", "cost": 3, "value": 12, "playable": true, "description": "피해를 12 줍니다. 준 피해만큼 방어를 얻습니다."},
 	{"name": "사서의 특권", "kind": "skill", "effect": "librarians_privilege", "use_mode": "untargeted", "rarity": "special", "cost": 2, "value": 1, "exhaust": true, "rule": true, "playable": true, "description": "룰. 턴 시작 시 원하는 파일에서 카드를 1장 뽑습니다."},
-	{"name": "금속학 연구", "kind": "skill", "effect": "metallurgy_research", "use_mode": "untargeted", "rarity": "special", "cost": 1, "value": 1, "exhaust": true, "rule": true, "playable": true, "description": "룰. 재련한 카드를 손패로 가져옵니다."},
 	{"name": "질주", "kind": "skill", "effect": "dash", "use_mode": "untargeted", "rarity": "special", "cost": 1, "value": 0, "forge_cost": 3, "playable": true, "description": "카드를 무작위로 2[3]장 뽑습니다.\n재련: [3코스트]"},
 	{"name": "치환 합금", "kind": "strike", "effect": "exchange", "use_mode": "targeted", "rarity": "special", "cost": 3, "value": 15, "forge_any": true, "playable": true, "description": "피해를 15 줍니다.\n재련: [아무거나]"},
 	{"name": "늑대 부적", "kind": "skill", "effect": "wolf_talisman", "use_mode": "unplayable", "rarity": "special", "value": 1, "playable": false, "description": "전투 덱에 있는 동안 힘을 1 얻습니다.\n사용 불가."},
@@ -264,7 +263,7 @@ static func create_region_deck(region_number: int, first_id: int, random: Random
 		return {
 			"deck": {
 				"id": "found-r%d-%d" % [k, first_id], "name": _create_deck_name(capacity, random),
-				"capacity": capacity, "rare_slot_capacity": rare_slots, "cards": cards,
+				"capacity": capacity, "rare_slot_capacity": capacity if editions.has("royal") else rare_slots, "cards": cards,
 				"editions": editions, "generation": shape,
 			},
 			"next_card_id": next_id,

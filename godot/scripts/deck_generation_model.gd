@@ -80,12 +80,15 @@ static func _fallback_roll(region: int, random: RandomNumberGenerator) -> Dictio
 	_prepare()
 	var r := maxi(1, region)
 	var variance := pow(15.0 + 3.0 * (r - 1), 2) / 494.0
-	var means := [r / 2.0, 0.75 + 0.375 * r, 0.25 + 0.125 * r, minf(16.0, r / 2.0), 0.5 + r / 2.0]
+	var edition_total := 0
+	for value in Editions.SCORES.values():
+		edition_total += int(value)
+	var means := [r / 2.0, 0.75 + 0.375 * r, 0.25 + 0.125 * r, minf(float(edition_total - 1), r / 2.0), 0.5 + r / 2.0]
 	var v: Array = []
 	while true:
 		v = []
 		for i in range(5):
-			v.append(_integer_sample(means[i], variance, random, 17 if i == 3 else 100000))
+			v.append(_integer_sample(means[i], variance, random, edition_total if i == 3 else 100000))
 		if valid(v):
 			break
 	return {"k": r, "x": v[0], "y1": v[1], "y2": v[2], "z": v[3], "w": v[4],

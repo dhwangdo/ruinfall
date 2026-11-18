@@ -8,36 +8,37 @@ static var _medium_font: FontVariation
 static var _count_font: FontVariation
 static var _star_font: FontVariation
 
-class TicketCountText extends Control:
+class TicketCountText extends Label:
 	var display_text := ""
 	var display_font: Font
 	var display_font_size := 14
 	var display_color := Color.WHITE
 
-	func _draw() -> void:
-		if display_font == null or display_text.is_empty():
-			return
-		var text_width := display_font.get_string_size(display_text, HORIZONTAL_ALIGNMENT_LEFT, -1, display_font_size).x
-		var font_height := display_font.get_height(display_font_size)
-		var baseline := (size.y - font_height) * 0.5 + display_font.get_ascent(display_font_size)
-		draw_string(display_font, Vector2((size.x - text_width) * 0.5, baseline), display_text,
-			HORIZONTAL_ALIGNMENT_LEFT, -1, display_font_size, display_color)
+	func _ready() -> void:
+		text = display_text
+		horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+		vertical_alignment = VERTICAL_ALIGNMENT_CENTER
+		mouse_filter = Control.MOUSE_FILTER_IGNORE
+		add_theme_font_override("font", display_font)
+		add_theme_font_size_override("font_size", display_font_size)
+		add_theme_color_override("font_color", display_color)
 
 
-class TicketTitleText extends Control:
+class TicketTitleText extends Label:
 	var display_text := ""
 	var display_font: Font
 	var display_font_size := 13
 	var display_color := Color.BLACK
 
-	func _draw() -> void:
-		if display_font == null or display_text.is_empty():
-			return
-		var text_width := display_font.get_string_size(display_text, HORIZONTAL_ALIGNMENT_LEFT, -1, display_font_size).x
-		var font_height := display_font.get_height(display_font_size)
-		var baseline := (size.y - font_height) * 0.5 + display_font.get_ascent(display_font_size)
-		draw_string(display_font, Vector2((size.x - text_width) * 0.5, baseline), display_text,
-			HORIZONTAL_ALIGNMENT_LEFT, -1, display_font_size, display_color)
+	func _ready() -> void:
+		text = display_text
+		horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+		vertical_alignment = VERTICAL_ALIGNMENT_CENTER
+		clip_text = true
+		mouse_filter = Control.MOUSE_FILTER_IGNORE
+		add_theme_font_override("font", display_font)
+		add_theme_font_size_override("font_size", display_font_size)
+		add_theme_color_override("font_color", display_color)
 
 
 static func configure_compact(target: Control, item_front: Control, item: Dictionary, count: int, selected := false) -> void:
