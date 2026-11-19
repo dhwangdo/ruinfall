@@ -5,6 +5,7 @@ const MapRules = preload("res://scripts/map_rules.gd")
 const TileAppearance = preload("res://scripts/map_tile_appearance.gd")
 const EnemyCatalog = preload("res://scripts/enemy_catalog.gd")
 const EnemyTileArt = preload("res://scripts/enemy_tile_art.gd")
+const PlayerTileArt = preload("res://scripts/player_tile_art.gd")
 const DeckIconArt = preload("res://scripts/deck_icon_art.gd")
 const VaultRules = preload("res://scripts/deck_vault_rules.gd")
 const CompactCardView = preload("res://scripts/compact_card_view.gd")
@@ -33,6 +34,7 @@ var floor_card_positions: Dictionary = {}
 var floor_deck_positions: Dictionary = {}
 var floor_consumable_positions: Dictionary = {}
 var player_position := Vector2i.ZERO
+var player_avatar := "human"
 var defeated_enemies: Array = []
 var ping_position := Vector2i(-1, -1)
 var ping_label := ""
@@ -54,6 +56,7 @@ var _enemy_sprite_draws: Array[Dictionary] = []
 var _enemy_badge_draws: Array[Dictionary] = []
 var _vault_icon_draws: Array[Dictionary] = []
 var _terrain_icon_draws: Array[Dictionary] = []
+var _player_sprite_draw: Dictionary = {}
 var _enemy_sprite_layer: Node2D
 var _future_vault_layer: Node2D
 var _deck_icon_draws: Array[Rect2] = []
@@ -159,6 +162,7 @@ func _draw() -> void:
 		_deck_icon_layer.queue_redraw()
 	_enemy_sprite_draws.clear()
 	_enemy_badge_draws.clear()
+	_player_sprite_draw.clear()
 	if is_instance_valid(_enemy_sprite_layer):
 		_enemy_sprite_layer.queue_redraw()
 	draw_rect(Rect2(Vector2.ZERO, size), Color("#0e1210"))
@@ -210,6 +214,8 @@ func _draw() -> void:
 					enemy_state = enemy_state.duplicate(true)
 					enemy_state["encounter_index"] = int(enemy_states[enemy_index].get("encounter_index", 0))
 					remembered_enemy_cells[position] = enemy_state
+	var player_in_safe_area := MapRules.is_safe_area_tile(map_data, player_position)
+	var player_region := MapRules.region_index_at(player_position)
 	for y in range(first_y, last_y + 1):
 		for x in range(first_x, last_x + 1):
 			var position := Vector2i(x, y)
@@ -222,15 +228,32 @@ func _draw() -> void:
 			if room_type == "deckVault" and VaultRules.region_offset(map_data, position) > 0:
 				fill = Color("#101a32")
 				edge = Color("#eed079")
-			if position == player_position:
-				fill = Color("#d9b852")
-				edge = Color("#a7771f")
-			elif not visible_now.has(position):
+			var is_player_tile := position == player_position
+			if is_player_tile and tile_size < 14.0:
+				fill = Color("#f0f0f0")
+				edge = Color("#a8a8a8")
+			elif not is_player_tile and not visible_now.has(position):
 				fill = TileAppearance.out_of_vision_color(fill, room_type)
 				edge = TileAppearance.out_of_vision_color(edge, room_type)
+			var is_safe_tile := MapRules.is_safe_area_tile(map_data, position)
 			draw_rect(rect, fill)
-			if tile_size >= 9.0:
+			if tile_size >= 9.0 and not is_safe_tile:
 				draw_rect(rect, edge, false, 1.0)
+			var safe_area_active := player_in_safe_area and MapRules.region_index_at(position) == player_region
+			var safe_lock_color := Color("#dba534") if safe_area_active \
+				else fill.lerp(Color("#8c877c"), 0.50) if visible_now.has(position) \
+				else fill.lerp(Color("#6b675f"), 0.30)
+			if is_safe_tile and tile_size >= 14.0 and not TileAppearance.ROOM_TEXTURES.has(room_type):
+				TileAppearance.draw_safe_area_padlock(self, rect, safe_lock_color)
+			if is_player_tile and tile_size >= 14.0:
+				draw_rect(rect, Color(1.0, 1.0, 1.0, 0.14))
+				draw_rect(rect.grow(-1.5), Color(1.0, 1.0, 1.0, 0.85), false, maxf(1.5, tile_size * 0.025))
+				var sprite_side := tile_size * 0.88
+				var sprite_rect := Rect2(rect.get_center() - Vector2.ONE * sprite_side * 0.5, Vector2.ONE * sprite_side)
+				_player_sprite_draw = {
+					"rect": sprite_rect,
+					"texture": PlayerTileArt.texture_for(player_avatar),
+				}
 			if tile_size >= 10.0 and TileAppearance.ROOM_TEXTURES.has(room_type):
 				_terrain_icon_draws.append({"rect": rect, "room_type": room_type})
 			elif room_type == "tinkerer":
@@ -405,10 +428,6 @@ func _draw_enemy_overlays(visible_enemies: Dictionary, remembered_enemies: Dicti
 			enemy_positions[position] = remembered_enemies[position]
 	for position in enemy_positions.keys():
 		var enemy_state: Dictionary = enemy_positions[position]
-		var awareness := str(enemy_state.get("awareness", ""))
-		var state_symbol := TileAppearance.awareness_symbol(awareness)
-		if state_symbol.is_empty():
-			continue
 		var encounter_index := int(enemy_state.get("encounter_index", -1))
 		var is_remembered := remembered_enemies.has(position) and not visible_enemies.has(position)
 		var has_horizontal_neighbor := enemy_positions.has(position + Vector2i.LEFT) \
@@ -422,7 +441,7 @@ func _draw_enemy_overlays(visible_enemies: Dictionary, remembered_enemies: Dicti
 		for index in tiles.size():
 			_enemy_sprite_draws.append({"texture": tiles[index], "rect": sprite_rects[index],
 				"color": Color(0.55, 0.55, 0.55, 0.7) if is_remembered else Color.WHITE})
-		_enemy_badge_draws.append({"rect": rect, "symbol": state_symbol,
+		_enemy_badge_draws.append({"rect": rect, "symbol": TileAppearance.awareness_symbol("sleeping"),
 			"remembered": is_remembered, "neighbor": has_horizontal_neighbor, "has_sprite": not tiles.is_empty()})
 	if is_instance_valid(_enemy_sprite_layer):
 		_enemy_sprite_layer.queue_redraw()
@@ -441,6 +460,10 @@ func _draw_enemy_sprites() -> void:
 		TileAppearance.draw_vault_symbol(_enemy_sprite_layer, item.rect, tile_size, VAULT_COLOR, item.future)
 	for item in _enemy_sprite_draws:
 		_enemy_sprite_layer.draw_texture_rect(item.texture, item.rect, false, item.color)
+	if not _player_sprite_draw.is_empty():
+		var player_tex: Texture2D = _player_sprite_draw.get("texture", null)
+		if player_tex != null:
+			_enemy_sprite_layer.draw_texture_rect(player_tex, _player_sprite_draw["rect"], false)
 	# Status markers are drawn last, above every monster in the group.
 	for item in _enemy_badge_draws:
 		TileAppearance.draw_enemy_badge(_enemy_sprite_layer, item.rect, tile_size, item.symbol,

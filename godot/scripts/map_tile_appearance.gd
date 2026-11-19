@@ -5,6 +5,7 @@ const StickerServices = preload("res://scripts/sticker_services.gd")
 const CardStickers = preload("res://scripts/stickers.gd")
 const StickerArtDraw = preload("res://scripts/sticker_art_draw.gd")
 const DeckIconArt = preload("res://scripts/deck_icon_art.gd")
+const PadlockGlyphArt = preload("res://scripts/padlock_glyph_art.gd")
 const ALTAR_TEXTURE = preload("res://assets/terrain/dcss/makhleb_flame1.png")
 const TRANSMUTER_TEXTURE = preload("res://assets/terrain/dcss/ru.png")
 const PORTAL_TEXTURE = preload("res://assets/terrain/dcss/zig_portal.png")
@@ -40,6 +41,7 @@ const ROOM_BADGES := {
 }
 
 const REGION_FLOOR_COLORS := [
+	Color("#9c9588"),
 	Color("#91ad81"),
 	Color("#818f96"),
 	Color("#dec58b"),
@@ -100,7 +102,9 @@ static func full_map_fill(position: Vector2i, room_type: String, region_index: i
 			return Color("#4e9199")
 		"boss":
 			return Color("#9b3d35")
-		"safeEntry", "safeArea", "vaultInterior":
+		"safeArea":
+			return _region_tile_color(position, Color("#0f1114"))
+		"safeEntry", "vaultInterior":
 			# Browser setpiece floors render as ordinary region floor tiles.
 			return _region_tile_color(position, _region_floor_color(region_index))
 		"empty":
@@ -140,7 +144,9 @@ static func full_map_edge(room_type: String) -> Color:
 			return Color("#28535b")
 		"boss":
 			return Color("#5c2020")
-		"empty", "safeEntry", "safeArea", "vaultInterior":
+		"safeArea":
+			return Color("#14171c")
+		"empty", "safeEntry", "vaultInterior":
 			# Browser gives fixed setpiece floor cells the ordinary empty-tile edge.
 			return Color("#385541")
 	return Color("#343a39")
@@ -418,6 +424,12 @@ static func draw_tinkerer_sticker(canvas: CanvasItem, rect: Rect2, tile_size: fl
 	var icon_size := tile_size * (75.0 / 136.0)
 	StickerArtDraw.draw_map_sticker(canvas, sticker_id,
 		Rect2(rect.get_center() - Vector2.ONE * icon_size * 0.5, Vector2.ONE * icon_size))
+
+
+static func draw_safe_area_padlock(canvas: CanvasItem, rect: Rect2, color: Color) -> void:
+	var side := minf(rect.size.x, rect.size.y) * 0.68
+	var box := Rect2(rect.get_center() - Vector2.ONE * side * 0.5, Vector2.ONE * side)
+	PadlockGlyphArt.draw(canvas, box, color, 1.0)
 
 
 static func minimap_color(room_type: String) -> Color:

@@ -186,7 +186,7 @@ func _build_header() -> Control:
 	margin.add_child(row)
 	var info := VBoxContainer.new()
 	info.size_flags_horizontal = Control.SIZE_EXPAND_FILL
-	info.add_theme_constant_override("separation", 0)
+	info.add_theme_constant_override("separation", 6)
 	var title := Label.new()
 	title.name = "DeckVaultTitle"
 	title.text = "덱 「%s」" % str(_deck.get("name", "덱 금고"))
@@ -197,19 +197,19 @@ func _build_header() -> Control:
 	info.add_child(title)
 	var editions: Array = _deck.get("editions", [])
 	if not editions.is_empty():
-		var edition_font := _font_with_weight(500)
-		var edition_list := DeckEditionList.build(editions, _deck.get("edition_colors", {}), edition_font, 15,
-			Color("#d7caa8"), 4)
+		var edition_font := _font_with_weight(600)
+		var edition_list := DeckEditionList.build(editions, _deck.get("edition_colors", {}), edition_font, 17,
+			Color("#d7caa8"), 6)
 		edition_list.name = "DeckVaultEditions"
 		info.add_child(edition_list)
 	var summary_margin := MarginContainer.new()
-	summary_margin.add_theme_constant_override("margin_top", 8)
+	summary_margin.add_theme_constant_override("margin_top", 4)
 	var summary := Label.new()
 	summary.name = "DeckVaultCardCount"
 	summary.add_theme_font_override("font", GameFonts.make(400))
 	var cards: Array = _deck.get("cards", [])
 	summary.text = "%d / %d장" % [cards.size(), int(_deck.get("capacity", 0))]
-	summary.add_theme_font_size_override("font_size", 14)
+	summary.add_theme_font_size_override("font_size", 15)
 	summary.add_theme_color_override("font_color", Color("#f0eee7"))
 	summary_margin.add_child(summary)
 	info.add_child(summary_margin)

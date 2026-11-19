@@ -2,13 +2,13 @@ extends RefCounted
 class_name PortMapRules
 
 const WIDTH := 212
-const REGION_COUNT := 7
+const REGION_COUNT := 8
 const REGION_HEIGHT := 47
 const ROCK_BARRIER_HEIGHT := 5
 const REGION_STRIDE := REGION_HEIGHT + ROCK_BARRIER_HEIGHT
 const HEIGHT := REGION_COUNT * REGION_HEIGHT + (REGION_COUNT - 1) * ROCK_BARRIER_HEIGHT
-const START := Vector2i(106, 0)
-const MAP_VERSION := 16
+const START := Vector2i(106, 23)
+const MAP_VERSION := 19
 const PLAYER_VISION_RADIUS := 6
 const DEBUG_VISION_RADIUS := 18 # Player-centered 37x37 square; walls do not occlude it.
 const ENEMY_DETECTION_ONE_TILE_CHANCE := 1.0
@@ -53,6 +53,7 @@ static func create_empty_map(seed_value: int) -> Dictionary:
 		"portal_positions": [],
 		"safe_area_entries": {},
 		"safe_portals": {},
+		"region_zero_vault_presets": {},
 		"seen": {},
 		"visible_now": {},
 		"enemy_memory": {},
@@ -66,28 +67,32 @@ static func finish_map(map_data: Dictionary) -> void:
 
 
 static func generate_region(map_data: Dictionary, region_index: int, map_seed: int) -> void:
+	if region_index == 0:
+		_generate_region_zero(map_data, map_seed)
+		return
+	var content_region := region_index - 1
 	var start_y := region_index * REGION_STRIDE
-	var safe_center_local := MapGenerationRules.safe_area_center(map_seed, region_index, WIDTH, REGION_HEIGHT)
+	var safe_center_local := MapGenerationRules.safe_area_center(map_seed, content_region, WIDTH, REGION_HEIGHT)
 	var safe_center_x := safe_center_local.x
 	var safe_center_y := start_y + safe_center_local.y
-	var location_counts := MapGenerationRules.roll_region_location_counts(map_seed, region_index)
-	var safe_entry := Vector2i(safe_center_x - 11, safe_center_y)
+	var location_counts := MapGenerationRules.roll_region_location_counts(map_seed, content_region)
+	var safe_entry := Vector2i(safe_center_x - 15, safe_center_y)
 	var safe_area_blocked := MapGenerationRules.make_blocked_safe_area(WIDTH, REGION_HEIGHT, safe_center_local)
 	var local_portals := MapGenerationRules.place_region_portals(
-		map_seed, region_index, WIDTH, REGION_HEIGHT, safe_area_blocked, int(location_counts["portal"])
+		map_seed, content_region, WIDTH, REGION_HEIGHT, safe_area_blocked, int(location_counts["portal"])
 	)
-	var layout_seed := MapGenerationRules.region_layout_seed(map_seed, region_index + 1)
+	var layout_seed := MapGenerationRules.region_layout_seed(map_seed, content_region + 1)
 	var prefab_definitions: Array[Dictionary] = [
 		{"id": "spiral-vault", "grid": SPIRAL_VAULT, "entrance": Vector2i(0, 7), "mirror": true, "padding": 1},
 		{"id": "pillar-vault", "grid": PILLAR_VAULT, "entrance": Vector2i(0, 4), "mirror": true, "padding": 1},
 	]
 	# Preserve the former vault count when disabling setpiece placement.
 	var former_prefab_count := MapGenerationRules.place_region_prefabs(
-		layout_seed, region_index + 1, WIDTH, REGION_HEIGHT, safe_area_blocked,
+		layout_seed, content_region + 1, WIDTH, REGION_HEIGHT, safe_area_blocked,
 		Vector2i(START.x, 0), local_portals, prefab_definitions
 	).size()
 	var layout := MapGenerationRules.generate_floor(
-		layout_seed, region_index + 1, WIDTH, REGION_HEIGHT, Vector2i(START.x, 0), local_portals,
+		layout_seed, content_region + 1, WIDTH, REGION_HEIGHT, Vector2i(START.x, 0), local_portals,
 		safe_area_blocked, []
 	)
 	for local_y in range(REGION_HEIGHT):
@@ -100,39 +105,47 @@ static func generate_region(map_data: Dictionary, region_index: int, map_seed: i
 		map_data["portal_positions"].append(portal_position)
 
 	map_data["safe_area_entries"][region_index] = safe_entry
-	# The browser portal teleports into the safe area; it has no walkable route back into the region.
-	for x in range(safe_center_x - 11, safe_center_x + 2):
-		var position := Vector2i(x, safe_center_y)
-		_add_floor(map_data, position)
-		map_data["room_types"][position] = "safeArea"
-	for y_offset in [-1, 1]:
-		var left_arm := Vector2i(safe_center_x - 10, safe_center_y + y_offset)
-		var right_arm := Vector2i(safe_center_x, safe_center_y + y_offset)
-		_add_floor(map_data, left_arm)
-		_add_floor(map_data, right_arm)
-		map_data["room_types"][left_arm] = "safeArea"
-		map_data["room_types"][right_arm] = "safeArea"
+	# The portal teleports into the gateway chamber (관문); it has no walkable route back into the region.
+	# Layout: [safeEntry] - [3x3 safeArea] - [9-tile corridor: partialHeal at start, boss in center] - [3x3 reward/services w/ heal] - [safePortal]
+	_add_floor(map_data, safe_entry)
+	map_data["room_types"][safe_entry] = "safeEntry"
+	for dy in range(-1, 2):
+		for dx in range(-14, -11):
+			var safe_pos := Vector2i(safe_center_x + dx, safe_center_y + dy)
+			_add_floor(map_data, safe_pos)
+			map_data["room_types"][safe_pos] = "safeArea"
+	for dx in range(-11, -2):
+		var corridor_pos := Vector2i(safe_center_x + dx, safe_center_y)
+		_add_floor(map_data, corridor_pos)
+		map_data["room_types"][corridor_pos] = "empty"
+	for dy in range(-1, 2):
+		for dx in range(-2, 1):
+			var right_pos := Vector2i(safe_center_x + dx, safe_center_y + dy)
+			_add_floor(map_data, right_pos)
+			map_data["room_types"][right_pos] = "empty"
 	var service_types := ["stickerAltar", "cardTransmuter", "tinkerer"]
-	var region_point := Vector2i(region_index, 0)
+	var region_point := Vector2i(content_region, 0)
 	var first_service := floori(MapGenerationRules.seeded_roll(region_point, map_seed, 8301) * service_types.size())
 	var second_service := (first_service + 1 + floori(MapGenerationRules.seeded_roll(region_point, map_seed, 8302) * 2.0)) % service_types.size()
-	map_data["room_types"][Vector2i(safe_center_x - 11, safe_center_y)] = "safeEntry"
-	map_data["room_types"][Vector2i(safe_center_x - 10, safe_center_y)] = "partialHeal"
-	map_data["room_types"][Vector2i(safe_center_x, safe_center_y)] = "heal"
-	map_data["room_types"][Vector2i(safe_center_x, safe_center_y - 1)] = service_types[first_service]
-	map_data["room_types"][Vector2i(safe_center_x, safe_center_y + 1)] = service_types[second_service]
-	if region_index < 3:
-		map_data["room_types"][Vector2i(safe_center_x - 5, safe_center_y)] = "boss"
+	map_data["room_types"][Vector2i(safe_center_x - 11, safe_center_y)] = "partialHeal"
+	map_data["room_types"][Vector2i(safe_center_x - 1, safe_center_y)] = "heal"
+	map_data["room_types"][Vector2i(safe_center_x - 1, safe_center_y - 1)] = service_types[first_service]
+	map_data["room_types"][Vector2i(safe_center_x - 1, safe_center_y + 1)] = service_types[second_service]
+	if content_region < 3:
+		map_data["room_types"][Vector2i(safe_center_x - 7, safe_center_y)] = "boss"
 	var safe_portal := Vector2i(safe_center_x + 1, safe_center_y)
+	_add_floor(map_data, safe_portal)
 	if region_index < REGION_COUNT - 1:
 		map_data["room_types"][safe_portal] = "safePortal"
 		map_data["safe_portals"][region_index] = safe_portal
+	else:
+		map_data["room_types"][safe_portal] = "empty"
 
 	# Increase the prior total by another 20%, replacing all setpiece vaults with ordinary vaults.
 	var former_vault_count := roundi(float(int(location_counts["deckVault"]) + former_prefab_count) * 1.2)
 	location_counts["deckVault"] = roundi(float(former_vault_count) * 1.2)
 	var ordinary_locations := MapGenerationRules.place_region_locations(
-		map_data, location_counts, map_seed, region_index, WIDTH, REGION_HEIGHT, start_y, safe_center_local, layout["main"]
+		map_data, location_counts, map_seed, content_region, WIDTH, REGION_HEIGHT, start_y, safe_center_local, layout["main"]
 	)
 	for local_index in ordinary_locations.keys():
 		var index := int(local_index)
@@ -140,16 +153,82 @@ static func generate_region(map_data: Dictionary, region_index: int, map_seed: i
 		map_data["room_types"][position] = str(ordinary_locations[local_index])
 
 	_add_region_gold(map_data, region_index, map_seed, layout["main"])
-	if region_index < 3:
+	if content_region < 3:
 		var enemy_cells := _place_region_enemy_positions(map_data, map_seed, layout["main"], start_y)
 		for enemy_position in enemy_cells:
 			map_data["enemy_positions"].append(enemy_position)
 			var browser_position := Vector2i(enemy_position.x - START.x, enemy_position.y)
 			var encounter_roll := MapGenerationRules.seeded_roll(browser_position, map_seed, 4001)
-			map_data["enemy_encounters"][enemy_position] = EnemyCatalog.pick_region_encounter_from_roll(region_index, encounter_roll)
-		var boss_position := Vector2i(safe_center_x - 5, safe_center_y)
+			map_data["enemy_encounters"][enemy_position] = EnemyCatalog.pick_region_encounter_from_roll(content_region, encounter_roll)
+		var boss_position := Vector2i(safe_center_x - 7, safe_center_y)
 		map_data["enemy_positions"].append(boss_position)
-		map_data["enemy_encounters"][boss_position] = 14 + region_index
+		map_data["enemy_encounters"][boss_position] = 14 + content_region
+
+
+static func _generate_region_zero(map_data: Dictionary, map_seed: int) -> void:
+	var cy := START.y
+	# Starting room (x = 104..107, y = cy-1..cy+1)
+	for y in range(cy - 1, cy + 2):
+		for x in range(104, 108):
+			_add_floor(map_data, Vector2i(x, y))
+	# Mandatory 1-tile chokepoint corridor (x = 108..110, y = cy)
+	for x in range(108, 111):
+		_add_floor(map_data, Vector2i(x, cy))
+	var mandatory_enemy := Vector2i(109, cy)
+	map_data["enemy_positions"].append(mandatory_enemy)
+	map_data["enemy_encounters"][mandatory_enemy] = 90
+	# Deck vault room (x = 111..115, y = cy-2..cy+2) with 3 vaults (1 key each, no future vaults) and portal
+	for y in range(cy - 2, cy + 3):
+		for x in range(111, 116):
+			_add_floor(map_data, Vector2i(x, y))
+	var vault_positions: Array[Vector2i] = [Vector2i(113, cy - 2), Vector2i(113, cy), Vector2i(113, cy + 2)]
+	var presets: Array[int] = [0, 1, 2]
+	var preset_rng := RandomNumberGenerator.new()
+	preset_rng.seed = map_seed ^ 0x4a3b2c1d
+	for i in range(presets.size() - 1, 0, -1):
+		var j := preset_rng.randi_range(0, i)
+		var tmp := presets[i]
+		presets[i] = presets[j]
+		presets[j] = tmp
+	var preset_map: Dictionary = map_data.get("region_zero_vault_presets", {})
+	for idx in range(vault_positions.size()):
+		var vpos := vault_positions[idx]
+		map_data["room_types"][vpos] = "deckVault"
+		preset_map["%d,%d" % [vpos.x, vpos.y]] = presets[idx]
+	map_data["region_zero_vault_presets"] = preset_map
+	var portal_pos := Vector2i(115, cy)
+	map_data["room_types"][portal_pos] = "portal"
+	map_data["portal_positions"].append(portal_pos)
+
+	# Region 0 gateway chamber (관문): 3x3 safeArea - 9-tile corridor (partialHeal at start, boss in center) - 3x3 heal - portal
+	var safe_entry := Vector2i(129, cy)
+	map_data["safe_area_entries"][0] = safe_entry
+	_add_floor(map_data, safe_entry)
+	map_data["room_types"][safe_entry] = "safeEntry"
+	for dy in range(-1, 2):
+		for x in range(130, 133):
+			var safe_pos := Vector2i(x, cy + dy)
+			_add_floor(map_data, safe_pos)
+			map_data["room_types"][safe_pos] = "safeArea"
+	for x in range(133, 142):
+		var corridor_pos := Vector2i(x, cy)
+		_add_floor(map_data, corridor_pos)
+		map_data["room_types"][corridor_pos] = "empty"
+	map_data["room_types"][Vector2i(133, cy)] = "partialHeal"
+	var boss_pos := Vector2i(137, cy)
+	map_data["room_types"][boss_pos] = "boss"
+	map_data["enemy_positions"].append(boss_pos)
+	map_data["enemy_encounters"][boss_pos] = 91
+	for dy in range(-1, 2):
+		for x in range(142, 145):
+			var right_pos := Vector2i(x, cy + dy)
+			_add_floor(map_data, right_pos)
+			map_data["room_types"][right_pos] = "empty"
+	map_data["room_types"][Vector2i(143, cy)] = "heal"
+	var safe_portal := Vector2i(145, cy)
+	_add_floor(map_data, safe_portal)
+	map_data["room_types"][safe_portal] = "safePortal"
+	map_data["safe_portals"][0] = safe_portal
 
 
 static func _place_region_enemy_positions(
@@ -189,8 +268,12 @@ static func _place_region_enemy_positions(
 	var remaining: Array[Dictionary] = []
 	var chokepoint_patterns: Dictionary = {}
 	for position in candidates:
-		var spawn_weight := ENEMY_CHOKEPOINT_WEIGHT if _is_local_enemy_chokepoint(map_data, position, chokepoint_patterns) else 1.0
-		remaining.append({"position": position, "distance": INF, "base_weight": spawn_weight, "weight": spawn_weight})
+		if not _is_local_enemy_chokepoint(map_data, position, chokepoint_patterns):
+			continue
+		remaining.append({"position": position, "distance": INF, "base_weight": 1.0, "weight": 1.0})
+	if remaining.is_empty():
+		return []
+	enemy_count = mini(enemy_count, remaining.size())
 	var selected: Array[Vector2i] = []
 	for selected_index in range(enemy_count):
 		var total_weight := 0.0
@@ -223,7 +306,7 @@ static func _is_local_enemy_chokepoint(map_data: Dictionary, position: Vector2i,
 			if dx == 0 and dy == 0:
 				continue
 			var neighbor := position + Vector2i(dx, dy)
-			if is_walkable(map_data, neighbor) and not is_safe_area_tile(map_data, neighbor):
+			if is_walkable(map_data, neighbor) and not is_gateway_tile(map_data, neighbor):
 				neighbors.append(neighbor)
 				mask |= bit
 			bit <<= 1
@@ -621,7 +704,7 @@ static func ensure_enemy_states(map_data: Dictionary, defeated_positions: Array 
 		states.append({
 			"encounter_index": encounter_index,
 			"awareness": "sleeping",
-			"is_boss": [14, 15, 16].has(encounter_index),
+			"is_boss": [14, 15, 16, 91].has(encounter_index),
 			"permanent_sleep": false,
 			"defeated": defeated_positions.has(position),
 		})
@@ -635,7 +718,7 @@ static func ensure_enemy_states(map_data: Dictionary, defeated_positions: Array 
 		if not state.has("awareness"):
 			state["awareness"] = "sleeping"
 		if not state.has("is_boss"):
-			state["is_boss"] = [14, 15, 16].has(int(state["encounter_index"]))
+			state["is_boss"] = [14, 15, 16, 91].has(int(state["encounter_index"]))
 		if not state.has("permanent_sleep"):
 			state["permanent_sleep"] = false
 		if defeated_positions.has(position):
@@ -657,6 +740,8 @@ static func mark_enemy_defeated(map_data: Dictionary, position: Vector2i) -> voi
 		state["defeated"] = true
 		states[enemy_index] = state
 		map_data["enemy_states"] = states
+		if str(map_data.get("room_types", {}).get(position, "")) == "boss":
+			map_data["room_types"][position] = "empty"
 		forget_enemy_memory_at(map_data, position)
 		return
 
@@ -680,6 +765,13 @@ static func room_type_at(map_data: Dictionary, position: Vector2i) -> String:
 		var room_key := "%d,%d" % [position.x, position.y]
 		if bool(map_data.get("opened_deck_vaults", {}).get(room_key, false)):
 			return "empty"
+	if room_type == "boss":
+		var enemy_positions: Array = map_data.get("enemy_positions", [])
+		var enemy_states: Array = map_data.get("enemy_states", [])
+		for enemy_index in range(enemy_positions.size()):
+			if enemy_positions[enemy_index] == position and enemy_index < enemy_states.size() \
+					and bool(enemy_states[enemy_index].get("defeated", false)):
+				return "empty"
 	return room_type
 
 
@@ -691,10 +783,23 @@ static func is_safe_area_tile(map_data: Dictionary, position: Vector2i) -> bool:
 	if not entries.has(region_index):
 		return false
 	var entry: Vector2i = entries[region_index]
-	var center := entry + Vector2i(11, 0)
-	if position.y == center.y and position.x >= center.x - 11 and position.x <= center.x + 1:
+	return position.x >= entry.x + 1 and position.x <= entry.x + 3 and absi(position.y - entry.y) <= 1
+
+
+static func is_gateway_tile(map_data: Dictionary, position: Vector2i) -> bool:
+	var region_index := _region_index(position.y)
+	if region_index < 0:
+		return false
+	var entries: Dictionary = map_data.get("safe_area_entries", {})
+	if not entries.has(region_index):
+		return false
+	var entry: Vector2i = entries[region_index]
+	if position.y == entry.y and position.x >= entry.x and position.x <= entry.x + 16:
 		return true
-	return abs(position.y - center.y) == 1 and [center.x - 10, center.x].has(position.x)
+	if absi(position.y - entry.y) == 1:
+		return (position.x >= entry.x + 1 and position.x <= entry.x + 3) \
+			or (position.x >= entry.x + 13 and position.x <= entry.x + 15)
+	return false
 
 
 static func _room_type(map_data: Dictionary, position: Vector2i) -> String:

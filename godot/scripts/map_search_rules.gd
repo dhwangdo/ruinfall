@@ -12,10 +12,10 @@ const CARD_RARITY_ORDER := {"legendary": 0, "rare": 1, "special": 2, "basic": 3,
 
 const ROOM_LABELS := {
 	"safeArea": "안전 구역",
-	"safeEntry": "안전 구역 입구",
+	"safeEntry": "관문 입구",
 	"partialHeal": "회복 지형",
 	"heal": "회복 지형",
-	"portal": "안전 구역 포탈",
+	"portal": "관문 포탈",
 	"safePortal": "다음 지역 포탈",
 	"deckVault": "덱 금고",
 	"stickerAltar": "제단",
@@ -38,8 +38,8 @@ static func build_entries(run_state: Dictionary) -> Array[Dictionary]:
 		if not (raw_position is Vector2i):
 			continue
 		var seen_position: Vector2i = raw_position
-		var region := MapRules.region_index_at(seen_position) + 1
-		if region <= 0:
+		var region := MapRules.region_index_at(seen_position)
+		if region < 0:
 			continue
 		var room_type := MapRules.room_type_at(map_data, seen_position)
 		if ROOM_LABELS.has(room_type) and room_type != "deckVault":
@@ -76,7 +76,7 @@ static func build_entries(run_state: Dictionary) -> Array[Dictionary]:
 		floor_cards_by_tile[tile_key]["cards"].append(drop.get("card", {}))
 	for group in floor_cards_by_tile.values():
 		var card_position: Vector2i = group["position"]
-		_add_card_entries(entries, group["cards"], MapRules.region_index_at(card_position) + 1,
+		_add_card_entries(entries, group["cards"], MapRules.region_index_at(card_position),
 			card_position, "바닥 카드", "", "")
 	for drop in run_state.get("floor_deck_drops", []):
 		var deck_position := Vector2i(int(drop.get("x", -1)), int(drop.get("y", -1)))
@@ -84,9 +84,9 @@ static func build_entries(run_state: Dictionary) -> Array[Dictionary]:
 			continue
 		var deck: Dictionary = drop.get("deck", {})
 		var name := str(deck.get("name", "금고 덱"))
-		_add_entry(entries, "deck", "덱 「%s」" % name, MapRules.region_index_at(deck_position) + 1, deck_position,
+		_add_entry(entries, "deck", "덱 「%s」" % name, MapRules.region_index_at(deck_position), deck_position,
 			"덱 %s %s %s" % [name, _deck_search_text(deck), _edition_search_text(deck)], -1, "바닥 덱", "", {"deck": deck.duplicate(true)})
-		_add_card_entries(entries, deck.get("cards", []), MapRules.region_index_at(deck_position) + 1,
+		_add_card_entries(entries, deck.get("cards", []), MapRules.region_index_at(deck_position),
 			deck_position, "바닥 덱 · 덱 「%s」" % name, name, _edition_search_text(deck))
 	var floor_consumables_by_tile: Dictionary = {}
 	for drop in run_state.get("floor_consumable_drops", []):
@@ -102,7 +102,7 @@ static func build_entries(run_state: Dictionary) -> Array[Dictionary]:
 		var item_position: Vector2i = group["position"]
 		var item: Dictionary = group["item"]
 		var name := str(item.get("name", "아이템"))
-		_add_entry(entries, "item", name, MapRules.region_index_at(item_position) + 1, item_position,
+		_add_entry(entries, "item", name, MapRules.region_index_at(item_position), item_position,
 			"%s %s" % [name, str(item)], 999, "바닥 아이템", "",
 			{"consumable": item.duplicate(true), "count": int(group["count"])})
 

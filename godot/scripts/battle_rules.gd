@@ -81,6 +81,9 @@ static func start_battle(deck: Array, player_hp: int, encounter: Dictionary = {}
 		"enemy_solitaire_hit_bonus": int(primary_enemy.get("solitaire_hit_bonus", 0)),
 		"enemy_solitaire_hit_bonus_stacks": int(primary_enemy.get("solitaire_hit_bonus_stacks", 0)),
 		"enemy_is_boss": bool(primary_enemy.get("is_boss", false)),
+		"tutorial_skip_enabled": bool(primary_enemy.get("tutorial_skip_enabled", false)),
+		"acted_this_turn": false,
+		"idle_turn_streak": 0,
 		"enemy_actions": primary_enemy.get("actions", []).duplicate(true),
 		"enemy_action_index": int(primary_enemy.get("action_index", 0)),
 		"enemy_attack": 0,
@@ -542,6 +545,8 @@ static func move_cards_to_file(state: Dictionary, payload: Dictionary, target_fi
 	else:
 		next["stars"] = int(next["stars"]) - star_cost
 	_arm_solitaire_enemy_bonuses(next)
+	next["acted_this_turn"] = true
+	next["idle_turn_streak"] = 0
 	next["message"] = "%d장을 %d번 파일로 옮겼습니다." % [moving.size(), target_file + 1]
 	if forge_count > 0:
 		next["message"] += " · %d장 재련" % forge_count
@@ -639,6 +644,24 @@ static func end_turn(state: Dictionary, draw_view: Variant = null, turn_view: Va
 	if str(next.get("pending_pile_operation", "")) != "":
 		return _with_message(next, "파일을 선택해 카드 효과를 마무리하세요.")
 	next["temporary_solitaire_actions"] = 0
+	var acted_this_turn := int(next.get("cards_played_this_turn", 0)) > 0 or bool(next.get("acted_this_turn", false))
+	next["acted_this_turn"] = false
+	if acted_this_turn:
+		next["idle_turn_streak"] = 0
+	else:
+		next["idle_turn_streak"] = int(next.get("idle_turn_streak", 0)) + 1
+	if bool(next.get("tutorial_skip_enabled", false)) and int(next.get("idle_turn_streak", 0)) >= 2:
+		var skip_enemies: Array = next.get("enemies", [])
+		for skip_index in range(skip_enemies.size()):
+			var skip_enemy: Dictionary = skip_enemies[skip_index]
+			skip_enemy["hp"] = 0
+			skip_enemies[skip_index] = skip_enemy
+		next["enemies"] = skip_enemies
+		next["enemy_hp"] = 0
+		_discard_turn_end_hand(next, next["hand"].duplicate(true))
+		next["status"] = "won"
+		next["message"] = "전투에서 승리했습니다."
+		return next
 	var preferred_target_index := int(next.get("target_enemy_index", 0))
 	var primary_enemy_index := -1
 	var enemies_for_turn: Array = next.get("enemies", [])

@@ -218,6 +218,10 @@ var mechanic_tooltip_anchor: Control
 var run_map_generation_job: RefCounted
 
 const VaultRules = preload("res://scripts/deck_vault_rules.gd")
+const SafeAreaLockBadge = preload("res://scripts/safe_area_lock_badge.gd")
+const PlayerTileArt = preload("res://scripts/player_tile_art.gd")
+var active_portal_warning_modal: Control
+var pending_safe_leave_confirmed := false
 
 
 func _ready() -> void:
@@ -612,9 +616,6 @@ func _unhandled_key_input(event: InputEvent) -> void:
 		get_viewport().set_input_as_handled()
 	elif auto_travel_active or map_travel_active:
 		return
-	elif key_event.keycode in [KEY_KP_5, KEY_5]:
-		_wait_on_map()
-		get_viewport().set_input_as_handled()
 	elif key_event.keycode == KEY_G:
 		_quick_pick_up_floor_items()
 		get_viewport().set_input_as_handled()
@@ -991,19 +992,22 @@ func _start_run() -> void:
 	var seed_generator := RandomNumberGenerator.new()
 	seed_generator.randomize()
 	var map_seed := seed_generator.randi()
-	var starter_deck := CardCatalog.create_starter_deck()
-	var starter_deck_name := _random_deck_name(25)
+	var starter_rng := RandomNumberGenerator.new()
+	starter_rng.seed = map_seed ^ 0x2b7e1516
+	var starter_deck := CardCatalog.create_starter_deck(starter_rng)
+	var starter_deck_name := _random_deck_name(20)
 	var next_run_state := {
 		"position": MapRules.START,
 		"map_seed": map_seed,
 		"map_turn": 0,
 		"player_hp": 70,
 		"max_hp": 70,
-		"gods_lament_charges": 3,
+		"gods_lament_charges": 0,
 		"region_battle_wins": 0,
 		"gold": 0,
 		"keys": 0,
-		"player_name": _random_player_name(),
+		"player_name": "탐험가",
+		"player_avatar": PlayerTileArt.random_avatar_id(),
 		"rare_card_drop_chance": 0.05,
 		"inventory_cards": [],
 		"inventory_consumables": [],
@@ -1011,7 +1015,7 @@ func _start_run() -> void:
 		"floor_deck_drops": [],
 		"floor_consumable_drops": [],
 		"deck": starter_deck,
-		"owned_decks": [{"id": "starter", "name": starter_deck_name, "capacity": 25,
+		"owned_decks": [{"id": "starter", "name": starter_deck_name, "capacity": 20,
 			"rare_slot_capacity": 1, "cards": starter_deck.duplicate(true), "editions": []}],
 		"active_deck_id": "starter",
 		"next_card_id": starter_deck.size() + 1,
@@ -1107,92 +1111,94 @@ func _open_player_name_setup() -> void:
 	var dialog := PanelContainer.new()
 	dialog.custom_minimum_size = Vector2(360.0, 0.0)
 	var dialog_style := StyleBoxFlat.new()
-	dialog_style.bg_color = Color("#f7f5ef")
-	dialog_style.border_color = Color("#77736b")
+	dialog_style.bg_color = Color("#0c0d0c")
+	dialog_style.border_color = Color("#db8a3d")
 	dialog_style.set_border_width_all(1)
-	dialog_style.set_corner_radius_all(8)
+	dialog_style.set_corner_radius_all(6)
 	dialog_style.content_margin_left = 26
-	dialog_style.content_margin_top = 26
+	dialog_style.content_margin_top = 24
 	dialog_style.content_margin_right = 26
-	dialog_style.content_margin_bottom = 26
+	dialog_style.content_margin_bottom = 24
 	dialog.add_theme_stylebox_override("panel", dialog_style)
 	center.add_child(dialog)
 
 	var body := VBoxContainer.new()
-	body.add_theme_constant_override("separation", 12)
+	body.add_theme_constant_override("separation", 14)
 	dialog.add_child(body)
-	var heading := _label("이름을 정하세요", 24, Color("#252525"))
-	body.add_child(heading)
 
-	var name_input := LineEdit.new()
-	name_input.text = str(run_state.get("player_name", _random_player_name()))
-	name_input.max_length = 16
-	name_input.custom_minimum_size.y = 44
-	name_input.add_theme_font_size_override("font_size", 18)
-	name_input.add_theme_color_override("font_color", Color("#252525"))
-	name_input.add_theme_color_override("caret_color", Color("#252525"))
-	var input_style := StyleBoxFlat.new()
-	input_style.bg_color = Color.WHITE
-	input_style.border_color = Color("#77736b")
-	input_style.set_border_width_all(1)
-	input_style.set_corner_radius_all(4)
-	input_style.content_margin_left = 12
-	input_style.content_margin_right = 12
-	name_input.add_theme_stylebox_override("normal", input_style)
-	name_input.add_theme_stylebox_override("focus", input_style.duplicate())
-	body.add_child(name_input)
+	var state := {"avatar": PlayerTileArt.normalize_avatar_id(str(run_state.get("player_avatar", "")))}
+
+	var preview_frame := PanelContainer.new()
+	preview_frame.custom_minimum_size = Vector2(128.0, 128.0)
+	preview_frame.size_flags_horizontal = Control.SIZE_SHRINK_CENTER
+	var preview_style := StyleBoxFlat.new()
+	preview_style.bg_color = Color("#16191c")
+	preview_style.border_color = Color("#7a5c28")
+	preview_style.set_border_width_all(1)
+	preview_style.set_corner_radius_all(4)
+	preview_style.content_margin_left = 14
+	preview_style.content_margin_top = 14
+	preview_style.content_margin_right = 14
+	preview_style.content_margin_bottom = 14
+	preview_frame.add_theme_stylebox_override("panel", preview_style)
+	var preview_rect := TextureRect.new()
+	preview_rect.texture = PlayerTileArt.texture_for(state["avatar"])
+	preview_rect.texture_filter = CanvasItem.TEXTURE_FILTER_NEAREST
+	preview_rect.expand_mode = TextureRect.EXPAND_IGNORE_SIZE
+	preview_rect.stretch_mode = TextureRect.STRETCH_KEEP_ASPECT_CENTERED
+	preview_rect.custom_minimum_size = Vector2(96.0, 96.0)
+	preview_frame.add_child(preview_rect)
+	body.add_child(preview_frame)
 
 	var reroll_button := Button.new()
-	reroll_button.text = "↻  랜덤 이름 리롤"
-	reroll_button.custom_minimum_size.y = 36
-	reroll_button.add_theme_font_size_override("font_size", 14)
-	reroll_button.add_theme_color_override("font_color", Color("#4f4a44"))
+	reroll_button.text = "↻"
+	reroll_button.custom_minimum_size = Vector2(52.0, 40.0)
+	reroll_button.size_flags_horizontal = Control.SIZE_SHRINK_CENTER
+	reroll_button.add_theme_font_size_override("font_size", 22)
+	reroll_button.add_theme_color_override("font_color", Color("#f3ece0"))
 	var reroll_style := StyleBoxFlat.new()
-	reroll_style.bg_color = Color("#eeece5")
-	reroll_style.border_color = Color("#aaa397")
+	reroll_style.bg_color = Color("#3d3e38")
+	reroll_style.border_color = Color("#877f6f")
 	reroll_style.set_border_width_all(1)
 	reroll_style.set_corner_radius_all(4)
 	reroll_button.add_theme_stylebox_override("normal", reroll_style)
-	var reroll_hover := reroll_style.duplicate()
-	reroll_hover.bg_color = Color.WHITE
+	var reroll_hover := reroll_style.duplicate() as StyleBoxFlat
+	reroll_hover.bg_color = Color("#4d4f47")
 	reroll_button.add_theme_stylebox_override("hover", reroll_hover)
+	reroll_button.add_theme_stylebox_override("pressed", reroll_hover)
 	reroll_button.pressed.connect(func() -> void:
-		name_input.text = _random_player_name()
+		state["avatar"] = PlayerTileArt.random_avatar_id(str(state["avatar"]))
+		preview_rect.texture = PlayerTileArt.texture_for(str(state["avatar"]))
 	)
 	body.add_child(reroll_button)
 
 	var start_button := Button.new()
 	start_button.text = "탐험 시작"
-	start_button.custom_minimum_size.y = 42
-	start_button.add_theme_font_size_override("font_size", 16)
-	start_button.add_theme_color_override("font_color", Color.WHITE)
+	start_button.custom_minimum_size.y = 48
+	start_button.add_theme_font_size_override("font_size", 19)
+	start_button.add_theme_font_override("font", DeckEditorHeadingFont)
+	start_button.add_theme_color_override("font_color", Color("#fff5e6"))
 	var start_style := StyleBoxFlat.new()
-	start_style.bg_color = Color("#707070")
-	start_style.border_color = Color("#5f5f5f")
+	start_style.bg_color = Color("#6e4219")
+	start_style.border_color = Color("#db8a3d")
 	start_style.set_border_width_all(1)
 	start_style.set_corner_radius_all(4)
 	start_button.add_theme_stylebox_override("normal", start_style)
-	var start_hover := start_style.duplicate()
-	start_hover.bg_color = Color("#808080")
+	var start_hover := start_style.duplicate() as StyleBoxFlat
+	start_hover.bg_color = Color("#875220")
 	start_button.add_theme_stylebox_override("hover", start_hover)
-	start_button.disabled = name_input.text.strip_edges().is_empty()
-	name_input.text_changed.connect(func(value: String) -> void:
-		start_button.disabled = value.strip_edges().is_empty()
-	)
-	var confirm_name := func() -> void:
-		var chosen_name := name_input.text.strip_edges()
-		if chosen_name.is_empty():
-			return
-		run_state["player_name"] = chosen_name
+	start_button.add_theme_stylebox_override("pressed", start_hover)
+	start_button.pressed.connect(func() -> void:
+		run_state["player_avatar"] = str(state["avatar"])
 		_save_run()
+		if is_instance_valid(active_map_view):
+			active_map_view.player_avatar = str(state["avatar"])
+			active_map_view.queue_redraw()
 		player_name_setup_overlay.queue_free()
 		player_name_setup_overlay = null
-	start_button.pressed.connect(confirm_name)
-	name_input.text_submitted.connect(func(_value: String) -> void:
-		confirm_name.call()
 	)
 	body.add_child(start_button)
-	name_input.call_deferred("grab_focus")
+	start_button.call_deferred("grab_focus")
 
 
 func _random_player_name() -> String:
@@ -1230,12 +1236,8 @@ func _random_deck_name(capacity: int) -> String:
 func _load_saved_run() -> void:
 	var loaded := RunSave.read_saved_run(RUN_SAVE_PATH)
 	if not bool(loaded.get("ok", false)):
-		if str(loaded.get("reason", "")) == "version_mismatch":
-			_clear_run_save()
-			notice = "지도 형식이 바뀌어 새 탐험을 시작해야 합니다."
-		else:
-			notice = "저장한 탐험을 읽지 못했습니다. 새 탐험을 시작하세요."
-		_show_title()
+		_clear_run_save()
+		_start_run()
 		return
 	map_debug_controller.reset()
 	var saved_state: Dictionary = loaded["state"]
@@ -1323,7 +1325,8 @@ func _clear_run_save() -> void:
 func _map_layout_key() -> Array:
 	return [int(run_state.get("map_seed", -1)), map_debug_controller.session.active,
 		int(run_state.get("max_hp", 70)), int(run_state.get("gods_lament_charges", 0)),
-		KarmaRules.stage_for_wins(int(run_state.get("region_battle_wins", 0)))]
+		KarmaRules.stage_for_wins(int(run_state.get("region_battle_wins", 0))),
+		MapRules.is_safe_area_tile(run_state.get("map", {}), run_state.get("position", MapRules.START))]
 
 
 func _refresh_map_after_turn() -> void:
@@ -1336,6 +1339,7 @@ func _refresh_map_after_turn() -> void:
 	var region := MapRules.region_index_at(current)
 	if MapRules.remember_visible_vaults(run_state["map"], current, map_debug_controller.session.active):
 		_save_run()
+	active_map_view.player_avatar = str(run_state.get("player_avatar", "human"))
 	active_map_view.configure(run_state["map"], current, run_state["defeated_enemies"], map_camera_center, map_zoom,
 		run_state.get("floor_cards", []), run_state.get("floor_deck_drops", []),
 		run_state.get("floor_consumable_drops", []), map_ping_position, map_ping_label,
@@ -1452,26 +1456,9 @@ func _show_map() -> void:
 	currencies.add_child(gold_label)
 	currencies.add_child(key_label)
 	run_stats.add_child(currencies)
-	var lament_charges := int(run_state.get("gods_lament_charges", 0))
-	var karma_stage := KarmaRules.stage_for_wins(int(run_state.get("region_battle_wins", 0)))
-	if lament_charges > 0 or karma_stage > 0:
-		var badges := MapStatusBadges.create(lament_charges, karma_stage,
-			KarmaRules.description(karma_stage))
-		badges.name = "MapStatusBadges"
-		add_child(badges)
-		var align_badges := func() -> void:
-			if is_instance_valid(page) and is_instance_valid(badges):
-				badges.global_position = page.global_position + Vector2(page.size.x * 0.9 + 12.0, 85.0)
-		page.resized.connect(align_badges)
-		align_badges.call_deferred()
 	var toolbar_spacer := Control.new()
 	toolbar_spacer.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	toolbar.add_child(toolbar_spacer)
-	var wait_button := _button("한 턴 쉼", Callable(self, "_wait_on_map"), Vector2(104, 52))
-	active_map_wait_button = wait_button
-	_style_map_control_button(wait_button, Color("#e2edd8"), Color("#4f7654"), Color("#36533a"))
-	wait_button.disabled = auto_travel_active or map_travel_active
-	toolbar.add_child(wait_button)
 	var search_button := _button("검색", Callable(self, "_open_map_search"), Vector2(76, 52))
 	active_map_search_button = search_button
 	_style_map_control_button(search_button, Color("#e2edd8"), Color("#4f7654"), Color("#36533a"))
@@ -1519,6 +1506,7 @@ func _show_map() -> void:
 	map_surface.add_child(map_viewport)
 	var map_view := MapView.new()
 	map_view.debug_mode = map_debug_controller.session.active
+	map_view.player_avatar = str(run_state.get("player_avatar", "human"))
 	active_map_view = map_view
 	map_view.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
 	map_view.configure(run_state["map"], current_position, run_state["defeated_enemies"], map_camera_center, map_zoom,
@@ -1552,6 +1540,31 @@ func _show_map() -> void:
 	minimap.offset_right = minimap_position.x + minimap_size.x
 	minimap.offset_bottom = minimap_position.y + minimap_size.y
 	map_surface.add_child(minimap)
+	var bottom_left_badges := HBoxContainer.new()
+	bottom_left_badges.name = "MapBottomLeftBadges"
+	bottom_left_badges.add_theme_constant_override("separation", 8)
+	bottom_left_badges.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	bottom_left_badges.set_anchors_and_offsets_preset(Control.PRESET_BOTTOM_LEFT)
+	bottom_left_badges.offset_left = 20.0
+	bottom_left_badges.offset_top = -66.0
+	bottom_left_badges.offset_right = 240.0
+	bottom_left_badges.offset_bottom = -20.0
+	if MapRules.is_safe_area_tile(run_state["map"], current_position):
+		var lock_badge := SafeAreaLockBadge.new()
+		lock_badge.configure("safe_area", 0, "덱 편집 제한 해제", "안전 구역에서는 덱을 자유롭게 편집할 수 있습니다.")
+		bottom_left_badges.add_child(lock_badge)
+	var lament_charges := int(run_state.get("gods_lament_charges", 0))
+	if lament_charges > 0:
+		var lament_badge := SafeAreaLockBadge.new()
+		lament_badge.configure("gods_lament", lament_charges, "신들의 비탄(%d)" % lament_charges, MapStatusBadges.LAMENT_DESCRIPTION)
+		bottom_left_badges.add_child(lament_badge)
+	var karma_stage := KarmaRules.stage_for_wins(int(run_state.get("region_battle_wins", 0)))
+	if karma_stage > 0:
+		var karma_badge := SafeAreaLockBadge.new()
+		karma_badge.configure("karma", karma_stage, "카르마(%d)" % karma_stage, KarmaRules.description(karma_stage))
+		bottom_left_badges.add_child(karma_badge)
+	if bottom_left_badges.get_child_count() > 0:
+		map_surface.add_child(bottom_left_badges)
 	active_map_surface = map_surface
 	_configure_map_deck_selector()
 	if gold_popup_pending > 0:
@@ -1701,7 +1714,7 @@ func _open_map_search() -> void:
 		active_map_search_panel.focus_search()
 		return
 	var search_panel = MapSearchPanel.new()
-	search_panel.configure(run_state, MapRules.region_index_at(run_state["position"]) + 1,
+	search_panel.configure(run_state, MapRules.region_index_at(run_state["position"]),
 		minimap_player_marker, map_ping_position, Callable(self, "_card_widget"))
 	search_panel.ping_requested.connect(_on_map_search_ping_requested)
 	add_child(search_panel)
@@ -2025,9 +2038,18 @@ func _use_current_map_tile() -> void:
 	var room_type := MapRules.room_type_at(map_data, current)
 	var region_index := MapRules.region_index_at(current)
 	if room_type in ["portal", "safePortal"] and int(run_state.get("keys", 0)) > 0:
+		if bool(run_state.get("skip_portal_key_warning", false)):
+			run_state["keys"] = 0
+		else:
+			pending_portal_type = room_type
+			_show_portal_key_warning()
+			return
+	if room_type == "safePortal" and region_index < MapRules.REGION_COUNT - 1 \
+			and not bool(run_state.get("skip_safe_leave_warning", false)) and not pending_safe_leave_confirmed:
 		pending_portal_type = room_type
-		_show_portal_key_warning()
+		_show_safe_area_leave_warning()
 		return
+	pending_safe_leave_confirmed = false
 	if room_type == "deckVault":
 		_show_deck_vault(current)
 		return
@@ -2044,16 +2066,16 @@ func _use_current_map_tile() -> void:
 		var heal_amount := floori(float(run_state["max_hp"]) * 0.3)
 		run_state["player_hp"] = mini(int(run_state["max_hp"]), previous_hp + heal_amount)
 		notice = "체력을 %d 회복했습니다." % (int(run_state["player_hp"]) - previous_hp)
-		map_data["room_types"][current] = "empty"
+		map_data["room_types"][current] = "safeArea" if MapRules.is_safe_area_tile(map_data, current) else "empty"
 	elif room_type == "portal":
 		var entries: Dictionary = map_data.get("safe_area_entries", {})
 		if not entries.has(region_index):
 			return
-		safe_area_unlock_pending_animation = true
+		safe_area_unlock_pending_animation = false
 		run_state["position"] = entries[region_index]
 		run_state["gods_lament_charges"] = 0
 		run_state["region_battle_wins"] = 0
-		notice = "안전 구역에 도착했습니다."
+		notice = "관문에 도착했습니다."
 	elif room_type == "safePortal":
 		if region_index >= MapRules.REGION_COUNT - 1:
 			notice = "마지막 지역입니다."
@@ -2063,7 +2085,7 @@ func _use_current_map_tile() -> void:
 		safe_area_unlock_pending_animation = false
 		run_state["gods_lament_charges"] = 3
 		run_state["region_battle_wins"] = 0
-		notice = "지역 %d에 도착했습니다." % (region_index + 2)
+		notice = "지역 %d에 도착했습니다." % (region_index + 1)
 	else:
 		notice = "이 타일은 아직 상호작용할 수 없습니다."
 		_show_map()
@@ -2075,37 +2097,230 @@ func _use_current_map_tile() -> void:
 	_show_map()
 
 
-func _show_portal_key_warning() -> void:
+func _make_checkbox_icon(checked: bool) -> ImageTexture:
+	var side := 16
+	var img := Image.create(side, side, false, Image.FORMAT_RGBA8)
+	img.fill(Color.TRANSPARENT)
+	var box_color := Color("#f3eee6")
+	for y in range(1, side - 1):
+		for x in range(1, side - 1):
+			var is_corner := (x in [1, side - 2]) and (y in [1, side - 2])
+			if not is_corner:
+				img.set_pixel(x, y, box_color)
+	if checked:
+		var check_color := Color("#161816")
+		var stroke_points: Array[Vector2i] = [
+			Vector2i(4, 8), Vector2i(5, 9), Vector2i(6, 10), Vector2i(7, 11),
+			Vector2i(8, 10), Vector2i(9, 9), Vector2i(10, 8), Vector2i(11, 7), Vector2i(12, 6),
+		]
+		for pt in stroke_points:
+			for dy in range(0, 2):
+				for dx in range(0, 2):
+					var px := pt.x + dx
+					var py := pt.y + dy
+					if px >= 2 and px < side - 2 and py >= 2 and py < side - 2:
+						img.set_pixel(px, py, check_color)
+	return ImageTexture.create_from_image(img)
+
+
+func _close_portal_warning_modal() -> void:
+	if is_instance_valid(active_portal_warning_modal):
+		active_portal_warning_modal.queue_free()
+		active_portal_warning_modal = null
+
+
+func _show_map_warning_modal(title_text: String, body_text: String, confirm_label: String,
+		on_confirm: Callable, skip_state_key: String = "") -> void:
+	_close_portal_warning_modal()
 	screen_name = "portalWarning"
-	_clear_screen()
-	var keys := int(run_state.get("keys", 0))
-	var page := _new_page("열쇠 확인", "지역을 이동하면 보유한 열쇠 %d개를 잃습니다." % keys)
-	var body := VBoxContainer.new()
-	body.size_flags_vertical = Control.SIZE_EXPAND_FILL
-	body.alignment = BoxContainer.ALIGNMENT_CENTER
-	body.add_theme_constant_override("separation", 14)
-	page.add_child(body)
-	var leave_keys := _button("열쇠를 두고 이동", Callable(self, "_confirm_portal_key_loss"), Vector2(260, 50))
-	leave_keys.size_flags_horizontal = Control.SIZE_SHRINK_CENTER
-	body.add_child(leave_keys)
-	var cancel := _button("취소", Callable(self, "_cancel_portal_key_warning"), Vector2(220, 46))
-	cancel.size_flags_horizontal = Control.SIZE_SHRINK_CENTER
-	body.add_child(cancel)
+	var overlay := Control.new()
+	overlay.name = "MapPortalWarningModal"
+	overlay.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
+	overlay.mouse_filter = Control.MOUSE_FILTER_STOP
+	overlay.z_index = 120
+	active_portal_warning_modal = overlay
+	add_child(overlay)
+
+	var backdrop := ColorRect.new()
+	backdrop.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
+	backdrop.color = Color(4.0 / 255.0, 8.0 / 255.0, 7.0 / 255.0, 0.72)
+	backdrop.mouse_filter = Control.MOUSE_FILTER_STOP
+	backdrop.gui_input.connect(func(event: InputEvent) -> void:
+		if event is InputEventMouseButton and event.button_index == MOUSE_BUTTON_LEFT and event.pressed:
+			_cancel_portal_key_warning()
+	)
+	overlay.add_child(backdrop)
+
+	var center := CenterContainer.new()
+	center.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
+	center.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	overlay.add_child(center)
+
+	var panel := PanelContainer.new()
+	panel.custom_minimum_size = Vector2(490, 0)
+	panel.mouse_filter = Control.MOUSE_FILTER_STOP
+	var panel_style := StyleBoxFlat.new()
+	panel_style.bg_color = Color("#0c0d0c", 0.96)
+	panel_style.border_color = Color("#db8a3d")
+	panel_style.set_border_width_all(1)
+	panel_style.set_corner_radius_all(5)
+	panel_style.shadow_color = Color(0.0, 0.0, 0.0, 0.6)
+	panel_style.shadow_size = 12
+	panel.add_theme_stylebox_override("panel", panel_style)
+	center.add_child(panel)
+
+	var column := VBoxContainer.new()
+	column.add_theme_constant_override("separation", 0)
+	panel.add_child(column)
+
+	var header_margin := MarginContainer.new()
+	for m in ["margin_left", "margin_right"]:
+		header_margin.add_theme_constant_override(m, 22)
+	for m in ["margin_top", "margin_bottom"]:
+		header_margin.add_theme_constant_override(m, 16)
+	var title := _label(title_text, 22, Color("#f7eee0"))
+	title.add_theme_font_override("font", DeckEditorHeadingFont)
+	header_margin.add_child(title)
+	column.add_child(header_margin)
+
+	var divider_top := ColorRect.new()
+	divider_top.custom_minimum_size.y = 1
+	divider_top.color = Color("#4c4538")
+	column.add_child(divider_top)
+
+	var body_margin := MarginContainer.new()
+	for m in ["margin_left", "margin_right"]:
+		body_margin.add_theme_constant_override(m, 22)
+	for m in ["margin_top", "margin_bottom"]:
+		body_margin.add_theme_constant_override(m, 20)
+	var body_box := VBoxContainer.new()
+	body_box.add_theme_constant_override("separation", 16)
+	var body_label := _label(body_text, 17, Color("#e4dfd5"))
+	body_label.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+	body_box.add_child(body_label)
+	var skip_checkbox: CheckBox = null
+	if not skip_state_key.is_empty():
+		skip_checkbox = CheckBox.new()
+		skip_checkbox.text = "이번 게임 동안 다시 보지 않기"
+		skip_checkbox.add_theme_font_size_override("font_size", 15)
+		skip_checkbox.add_theme_color_override("font_color", Color("#c7bfb0"))
+		skip_checkbox.add_theme_color_override("font_hover_color", Color("#f7eee0"))
+		skip_checkbox.add_theme_color_override("font_pressed_color", Color("#f7eee0"))
+		skip_checkbox.add_theme_color_override("font_focus_color", Color("#f7eee0"))
+		skip_checkbox.add_theme_constant_override("h_separation", 8)
+		var unchecked_icon := _make_checkbox_icon(false)
+		var checked_icon := _make_checkbox_icon(true)
+		skip_checkbox.add_theme_icon_override("unchecked", unchecked_icon)
+		skip_checkbox.add_theme_icon_override("checked", checked_icon)
+		skip_checkbox.add_theme_icon_override("unchecked_disabled", unchecked_icon)
+		skip_checkbox.add_theme_icon_override("checked_disabled", checked_icon)
+		body_box.add_child(skip_checkbox)
+	body_margin.add_child(body_box)
+	column.add_child(body_margin)
+
+	var divider_bottom := ColorRect.new()
+	divider_bottom.custom_minimum_size.y = 1
+	divider_bottom.color = Color("#4c4538")
+	column.add_child(divider_bottom)
+
+	var footer_margin := MarginContainer.new()
+	for m in ["margin_left", "margin_right"]:
+		footer_margin.add_theme_constant_override(m, 22)
+	for m in ["margin_top", "margin_bottom"]:
+		footer_margin.add_theme_constant_override(m, 16)
+	var footer_row := HBoxContainer.new()
+	footer_row.alignment = BoxContainer.ALIGNMENT_END
+	footer_row.add_theme_constant_override("separation", 12)
+
+	var cancel_btn := _button("취소", Callable(self, "_cancel_portal_key_warning"), Vector2(100, 44))
+	var cancel_style := StyleBoxFlat.new()
+	cancel_style.bg_color = Color("#484941")
+	cancel_style.border_color = Color("#928b7a")
+	cancel_style.set_border_width_all(1)
+	cancel_style.set_corner_radius_all(3)
+	var cancel_hover := cancel_style.duplicate() as StyleBoxFlat
+	cancel_hover.bg_color = Color("#585a50")
+	cancel_btn.add_theme_stylebox_override("normal", cancel_style)
+	cancel_btn.add_theme_stylebox_override("hover", cancel_hover)
+	cancel_btn.add_theme_stylebox_override("pressed", cancel_hover)
+	cancel_btn.add_theme_color_override("font_color", Color("#f3ece0"))
+	cancel_btn.add_theme_font_size_override("font_size", 16)
+	footer_row.add_child(cancel_btn)
+
+	var confirm_btn := _button(confirm_label, func() -> void:
+		if is_instance_valid(skip_checkbox) and skip_checkbox.button_pressed and not skip_state_key.is_empty():
+			run_state[skip_state_key] = true
+		on_confirm.call()
+	, Vector2(156, 44))
+	var confirm_style := StyleBoxFlat.new()
+	confirm_style.bg_color = Color("#6e4219")
+	confirm_style.border_color = Color("#db8a3d")
+	confirm_style.set_border_width_all(1)
+	confirm_style.set_corner_radius_all(3)
+	var confirm_hover := confirm_style.duplicate() as StyleBoxFlat
+	confirm_hover.bg_color = Color("#875220")
+	confirm_btn.add_theme_stylebox_override("normal", confirm_style)
+	confirm_btn.add_theme_stylebox_override("hover", confirm_hover)
+	confirm_btn.add_theme_stylebox_override("pressed", confirm_hover)
+	confirm_btn.add_theme_color_override("font_color", Color("#fff5e6"))
+	confirm_btn.add_theme_font_size_override("font_size", 16)
+	footer_row.add_child(confirm_btn)
+
+	footer_margin.add_child(footer_row)
+	column.add_child(footer_margin)
+
+
+func _show_portal_key_warning() -> void:
+	_show_map_warning_modal(
+		"열쇠 확인",
+		"지역을 이동하면 보유한 열쇠를 모두 잃습니다.\n그래도 이동하시겠습니까?",
+		"그래도 이동",
+		Callable(self, "_confirm_portal_key_loss"),
+		"skip_portal_key_warning"
+	)
+
+
+func _show_safe_area_leave_warning() -> void:
+	_show_map_warning_modal(
+		"관문 이탈",
+		"관문을 떠나면 다음 관문에 도착할 때까지\n덱을 자유롭게 편집할 수 없습니다.\n그래도 이동하시겠습니까?",
+		"이동",
+		Callable(self, "_confirm_safe_area_leave"),
+		"skip_safe_leave_warning"
+	)
 
 
 func _cancel_portal_key_warning() -> void:
 	pending_portal_type = ""
-	_show_map()
+	pending_safe_leave_confirmed = false
+	_close_portal_warning_modal()
+	screen_name = "map"
 
 
 func _confirm_portal_key_loss() -> void:
 	var current: Vector2i = run_state.get("position", MapRules.START)
-	if MapRules.room_type_at(run_state["map"], current) != pending_portal_type:
+	var target_portal := pending_portal_type
+	_close_portal_warning_modal()
+	if MapRules.room_type_at(run_state["map"], current) != target_portal:
 		pending_portal_type = ""
-		_show_map()
+		screen_name = "map"
 		return
 	run_state["keys"] = 0
 	pending_portal_type = ""
+	screen_name = "map"
+	_use_current_map_tile()
+
+
+func _confirm_safe_area_leave() -> void:
+	var current: Vector2i = run_state.get("position", MapRules.START)
+	_close_portal_warning_modal()
+	if MapRules.room_type_at(run_state["map"], current) != "safePortal":
+		pending_portal_type = ""
+		pending_safe_leave_confirmed = false
+		screen_name = "map"
+		return
+	pending_portal_type = ""
+	pending_safe_leave_confirmed = true
 	screen_name = "map"
 	_use_current_map_tile()
 
@@ -3664,7 +3879,8 @@ func _finish_battle_win() -> void:
 		var is_boss := bool(battle_state.get("enemy_is_boss", false))
 		var first_reward_id := int(run_state.get("next_card_id", run_state["deck"].size() + 1))
 		var rare_chance := float(run_state.get("rare_card_drop_chance", 0.05))
-		reward_cards = CardCatalog.create_reward_cards(first_reward_id, reward_random, is_boss, rare_chance)
+		var boss_reward_count := 1 if (is_boss and MapRules.region_index_at(position) == 0) else -1
+		reward_cards = CardCatalog.create_reward_cards(first_reward_id, reward_random, is_boss, rare_chance, boss_reward_count)
 		run_state["next_card_id"] = first_reward_id + reward_cards.size()
 		var floor_cards: Array = run_state.get("floor_cards", [])
 		var reward_position: Vector2i = run_state.get("position", position)
@@ -4032,30 +4248,21 @@ func _battle_player_identity() -> VBoxContainer:
 	var row := VBoxContainer.new()
 	row.alignment = BoxContainer.ALIGNMENT_CENTER
 	row.add_theme_constant_override("separation", 5)
-	var avatar := PanelContainer.new()
-	avatar.name = "PlayerPortrait"
-	avatar.custom_minimum_size = Vector2(50, 50)
-	avatar.size_flags_horizontal = Control.SIZE_SHRINK_CENTER
-	var avatar_style := StyleBoxFlat.new()
-	avatar_style.bg_color = Color("#d9b852")
-	avatar_style.border_color = Color("#a7771f")
-	avatar_style.set_border_width_all(1)
-	avatar_style.set_corner_radius_all(0)
-	avatar.add_theme_stylebox_override("panel", avatar_style)
-	var avatar_text := _label("@", 36, Color("#32270b"))
-	avatar_text.mouse_filter = Control.MOUSE_FILTER_IGNORE
-	avatar_text.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
-	avatar_text.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
-	avatar.add_child(avatar_text)
-	row.add_child(avatar)
+	var avatar_tex := TextureRect.new()
+	avatar_tex.name = "PlayerPortrait"
+	avatar_tex.texture = PlayerTileArt.texture_for(str(run_state.get("player_avatar", "human")))
+	avatar_tex.texture_filter = CanvasItem.TEXTURE_FILTER_NEAREST
+	avatar_tex.expand_mode = TextureRect.EXPAND_IGNORE_SIZE
+	avatar_tex.stretch_mode = TextureRect.STRETCH_KEEP_ASPECT_CENTERED
+	avatar_tex.custom_minimum_size = Vector2(96, 96)
+	avatar_tex.size_flags_horizontal = Control.SIZE_SHRINK_CENTER
+	avatar_tex.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	row.add_child(avatar_tex)
 	var details := VBoxContainer.new()
 	details.custom_minimum_size.x = 190
 	details.size_flags_horizontal = Control.SIZE_SHRINK_CENTER
 	details.alignment = BoxContainer.ALIGNMENT_CENTER
 	details.add_theme_constant_override("separation", 4)
-	var player_name := _label(str(run_state.get("player_name", "탐험가")), 15, Color.WHITE)
-	player_name.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
-	details.add_child(player_name)
 	var hp_row := HBoxContainer.new()
 	hp_row.custom_minimum_size.x = details.custom_minimum_size.x * 1.2
 	hp_row.add_theme_constant_override("separation", 5)

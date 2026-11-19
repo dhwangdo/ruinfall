@@ -2,6 +2,7 @@ extends Control
 
 const DeckEditions = preload("res://scripts/deck_editions.gd")
 const TooltipBindings = preload("res://scripts/tooltip_bindings.gd")
+const PadlockGlyphArt = preload("res://scripts/padlock_glyph_art.gd")
 const DeckIconArt = preload("res://scripts/deck_icon_art.gd")
 const HeadingFontRegular = preload("res://assets/fonts/PretendardVariable.woff2")
 const HeadingFont = preload("res://assets/fonts/PretendardVariable700.tres")
@@ -170,28 +171,13 @@ func _draw() -> void:
 	if not _show_lock:
 		return
 	var can_edit := bool(get_meta("deck_case_can_edit", false))
-	var color := Color("#e6a04b") if bool(get_meta("deck_case_lock_hovered", false)) \
-		else MUTED_COLOR.lerp(Color("#f0cd56"), _lock_color_progress) if can_edit else MUTED_COLOR
-	var right := size.x - 19.0
+	var color := Color("#f0be4d") if bool(get_meta("deck_case_lock_hovered", false)) \
+		else MUTED_COLOR.lerp(Color("#dba534"), _lock_color_progress) if can_edit else MUTED_COLOR
+	var right := size.x - 20.0
 	var bottom := size.y - 20.0
-	# Small outlined lock in the same lower-right position as the browser heading.
-	var shackle_y := bottom - 8.0 - 2.25 * _lock_shackle_lift_progress
-	var hinge_x := right - 6.0
-	var rotation := PI * _lock_shackle_progress if can_edit else 0.0
-	var shackle_points := PackedVector2Array()
-	for point_index in range(17):
-		var angle := PI + PI * float(point_index) / 16.0
-		var original_x := right + 6.0 * cos(angle)
-		var rotated_x := hinge_x + (original_x - hinge_x) * cos(rotation)
-		shackle_points.append(Vector2(rotated_x, shackle_y + 6.0 * sin(angle)))
-	draw_polyline(shackle_points, color, 1.8, true)
-	var closed_leg_x := hinge_x
-	var free_leg_x := hinge_x + 12.0 * cos(rotation)
-	draw_line(Vector2(closed_leg_x, shackle_y), Vector2(closed_leg_x, bottom - 1.0), color, 1.8, true)
-	draw_line(Vector2(free_leg_x, shackle_y), Vector2(free_leg_x, bottom - 1.0), color, 1.8, true)
-	draw_rect(Rect2(right - 9.0, bottom - 1.0, 18.0, 15.0), color, false, 1.8, true)
-	draw_circle(Vector2(right, bottom + 5.0), 1.2, color)
-	draw_line(Vector2(right, bottom + 6.0), Vector2(right, bottom + 9.0), color, 1.3, true)
+	var open_progress := clampf(maxf(_lock_shackle_lift_progress * 0.35, _lock_shackle_progress), 0.0, 1.0) if can_edit else 0.0
+	var lock_rect := Rect2(Vector2(right - 14.0, bottom - 15.0), Vector2(28.0, 28.0))
+	PadlockGlyphArt.draw(self, lock_rect, color, open_progress)
 	# The browser uses a visible divider between the heading and card strip.
 	draw_line(Vector2(size.x - 1.0, 0.0), Vector2(size.x - 1.0, size.y), Color("#db8a3d"), 2.0, true)
 

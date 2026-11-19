@@ -9,6 +9,7 @@ const TILES := {
 	"알집 바퀴": preload("res://assets/enemies/dcss/giant_cockroach.png"),
 	"새끼 바퀴": preload("res://assets/enemies/dcss/giant_cockroach.png"),
 	"골렘": preload("res://assets/enemies/dcss/iron_golem.png"),
+	"문지기 골렘": preload("res://assets/enemies/dcss/guardian_golem.png"),
 	"굶주린 들개": preload("res://assets/enemies/dcss/hound.png"),
 	"수색견": preload("res://assets/enemies/dcss/hound.png"),
 	"도깨비": preload("res://assets/enemies/dcss/goblin.png"),

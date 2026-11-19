@@ -44,7 +44,7 @@ static func _spawn_item(state: Dictionary, selection: String, random: RandomNumb
 	var x := position.x
 	var y := position.y
 	if selection == "deck:random":
-		var region := maxi(1, MapRules.region_index_at(Vector2i(x, y)) + 1)
+		var region := maxi(1, MapRules.region_index_at(Vector2i(x, y)))
 		var bonus := 5 if state.get("blessings", []).has("deckSize") else 0
 		var first_id := int(state.get("next_card_id", 1))
 		var result := CardCatalog.create_region_deck(region, first_id, random)

@@ -76,7 +76,7 @@ func _build_header(deck: Dictionary) -> Control:
 	margin.add_theme_constant_override("margin_right", 18)
 	margin.add_theme_constant_override("margin_bottom", 18)
 	var column := VBoxContainer.new()
-	column.add_theme_constant_override("separation", 0)
+	column.add_theme_constant_override("separation", 6)
 	margin.add_child(column)
 	var deck_name := str(deck.get("name", "덱 금고"))
 	var title := Label.new()
@@ -87,19 +87,19 @@ func _build_header(deck: Dictionary) -> Control:
 	column.add_child(title)
 	var editions: Array = deck.get("editions", [])
 	if not editions.is_empty():
-		var edition_list := DeckEditionList.build(editions, deck.get("edition_colors", {}), GameFonts.make(500), 15,
-			Color("#d7caa8"), 4)
+		var edition_list := DeckEditionList.build(editions, deck.get("edition_colors", {}), GameFonts.make(600), 17,
+			Color("#d7caa8"), 6)
 		column.add_child(edition_list)
 	var cards: Array = deck.get("cards", [])
 	var capacity := int(deck.get("capacity", 0))
 	var summary := Label.new()
 	summary.text = "%d / %d장 · 열쇠 %d개로 개방" % [cards.size(), capacity, VaultRules.key_cost(deck)]
-	summary.add_theme_font_override("font", GameFonts.make(400))
-	summary.add_theme_font_size_override("font_size", 14)
+	summary.add_theme_font_override("font", GameFonts.make(500))
+	summary.add_theme_font_size_override("font_size", 16)
 	summary.add_theme_color_override("font_color", Color("#f0eee7"))
 	summary.add_theme_constant_override("line_spacing", 1)
 	var summary_margin := MarginContainer.new()
-	summary_margin.add_theme_constant_override("margin_top", 8)
+	summary_margin.add_theme_constant_override("margin_top", 4)
 	summary_margin.add_child(summary)
 	column.add_child(summary_margin)
 	return margin

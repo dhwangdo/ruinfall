@@ -195,22 +195,27 @@ const LEGENDARY_CARDS: Array[Dictionary] = [
 ]
 
 
-static func create_starter_deck() -> Array[Dictionary]:
+static func create_starter_deck(random: RandomNumberGenerator = null) -> Array[Dictionary]:
+	var rng := random
+	if rng == null:
+		rng = RandomNumberGenerator.new()
+		rng.randomize()
 	var deck: Array[Dictionary] = []
 	for blueprint in STARTER_CARDS:
-		deck.append(_make_card(blueprint, deck.size() + 1))
-	for blueprint in BASIC_CARDS:
-		deck.append(_make_card(blueprint, deck.size() + 1))
-	for blueprint in STARTER_CARDS:
-		for copy_index in range(4):
+		for _copy_index in range(5):
 			deck.append(_make_card(blueprint, deck.size() + 1))
+	var basic_pool := BASIC_CARDS.duplicate()
+	var basic_count := mini(6, basic_pool.size())
+	for _pick in range(basic_count):
+		var index := rng.randi_range(0, basic_pool.size() - 1)
+		deck.append(_make_card(basic_pool.pop_at(index), deck.size() + 1))
 	return deck
 
 
 static func create_reward_cards(first_id: int, random: RandomNumberGenerator, force_rare: bool = false,
-		rare_chance: float = 0.05) -> Array[Dictionary]:
+		rare_chance: float = 0.05, count_override: int = -1) -> Array[Dictionary]:
 	var rewards: Array[Dictionary] = []
-	var reward_count := 2 if force_rare else 1
+	var reward_count := count_override if count_override > 0 else (2 if force_rare else 1)
 	for reward_index in range(reward_count):
 		var blueprint: Dictionary
 		if force_rare or random.randf() < rare_chance:
@@ -313,6 +318,72 @@ static func create_region_deck(region_number: int, first_id: int, random: Random
 
 static func roll_region_shape(region_number: int, random: RandomNumberGenerator) -> Dictionary:
 	return GenerationModel.roll(region_number, random)
+
+
+static func create_region_zero_deck(preset: int, first_id: int, random: RandomNumberGenerator) -> Dictionary:
+	var capacity := 20
+	var filled_rares := 0
+	var empty_rares := 0
+	var sticker_count := 0
+	var editions: Array[String] = []
+	match preset:
+		0:
+			# Edition-focused: 20 capacity, 0 rare slots, 1 tier-1 edition.
+			var tier_one: Array[String] = ["roomy", "firstSolitaire", "quickHammer", "sharpLight", "cycle", "metallurgy"]
+			editions = [tier_one[random.randi_range(0, tier_one.size() - 1)]]
+		1:
+			# Rare-focused: 20 capacity, 3 rare slots (2 filled + 1 empty).
+			filled_rares = 2
+			empty_rares = 1
+		_:
+			# Capacity + stickers: 25 capacity, 1 filled rare slot, 2 random stickers.
+			capacity = 25
+			filled_rares = 1
+			sticker_count = 2
+	var rare_slots := filled_rares + empty_rares
+	var cards: Array[Dictionary] = []
+	var next_id := first_id
+	var rare_bag := RARE_CARDS.duplicate()
+	for _slot in range(filled_rares):
+		if rare_bag.is_empty():
+			rare_bag = RARE_CARDS.duplicate()
+		cards.append(_make_card(rare_bag.pop_at(random.randi_range(0, rare_bag.size() - 1)), next_id))
+		next_id += 1
+	for _slot in range(capacity - rare_slots):
+		var filler_kind := random.randi_range(0, 3)
+		if filler_kind == 0:
+			continue
+		var pool: Array = STARTER_CARDS if filler_kind == 1 else BASIC_CARDS if filler_kind == 2 else SPECIAL_CARDS
+		cards.append(_make_card(pool[random.randi_range(0, pool.size() - 1)], next_id))
+		next_id += 1
+	var sticker_candidates: Array[int] = []
+	for index in range(cards.size()):
+		if not CardStickers.compatible_stickers(cards[index]).is_empty():
+			sticker_candidates.append(index)
+	while sticker_candidates.size() < sticker_count and cards.size() < capacity - empty_rares:
+		var blueprint: Dictionary = BASIC_CARDS[random.randi_range(0, BASIC_CARDS.size() - 1)]
+		var extra := _make_card(blueprint, next_id)
+		if CardStickers.compatible_stickers(extra).is_empty():
+			continue
+		sticker_candidates.append(cards.size())
+		cards.append(extra)
+		next_id += 1
+	for _sticker in range(mini(sticker_count, sticker_candidates.size())):
+		var index: int = sticker_candidates.pop_at(random.randi_range(0, sticker_candidates.size() - 1))
+		cards[index] = CardStickers.with_random_sticker(cards[index], 1.0, random)
+	return {
+		"deck": {
+			"id": "found-r0-%d" % first_id,
+			"name": _create_deck_name(capacity, random),
+			"capacity": capacity,
+			"rare_slot_capacity": rare_slots,
+			"cards": cards,
+			"editions": editions,
+			"vault_region_offset": 0,
+			"vault_key_cost": 1,
+		},
+		"next_card_id": next_id,
+	}
 
 
 static func _single_card_deck_blueprint(editions: Array, random: RandomNumberGenerator) -> Dictionary:

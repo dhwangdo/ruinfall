@@ -27,14 +27,25 @@ func state(editions: Array = [], deck: Array = []) -> Dictionary:
 
 func _initialize() -> void:
 	var deck := Catalog.create_starter_deck()
-	assert(deck.size() == 10 + Catalog.BASIC_CARDS.size())
+	assert(deck.size() == 16)
+	var basic_names := {}
 	for blueprint in Catalog.BASIC_CARDS:
-		var copies := 0
-		for starter_card in deck:
-			if starter_card.name == blueprint.name:
-				copies += 1
-		assert(copies == 1, "Starting deck must include every basic card once: " + str(blueprint.name))
+		basic_names[blueprint.name] = true
+	var starter_strikes := 0
+	var starter_defends := 0
+	var seen_basics := {}
+	for starter_card in deck:
+		if starter_card.name == "타격":
+			starter_strikes += 1
+		elif starter_card.name == "방어":
+			starter_defends += 1
+		elif basic_names.has(starter_card.name):
+			assert(not seen_basics.has(starter_card.name), "Starting deck basic cards must be distinct")
+			seen_basics[starter_card.name] = true
+	assert(starter_strikes == 5 and starter_defends == 5 and seen_basics.size() == 6)
 	# Keep the edition layout fixture at its original 20 cards.
+	while deck.size() < 20:
+		deck.append(card("strike"))
 	deck = deck.slice(0, 20)
 	var before := state([], deck)
 	var after := state(["roomy"], deck)

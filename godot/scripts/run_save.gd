@@ -2,6 +2,7 @@ extends RefCounted
 class_name PortRunSave
 
 const MapRules = preload("res://scripts/map_rules.gd")
+const PlayerTileArt = preload("res://scripts/player_tile_art.gd")
 
 
 static func read_saved_run(save_path: String) -> Dictionary:
@@ -21,6 +22,10 @@ static func read_saved_run(save_path: String) -> Dictionary:
 static func normalize_loaded_run(run_state: Dictionary, random_player_name: Callable) -> void:
 	if not run_state.has("player_name") or str(run_state.get("player_name", "")).strip_edges().is_empty():
 		run_state["player_name"] = str(random_player_name.call())
+	if not run_state.has("player_avatar") or str(run_state.get("player_avatar", "")).strip_edges().is_empty():
+		run_state["player_avatar"] = PlayerTileArt.random_avatar_id()
+	else:
+		run_state["player_avatar"] = PlayerTileArt.normalize_avatar_id(str(run_state.get("player_avatar", "")))
 	var defaults := {
 		"map_turn": 0,
 		"sticker_service_uses": {},
@@ -38,10 +43,10 @@ static func normalize_loaded_run(run_state: Dictionary, random_player_name: Call
 		if not run_state.has(key):
 			run_state[key] = defaults[key]
 	if not run_state.has("gods_lament_charges"):
-		run_state["gods_lament_charges"] = 0 if MapRules.is_safe_area_tile(run_state["map"], run_state["position"]) else 3
+		run_state["gods_lament_charges"] = 0 if (MapRules.is_gateway_tile(run_state["map"], run_state["position"]) or MapRules.region_index_at(run_state["position"]) == 0) else 3
 	if not run_state.has("owned_decks") or typeof(run_state["owned_decks"]) != TYPE_ARRAY:
 		run_state["active_deck_id"] = "starter"
-		run_state["owned_decks"] = [{"id": "starter", "name": "시작 덱", "capacity": 25,
+		run_state["owned_decks"] = [{"id": "starter", "name": "시작 덱", "capacity": 20,
 			"rare_slot_capacity": 1, "cards": run_state["deck"].duplicate(true), "editions": []}]
 	elif run_state["owned_decks"].is_empty():
 		# An intentionally empty collection is valid after dropping the last deck.

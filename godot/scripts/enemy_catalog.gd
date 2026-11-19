@@ -192,6 +192,17 @@ static func _single_encounter_blueprints(encounter_index: int) -> Array[Dictiona
 				{"name": "무모한 돌격", "damage": 3, "hits": 3, "vulnerable_gain": 1, "random_no_repeat": true},
 				{"name": "피의 일격", "damage": 8, "player_vulnerable_gain": 1, "random_no_repeat": true},
 			], {"shared_turn_end_strength_gain": 2, "trait": "적 턴 종료 시 플레이어와 자신이 힘 2를 얻습니다."})]
+		90:
+			var pair_rats: Array[Dictionary] = []
+			for _rat_index in range(2):
+				pair_rats.append(_enemy("쥐", 15, [{"name": "물기", "damage": 5, "cycle": true}], {"tutorial_skip_enabled": true}))
+			return pair_rats
+		91:
+			return [_enemy("문지기 골렘", 60, [
+				{"name": "내려치기", "damage": 10, "cycle": true},
+				{"name": "방어 태세", "block_gain": 8, "strength_gain": 2, "cycle": true},
+				{"name": "강타", "damage": 12, "cycle": true},
+			], {"is_boss": true, "fixed_max_hp": true, "tutorial_skip_enabled": true})]
 		_:
 			return []
 

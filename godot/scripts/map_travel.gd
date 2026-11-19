@@ -30,29 +30,14 @@ static func find_enemy_avoiding_route(
 			walkable[seen_position] = true
 	walkable[start] = true
 
-	var enemy_distances: Dictionary = {}
-	var distance_queue: Array[Vector2i] = []
+	var enemy_cells: Dictionary = {}
 	for enemy_position in _known_travel_enemy_positions(map_data, defeated_enemies):
-		if walkable.has(enemy_position) and not enemy_distances.has(enemy_position):
-			enemy_distances[enemy_position] = 0
-			distance_queue.append(enemy_position)
-	var distance_index := 0
-	while distance_index < distance_queue.size():
-		var distance_position: Vector2i = distance_queue[distance_index]
-		distance_index += 1
-		var next_distance := int(enemy_distances[distance_position]) + 1
-		if next_distance >= 6:
-			continue
-		for direction in DIRECTIONS:
-			var distance_neighbor: Vector2i = distance_position + direction
-			if not walkable.has(distance_neighbor) or enemy_distances.has(distance_neighbor):
-				continue
-			enemy_distances[distance_neighbor] = next_distance
-			distance_queue.append(distance_neighbor)
+		if walkable.has(enemy_position):
+			enemy_cells[enemy_position] = true
 
 	var first_node := {
 		"position": start,
-		"exposure": [0, 0, 0, 0, 0, 0],
+		"exposure": [0],
 		"steps": 0,
 		"turns": 0,
 		"direction": -1,
@@ -76,9 +61,9 @@ static func find_enemy_avoiding_route(
 			var route_neighbor: Vector2i = current_position + DIRECTIONS[direction_index]
 			if not walkable.has(route_neighbor):
 				continue
-			var exposure: Array = current["exposure"].duplicate()
-			if enemy_distances.has(route_neighbor):
-				exposure[int(enemy_distances[route_neighbor])] += 1
+			if enemy_cells.has(route_neighbor) and route_neighbor != target:
+				continue
+			var exposure: Array = [int(current["exposure"][0]) + (1 if enemy_cells.has(route_neighbor) else 0)]
 			var next_node := {
 				"position": route_neighbor,
 				"exposure": exposure,
@@ -353,37 +338,11 @@ static func _update_avoided_rooms(map_data: Dictionary, progress: Dictionary, de
 	return avoided
 
 
-static func _blocked_rooms_from_history(map_data: Dictionary, history: Dictionary) -> Dictionary:
+static func _blocked_rooms_from_history(_map_data: Dictionary, history: Dictionary) -> Dictionary:
 	var blocked: Dictionary = {}
-	var seen: Dictionary = map_data.get("seen", {})
 	for snapshot in history.values():
 		var position: Vector2i = snapshot["position"]
-		var awareness := str(snapshot.get("awareness", "sleeping"))
-		var radius := 0 if bool(snapshot.get("is_boss", false)) or bool(snapshot.get("permanent_sleep", false)) \
-			else ALERT_RESET_DISTANCE - 1 if awareness == "alerted" \
-			else MapRules.ENEMY_PERCEPTION_RANGE + 1 if awareness == "awake" \
-			else MapRules.ENEMY_PERCEPTION_RANGE
-		var visited: Dictionary = {position: true}
-		var queue: Array[Dictionary] = [{"position": position, "distance": 0}]
 		blocked[position] = true
-		var queue_index := 0
-		while queue_index < queue.size():
-			var entry: Dictionary = queue[queue_index]
-			queue_index += 1
-			var current: Vector2i = entry["position"]
-			var distance := int(entry["distance"])
-			if distance >= radius:
-				continue
-			for direction in DIRECTIONS:
-				var next: Vector2i = current + direction
-				if next.x < 0 or next.x >= MapRules.WIDTH or next.y < 0 or next.y >= MapRules.HEIGHT or visited.has(next):
-					continue
-				if seen.has(next) and not MapRules.is_walkable(map_data, next):
-					continue
-				visited[next] = true
-				blocked[next] = true
-				if not seen.has(next) or not MapRules.is_safe_area_tile(map_data, next):
-					queue.append({"position": next, "distance": distance + 1})
 	return blocked
 
 

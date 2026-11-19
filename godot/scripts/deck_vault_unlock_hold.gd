@@ -50,7 +50,7 @@ func is_disabled() -> bool:
 
 
 func _ready() -> void:
-	custom_minimum_size = Vector2(190.0, 42.0)
+	custom_minimum_size = Vector2(212.0, 46.0)
 	focus_mode = Control.FOCUS_ALL
 	mouse_filter = Control.MOUSE_FILTER_STOP
 	process_mode = Node.PROCESS_MODE_ALWAYS
@@ -66,7 +66,7 @@ func _ready() -> void:
 	_label.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	_label.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 	_label.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
-	_label.add_theme_font_size_override("font_size", 14)
+	_label.add_theme_font_size_override("font_size", 17)
 	var label_font := FontVariation.new()
 	label_font.base_font = CARD_FONT
 	var weight_axis := TextServerManager.get_primary_interface().name_to_tag("wght")

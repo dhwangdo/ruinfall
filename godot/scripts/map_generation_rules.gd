@@ -51,7 +51,7 @@ static func seeded_roll(position: Vector2i, seed_value: int, salt: int = 0) -> f
 static func safe_area_center(seed_value: int, region_index: int, width: int, region_height: int) -> Vector2i:
 	var region_point := Vector2i(region_index, 0)
 	var left_side := seeded_roll(region_point, seed_value, 8201) < 0.5
-	var min_x := 12 if left_side else 163
+	var min_x := 16 if left_side else 163
 	var max_x := 53 if left_side else width - 3
 	var center_x := min_x + floori(seeded_roll(region_point, seed_value, 8202) * (max_x - min_x + 1))
 	var base_y := floori(float(region_height) / 2.0)
@@ -95,7 +95,7 @@ static func make_blocked_safe_area(width: int, height: int, center: Vector2i) ->
 	blocked.resize(width * height)
 	blocked.fill(0)
 	for y in range(center.y - 2, center.y + 3):
-		for x in range(center.x - 12, center.x + 3):
+		for x in range(center.x - 16, center.x + 3):
 			if x >= 0 and x < width and y >= 0 and y < height:
 				blocked[y * width + x] = 1
 	return blocked
@@ -319,7 +319,7 @@ static func place_region_locations(map_data: Dictionary, counts: Dictionary, see
 			if room_types.has(position) and ["portal", "deckVault"].has(str(room_types[position])):
 				occupied.append(index)
 				landmarks[index] = str(room_types[position])
-			if x >= safe_center.x - 12 and x <= safe_center.x + 2 \
+			if x >= safe_center.x - 16 and x <= safe_center.x + 2 \
 				and abs(local_y - safe_center.y) <= 2:
 				continue
 			if index < main_floor.size() and main_floor[index] and walkable.has(position) \
@@ -574,9 +574,9 @@ static func generate_floor(
 			continue
 		var x := index % width
 		var y := floori(float(index) / width)
-		var radius := 0.05 + 1.25 * _spatial_noise(x, y, 8.0, seed_value + 13) \
-			+ 0.30 * _spatial_noise(x, y, 3.0, seed_value + 57) \
-			+ 0.55 * (_grid_noise(x, y, seed_value + 211) - 0.5)
+		var radius := -0.25 + 1.00 * _spatial_noise(x, y, 8.0, seed_value + 13) \
+			+ 0.25 * _spatial_noise(x, y, 3.0, seed_value + 57) \
+			+ 0.40 * (_grid_noise(x, y, seed_value + 211) - 0.5)
 		if distance[index] <= radius:
 			floor_cells[index] = 1
 	for candidate in room_candidates:
