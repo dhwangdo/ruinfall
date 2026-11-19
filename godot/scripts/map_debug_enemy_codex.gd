@@ -73,8 +73,8 @@ static func _make_entry(encounter_index: int, region: int, blueprints: Array[Dic
 		enemies.append({
 			"enemy": enemy,
 			"count": int(group["count"]),
-			"hp_min": max_hp if fixed_hp else floori(float(max_hp) * 0.9),
-			"hp_max": max_hp,
+			"hp_min": max_hp if fixed_hp else maxi(1, roundi(float(max_hp) * 0.95)),
+			"hp_max": max_hp if fixed_hp else maxi(1, roundi(float(max_hp) * 1.05)),
 		})
 		names.append(str(enemy.get("name", "적")))
 	var label := "%s %d마리" % [names[0], blueprints.size()] \

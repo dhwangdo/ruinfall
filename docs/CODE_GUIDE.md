@@ -4,20 +4,6 @@
 
 ## 주요 폴더
 
-O 탐사 시작/중지·일반 이동·클릭 자동이동·이동 불가·한 턴 쉼은 main의 `_refresh_map_after_turn`으로 기존 지도·미니맵·HUD·버튼을 유지한 채 데이터와 그리기만 갱신한다. `_map_hud`는 체력·골드·열쇠와 레이아웃 키를 보관하며 `_clear_screen`에서 비운다. 지도 시드·디버그 표시·최대 체력·상태 배지 구성이 달라지거나 다른 화면에서 돌아오면 기존 `_show_map`으로 새 화면을 만든다. `map_incremental_refresh_probe.gd`에서 이동/O/대기 중 같은 노드 유지, 수치/미니맵 갱신, 전투 충돌과 화면 복귀를 검사한다.
-
-둥근 덱 선택 버튼은 `map_deck_selector_trigger.gd`에서 6px 이상 포인터 이동 시 위치 드래그로 처리하고 단순 클릭은 기존 덱 메뉴를 연다. 버튼은 지도 영역 안으로 제한하며 드래그 후 메뉴가 열리지 않게 한다. main은 위치를 지도 내 가용 영역의 상대 좌표로 `deck_selector_position_ratio` 설정에 저장해 화면 재생성·재실행·창 크기 변경 후 복원한다. `map_deck_selector_drag_probe.gd`에서 클릭 구분·화면 경계·저장 좌표·크기 변경·클릭 메뉴를 검사한다.
-
-제단(`stickerAltar`)은 DCSS CC0의 `assets/terrain/dcss/makhleb_flame1.png`를 사용한다. 지도와 검색 타일은 `map_tile_appearance.gd.draw_altar`를 공유하며 제단 글자 배지를 대신한다. 불꽃 타일 한 프레임을 정적으로 표시하며 지도에서는 nearest 개체 레이어에 그린다.
-
-검색 결과 행은 종류와 관계없이 같은 배경·선택 테두리, 106px 기본 높이, 10px 안쪽 여백, 우측 82×82 미리보기 칸을 사용한다. 금고·바닥 덱·카드·티켓·장소는 이 칸 안에서 각각의 그림을 표시한다. 목록의 세로 스크롤 공간은 항상 확보해 탭마다 행 너비가 달라지지 않게 한다. 에디션 표시는 목록에서 최대 두 줄 영역으로 제한하고 전체 내용은 오른쪽 상세 영역에서 확인한다.
-
-덱 금고는 `deck_icon_art.gd`의 검은 정사각형 판·주황 테두리·은회색 덱 그림으로 표시한다. 원본 덱 PNG에서 흑백 팔레트 텍스처를 한 번 생성해 캐시하며 자물쇠는 추가하지 않는다. 지도와 검색 타일이 `map_tile_appearance.gd.draw_vault_symbol`을 공유한다. 지도에서는 nearest 필터를 쓰는 개체 레이어에 그려 다른 지도 자산의 필터에는 영향을 주지 않는다.
-
-맵 바닥 덱·실제 덱 선택 버튼(`map_deck_selector_trigger.gd`)·소지/바닥 덱 머리글·양방향 드래그 미리보기는 `deck_icon_art.gd`의 DCSS 희귀 덱 PNG를 공유한다. 구형 `map_deck_selector.gd`는 현행 main의 버튼이 아니다. `shaders/deck_palette.gdshader`로 검은 표지·주황 테두리·낮은 대비의 문양을 표시하며 원본 PNG는 보존한다. 지도는 전용 FloorDeckIcons 레이어에만 셰이더와 nearest 필터를 적용하고 그림/클릭 범위는 같은 floor_rect(타일 폭 60%)를 사용한다. 둥근 선택 버튼의 외부 그림자는 제거했다. 머리글은 자물쇠가 있으면 36px, 없으면 44px 아이콘을 왼쪽에 놓고 글자 공간을 확보한다. 출처는 `godot/assets/ui/dcss/PROVENANCE.md`에 있다.
-
-몬스터 타일은 `enemy_tile_art.gd`의 이름별 매핑으로 관리한다. 현행 카탈로그 적 28종과 소환되는 새끼 바퀴에 DCSS 공식 CC0 배포본 PNG를 사용한다. 출처·원본 경로는 `godot/assets/enemies/dcss/PROVENANCE.md`에 기록한다. `battle_enemy_portrait.gd`는 기존 의도/행동 연출 안에서 그림만 교체하고, 향후 추가되는 미매핑 적은 기존 그림을 사용한다. 지도는 조우의 모든 적을 마릿수대로 겹쳐 그리며 세 마리 이상은 타일 좌우로 약간 돌출될 수 있다. 지도 이름은 표시하지 않고 인지 상태(Zzz/!/?)만 작은 배지에 표시하며 기억 속 적은 흐리게 그린다. 픽셀 그림에만 nearest 필터를 적용하고 다른 지도 자산이나 글꼴에는 적용하지 않는다. `enemy_tile_art_probe.gd`가 전체 조우의 매핑·다수 표시·겹침·필터를 검사하며 `enemy_tile_gallery.gd`는 전체 그림 미리보기를 생성한다.
-
 - `godot/scenes/`: 시작 장면과 장면 구성
 - `godot/scripts/`: 게임 규칙, 입력, 화면과 애니메이션 스크립트
 - `godot/assets/`: 폰트, 카드 뒷면, 스티커와 UI 자산
@@ -28,17 +14,33 @@ O 탐사 시작/중지·일반 이동·클릭 자동이동·이동 불가·한 �
 
 게임 화면 좌측 상단에는 빌드에 포함된 Git 커밋 해시와 커밋 시각(KST)이 표시된다. 웹·Windows 내보내기는 `scripts/generate_build_info.gd`가 빌드 직전 정보를 생성하며, 편집기 실행은 현재 저장소에서 직접 읽는다.
 
+## 주요 구현 메모
+
+O 탐사 시작/중지·일반 이동·클릭 자동이동·이동 불가·한 턴 쉼은 main의 `_refresh_map_after_turn`으로 기존 지도·미니맵·HUD·버튼을 유지한 채 데이터와 그리기만 갱신한다. `_map_hud`는 체력·골드·열쇠와 레이아웃 키를 보관하며 `_clear_screen`에서 비운다. 지도 시드·디버그 표시·최대 체력·상태 배지 구성이 달라지거나 다른 화면에서 돌아오면 기존 `_show_map`으로 새 화면을 만든다. `map_incremental_refresh_probe.gd`에서 이동/O/대기 중 같은 노드 유지, 수치/미니맵 갱신, 전투 충돌과 화면 복귀를 검사한다.
+
+둥근 덱 선택 버튼은 `map_deck_selector_trigger.gd`에서 6px 이상 포인터 이동 시 위치 드래그로 처리하고 단순 클릭은 기존 덱 메뉴를 연다. 버튼은 지도 영역 안으로 제한하며 드래그 후 메뉴가 열리지 않게 한다. main은 위치를 지도 내 가용 영역의 상대 좌표로 `deck_selector_position_ratio` 설정에 저장해 화면 재생성·재실행·창 크기 변경 후 복원한다. `map_deck_selector_drag_probe.gd`에서 클릭 구분·화면 경계·저장 좌표·크기 변경·클릭 메뉴를 검사한다.
+
+제단(`stickerAltar`)은 DCSS CC0의 `assets/terrain/dcss/makhleb_flame1.png`를 사용한다. 지도와 검색 타일은 `map_tile_appearance.gd.draw_altar`를 공유하며 제단 글자 배지를 대신한다. 불꽃 타일 한 프레임을 정적으로 표시하며 지도에서는 nearest 개체 레이어에 그린다.
+
+검색 결과 행은 종류와 관계없이 같은 배경·선택 테두리, 106px 기본 높이, 10px 안쪽 여백, 우측 82×82 미리보기 칸을 사용한다. 금고·바닥 덱·카드·티켓·장소는 이 칸 안에서 각각의 그림을 표시한다. 목록의 세로 스크롤 공간은 항상 확보해 탭마다 행 너비가 달라지지 않게 한다. 에디션 표시는 목록에서 최대 두 줄 영역으로 제한하고 전체 내용은 오른쪽 상세 영역에서 확인한다.
+
+덱 금고는 `deck_icon_art.gd`의 검은 정사각형 판·주황 테두리·은회색 덱 그림으로 표시한다. 원본 덱 PNG에서 흑백 팔레트 텍스처를 한 번 생성해 캐시하며 자물쇠는 추가하지 않는다. 지도와 검색 타일이 `map_tile_appearance.gd.draw_vault_symbol`을 공유한다. 지도에서는 nearest 필터를 쓰는 개체 레이어에 그려 다른 지도 자산의 필터에는 영향을 주지 않는다.
+
+맵 바닥 덱·실제 덱 선택 버튼(`map_deck_selector_trigger.gd`)·소지/바닥 덱 머리글·양방향 드래그 미리보기는 `deck_icon_art.gd`의 DCSS 희귀 덱 PNG를 공유한다. `shaders/deck_palette.gdshader`로 검은 표지·주황 테두리·낮은 대비의 문양을 표시하며 원본 PNG는 보존한다. 지도는 전용 FloorDeckIcons 레이어에만 셰이더와 nearest 필터를 적용하고 그림/클릭 범위는 같은 floor_rect(타일 폭 60%)를 사용한다. 둥근 선택 버튼의 외부 그림자는 제거했다. 머리글은 자물쇠가 있으면 36px, 없으면 44px 아이콘을 왼쪽에 놓고 글자 공간을 확보한다. 출처는 `godot/assets/ui/dcss/PROVENANCE.md`에 있다.
+
+몬스터 타일은 `enemy_tile_art.gd`의 이름별 매핑으로 관리한다. 현행 카탈로그 적 28종과 소환되는 새끼 바퀴에 DCSS 공식 CC0 배포본 PNG를 사용한다. 출처·원본 경로는 `godot/assets/enemies/dcss/PROVENANCE.md`에 기록한다. `battle_enemy_portrait.gd`는 기존 의도/행동 연출 안에서 그림만 교체하고, 향후 추가되는 미매핑 적은 기존 그림을 사용한다. 지도는 조우의 모든 적을 마릿수대로 겹쳐 그리며 세 마리 이상은 타일 좌우로 약간 돌출될 수 있다. 지도 이름은 표시하지 않고 인지 상태(Zzz/!/?)만 작은 배지에 표시하며 기억 속 적은 흐리게 그린다. 픽셀 그림에만 nearest 필터를 적용하고 다른 지도 자산이나 글꼴에는 적용하지 않는다. `enemy_tile_art_probe.gd`가 전체 조우의 매핑·다수 표시·겹침·필터를 검사하며 `enemy_tile_gallery.gd`는 전체 그림 미리보기를 생성한다.
+
 ## 코드 읽는 순서
 
-전투 배경은 화면 가장자리까지 녹색으로 채운다. `battle_board_layout.gd`는 손패 중심은 화면 폭 40%에 두고, 파일 열은 여유가 있을 때 손패 중심에 놓고 공간이 부족하면 왼쪽으로 이동한다, 오른쪽 25%(200~320px)를 적 전용으로 분리한다. 파일 영역과 적 영역 사이에는 24px 간격을 두며 높이가 달라도 가로 범위가 겹치지 않는다. 적은 좁힌 두 열과 엇갈린 행에 배치한다. 덱·파일·버린 카드 버튼은 표시하지 않으며 에너지와 별은 우측 하단 턴 종료 버튼 위에 둔다. `battle_files_layout.gd`는 확보된 영역 안에서 파일을 비율 축소하고 60%로도 들어가지 않을 때 스크롤한다. 파일에서 스크롤로 가려진 부분은 적 영역에 표시되지 않는다.
+전투 배경은 화면 가장자리까지 녹색으로 채운다. `battle_board_layout.gd`는 손패 중심을 화면 폭 40%에 두고, 초기 적 영역을 오른쪽 25%(200~320px)로 분리하며, 이후 `battle_enemy_layout.gd._arrange`가 실제로 보이는 파일 열 오른쪽 끝과 화면 절반 이상 조건을 기준으로 최종 적 영역을 맞춘다. 파일 영역과 적 영역 사이에는 24px 간격을 두며 높이가 달라도 가로 범위가 겹치지 않는다. 적은 좁힌 두 열과 엇갈린 행에 배치한다. 덱·파일·버린 카드 버튼은 표시하지 않으며 에너지와 별은 우측 하단 턴 종료 버튼 위에 둔다. `battle_files_layout.gd`는 확보된 영역 안에서 파일을 비율 축소하고 60%로도 들어가지 않을 때 스크롤한다. 파일에서 스크롤로 가려진 부분은 적 영역에 표시되지 않는다.
 
 `battle_enemy_target_area.gd`는 몬스터 그림 중심의 115.2×115.2 논리 픽셀 정사각형을 반환한다. 기존 96px에서 1.2배 넓혔다. 적 배치 축소율과 함께 줄어들며 클릭·드래그·숫자키 카드 사용이 같은 판정을 쓴다. 이름·체력바·상태 배지와 빈 버튼 공간은 공격 대상 범위를 넓히지 않는다. 호버 테두리도 이 정사각형에 그린다. `battle_enemy_spacing_probe.gd`가 여러 창 크기/적 수에서 가로 분리·공통 중심·판정 비중첩·그림 클릭 허용/체력바 클릭 배제를 검사한다. 손패 카드를 파일로 옮기는 연출은 최종 파일 배치를 먼저 계산하고 그 위치로 이동해 동적 크기 변경 뒤 착지 점프를 방지한다.
 
-`main.gd`는 현재 게임 상태와 화면을 연결하는 진입점이다. 카드 사용 분류는 `card_use.gd`, 지도 규칙은 `map_*.gd`, 전투 동작과 표현은 `battle_*.gd`, 카드 정의와 시각화는 `card_*.gd` 및 `deck_*.gd`에서 찾는다. 가능한 경우 입력 연결, 순수 규칙, 애니메이션 표현을 각각 담당하는 스크립트를 따라가며 읽는다.
+`main.gd`는 현재 게임 상태와 화면을 연결하는 진입점이다. 카드 사용·공격·비활성 판별 기준은 `card_use.gd`, 카드 설명 문구 정규화·포맷팅은 `card_description_formatter.gd`, 런 세이브/로드와 덱 동기화는 `run_save.gd`, 스티커 서비스 UI·흐름은 `sticker_service_controller.gd`, 바닥/가방/덱 이동 규칙과 덱 에디터 화면은 `deck_storage_service.gd`·`deck_editor_view.gd`, 전투 상태 배지/툴팁 문구는 `battle_status_text.gd`, 지도 규칙은 `map_*.gd`, 전투 동작과 표현은 `battle_*.gd`, 카드 정의와 시각화는 `card_*.gd` 및 `deck_*.gd`에서 찾는다. 가능한 경우 입력 연결, 순수 규칙, 애니메이션 표현을 각각 담당하는 스크립트를 따라가며 읽는다.
 
-`battle_rules.gd`의 `_resolve_enemies_turn`은 모든 적의 공격을 먼저 처리하고 기존 약화·취약을 감소시킨 뒤 공격 외 효과를 실행한다. 단일 적과 다중 적이 같은 처리 경로를 사용한다. 저장된 행동 데이터의 `next_turn_player_weak_gain`·`next_turn_player_vulnerable_gain` 키는 유지하지만 현재 의미는 공격 후 효과 단계에서 즉시 부여다. `battle_turn_presentation.gd`는 이 순서의 steps를 재생하며, `battle_enemy_strike.gd`는 공격·플레이어 디버프에 왼쪽 28px 전진과 복귀(350ms), 버프에 108% 확대와 복귀(180ms)를 적용한다. 자신에게 거는 디버프와 행동 취소는 전진하지 않는다. `tests/battle_enemy_phases_probe.gd`에서 단계 순서·지속시간·행동 취소·자폭·소환·전체 조우를 검사한다.
+`battle_rules.gd`의 `_resolve_enemies_turn`은 모든 적의 공격을 먼저 처리하고 기존 약화·취약을 감소시킨 뒤 공격 외 효과를 실행한다. 단일 적과 다중 적이 같은 처리 경로를 사용한다. 저장된 행동 데이터의 `next_turn_player_weak_gain`·`next_turn_player_vulnerable_gain` 키는 유지하지만 현재 의미는 공격 후 효과 단계에서 즉시 부여다. `battle_turn_presentation.gd`는 이 순서의 steps를 재생하며, `battle_enemy_strike.gd`는 공격·플레이어 디버프에 왼쪽 40px 전진과 복귀(220ms), 버프에 108% 확대와 복귀(90ms)를 적용한다. 자신에게 거는 디버프와 행동 취소는 전진하지 않는다. `tests/battle_enemy_phases_probe.gd`에서 단계 순서·지속시간·행동 취소·자폭·소환·전체 조우를 검사한다.
 
-방어 수치는 `player_block` 하나만 사용한다. 카드의 방어 획득은 `_resolve_card_play`의 명시적 효과 목록에서 판정한다. `_discard_card`는 명시적인 버리기에서만 탁월수(내부 effect `saeongjima`)와 이계의 힘(`recycling`)을 발동하며 손패의 버리기 비용·파일 버리기·적의 파일 버리기가 같은 경로를 사용한다. 턴 종료 손패 정리는 이 발동 플래그를 전달하지 않는다. 소원은 `wish_random_state`에 난수 상태를 보관한다. `tests/card_rebalance_probe.gd`에서 카드 효과·재련 반복·버리기 경로·소원 연속 사용·삭제 풀을 검사한다.
+방어 수치는 `player_block` 하나만 사용한다. 카드의 방어 획득은 `_resolve_card_play`가 호출하는 `_apply_card_defense_and_resistance`의 명시적 효과 목록에서 판정한다. `_discard_card`는 명시적인 버리기에서만 탁월수(내부 effect `saeongjima`)와 이계의 힘(`recycling`)을 발동하며 손패의 버리기 비용·파일 버리기·적의 파일 버리기가 같은 경로를 사용한다. 턴 종료 손패 정리는 이 발동 플래그를 전달하지 않는다. 소원은 `wish_random_state`에 난수 상태를 보관한다. `tests/card_rebalance_probe.gd`에서 카드 효과·재련 반복·버리기 경로·소원 연속 사용·삭제 풀을 검사한다.
 
 `battle_status_rules.gd`는 플레이어 디버프 5종과 마법 저항의 부여·해제·감소·마비 제한을 담당한다. 카드의 `remove_player_debuffs`는 공격 계산 전에 적용하며, `grants_block`은 방어 획득, `magic_resistance`·`temporary_magic_resistance`는 각각 전투 지속·이번 턴 저항이다. 일반 턴과 추가 턴 모두 `begin_turn`에서 임시 저항과 사용 횟수를 초기화한다. 적 행동의 `player_<kind>_gain` 필드를 공통 부여 경로로 처리하며 기존 `next_turn_player_<kind>_gain` 필드도 읽는다.
 
@@ -66,13 +68,13 @@ GDScript의 `Dictionary`와 `Array`는 실행 중 바뀌는 게임 데이터를 
 
 `deck_vault_rules.gd`는 금고의 위치·지도 시드 기반 지역 보너스(각 1.5%로 +1/+2)와 열쇠 비용(3/6/9), 실제 덱 생성을 공유한다. `map_vault_preview_data.gd`와 main의 최초 방문이 같은 생성 함수를 사용한다. 저장된 덱의 `vault_region_offset`은 비용·외형을 유지하며 기존 저장에 이 필드가 없으면 일반 금고로 취급한다. 지도·검색은 동일 규칙으로 남색/금색 타일을 선택한다. `future_deck_vault_probe.gd`는 미리보기·저장·개방 비용·중복 보상을 검사한다.
 
-에디션 갱신(2026-11-18): `DeckEditions.rare_slot_capacity`가 로열의 최종 용량 슬롯 전환을 편집·검색·금고 미리보기에서 공유한다. 생성 시에는 원래 y1/y2에 따른 카드 구성을 만든 뒤 슬롯만 전환한다. `main._deck_allows_free_edit`는 해당 덱의 제거·이동·열린 자물쇠에만 적용한다. `battle_rules.effective_card_cost`는 거인의 대상을 `base_cost`(없으면 `cost`)로 판단한다. 금속학은 솔리테어 재련과 전투 시작 자동망치에 연결하며 후자는 파일 수를 유지한 채 재련 카드를 회수한다. 에디션 목록 변경에 맞춰 최대 엔트로피 계수표도 재생성했다. `battle_editions_rework_probe.gd`, `deck_edit_editions_probe.gd`, `deck_generation_editions_probe.gd`가 각각 전투 효과·편집/UI·생성을 검사한다.
+에디션 갱신(2026-11-18): `DeckEditions.rare_slot_capacity`가 로열의 최종 용량 슬롯 전환을 편집·검색·금고 미리보기에서 공유한다. 생성 시에는 원래 y1/y2에 따른 카드 구성을 만든 뒤 슬롯만 전환한다. `deck_storage_service.gd`의 `deck_allows_free_edit`는 해당 덱의 제거·이동·열린 자물쇠에만 적용한다. `battle_rules._resolve_card_play`는 실제 지불 비용이 3 이상일 때 거인 에디션으로 에너지 1을 반환한다. 금속학은 솔리테어 재련과 전투 시작 자동망치에 연결하며 후자는 파일 수를 유지한 채 재련 카드를 회수한다. 에디션 목록 변경에 맞춰 최대 엔트로피 계수표도 재생성했다. `battle_editions_rework_probe.gd`, `deck_edit_editions_probe.gd`, `deck_generation_editions_probe.gd`가 각각 전투 효과·편집/UI·생성을 검사한다.
 
-무작위 덱 생성은 `card_catalog.gd`의 `roll_region_shape`와 `create_region_deck`에서 예산·슬롯·스티커·용량 재생성을 처리한다. `deck_editions.gd`가 1·2·3점 등급 우선 추첨과 이름·설명·색상을 공유한다. 전투 효과는 `battle_rules.gd`에 연결되며 광채 생성은 `_create_battle_radiance`를 거친다. `solitaire_rules.gd`가 표시·검증·소모에 같은 에디션 할인을 적용한다. `battle_status_rules.gd`는 마법 저항 판정과 매 턴 에디션 사용 플래그 초기화를 함께 처리한다. 귀속 카드의 `edition_bound` 필드는 `deck_editor_rules.gd`, `main.gd`, `sticker_services.gd`에서 편집 제한에 사용한다. `deck_generation_editions_probe.gd`, `battle_editions_rework_probe.gd`, `deck_bound_edit_probe.gd`로 생성·전투·편집 경로를 검사한다.
+무작위 덱 생성은 `card_catalog.gd`의 `roll_region_shape`와 `create_region_deck`에서 예산·슬롯·스티커·용량 재생성을 처리한다. `deck_editions.gd`가 1·2·3점 등급 우선 추첨과 이름·설명·색상을 공유한다. 전투 효과는 `battle_rules.gd`에 연결되며 광채 생성은 `_create_battle_radiance`를 거친다. `solitaire_rules.gd`가 표시·검증·소모에 같은 에디션 할인을 적용한다. `battle_status_rules.gd`는 마법 저항 판정과 매 턴 에디션 사용 플래그 초기화를 함께 처리한다. 귀속 카드의 `edition_bound` 필드는 `deck_editor_rules.gd`, `deck_storage_service.gd`, `deck_editor_view.gd`, `sticker_service_controller.gd`, `sticker_services.gd`에서 편집 제한에 사용한다. `deck_generation_editions_probe.gd`, `battle_editions_rework_probe.gd`, `deck_bound_edit_probe.gd`로 생성·전투·편집 경로를 검사한다.
 
 Godot 4.7.2 이상에서 `godot/project.godot`을 열거나 저장소 루트의 `godot/Run RUINFALL.cmd`를 사용한다. 내보내기는 `godot/README.md`의 Web·Windows 안내와 `godot/export_presets.cfg`를 따른다.
 
-과거 React 구현의 설명은 [legacy-web 보관본](../archive/legacy-web/docs/CODE_GUIDE.md)에 남아 있다. 그것은 현재 구조 안내가 아니다.
+과거 React 구현의 설명은 `legacy-web-archive` Git 태그에 보존되어 있으며 현재 구조 안내가 아니다.
 
 숫자키 선택은 누른 시점부터 300ms 동안 키를 먼저 떼어도 클릭 사용을 허용한다. 기한까지 클릭하지 않으면 자동 복귀하며, 오래 누른 뒤 떼기와 우클릭·Esc 취소는 즉시 처리한다. battle_keyboard_drag.gd의 KEY_CLICK_GRACE_MS가 유예 시간이며 tests/battle_keyboard_grace_probe.gd에서 실제 키·클릭 입력과 이전 타이머의 간섭을 검사한다.
 
@@ -113,3 +115,7 @@ Godot 4.7.2 이상에서 `godot/project.godot`을 열거나 저장소 루트의 
 적 행동 이동은 0.22초, 버프 확대는 0.09초로 기존 대비 2배 빠르게 재생한다. 적 배치는 실제로 보이는 파일 열 오른쪽 끝과 화면 오른쪽 사이의 가용 공간 중앙을 사용하고, 파일이 적을 때는 기존 최대 파일 영역의 빈 여백도 활용한다. 적 영역의 왼쪽 끝은 화면 절반보다 왼쪽으로 넘어가지 않는다.
 
 교본·병법서는 `BattleRules.sync_hand_stats`에서 현재 손패 기여분과 이미 반영한 `applied_hand_stat_bonus`의 차이만 실제 `strength`·`agility`에 적용한다. 드로우·생성·버리기·소멸·파일 이동·턴 종료 시 갱신하며 피해·방어 계산과 배지에서 별도 손패 보너스를 더하지 않는다. 능력치 감소나 다른 영구 획득은 보존한다. `hand_book_stats_probe.gd`와 `strategy_book_use_probe.gd`가 출입·중첩·보존·사용 후 영구 효과·약화를 검사한다.
+
+### 테스트 probe 참고 (2026-11-19 점검 기준)
+
+`godot/tests/`의 독립 실행 probe 46종(`deck_maxent_probe.gd` 및 인자 필요 probe 6종 제외) 중 37종이 일괄 실행에서 안정적으로 통과하며, `debug_number_input_probe.gd`는 단독 실행에서는 통과하나 일괄 실행 시 39행에서 간헐적으로 타임아웃/실패한다. 7종의 구형 probe(`auto_explore_memory_probe.gd`, `battle_card_hold_probe.gd`, `battle_hand_input_probe.gd`, `battle_play_queue_probe.gd`, `card_rebalance_probe.gd`, `enemy_pattern_latest_probe.gd`, `enemy_pattern_rework_probe.gd`)는 이후 개편(시야 6칸, 임시 ★, 300ms 키 유예, 카탈로그 순서/패시브/15% 상향) 이전 기대치를 유지하고 있다. `map_generation_job_probe.gd`는 20초 제한 내 완료되지 않았다.

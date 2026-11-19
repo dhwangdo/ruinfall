@@ -23,7 +23,7 @@ func _initialize() -> void:
 			if deck.editions.has("fantastic"):
 				capacity = floori(capacity * 0.8)
 			assert(deck.capacity == capacity and capacity > 0)
-			var bound := 1 if deck.editions.has("legendCassiopeia") else 0
+			var bound := int(deck.editions.has("legendCassiopeia")) + int(deck.editions.has("legendLeo")) + int(deck.editions.has("legendHorologium"))
 			var royal: bool = deck.editions.has("royal")
 			var single_cards: Array = []
 			for card in deck.cards:
@@ -49,7 +49,7 @@ func _initialize() -> void:
 				sticker_count += Stickers.card_sticker_ids(card).size()
 				if Editor.is_bound(card):
 					bound_count += 1
-					assert(card.effect == "cassiopeia" and Services.transmuter_candidates(card).is_empty())
+					assert(card.effect in ["cassiopeia", "leo", "horologium"] and Services.transmuter_candidates(card).is_empty())
 			assert(generated.next_card_id == id)
 			assert(rare == (capacity if single_card and royal else g.y1 + bound))
 			assert(bound_count == bound)
@@ -72,7 +72,7 @@ func _initialize() -> void:
 			var blueprint := Catalog._single_card_deck_blueprint(edition_list, random)
 			assert((blueprint.rarity == "rare") == edition_list.has("royal"))
 			single_choices[blueprint.name] = true
-	assert(single_choices.size() == 5)
+	assert(single_choices.size() == 4)
 	# First tier probability must be 1:2:3, independent of catalogue size in each tier.
 	var counts := {1: 0, 2: 0, 3: 0}
 	var names := {}

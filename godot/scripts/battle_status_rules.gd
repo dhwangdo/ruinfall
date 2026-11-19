@@ -5,7 +5,7 @@ const LABELS := {"weak": "약화", "vulnerable": "취약", "corrosion": "부식"
 const DESCRIPTIONS := {
 	"weak": "가하는 공격 피해가 50% 감소합니다.",
 	"vulnerable": "받는 공격 피해가 50% 증가합니다.",
-	"corrosion": "내 턴 종료 시 방어가 절반이 됩니다. 소수점 이하는 버립니다.",
+	"corrosion": "내 턴 종료 시 방어가 절반이 됩니다.",
 	"paralysis": "한 턴에 카드를 3장까지만 사용할 수 있습니다.",
 	"confusion": "카드 효과 처리 후 손패의 카드 1장을 무작위로 버립니다.",
 	"magic_resistance": "해로운 효과를 얻을 때마다 이 수치만큼 덜 얻습니다.",

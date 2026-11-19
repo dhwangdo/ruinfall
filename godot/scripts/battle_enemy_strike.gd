@@ -47,8 +47,8 @@ func play() -> void:
     z_as_relative = false
     pivot_offset = source_rect.size * 0.5
     ghost.position = Vector2.ZERO
-    ghost.size = source_rect.size
-    ghost.pivot_offset = source_rect.size * 0.5
+    ghost.size = source.size
+    ghost.pivot_offset = Vector2.ZERO
     ghost.rotation = source.rotation
     ghost.scale = source.scale
     add_child(ghost)

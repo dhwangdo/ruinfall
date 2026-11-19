@@ -30,6 +30,8 @@ const ICONS := {
 	"edition_prism": preload("res://assets/ui/status/edition_prism.svg"),
 	"edition_fantastic": preload("res://assets/ui/status/edition_fantastic.svg"),
 	"edition_legendCassiopeia": preload("res://assets/ui/status/edition_legendCassiopeia.svg"),
+	"edition_legendLeo": preload("res://assets/ui/status/edition_legendCassiopeia.svg"),
+	"edition_legendHorologium": preload("res://assets/ui/status/edition_legendCassiopeia.svg"),
 	"edition_metallurgy": preload("res://assets/ui/status/edition_quickHammer.svg"),
 	"edition_giant": preload("res://assets/ui/status/buff.svg"),
 	"edition_freeEdit": preload("res://assets/ui/status/rule.svg"),

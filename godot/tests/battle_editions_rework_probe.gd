@@ -49,7 +49,7 @@ func _initialize() -> void:
 	for pile in after.piles:
 		assert(pile.size() == 3)
 	after = state(["sunkenLegend"], deck)
-	assert(after.piles[0][0].effect == "cassiopeia" and after.piles[0][0].token)
+	assert(after.piles[0][0].effect in ["cassiopeia", "leo", "horologium"] and after.piles[0][0].token)
 	assert(after.piles[0].size() == 5 and deck.size() == 20)
 	# Automatic forging needs no matching substrate in the deck and chooses distinct cards.
 	var forge_deck := [card("metalization"), card("beastification"), card("dash")]
@@ -80,15 +80,29 @@ func _initialize() -> void:
 	after = Rules.move_hand_card_to_file(before, forge_card.id, 0)
 	assert(after.hand.size() == 1 and after.hand[0].id == forge_card.id and after.hand[0].forged)
 	assert(after.piles[0].size() == 1 and after.forge_count == 1)
-	# Giant qualifies by original cost, before stickers, swaps and Odin discounts.
+	# Giant refunds 1 energy whenever a card played costs 3 or more effective energy.
 	before = state(["giant"])
-	var costly := {"cost": 3, "stickers": ["moonstone"]}
-	assert(Rules.effective_card_cost(before, costly) == 1)
-	assert(Rules.effective_card_cost(before, {"cost": 2}) == 2)
-	assert(Rules.effective_card_cost(before, {"cost": 2, "base_cost": 3}) == 1)
+	var costly := {"id": 9101, "name": "고비용", "kind": "skill", "effect": "defend", "use_mode": "untargeted", "cost": 3, "value": 5, "revealed": true}
+	var moonstone_costly := {"id": 9102, "name": "할인됨", "kind": "skill", "effect": "defend", "use_mode": "untargeted", "cost": 3, "value": 5, "stickers": ["moonstone"], "revealed": true}
+	assert(Rules.effective_card_cost(before, costly) == 3)
+	assert(Rules.effective_card_cost(before, moonstone_costly) == 2)
+	before.energy = 2
+	before.hand = [costly.duplicate(true)]
+	after = Rules.play_card(before, 9101)
+	assert(after.hand.size() == 1 and after.energy == 2, "Giant cannot discount card affordability below 3")
+	before.energy = 3
+	before.hand = [costly.duplicate(true), moonstone_costly.duplicate(true)]
+	after = Rules.play_card(before, 9101)
+	assert(after.energy == 1 and after.player_block == 5, "Playing 3+ cost card grants +1 energy")
+	after = Rules.play_card(after, 9102)
+	assert(after.hand.size() == 1 and after.energy == 1, "Remaining 1 energy cannot afford 2-cost card")
+	before.energy = 3
+	before.hand = [moonstone_costly.duplicate(true)]
+	after = Rules.play_card(before, 9102)
+	assert(after.energy == 1, "Moonstone-discounted 2-cost play does not trigger Giant")
 	var odin := card("odin_spear")
 	before.forge_count = 2
-	assert(Rules.effective_card_cost(before, odin) == int(odin.cost) - 3)
+	assert(Rules.effective_card_cost(before, odin) == int(odin.cost) - 2)
 	# Each turn grants a temporary action; the edition grants one more.
 	before = state(["firstSolitaire"])
 	assert(before.stars == 1 and before.temporary_solitaire_actions == 2)

@@ -50,7 +50,8 @@ static func final_capacity(v: Array, editions: Array) -> int:
 
 static func compatible(v: Array, editions: Array) -> bool:
 	var capacity := final_capacity(v, editions)
-	return capacity > 0 and int(v[1]) + int(v[2]) + (1 if editions.has("legendCassiopeia") else 0) <= capacity \
+	var bound_count := int(editions.has("legendCassiopeia")) + int(editions.has("legendLeo")) + int(editions.has("legendHorologium"))
+	return capacity > 0 and int(v[1]) + int(v[2]) + bound_count <= capacity \
 		and int(v[4]) <= capacity - int(v[2])
 
 

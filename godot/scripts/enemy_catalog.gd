@@ -96,7 +96,7 @@ static func _single_encounter_blueprints(encounter_index: int) -> Array[Dictiona
 			], {"gives_toxic_slime": true, "trait": "전투 시작 시 유독성 점액을 손패에 넣습니다."})]
 		2:
 			return [_enemy("골렘", 129, [
-				{"name": "위압", "next_turn_player_weak_gain": 2, "cycle": true},
+				{"name": "위압", "player_weak_gain": 2, "cycle": true},
 				{"name": "석화", "player_paralysis_gain": 2, "cycle": true},
 				{"name": "분쇄", "damage": 29, "strength_gain": 6, "cycle": true},
 			])]
@@ -104,7 +104,7 @@ static func _single_encounter_blueprints(encounter_index: int) -> Array[Dictiona
 			return [_enemy("도깨비", 94, [
 				{"name": "연타", "damage": 9, "hits": 2, "random_no_repeat": true},
 				{"name": "난타", "damage": 8, "hits": 3, "random_no_repeat": true},
-				{"name": "마력 응축", "next_turn_player_vulnerable_gain": 2, "random_no_repeat": true},
+				{"name": "마력 응축", "player_vulnerable_gain": 2, "random_no_repeat": true},
 			], {"variant": "goblin", "turn_end_strength_gain": 1, "trait": "전투 시작 시 가장 왼쪽 파일 맨 아래에 앞면 유물을 추가합니다. 적 턴 종료 시 힘 1을 얻습니다."})]
 		5:
 			var rats: Array[Dictionary] = []
@@ -123,7 +123,7 @@ static func _single_encounter_blueprints(encounter_index: int) -> Array[Dictiona
 			return [_enemy("미라 전사", 144, [
 				{"name": "삼연격", "damage": 5, "hits": 3, "cycle": true},
 				{"name": "강타", "damage": 18, "cycle": true},
-				{"name": "약화 연타", "damage": 6, "hits": 2, "next_turn_player_vulnerable_gain": 1, "cycle": true},
+				{"name": "약화 연타", "damage": 6, "hits": 2, "player_vulnerable_gain": 1, "cycle": true},
 			], {"berserk": 1, "trait": "턴 시작 시 힘 1을 얻습니다."})]
 		13:
 			var beetles: Array[Dictionary] = []
@@ -132,14 +132,14 @@ static func _single_encounter_blueprints(encounter_index: int) -> Array[Dictiona
 			return beetles
 		14:
 			return [_enemy("청소부", 173, [
-				{"name": "약화와 취약", "next_turn_player_weak_gain": 2, "next_turn_player_vulnerable_gain": 2, "cycle": true},
+				{"name": "약화와 취약", "player_weak_gain": 2, "player_vulnerable_gain": 2, "cycle": true},
 				{"name": "내리치기", "damage": 17, "cycle": true},
 				{"name": "쌍타", "damage": 7, "hits": 2, "cycle": true},
 				{"name": "힘을 실은 쓸기", "damage": 12, "strength_gain": 3, "cycle": true},
 			], {"is_boss": true})]
 		15:
 			return [_enemy("간수", 288, [
-				{"name": "약화와 취약", "next_turn_player_weak_gain": 2, "next_turn_player_vulnerable_gain": 2, "cycle": true},
+				{"name": "약화와 취약", "player_weak_gain": 2, "player_vulnerable_gain": 2, "cycle": true},
 				{"name": "강타", "damage": 23, "cycle": true},
 				{"name": "강타", "damage": 23, "cycle": true},
 				{"name": "힘 모으기", "strength_gain": 6, "cycle": true},
@@ -149,31 +149,31 @@ static func _single_encounter_blueprints(encounter_index: int) -> Array[Dictiona
 				{"name": "돌 깔기", "rock_count": 1, "first_action_rock_count": 2, "strength_gain": 5, "cycle": true},
 				{"name": "지룡 강타", "damage": 14, "cycle": true},
 				{"name": "지룡 연타", "damage": 7, "hits": 2, "cycle": true},
-			], {"is_boss": true, "trait": "첫 행동에는 모든 파일에 바위 2장, 이후 1장을 놓습니다."})]
+			], {"is_boss": true, "trait": "첫 행동에는 모든 파일에 돌 2장, 이후 1장을 놓습니다."})]
 		19:
 			return [_enemy("진흙 인형", 58, [
 				{"name": "내려치기", "damage": 14, "random_no_repeat": true},
 				{"name": "진흙 메우기", "damage": 10, "heal_gain": 6, "random_no_repeat": true},
-				{"name": "진흙 응축", "next_turn_player_vulnerable_gain": 2, "random_no_repeat": true},
+				{"name": "진흙 응축", "player_vulnerable_gain": 2, "random_no_repeat": true},
 			])]
 		20:
 			return [_enemy("꼭두각시 거병", 71, [
-				{"name": "거병의 주먹", "damage": 10, "next_turn_player_weak_gain": 1, "random_no_repeat": true},
-				{"name": "마력 응축", "damage": 13, "next_turn_player_vulnerable_gain": 1, "random_no_repeat": true},
-				{"name": "강타", "damage": 15, "next_turn_player_vulnerable_gain": 1, "random_no_repeat": true},
+				{"name": "거병의 주먹", "damage": 10, "player_weak_gain": 1, "random_no_repeat": true},
+				{"name": "마력 응축", "damage": 13, "player_vulnerable_gain": 1, "random_no_repeat": true},
+				{"name": "강타", "damage": 15, "player_vulnerable_gain": 1, "random_no_repeat": true},
 			]), _enemy("인형술사", 14, [{"name": "조종 유지"}], {"fixed_max_hp": true, "stun_ally_on_death": "puppetColossus", "trait": "쓰러지면 함께 나온 꼭두각시 거병의 다음 행동을 한 번 취소합니다."})]
 		22:
 			return [_enemy("실을 짜는 거미", 69, [
 				{"name": "끈끈한 거미줄", "player_vulnerable_gain": 2, "random_no_repeat": true},
 				{"name": "송곳니 연타", "damage": 7, "hits": 2, "random_no_repeat": true},
 				{"name": "포식", "damage": 9, "strength_gain": 3, "random_no_repeat": true},
-		], {"solitaire_hit_bonus": 3, "solitaire_hit_bonus_stacks": 0, "trait": "이번 턴 솔리테어 행동을 할 때마다 받는 피해가 3 증가합니다. 효과는 중첩됩니다."})]
+		], {"solitaire_hit_bonus": 3, "solitaire_hit_bonus_stacks": 0, "trait": "이번 턴 솔리테어 행동을 할 때마다 받는 피해가 3 증가합니다."})]
 		25:
 			return [_enemy("알집 바퀴", 55, [
 				{"name": "물기", "damage": 12, "random_no_repeat": true},
 				{"name": "새끼 부화", "summon": "roachHatchling", "random_no_repeat": true},
-				{"name": "부식액", "next_turn_player_weak_gain": 2, "random_no_repeat": true},
-		], {"opening_action_index": 1, "trait": "첫 행동은 새끼 2마리 소환으로 고정하고 이후 3랜덤1로 행동합니다. 새끼는 소환된 턴에는 행동하지 않습니다."})]
+				{"name": "부식액", "player_weak_gain": 2, "random_no_repeat": true},
+		], {"opening_action_index": 1, "trait": "첫 행동으로 새끼 바퀴 2마리를 소환합니다. 새끼 바퀴는 소환된 턴에 행동하지 않습니다."})]
 		27:
 			return [_enemy("핏빛 광전사", 101, [
 				{"name": "도끼질", "damage": 13, "random_no_repeat": true},
@@ -183,14 +183,14 @@ static func _single_encounter_blueprints(encounter_index: int) -> Array[Dictiona
 		30:
 			return [_enemy("족쇄 간수", 83, [
 				{"name": "족쇄 연타", "damage": 6, "hits": 2, "random_no_repeat": true},
-				{"name": "제압", "damage": 7, "next_turn_player_weak_gain": 1, "random_no_repeat": true},
-				{"name": "간수의 응축", "next_turn_player_vulnerable_gain": 2, "random_no_repeat": true},
-			], {"energy_recovery_penalty": 1, "trait": "살아 있는 동안 플레이어의 매 턴 기본 에너지 회복량이 1 감소합니다. 카드 효과에는 적용되지 않습니다."})]
+				{"name": "제압", "damage": 7, "player_weak_gain": 1, "random_no_repeat": true},
+				{"name": "간수의 응축", "player_vulnerable_gain": 2, "random_no_repeat": true},
+			], {"energy_recovery_penalty": 1, "trait": "살아 있는 동안 플레이어의 매 턴 기본 에너지 회복량이 1 감소합니다."})]
 		34:
 			return [_enemy("피의 기수", 104, [
 				{"name": "쌍격", "damage": 7, "hits": 2, "random_no_repeat": true},
 				{"name": "무모한 돌격", "damage": 3, "hits": 3, "vulnerable_gain": 1, "random_no_repeat": true},
-				{"name": "피의 일격", "damage": 8, "next_turn_player_vulnerable_gain": 1, "random_no_repeat": true},
+				{"name": "피의 일격", "damage": 8, "player_vulnerable_gain": 1, "random_no_repeat": true},
 			], {"shared_turn_end_strength_gain": 2, "trait": "적 턴 종료 시 플레이어와 자신이 힘 2를 얻습니다."})]
 		_:
 			return []
@@ -218,7 +218,7 @@ static func _region_one_pair_candidates() -> Array[Dictionary]:
 			{"name": "위협", "player_vulnerable_gain": 2, "random_no_repeat": true},
 		]),
 		_enemy("칼잡이", 28, [
-			{"name": "칼질", "damage": 7, "next_turn_player_weak_gain": 1, "random_no_repeat": true},
+			{"name": "칼질", "damage": 7, "player_weak_gain": 1, "random_no_repeat": true},
 			{"name": "연속 베기", "damage": 5, "hits": 2, "random_no_repeat": true},
 			{"name": "기세 올리기", "damage": 7, "strength_gain": 3, "random_no_repeat": true},
 		]),
@@ -242,7 +242,7 @@ static func _region_two_pair_candidates() -> Array[Dictionary]:
 			{"name": "강타", "damage": 6, "random_no_repeat": true},
 			{"name": "연타", "damage": 3, "hits": 2, "random_no_repeat": true},
 			{"name": "화약 보충", "damage": 5, "powder_gain": 2, "random_no_repeat": true},
-		], {"powder": 6, "trait": "사망 시 자신을 제외한 모두에게 화약 수치만큼 물리 피해를 줍니다."}),
+		], {"powder": 6, "trait": "사망 시 자신을 제외한 모두에게 화약 수치만큼 피해를 줍니다."}),
 		_enemy("수색견", 52, [{"name": "물어뜯기", "damage": 6, "cycle": true}], {"hand_strength_gain": 5, "trait": "플레이어 손패에 카드가 남아 있는 동안 임시 힘 5를 얻습니다."}),
 		_enemy("대형 망치병", 62, [
 			{"name": "망치 내려찍기", "damage": 12, "loop_to": 0},
@@ -251,27 +251,27 @@ static func _region_two_pair_candidates() -> Array[Dictionary]:
 		_enemy("봉인 파수꾼", 56, [
 			{"name": "강타", "damage": 6, "random_no_repeat": true},
 			{"name": "연속 타격", "damage": 3, "hits": 2, "random_no_repeat": true},
-			{"name": "봉인 응축", "next_turn_player_vulnerable_gain": 2, "random_no_repeat": true},
+			{"name": "봉인 응축", "player_vulnerable_gain": 2, "random_no_repeat": true},
 		], {"seals_pile": true, "trait": "매 플레이어 턴 시작 시 카드가 있는 무작위 파일 하나를 봉인합니다. 그 파일의 모든 드로우를 막지만 솔리테어 이동은 허용합니다."}),
 		_enemy("발효 슬라임", 63, [
 			{"name": "몸통 박치기", "damage": 12, "random_no_repeat": true},
 			{"name": "점액 연타", "damage": 6, "hits": 2, "random_no_repeat": true},
-			{"name": "발효 응축", "next_turn_player_vulnerable_gain": 2, "next_turn_player_weak_gain": 2, "random_no_repeat": true},
-		], {"fermented_slime_count": 1, "trait": "전투 시작 시 발효 점액 1장을 손패에 넣습니다. 발효 점액은 에너지 1을 주는 보존 토큰입니다."}),
+			{"name": "발효 응축", "player_vulnerable_gain": 2, "player_weak_gain": 2, "random_no_repeat": true},
+		], {"fermented_slime_count": 1, "trait": "전투 시작 시 발효 점액을 손패에 넣습니다."}),
 		_enemy("압수관", 52, [
 			{"name": "타격", "damage": 8, "random_no_repeat": true},
 			{"name": "엄폐", "block_gain": 8, "random_no_repeat": true},
-			{"name": "압수 명령", "next_turn_player_vulnerable_gain": 1, "random_no_repeat": true},
+			{"name": "압수 명령", "player_vulnerable_gain": 1, "random_no_repeat": true},
 		], {"confiscates_rare": true, "trait": "파일 배치 후 첫 드로우 전에 파일의 무작위 희귀 카드 1장을 압수합니다. 처치하면 즉시 손패로 돌려줍니다."}),
 	]
 
 
 static func _thorn_beetle() -> Dictionary:
 	return _enemy("가시 딱정벌레", 64, [
-		{"name": "가시 돋치기", "next_turn_player_vulnerable_gain": 1, "random_no_repeat": true},
+		{"name": "가시 돋치기", "player_vulnerable_gain": 1, "random_no_repeat": true},
 		{"name": "가시 강타", "damage": 12, "random_no_repeat": true},
 		{"name": "약화 독", "strength_loss": 2, "agility_loss": 2, "random_no_repeat": true},
-	], {"thorns": 4, "trait": "공격받을 때마다 물리 피해 4로 반격합니다."})
+	], {"thorns": 4, "trait": "공격받을 때마다 피해 4로 반격합니다."})
 
 
 static func _enemy(enemy_name: String, hp: int, actions: Array, passives: Dictionary = {}) -> Dictionary:

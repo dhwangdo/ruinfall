@@ -30,7 +30,8 @@ EDITION_SCORES = [EDITION_SCORE_MAP[key] for key in EDITION_IDS]
 PATTERNS = {}
 for bits in product([0,1], repeat=len(EDITION_IDS)):
     score = sum(b*s for b,s in zip(bits, EDITION_SCORES))
-    PATTERNS.setdefault(score, set()).add(tuple(bits[EDITION_IDS.index(key)] for key in ["gambit","fantastic","legendCassiopeia"]))
+    bound = sum(bits[EDITION_IDS.index(key)] for key in ["legendCassiopeia", "legendLeo", "legendHorologium"] if key in EDITION_IDS)
+    PATTERNS.setdefault(score, set()).add((bits[EDITION_IDS.index("gambit")], bits[EDITION_IDS.index("fantastic")], bound))
 
 
 def fit(region):

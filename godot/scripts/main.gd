@@ -1,8 +1,14 @@
 extends Control
 
 const CardUse = preload("res://scripts/card_use.gd")
+const CardDescriptionFormatter = preload("res://scripts/card_description_formatter.gd")
 const CardTypefaces = preload("res://scripts/card_typefaces.gd")
 const BattleEnemyLayout = preload("res://scripts/battle_enemy_layout.gd")
+const RunSave = preload("res://scripts/run_save.gd")
+const StickerServiceControllerScript = preload("res://scripts/sticker_service_controller.gd")
+const DeckStorageService = preload("res://scripts/deck_storage_service.gd")
+const DeckEditorView = preload("res://scripts/deck_editor_view.gd")
+const BattleStatusText = preload("res://scripts/battle_status_text.gd")
 
 const CardCatalog = preload("res://scripts/card_catalog.gd")
 const DeckEditions = preload("res://scripts/deck_editions.gd")
@@ -20,7 +26,6 @@ const MapDeckVaultPreview = preload("res://scripts/map_deck_vault_preview.gd")
 const MapVaultPreviewData = preload("res://scripts/map_vault_preview_data.gd")
 const DeckVaultCardView = preload("res://scripts/deck_vault_card_view.gd")
 const DeckVaultModal = preload("res://scripts/deck_vault_modal.gd")
-const DeckCaseHeadingScript = preload("res://scripts/deck_case_heading.gd")
 const DeckVaultReleaseNotice = preload("res://scripts/deck_vault_release_notice.gd")
 const DeckEditorHeadingFont = preload("res://assets/fonts/PretendardVariable700.tres")
 const MapTravel = preload("res://scripts/map_travel.gd")
@@ -29,7 +34,6 @@ const BattleRules = preload("res://scripts/battle_rules.gd")
 const EnemyCatalog = preload("res://scripts/enemy_catalog.gd")
 const KarmaRules = preload("res://scripts/karma_rules.gd")
 const CardStickers = preload("res://scripts/stickers.gd")
-const StickerServices = preload("res://scripts/sticker_services.gd")
 const MapMinimap = preload("res://scripts/map_minimap.gd")
 const MapSearchRules = preload("res://scripts/map_search_rules.gd")
 const MapSearchPanel = preload("res://scripts/map_search_panel.gd")
@@ -40,7 +44,6 @@ const BattleDropButtonScript = preload("res://scripts/battle_drop_button.gd")
 const BattleDropStyle = preload("res://scripts/battle_drop_style.gd")
 const BattleCardDragSourceScript = preload("res://scripts/battle_card_drag_source.gd")
 const CompactCardView = preload("res://scripts/compact_card_view.gd")
-const DeckEditorEmptySlotScript = preload("res://scripts/deck_editor_empty_slot.gd")
 const SolitaireRules = preload("res://scripts/solitaire_rules.gd")
 const BattleSetup = preload("res://scripts/battle_setup.gd")
 const BattleBoardLayoutScript = preload("res://scripts/battle_board_layout.gd")
@@ -54,7 +57,6 @@ const BattleHandFanScript = preload("res://scripts/battle_hand_fan.gd")
 const BattleDrawPresentationScript = preload("res://scripts/battle_draw_presentation.gd")
 const BattleCardPresentationScript = preload("res://scripts/battle_card_presentation.gd")
 const BattleForgePresentationScript = preload("res://scripts/battle_forge_presentation.gd")
-const PendingRemovalEffectScript = preload("res://scripts/pending_removal_effect.gd")
 const CardTooltipControllerScript = preload("res://scripts/card_tooltip_controller.gd")
 const TooltipBindings = preload("res://scripts/tooltip_bindings.gd")
 const StickerArtScript = preload("res://scripts/sticker_art.gd")
@@ -64,21 +66,14 @@ const BattleChoiceFocus = preload("res://scripts/battle_choice_focus.gd")
 const BattleKeyboardDrag = preload("res://scripts/battle_keyboard_drag.gd")
 const BattleHoldGuide = preload("res://scripts/battle_hold_guide.gd")
 const BattleFileChoiceInput = preload("res://scripts/battle_file_choice_input.gd")
-const StickerServiceSlotDropTarget = preload("res://scripts/sticker_service_slot_drop_target.gd")
 const BattleEnergyOrbScript = preload("res://scripts/battle_energy_orb.gd")
 const BattleEnemyPortraitScript = preload("res://scripts/battle_enemy_portrait.gd")
 const BattleDefenseShieldScript = preload("res://scripts/battle_defense_shield.gd")
-const ResultArrowScript = preload("res://scripts/result_arrow.gd")
 const CardMechanicPreview = preload("res://scripts/card_mechanic_preview.gd")
 const CardKeywords = preload("res://scripts/card_keywords.gd")
-const ConsumableTicketVisual = preload("res://scripts/consumable_ticket_visual.gd")
 const CardDescriptionText = preload("res://scripts/card_description_text.gd")
 const CardHoverPreview = preload("res://scripts/card_hover_preview.gd")
 const BattleCardPreview = preload("res://scripts/battle_card_preview.gd")
-const RunCardDropAreaScript = preload("res://scripts/run_card_drop_area.gd")
-const DeckCaseDragButtonScript = preload("res://scripts/deck_case_drag_button.gd")
-const DeckCaseDropAreaScript = preload("res://scripts/deck_case_drop_area.gd")
-const ServiceCardRemovalDropAreaScript = preload("res://scripts/service_card_removal_drop_area.gd")
 
 const COLOR_BG := Color("#111512")
 const COLOR_PANEL := Color("#1b201d")
@@ -91,7 +86,6 @@ const COLOR_GOLD := Color("#f0c646")
 const COLOR_ORANGE := Color("#ef8129")
 const COLOR_RED := Color("#b43f4a")
 const COLOR_CARD := Color("#e1dfd8")
-const STICKER_SERVICE_FONT: FontFile = preload("res://assets/fonts/PretendardVariable.woff2")
 const WEB_UI_FONT: FontFile = preload("res://assets/fonts/PretendardVariable.woff2")
 const RUN_SAVE_PATH := "user://run_state.save"
 const SETTINGS_PATH := "user://settings.cfg"
@@ -196,15 +190,7 @@ var map_travel_target := Vector2i(-1, -1)
 var map_travel_step_in_progress := false
 var map_ping_position := Vector2i(-1, -1)
 var map_ping_label := ""
-var active_service_kind := ""
-var active_service_position := Vector2i.ZERO
-var service_selected_card_ids: Array[int] = []
-var service_transmuter_preview: Dictionary = {}
-var service_preview_elapsed := 0.0
-var service_preview_host: Container
-var service_apply_button: Button
-var sticker_service_overlay: Control
-var service_feedback := ""
+var sticker_service_controller := StickerServiceControllerScript.new()
 var pending_portal_type := ""
 var minimap_player_marker := "cross"
 var minimap_size := Vector2(245.0, 245.0)
@@ -231,7 +217,6 @@ var mechanic_tooltip_overlay: Control
 var mechanic_tooltip_anchor: Control
 var run_map_generation_job: RefCounted
 
-const DECK_VAULT_KEY_COST := 3
 const VaultRules = preload("res://scripts/deck_vault_rules.gd")
 
 
@@ -676,19 +661,7 @@ func _process(delta: float) -> void:
 		return
 	_update_map_wait_notice()
 	_update_map_deck_selector_host()
-	if screen_name == "stickerService" and active_service_kind == "cardTransmuter" \
-		and service_selected_card_ids.size() == 1 and not get_viewport().gui_is_dragging() \
-		and not Input.is_mouse_button_pressed(MOUSE_BUTTON_LEFT) \
-		and not Input.is_mouse_button_pressed(MOUSE_BUTTON_RIGHT):
-		service_preview_elapsed += delta
-		if service_preview_elapsed >= 0.1:
-			service_preview_elapsed = 0.0
-			var source := _run_card_by_id(service_selected_card_ids[0])
-			if not source.is_empty():
-				var random := RandomNumberGenerator.new()
-				random.randomize()
-				service_transmuter_preview = StickerServices.create_transmuter_preview(source, random, service_transmuter_preview)
-				_render_sticker_service_preview()
+	sticker_service_controller.tick(self, delta)
 	if screen_name != "map" or run_state.is_empty() or is_instance_valid(player_name_setup_overlay):
 		_finish_auto_explore_capture("map_unavailable")
 		map_travel_active = false
@@ -1255,82 +1228,26 @@ func _random_deck_name(capacity: int) -> String:
 
 
 func _load_saved_run() -> void:
-	var file := FileAccess.open(RUN_SAVE_PATH, FileAccess.READ)
-	if file == null:
-		notice = "저장한 탐험을 읽지 못했습니다. 새 탐험을 시작하세요."
-		_show_title()
-		return
-	var saved_state = file.get_var(false)
-	var saved_map: Dictionary = {}
-	if typeof(saved_state) == TYPE_DICTIONARY and typeof(saved_state.get("map", null)) == TYPE_DICTIONARY:
-		saved_map = saved_state["map"]
-	if typeof(saved_state) != TYPE_DICTIONARY or not saved_state.has("position") or not saved_state.has("deck") \
-		or int(saved_map.get("version", -1)) != MapRules.MAP_VERSION:
-		_clear_run_save()
-		notice = "지도 형식이 바뀌어 새 탐험을 시작해야 합니다."
+	var loaded := RunSave.read_saved_run(RUN_SAVE_PATH)
+	if not bool(loaded.get("ok", false)):
+		if str(loaded.get("reason", "")) == "version_mismatch":
+			_clear_run_save()
+			notice = "지도 형식이 바뀌어 새 탐험을 시작해야 합니다."
+		else:
+			notice = "저장한 탐험을 읽지 못했습니다. 새 탐험을 시작하세요."
 		_show_title()
 		return
 	map_debug_controller.reset()
+	var saved_state: Dictionary = loaded["state"]
 	_reset_auto_explore_capture(int(saved_state.get("map_seed", -1)))
 	run_state = saved_state
 	safe_area_unlock_pending_animation = false
-	if not run_state.has("player_name") or str(run_state.get("player_name", "")).strip_edges().is_empty():
-		run_state["player_name"] = _random_player_name()
 	deck_editor_session_active = false
 	deck_editor_selected_deck_id = ""
 	deck_editor_origins_by_card_id.clear()
 	deck_editor_high_rarity_return_area_by_card_id.clear()
 	deck_editor_pending_removals.clear()
-	if not run_state.has("map_turn"):
-		run_state["map_turn"] = 0
-	if not run_state.has("sticker_service_uses"):
-		run_state["sticker_service_uses"] = {}
-	if not run_state.has("keys"):
-		run_state["keys"] = 0
-	if not run_state.has("gods_lament_charges"):
-		run_state["gods_lament_charges"] = 0 if MapRules.is_safe_area_tile(run_state["map"], run_state["position"]) else 3
-	if not run_state.has("region_battle_wins"):
-		run_state["region_battle_wins"] = 0
-	if not run_state.has("rare_card_drop_chance"):
-		run_state["rare_card_drop_chance"] = 0.05
-	if not run_state.has("inventory_cards"):
-		run_state["inventory_cards"] = []
-	if not run_state.has("inventory_consumables"):
-		run_state["inventory_consumables"] = []
-	if not run_state.has("next_consumable_id"):
-		run_state["next_consumable_id"] = 1
-	if not run_state.has("floor_cards"):
-		run_state["floor_cards"] = []
-	if not run_state.has("floor_deck_drops"):
-		run_state["floor_deck_drops"] = []
-	if not run_state.has("floor_consumable_drops"):
-		run_state["floor_consumable_drops"] = []
-	if not run_state.has("owned_decks") or typeof(run_state["owned_decks"]) != TYPE_ARRAY:
-		run_state["active_deck_id"] = "starter"
-		run_state["owned_decks"] = [{"id": "starter", "name": "시작 덱", "capacity": 25,
-		"rare_slot_capacity": 1, "cards": run_state["deck"].duplicate(true), "editions": []}]
-	elif run_state["owned_decks"].is_empty():
-		# An intentionally empty collection is valid after dropping the last deck.
-		run_state["active_deck_id"] = ""
-		run_state["deck"] = []
-	else:
-		var saved_active_id := str(run_state.get("active_deck_id", ""))
-		var has_saved_active_deck := false
-		for deck in run_state["owned_decks"]:
-			if str(deck.get("id", "")) == saved_active_id:
-				has_saved_active_deck = true
-				break
-		if not has_saved_active_deck:
-			var fallback_deck: Dictionary = run_state["owned_decks"][0]
-			run_state["active_deck_id"] = str(fallback_deck.get("id", ""))
-			run_state["deck"] = fallback_deck.get("cards", []).duplicate(true)
-	for deck in run_state.get("owned_decks", []):
-		if str(deck.get("id", "")) == "starter":
-			deck["rare_slot_capacity"] = 1
-	var highest_saved_card_id := _highest_saved_card_id(run_state)
-	run_state["next_card_id"] = maxi(int(run_state.get("next_card_id", 1)), highest_saved_card_id + 1)
-	MapRules.ensure_enemy_states(run_state["map"], run_state.get("defeated_enemies", []))
-	MapRules.reveal_visible(run_state["map"], run_state["position"])
+	RunSave.normalize_loaded_run(run_state, Callable(self, "_random_player_name"))
 	map_camera_center = Vector2(run_state["position"]) + Vector2(0.5, 0.5)
 	battle_state = {}
 	notice = "저장한 탐험을 이어갑니다."
@@ -1344,30 +1261,7 @@ func _load_saved_run() -> void:
 
 
 func _highest_saved_card_id(saved: Dictionary) -> int:
-	var card_arrays: Array = [saved.get("deck", []), saved.get("inventory_cards", [])]
-	for owned_deck in saved.get("owned_decks", []):
-		if typeof(owned_deck) == TYPE_DICTIONARY:
-			card_arrays.append(owned_deck.get("cards", []))
-	for drop in saved.get("floor_cards", []):
-		if typeof(drop) == TYPE_DICTIONARY:
-			card_arrays.append([drop.get("card", {})])
-	for drop in saved.get("floor_deck_drops", []):
-		if typeof(drop) == TYPE_DICTIONARY:
-			var dropped_deck: Dictionary = drop.get("deck", {})
-			card_arrays.append(dropped_deck.get("cards", []))
-	var saved_map: Dictionary = saved.get("map", {})
-	var vaults: Dictionary = saved_map.get("deck_vaults", {})
-	for vault in vaults.values():
-		if typeof(vault) == TYPE_DICTIONARY:
-			card_arrays.append(vault.get("cards", []))
-	var highest_id := 0
-	for card_array in card_arrays:
-		if typeof(card_array) != TYPE_ARRAY:
-			continue
-		for card in card_array:
-			if typeof(card) == TYPE_DICTIONARY:
-				highest_id = maxi(highest_id, int(card.get("id", 0)))
-	return highest_id
+	return RunSave.highest_saved_card_id(saved)
 
 
 func _save_run() -> bool:
@@ -1375,39 +1269,11 @@ func _save_run() -> bool:
 			or deck_editor_session_active or is_instance_valid(player_name_setup_overlay):
 		return false
 	_sync_active_deck()
-	var file := FileAccess.open(RUN_SAVE_PATH, FileAccess.WRITE)
-	if file != null:
-		file.store_var(map_debug_controller.session.snapshot_for_save(run_state), false)
-		return true
-	return false
+	return RunSave.write_run_save(RUN_SAVE_PATH, map_debug_controller.session.snapshot_for_save(run_state))
 
 
 func _sync_active_deck() -> void:
-	if run_state.is_empty() or not run_state.has("deck"):
-		return
-	var decks: Array = run_state.get("owned_decks", [])
-	if decks.is_empty():
-		run_state["owned_decks"] = []
-		run_state["active_deck_id"] = ""
-		run_state["deck"] = []
-		return
-	var active_id := str(run_state.get("active_deck_id", ""))
-	if active_id.is_empty():
-		var first_deck: Dictionary = decks[0]
-		run_state["active_deck_id"] = str(first_deck.get("id", ""))
-		run_state["deck"] = first_deck.get("cards", []).duplicate(true)
-		return
-	for index in range(decks.size()):
-		if str(decks[index].get("id", "")) != active_id:
-			continue
-		var updated: Dictionary = decks[index].duplicate(true)
-		updated["cards"] = run_state["deck"].duplicate(true)
-		decks[index] = updated
-		run_state["owned_decks"] = decks
-		return
-	var fallback_deck: Dictionary = decks[0]
-	run_state["active_deck_id"] = str(fallback_deck.get("id", ""))
-	run_state["deck"] = fallback_deck.get("cards", []).duplicate(true)
+	RunSave.sync_active_deck(run_state)
 
 
 func _select_deck_editor_target(deck_id: String) -> void:
@@ -1451,8 +1317,7 @@ func _select_map_deck(deck_id: String) -> void:
 
 
 func _clear_run_save() -> void:
-	if FileAccess.file_exists(RUN_SAVE_PATH):
-		DirAccess.remove_absolute(ProjectSettings.globalize_path(RUN_SAVE_PATH))
+	RunSave.clear_run_save(RUN_SAVE_PATH)
 
 
 func _map_layout_key() -> Array:
@@ -2167,7 +2032,7 @@ func _use_current_map_tile() -> void:
 		_show_deck_vault(current)
 		return
 	if ["stickerAltar", "tinkerer", "cardTransmuter"].has(room_type):
-		_open_sticker_service(room_type, current)
+		sticker_service_controller.open(self, room_type, current)
 		return
 	if room_type == "heal":
 		var previous_hp := int(run_state["player_hp"])
@@ -2220,7 +2085,6 @@ func _show_portal_key_warning() -> void:
 	body.alignment = BoxContainer.ALIGNMENT_CENTER
 	body.add_theme_constant_override("separation", 14)
 	page.add_child(body)
-	body.add_child(_label("덱 금고를 열 때 열쇠 3개가 필요합니다.", 18, COLOR_MUTED))
 	var leave_keys := _button("열쇠를 두고 이동", Callable(self, "_confirm_portal_key_loss"), Vector2(260, 50))
 	leave_keys.size_flags_horizontal = Control.SIZE_SHRINK_CENTER
 	body.add_child(leave_keys)
@@ -3100,159 +2964,23 @@ func _battle_enemy_visual(enemy_index: int) -> Button:
 
 
 func _enemy_self_destruct_countdown(enemy: Dictionary) -> int:
-	var actions: Array = enemy.get("actions", [])
-	var current := int(enemy.get("action_index", 0))
-	for index in actions.size():
-		if bool(actions[index].get("self_destruct", false)):
-			return maxi(0, index - current)
-	return -1
+	return BattleStatusText.enemy_self_destruct_countdown(enemy)
 
 
 func _enemy_status_text(enemy: Dictionary) -> String:
-	var statuses: Array[String] = []
-	var countdown := _enemy_self_destruct_countdown(enemy)
-	if countdown >= 0:
-		statuses.append("자폭 %d" % countdown)
-	if int(enemy.get("action_discard_count", 0)) > 0:
-		statuses.append("갉아먹기")
-	var vulnerable := int(enemy.get("vulnerable", 0))
-	var weak := int(enemy.get("weak", 0))
-	if vulnerable > 0:
-		statuses.append("취약 %d" % vulnerable)
-	if weak > 0:
-		statuses.append("약화 %d" % weak)
-	var block := int(enemy.get("physical_block", 0))
-	if block > 0:
-		statuses.append("방어 %d" % block)
-	if bool(enemy.get("stunned", false)):
-		statuses.append("행동 불가 1")
-	if not str(enemy.get("stun_ally_on_death", "")).is_empty():
-		statuses.append("인형 조종")
-	if int(enemy.get("empty_energy_strength_gain", 0)) > 0:
-		statuses.append("빈틈 노리기")
-	if int(enemy.get("solitaire_hit_bonus", 0)) > 0:
-		statuses.append("거미줄")
-	var turn_end_strength := int(enemy.get("turn_end_strength_gain", 0))
-	if turn_end_strength > 0:
-		statuses.append("성장 %d" % turn_end_strength)
-	if int(enemy.get("half_hp_strength_gain", 0)) > 0:
-		statuses.append("격노 발동" if bool(enemy.get("enraged", false)) else "격노")
-	if enemy.has("powder"):
-		statuses.append("화약 %d" % int(enemy.get("powder", 0)))
-	if int(enemy.get("hand_strength_gain", 0)) > 0:
-		statuses.append("추적")
-	if bool(enemy.get("rests_when_blocked", false)):
-		statuses.append("묵직한 망치")
-	if int(enemy.get("energy_recovery_penalty", 0)) > 0:
-		statuses.append("족쇄")
-	if bool(enemy.get("seals_pile", false)):
-		var sealed_file := int(enemy.get("sealed_pile_index", -1))
-		statuses.append("봉인 · %d번 파일" % (sealed_file + 1) if sealed_file >= 0 else "봉인")
-	if int(enemy.get("fermented_slime_count", 0)) > 0:
-		statuses.append("발효 점액")
-	var shared_strength := int(enemy.get("shared_turn_end_strength_gain", 0))
-	if shared_strength > 0:
-		statuses.append("피의 공명 %d" % shared_strength)
-	if bool(enemy.get("confiscates_rare", false)):
-		statuses.append("압수 %d" % enemy.get("confiscated_cards", []).size())
-	var strength := int(enemy.get("strength", 0))
-	if strength != 0:
-		statuses.append("힘 %d" % strength)
-	var temporary_strength := 0
-	if int(battle_state.get("energy", 0)) <= 0:
-		temporary_strength += int(enemy.get("empty_energy_strength_gain", 0))
-	if not battle_state.get("hand", []).is_empty():
-		temporary_strength += int(enemy.get("hand_strength_gain", 0))
-	if temporary_strength > 0:
-		statuses.append("임시 힘 +%d" % temporary_strength)
-	var spider_damage_bonus := int(enemy.get("solitaire_hit_bonus", 0)) * int(enemy.get("solitaire_hit_bonus_stacks", 0))
-	if spider_damage_bonus > 0:
-		statuses.append("받는 피해 +%d" % spider_damage_bonus)
-	var boon := int(enemy.get("boon", 0))
-	if boon > 0:
-		statuses.append("가호 %d" % boon)
-	var berserk := int(enemy.get("berserk", 0))
-	if berserk > 0:
-		statuses.append("광폭화 %d" % berserk)
-	var thorns := int(enemy.get("thorns", 0))
-	if thorns > 0:
-		statuses.append("가시 %d" % thorns)
-	var sturdy := int(enemy.get("sturdy_threshold", 0))
-	if sturdy > 0:
-		statuses.append("단단함 ≤%d" % sturdy)
-	if bool(enemy.get("quickness_ready", false)):
-		statuses.append("재빠름 준비")
-	return " · ".join(statuses)
+	return BattleStatusText.enemy_status_text(enemy, battle_state)
 
 
 func _enemy_status_tooltip(enemy: Dictionary, status_text: String) -> String:
-	if status_text.begins_with("자폭 "):
-		var countdown := _enemy_self_destruct_countdown(enemy)
-		return "이번 공격 후 자폭합니다." if countdown == 0 else "공격을 %d번 더 한 뒤, 다음 공격 후 자폭합니다." % countdown
-	if status_text.begins_with("취약 "):
-		return "받는 공격 피해가 50% 증가합니다."
-	if status_text.begins_with("약화 "):
-		return "가하는 공격 피해가 50% 감소합니다."
-	if status_text.begins_with("힘 "):
-		return "공격의 각 타격에 피해를 %d만큼 추가합니다." % status_text.get_slice(" ", 1).to_int()
-	if status_text.begins_with("임시 힘 "):
-		return "이번 적 행동에만 추가되는 힘입니다. 영구적으로 누적되지 않습니다."
-	if status_text.begins_with("방어 "):
-		return "받는 피해를 먼저 흡수합니다. 다음 적 행동이 시작될 때 남은 방어는 사라집니다."
-	if status_text.begins_with("행동 불가 "):
-		return "다음 행동을 한 번 건너뜁니다. 그 행동의 공격과 강화 효과도 발동하지 않습니다."
-	if status_text.begins_with("압수 "):
-		var confiscated_cards: Array = enemy.get("confiscated_cards", [])
-		var confiscated_names := PackedStringArray()
-		for confiscated_card in confiscated_cards:
-			confiscated_names.append(str(confiscated_card.get("name", "카드")))
-		return ", ".join(confiscated_names) if not confiscated_names.is_empty() else "압수한 카드가 없습니다."
-	if status_text.begins_with("가호 "):
-		return "받는 타격의 피해를 무효화합니다. 타격을 한 번 막을 때마다 가호를 1 소모합니다."
-	if status_text.begins_with("광폭화 "):
-		return "플레이어의 턴이 시작될 때마다 이 수치만큼 힘을 얻습니다."
-	if status_text.begins_with("가시 "):
-		return "공격받을 때마다 이 수치만큼 물리 피해로 반격합니다."
-	if status_text.begins_with("받는 피해 +"):
-		return "이번 턴 솔리테어 행동을 할 때마다 받는 피해가 3 증가하며 중첩됩니다. 이 수치는 턴 종료 시 사라집니다."
-	if status_text.begins_with("단단함 "):
-		return "표시된 수치 이하의 타격 피해를 받으면 그 피해를 1로 줄입니다."
-	if status_text == "재빠름 준비":
-		return "다음 공격의 한 타격을 회피합니다. 회피하면 준비 상태가 사라집니다."
-	return _enemy_trait_tooltip(enemy)
+	return BattleStatusText.enemy_status_tooltip(enemy, status_text)
 
 
 func _enemy_trait_tooltip(enemy: Dictionary) -> String:
-	var enemy_trait = enemy.get("trait")
-	return "" if enemy_trait == null else str(enemy_trait)
+	return BattleStatusText.enemy_trait_tooltip(enemy)
 
 
 func _battle_status_tooltip(status_text: String) -> String:
-	var shared_status := BattleRules.StatusRules.describe_badge(status_text)
-	if shared_status != "":
-		return shared_status
-	if status_text.begins_with("취약 "):
-		return "받는 공격 피해가 50% 증가합니다."
-	if status_text.begins_with("약화 "):
-		return "가하는 공격 피해가 50% 감소합니다."
-	if status_text.begins_with("강인함 "):
-		var status_parts: PackedStringArray = status_text.split(" ")
-		var agility := int(status_parts[status_parts.size() - 1])
-		var agility_effect := "%d만큼 추가로 얻습니다." % agility if agility >= 0 else "%d만큼 덜 얻습니다." % absi(agility)
-		return "방어를 얻을 때 %s 직접 카드를 낼 때만 적용됩니다." % agility_effect
-	if status_text.begins_with("이번 턴 힘 "):
-		var status_parts: PackedStringArray = status_text.split(" ")
-		var temporary_strength := int(status_parts[status_parts.size() - 1])
-		var temporary_strength_effect := "%d만큼 추가합니다." % temporary_strength if temporary_strength >= 0 else "%d만큼 감소시킵니다." % absi(temporary_strength)
-		return "공격의 각 타격에 피해를 %s 직접 카드를 낼 때만 적용됩니다. 이번 턴만 적용됩니다." % temporary_strength_effect
-	if status_text.begins_with("힘 "):
-		var status_parts: PackedStringArray = status_text.split(" ")
-		var strength := int(status_parts[status_parts.size() - 1])
-		var strength_effect := "%d만큼 추가합니다." % strength if strength >= 0 else "%d만큼 감소시킵니다." % absi(strength)
-		return "공격의 각 타격에 피해를 %s 직접 카드를 낼 때만 적용됩니다." % strength_effect
-	if status_text.begins_with("무적 "):
-		return "피해를 받지 않습니다."
-	return ""
+	return BattleStatusText.battle_status_tooltip(status_text)
 
 
 func _pile_button(pile_index: int) -> Button:
@@ -3631,131 +3359,7 @@ func _hide_card_mechanic_preview() -> void:
 
 
 func _card_description(card: Dictionary, use_battle_context: bool = true) -> String:
-	var description := str(card.get("description", ""))
-	# Saved cards can retain old copy, so browser-aligned descriptions are normalized below.
-	var effect := str(card.get("effect", ""))
-	if effect in ["strategy_book", "obsidian_dagger", "dash", "combat_manual"]:
-		var source_cards: Array = CardCatalog.RARE_CARDS
-		if effect == "dash":
-			source_cards = CardCatalog.SPECIAL_CARDS
-		elif effect == "combat_manual":
-			source_cards = CardCatalog.BASIC_CARDS
-		for blueprint in source_cards:
-			if str(blueprint.get("effect", "")) == effect:
-				description = str(blueprint.get("description", description))
-				break
-	if effect == "iron_song" and bool(card.get("forged", card.get("upgraded", false))):
-		description = description.replace("다음 턴[과 다다음 턴]", "다음 턴과 다다음 턴")
-	if effect == "dash" and bool(card.get("forged", card.get("upgraded", false))):
-		description = description.replace("2[3]장", "3장")
-	if str(card.get("effect", "")) == "obsidian_dagger":
-		description = description.replace("피해를 1 줍니다.", "피해를 %d 줍니다." % int(card.get("value", 1)))
-		var completed_forges: Array = card.get("forge_costs_completed", [])
-		if not completed_forges.is_empty():
-			description += "\n재련됨."
-		description += "\n재련 x%d: [공격]" % maxi(0, 5 - completed_forges.size())
-	elif bool(card.get("forged", false)):
-		if str(card.get("effect", "")) == "double_hit":
-			description = description.replace("1[2]번", "2번")
-			description = description.replace("[한 번 더 공격합니다.]", "한 번 더 공격합니다.")
-		if card.has("upgraded_value"):
-			var base_value := int(card.get("value", 0))
-			var forged_value := int(card.get("upgraded_value", base_value))
-			description = description.replace("%d[%d]" % [base_value, forged_value], str(forged_value))
-	description = _browser_star_gain_description(card, description)
-	if screen_name == "battle" and use_battle_context:
-		# File/hand cards show ordinary damage. Enemy-specific mitigation belongs
-		# only to the temporary drag preview built while pointing at that enemy.
-		var preview_state: Dictionary = battle_state.duplicate()
-		preview_state.erase("preview_target_enemy_index")
-		description = BattleCardPreview.describe(card, description, preview_state)
-	if bool(card.get("token", false)) and not description.contains("토큰."):
-		description += "\n토큰."
-	if CardStickers.retains_card(card) and not description.contains("보존."):
-		description += " 보존."
-	return _add_card_rule_marker(card, _append_forge_description(card, description))
-
-
-func _append_forge_description(card: Dictionary, description: String) -> String:
-	var effect := str(card.get("effect", ""))
-	if effect in ["obsidian_dagger", "astronomy_research", "necromancy_research", "mass_deal"]:
-		return description
-	if bool(card.get("forged", false)):
-		var condition := RegEx.new()
-		condition.compile("\\n?재련:.*$")
-		return condition.sub(description, "") + "\n재련됨."
-	if description.contains("재련:"):
-		return description
-	var requirement := ""
-	if card.has("forge_cost"):
-		requirement = "%d코스트" % int(card["forge_cost"])
-	elif card.has("forge_costs"):
-		var costs: Array[String] = []
-		for cost in card["forge_costs"]:
-			costs.append(str(cost))
-		requirement = " 또는 ".join(costs) + "코스트"
-	elif card.has("forge_target_name"):
-		requirement = str(card["forge_target_name"])
-	elif bool(card.get("forge_any", false)):
-		requirement = "아무거나"
-	return description if requirement.is_empty() else description + "\n재련: [%s]" % requirement
-
-
-func _browser_star_gain_description(card: Dictionary, fallback: String) -> String:
-	var effect := str(card.get("effect", ""))
-	var amount := maxi(0, int(card.get("value", 0)))
-	var stars := "★".repeat(amount)
-	var draw_count := maxi(0, int(card.get("draw", 0)))
-	match effect:
-		"ruler_compass":
-			var ruler_text := "피해를 %d 줍니다.\n★을 얻습니다." % int(card.get("value", 0))
-			if draw_count > 0:
-				ruler_text += "\n카드를 %d장 뽑습니다." % draw_count
-			return ruler_text
-		"battle_plan":
-			var battle_plan_text := ""
-			if amount > 0:
-				battle_plan_text = "%s을 얻습니다." % stars
-			if draw_count > 0:
-				if not battle_plan_text.is_empty():
-					battle_plan_text += "\n"
-				battle_plan_text += "카드를 %d장 뽑습니다." % draw_count
-			return battle_plan_text
-		"nebula":
-			return "광채 1장을 가져옵니다.\n★★를 얻습니다."
-		"starlight":
-			return "%s을 얻습니다." % stars
-		"star_guard":
-			return fallback.replace("★를 1 얻습니다", "★을 얻습니다")
-		"star_ark":
-			return fallback.replace("★를 1 얻습니다", "★을 얻습니다")
-		"super_strategist":
-			var strategist_text := ""
-			if amount > 0:
-				strategist_text = "%s을 얻습니다." % stars
-			if draw_count > 0:
-				if not strategist_text.is_empty():
-					strategist_text += "\n"
-				strategist_text += "카드를 %d장 뽑습니다." % draw_count
-			if bool(card.get("exhaust", false)):
-				if not strategist_text.is_empty():
-					strategist_text += "\n"
-				strategist_text += "소멸."
-			return strategist_text
-		"aries":
-			return "에너지를 5 얻습니다.\n★★★★★을 얻습니다." + ("\n소멸." if bool(card.get("exhaust", false)) else "")
-	return fallback
-
-
-func _add_card_rule_marker(card: Dictionary, description: String) -> String:
-	if not bool(card.get("rule", false)) or description.contains("룰."):
-		return description
-	var marker := "룰.\u00a0"
-	if str(card.get("effect", "")) in ["mass_deal", "evolution_theory", "sturdy_stance", "steel_storm"]:
-		var split_at := description.find("\n")
-		if split_at >= 0:
-			return description.substr(0, split_at + 1) + marker + description.substr(split_at + 1)
-	return marker + description
+	return CardDescriptionFormatter.format(card, battle_state, screen_name == "battle" and use_battle_context)
 
 
 func _play_card(card_id: int, held_origin: Dictionary = {}) -> void:
@@ -3906,12 +3510,6 @@ func _battle_drop_style(payload: Dictionary, target_kind: String, target_index: 
 	if not _is_valid_battle_drop(payload, target_kind, target_index):
 		return "none"
 	return BattleDropStyle.resolve(battle_state, payload, target_kind, target_index)
-
-
-func _card_is_attack(card: Dictionary) -> bool:
-	var effect := str(card.get("effect", ""))
-	return str(card.get("kind", "")) == "strike" \
-		or effect in ["radiance", "sweep", "double_hit", "iron_rampage", "magic_strike", "shockwave", "meteor", "hydra"]
 
 
 func _battle_hand_card(card_id: int) -> Dictionary:
@@ -4142,1533 +3740,160 @@ func _return_to_map() -> void:
 
 
 func _floor_card_count_at(position: Vector2i) -> int:
-	var count := 0
-	for drop in run_state.get("floor_cards", []):
-		if int(drop.get("x", -1)) == position.x and int(drop.get("y", -1)) == position.y:
-			count += 1
-	return count
+	return DeckStorageService.floor_card_count_at(run_state, position)
 
 
 func _inventory_item_count() -> int:
-	return run_state.get("inventory_cards", []).size() + run_state.get("inventory_consumables", []).size()
+	return DeckStorageService.inventory_item_count(run_state)
 
 
 func _inventory_space_available() -> int:
-	return maxi(0, INVENTORY_CAPACITY - _inventory_item_count())
+	return DeckStorageService.inventory_space_available(self)
 
 
 func _quick_pick_up_floor_items() -> void:
-	var position: Vector2i = run_state["position"]
-	var free_item_slots := _inventory_space_available()
-	var inventory_cards: Array = run_state.get("inventory_cards", []).duplicate(true)
-	var inventory_consumables: Array = run_state.get("inventory_consumables", []).duplicate(true)
-	var remaining_cards: Array = []
-	var remaining_consumables: Array = []
-	var remaining_deck_drops: Array = []
-	var picked_card_count := 0
-	var picked_consumable_count := 0
-	var picked_deck_count := 0
-	var floor_cards: Array = run_state.get("floor_cards", [])
-	var floor_consumables: Array = run_state.get("floor_consumable_drops", [])
-	var floor_decks: Array = run_state.get("floor_deck_drops", [])
-	for drop in floor_cards:
-		if int(drop.get("x", -1)) == position.x and int(drop.get("y", -1)) == position.y and free_item_slots > 0:
-			inventory_cards.append(drop.get("card", {}).duplicate(true))
-			picked_card_count += 1
-			free_item_slots -= 1
-		else:
-			remaining_cards.append(drop)
-	for drop in floor_consumables:
-		if int(drop.get("x", -1)) == position.x and int(drop.get("y", -1)) == position.y and free_item_slots > 0:
-			var consumable: Dictionary = drop.get("consumable", {})
-			if not consumable.is_empty():
-				inventory_consumables.append(consumable.duplicate(true))
-				picked_consumable_count += 1
-				free_item_slots -= 1
-			else:
-				remaining_consumables.append(drop)
-		else:
-			remaining_consumables.append(drop)
-	var owned_decks: Array = run_state.get("owned_decks", []).duplicate(true)
-	var free_deck_slots := maxi(0, _owned_deck_limit() - owned_decks.size())
-	for drop in floor_decks:
-		if int(drop.get("x", -1)) == position.x and int(drop.get("y", -1)) == position.y and free_deck_slots > 0:
-			var deck: Dictionary = drop.get("deck", {})
-			if not deck.is_empty():
-				owned_decks.append(deck.duplicate(true))
-				_register_acquired_deck_origins(deck)
-				picked_deck_count += 1
-				free_deck_slots -= 1
-			else:
-				remaining_deck_drops.append(drop)
-		else:
-			remaining_deck_drops.append(drop)
-	var total_picked := picked_card_count + picked_consumable_count + picked_deck_count
-	if picked_card_count > 0:
-		run_state["inventory_cards"] = inventory_cards
-	if picked_consumable_count > 0:
-		run_state["inventory_consumables"] = inventory_consumables
-	if picked_deck_count > 0:
-		run_state["owned_decks"] = owned_decks
-	run_state["floor_cards"] = remaining_cards
-	run_state["floor_consumable_drops"] = remaining_consumables
-	run_state["floor_deck_drops"] = remaining_deck_drops
-	var pickup_messages: Array[String] = []
-	if picked_card_count > 0:
-		pickup_messages.append("카드 %d장 획득" % picked_card_count)
-	if picked_consumable_count > 0:
-		pickup_messages.append("소모품 %d개 획득" % picked_consumable_count)
-	if picked_deck_count > 0:
-		pickup_messages.append("금고 덱 %d개 획득" % picked_deck_count)
-	if _floor_card_count_at(position) + _floor_consumable_drop_count_at(position) > 0:
-		pickup_messages.append("인벤토리가 가득 찼습니다!")
-	if _floor_deck_drop_count_at(position) > 0:
-		pickup_messages.append("보유 덱 슬롯이 가득찼습니다!")
-	notice = " · ".join(pickup_messages)
-	if total_picked > 0:
-		_save_run()
-	_show_map()
+	DeckStorageService.quick_pick_up_floor_items(self)
 
 
 func _collect_floor_cards() -> void:
-	var position: Vector2i = run_state["position"]
-	var floor_cards: Array = run_state.get("floor_cards", [])
-	var inventory: Array = run_state.get("inventory_cards", [])
-	var remaining: Array = []
-	var collected := 0
-	var left_behind := 0
-	var space := _inventory_space_available()
-	for drop in floor_cards:
-		if int(drop.get("x", -1)) == position.x and int(drop.get("y", -1)) == position.y:
-			if space > 0:
-				inventory.append(drop.get("card", {}).duplicate(true))
-				collected += 1
-				space -= 1
-			else:
-				remaining.append(drop)
-				left_behind += 1
-		else:
-			remaining.append(drop)
-	if collected == 0:
-		if left_behind > 0:
-			notice = "인벤토리가 가득 찼습니다."
-			_show_map()
-		return
-	run_state["inventory_cards"] = inventory
-	run_state["floor_cards"] = remaining
-	notice = "카드 %d장을 인벤토리에 넣었습니다." % collected
-	if left_behind > 0:
-		notice += " 인벤토리가 가득 차 %d장은 바닥에 남았습니다." % left_behind
-	_save_run()
-	_show_map()
+	DeckStorageService.collect_floor_cards(self)
 
 
 func _floor_deck_drop_count_at(position: Vector2i) -> int:
-	var count := 0
-	for drop in run_state.get("floor_deck_drops", []):
-		if int(drop.get("x", -1)) == position.x and int(drop.get("y", -1)) == position.y:
-			count += 1
-	return count
+	return DeckStorageService.floor_deck_drop_count_at(run_state, position)
 
 
 func _floor_consumable_drop_count_at(position: Vector2i) -> int:
-	var count := 0
-	for drop in run_state.get("floor_consumable_drops", []):
-		if int(drop.get("x", -1)) == position.x and int(drop.get("y", -1)) == position.y:
-			count += 1
-	return count
+	return DeckStorageService.floor_consumable_drop_count_at(run_state, position)
 
 
 func _collect_floor_deck_drops() -> void:
-	var position: Vector2i = run_state["position"]
-	var drops: Array = run_state.get("floor_deck_drops", [])
-	var remaining: Array = []
-	var decks: Array = run_state.get("owned_decks", [])
-	var collected := 0
-	for drop in drops:
-		if int(drop.get("x", -1)) == position.x and int(drop.get("y", -1)) == position.y and decks.size() < _owned_deck_limit():
-			var deck: Dictionary = drop.get("deck", {})
-			if not deck.is_empty():
-				decks.append(deck.duplicate(true))
-				_register_acquired_deck_origins(deck)
-				collected += 1
-		else:
-			remaining.append(drop)
-	if collected == 0:
-		return
-	run_state["owned_decks"] = decks
-	run_state["floor_deck_drops"] = remaining
-	notice = "금고 덱 %d개를 획득했습니다. 덱 보기에서 장착할 수 있습니다." % collected
-	_save_run()
-	_show_map()
+	DeckStorageService.collect_floor_deck_drops(self)
 
 
 func _collect_floor_consumable_drops() -> void:
-	var position: Vector2i = run_state["position"]
-	var drops: Array = run_state.get("floor_consumable_drops", [])
-	var remaining: Array = []
-	var inventory: Array = run_state.get("inventory_consumables", [])
-	var collected := 0
-	var left_behind := 0
-	var space := _inventory_space_available()
-	for drop in drops:
-		if int(drop.get("x", -1)) == position.x and int(drop.get("y", -1)) == position.y:
-			var consumable: Dictionary = drop.get("consumable", {})
-			if not consumable.is_empty() and space > 0:
-				inventory.append(consumable.duplicate(true))
-				collected += 1
-				space -= 1
-			else:
-				remaining.append(drop)
-				left_behind += 1
-		else:
-			remaining.append(drop)
-	if collected == 0:
-		if left_behind > 0:
-			notice = "인벤토리가 가득 찼습니다."
-			_show_map()
-		return
-	run_state["inventory_consumables"] = inventory
-	run_state["floor_consumable_drops"] = remaining
-	notice = "소모품 %d개를 획득했습니다." % collected
-	if left_behind > 0:
-		notice += " 인벤토리가 가득 차 %d개는 바닥에 남았습니다." % left_behind
-	_save_run()
-	_show_map()
+	DeckStorageService.collect_floor_consumable_drops(self)
 
 
 func _is_rare_slot_card(card: Dictionary) -> bool:
-	return DeckEditorRules.is_high_rarity(card)
+	return DeckStorageService.is_rare_slot_card(card)
 
 
 func _register_acquired_deck_origins(deck: Dictionary) -> void:
-	if not deck_editor_session_active:
-		return
-	var deck_id := str(deck.get("id", ""))
-	for card in deck.get("cards", []):
-		var card_id := int(card.get("id", -1))
-		# Preserve recorded temporary additions when dropping and picking up a deck.
-		if card_id >= 0 and not deck_editor_origins_by_card_id.has(card_id):
-			deck_editor_origins_by_card_id[card_id] = deck_id
+	DeckStorageService.register_acquired_deck_origins(self, deck)
 
 
 func _begin_deck_editor_session() -> void:
-	if deck_editor_session_active or run_state.is_empty():
-		return
-	deck_editor_session_active = true
-	deck_editor_selected_deck_id = str(run_state.get("active_deck_id", "starter"))
-	deck_editor_origins_by_card_id.clear()
-	deck_editor_pending_removals.clear()
-	for deck in run_state.get("owned_decks", []):
-		var deck_id := str(deck.get("id", ""))
-		for card in deck.get("cards", []):
-			deck_editor_origins_by_card_id[int(card.get("id", -1))] = deck_id
-	for card in run_state.get("inventory_cards", []):
-		deck_editor_origins_by_card_id[int(card.get("id", -1))] = null
-	for drop in run_state.get("floor_cards", []):
-		var card: Dictionary = drop.get("card", {})
-		deck_editor_origins_by_card_id[int(card.get("id", -1))] = null
+	DeckStorageService.begin_session(self)
 
 
 func _finish_deck_editor_session() -> void:
-	if not deck_editor_session_active:
-		return
-	if not deck_editor_pending_removals.is_empty():
-		for pending in deck_editor_pending_removals:
-			var card: Dictionary = pending.get("card", {})
-			deck_editor_high_rarity_return_area_by_card_id.erase(int(card.get("id", -1)))
-		# Web confirms removal by clearing the pending collection, not creating drops.
-		notice = ""
-	deck_editor_pending_removals.clear()
-	deck_editor_session_active = false
-	deck_editor_selected_deck_id = ""
-	deck_editor_origins_by_card_id.clear()
-	_sync_active_deck()
-	_save_run()
-
-
-func _apply_pending_deck_add_effect(view: Control, card_ids: Array) -> void:
-	# Browser isTemporary: a stack blinks if any card came from outside a deck.
-	for card_id in card_ids:
-		if _origin_deck_id_for_card(int(card_id)) == "":
-			var effect := PendingRemovalEffectScript.new()
-			view.add_child(effect)
-			effect.configure(view, deck_editor_effect_started_usec,
-				DisplayServer.accessibility_should_reduce_animation() == 1, null, null, false)
-			return
+	DeckStorageService.finish_session(self)
 
 
 func _origin_deck_id_for_card(card_id: int) -> String:
-	var original = deck_editor_origins_by_card_id.get(card_id, null)
-	return "" if original == null else str(original)
+	return DeckStorageService.origin_deck_id_for_card(self, card_id)
 
 
-func _active_deck_add_error(card: Dictionary) -> String:
-	return _deck_add_error(card, str(run_state.get("active_deck_id", "starter")))
-
-
-func _deck_add_error(card: Dictionary, deck_id: String) -> String:
-	for deck in run_state.get("owned_decks", []):
-		if str(deck.get("id", "")) != deck_id:
-			continue
-		var cards: Array = run_state.get("deck", []) if deck_id == str(run_state.get("active_deck_id", "starter")) else deck.get("cards", [])
-		return DeckEditorRules.add_card_error(cards, card,
-			int(deck.get("capacity", 25)), DeckEditions.rare_slot_capacity(deck))
-	return "deck-full"
-
-
-func _deck_allows_free_edit(deck_id: String) -> bool:
-	for deck in run_state.get("owned_decks", []):
-		if str(deck.get("id", "")) == deck_id:
-			return deck.get("editions", []).has("freeEdit")
-	return false
-
-
-func _can_remove_deck_card(card: Dictionary, safe_area: bool, deck_id: String = "") -> bool:
-	if DeckEditorRules.is_bound(card):
-		return false
-	var card_id := int(card.get("id", -1))
-	var source_deck_id := deck_id if deck_id != "" else str(run_state.get("active_deck_id", "starter"))
-	if extraction_ticket_mode:
-		return deck_editor_origins_by_card_id.has(card_id) and _origin_deck_id_for_card(card_id) == source_deck_id
-	if safe_area or _deck_allows_free_edit(source_deck_id):
-		return true
-	var return_area := str(deck_editor_high_rarity_return_area_by_card_id.get(card_id, ""))
-	if return_area != "":
-		return true
-	var original_deck_id := _origin_deck_id_for_card(card_id)
-	return original_deck_id == "" or original_deck_id == source_deck_id
-
-
-func _can_transfer_deck_card(card: Dictionary, safe_area: bool, deck_id: String = "") -> bool:
-	if DeckEditorRules.is_bound(card):
-		return false
-	if safe_area or _deck_allows_free_edit(deck_id):
-		return true
-	return not _is_rare_slot_card(card) and _origin_deck_id_for_card(int(card.get("id", -1))) == ""
-
-
-func _deck_card_remove_label(card: Dictionary, safe_area: bool, deck_id: String = "") -> String:
-	var source_deck_id := deck_id if deck_id != "" else str(run_state.get("active_deck_id", "starter"))
-	safe_area = safe_area or _deck_allows_free_edit(source_deck_id)
-	if extraction_ticket_mode:
-		return "추출 티켓 사용"
-	if not safe_area and deck_editor_high_rarity_return_area_by_card_id.has(int(card.get("id", -1))):
-		return "원래 위치로"
-	if not safe_area and _origin_deck_id_for_card(int(card.get("id", -1))) == source_deck_id:
-		return "제거 예약"
-	return "인벤토리로" if _inventory_space_available() > 0 else "바닥으로"
-
-
-func _set_owned_deck_cards(deck_id: String, cards: Array) -> void:
-	var decks: Array = run_state.get("owned_decks", []).duplicate(true)
-	for index in range(decks.size()):
-		if str(decks[index].get("id", "")) != deck_id:
-			continue
-		var updated: Dictionary = decks[index].duplicate(true)
-		updated["cards"] = cards.duplicate(true)
-		decks[index] = updated
-		run_state["owned_decks"] = decks
-		if deck_id == str(run_state.get("active_deck_id", "starter")):
-			run_state["deck"] = cards.duplicate(true)
-		_sync_active_deck()
-		return
-
-
-func _put_card_on_current_tile(card: Dictionary) -> void:
-	var floor_cards: Array = run_state.get("floor_cards", [])
-	var position: Vector2i = run_state["position"]
-	floor_cards.append({"x": position.x, "y": position.y, "card": card.duplicate(true)})
-	run_state["floor_cards"] = floor_cards
-
-
-func _move_floor_card_to_deck(card_id: int, deck_id: String = "") -> void:
-	_move_external_card_to_deck(card_id, "floor", deck_id)
-
-
-func _move_external_card_to_deck(card_id: int, source_area: String, requested_deck_id: String) -> void:
-	_begin_deck_editor_session()
-	var target_deck_id := requested_deck_id if requested_deck_id != "" else str(run_state.get("active_deck_id", "starter"))
-	var error := "deck-full"
-	var target_deck: Dictionary = {}
-	for deck in run_state.get("owned_decks", []):
-		if str(deck.get("id", "")) == target_deck_id:
-			target_deck = deck
-			break
-	if target_deck.is_empty():
-		return
-	var deck_cards: Array = run_state.get("deck", []) if target_deck_id == str(run_state.get("active_deck_id", "starter")) else target_deck.get("cards", [])
-	var card: Dictionary = {}
-	var source_index := -1
-	var inventory: Array = run_state.get("inventory_cards", [])
-	var floor_cards: Array = run_state.get("floor_cards", [])
-	if source_area == "inventory":
-		for index in range(inventory.size()):
-			if int(inventory[index].get("id", -1)) == card_id:
-				card = inventory[index]
-				source_index = index
-				break
-	else:
-		var position: Vector2i = run_state["position"]
-		for index in range(floor_cards.size()):
-			var drop: Dictionary = floor_cards[index]
-			if int(drop.get("x", -1)) != position.x or int(drop.get("y", -1)) != position.y:
-				continue
-			var dropped_card: Dictionary = drop.get("card", {})
-			if int(dropped_card.get("id", -1)) == card_id:
-				card = dropped_card
-				source_index = index
-				break
-	if source_index < 0 or card.is_empty():
-		return
-	error = _deck_add_error(card, target_deck_id)
-	if error != "":
-		notice = "덱 용량이 가득 찼습니다." if error == "deck-full" else "희귀 슬롯이 가득 찼습니다."
-		_show_deck()
-		return
-	deck_cards = deck_cards.duplicate(true)
-	deck_cards.append(card.duplicate(true))
-	if source_area == "inventory":
-		inventory.remove_at(source_index)
-		run_state["inventory_cards"] = inventory
-	else:
-		floor_cards.remove_at(source_index)
-		run_state["floor_cards"] = floor_cards
-	_set_owned_deck_cards(target_deck_id, deck_cards)
-	deck_editor_selected_deck_id = target_deck_id
-	if _is_rare_slot_card(card):
-		deck_editor_high_rarity_return_area_by_card_id[card_id] = source_area
-	notice = "%s을(를) %s으로 옮겼습니다." % [str(card.get("name", "카드")), str(target_deck.get("name", "덱"))]
-	_show_deck()
-
-
-func _move_inventory_card_to_floor(card_id: int) -> void:
-	_begin_deck_editor_session()
-	var inventory: Array = run_state.get("inventory_cards", [])
-	for index in range(inventory.size()):
-		var card: Dictionary = inventory[index]
-		if int(card.get("id", -1)) != card_id:
-			continue
-		inventory.remove_at(index)
-		run_state["inventory_cards"] = inventory
-		_put_card_on_current_tile(card)
-		deck_editor_high_rarity_return_area_by_card_id.erase(card_id)
-		_sync_active_deck()
-		notice = "%s을(를) 현재 타일에 놓았습니다." % str(card.get("name", "카드"))
-		_show_deck()
-		return
-
-
-func _move_floor_card_to_inventory(card_id: int) -> void:
-	_begin_deck_editor_session()
-	if _inventory_space_available() <= 0:
-		notice = "인벤토리가 가득 찼습니다."
-		_show_deck()
-		return
-	var position: Vector2i = run_state["position"]
-	var floor_cards: Array = run_state.get("floor_cards", [])
-	for index in range(floor_cards.size()):
-		var drop: Dictionary = floor_cards[index]
-		if int(drop.get("x", -1)) != position.x or int(drop.get("y", -1)) != position.y:
-			continue
-		var card: Dictionary = drop.get("card", {})
-		if int(card.get("id", -1)) != card_id:
-			continue
-		floor_cards.remove_at(index)
-		var inventory: Array = run_state.get("inventory_cards", [])
-		inventory.append(card.duplicate(true))
-		run_state["floor_cards"] = floor_cards
-		run_state["inventory_cards"] = inventory
-		if _is_rare_slot_card(card):
-			deck_editor_high_rarity_return_area_by_card_id[card_id] = "inventory"
-		_sync_active_deck()
-		notice = "%s을(를) 인벤토리로 옮겼습니다." % str(card.get("name", "카드"))
-		_show_deck()
-		return
-
-
-func _move_deck_card_to_floor(card_id: int, source_deck_id: String) -> void:
-	_begin_deck_editor_session()
-	var source_deck: Dictionary = {}
-	for deck in run_state.get("owned_decks", []):
-		if str(deck.get("id", "")) == source_deck_id:
-			source_deck = deck
-			break
-	if source_deck.is_empty():
-		return
-	var cards: Array = run_state.get("deck", []) if source_deck_id == str(run_state.get("active_deck_id", "starter")) else source_deck.get("cards", [])
-	for index in range(cards.size()):
-		var card: Dictionary = cards[index]
-		if int(card.get("id", -1)) != card_id:
-			continue
-		if DeckEditorRules.is_bound(card):
-			return
-		var safe_area: bool = MapRules.is_safe_area_tile(run_state["map"], run_state["position"]) \
-			or run_state.get("blessings", []).has("forbiddenKnowledge") or _deck_allows_free_edit(source_deck_id)
-		var original_deck_id := _origin_deck_id_for_card(card_id)
-		var rare_card := _is_rare_slot_card(card)
-		var return_area := str(deck_editor_high_rarity_return_area_by_card_id.get(card_id, "")) if rare_card else ""
-		var schedule_removal := false
-		if not safe_area and return_area == "":
-			if rare_card:
-				if original_deck_id != source_deck_id:
-					notice = "희귀·전설 카드는 일반 이동으로 꺼낼 수 없습니다."
-					_show_deck()
-					return
-			else:
-				if original_deck_id != "" and original_deck_id != source_deck_id:
-					notice = "현재 위치에서는 편집 시작 당시의 원래 덱으로만 되돌릴 수 있습니다."
-					_show_deck()
-					return
-			schedule_removal = original_deck_id == source_deck_id
-		cards.remove_at(index)
-		_set_owned_deck_cards(source_deck_id, cards)
-		if schedule_removal:
-			deck_editor_pending_removals.append({"deck_id": source_deck_id, "card": card.duplicate(true)})
-			notice = "%s을(를) 제거 예정 상태로 만들었습니다." % str(card.get("name", "카드"))
-		elif return_area == "inventory" and _inventory_space_available() > 0 and not safe_area:
-			var inventory: Array = run_state.get("inventory_cards", [])
-			inventory.append(card.duplicate(true))
-			run_state["inventory_cards"] = inventory
-			notice = "%s을(를) 인벤토리로 옮겼습니다." % str(card.get("name", "카드"))
-		else:
-			_put_card_on_current_tile(card)
-			notice = "%s을(를) 현재 타일에 놓았습니다." % str(card.get("name", "카드"))
-		deck_editor_high_rarity_return_area_by_card_id.erase(card_id)
-		_show_deck()
-		return
-
-
-func _move_inventory_consumable_to_floor(consumable_id: String) -> void:
-	var inventory: Array = run_state.get("inventory_consumables", [])
-	for index in range(inventory.size()):
-		var consumable: Dictionary = inventory[index]
-		if str(consumable.get("id", "")) != consumable_id:
-			continue
-		inventory.remove_at(index)
-		var position: Vector2i = run_state["position"]
-		var drops: Array = run_state.get("floor_consumable_drops", [])
-		drops.append({"x": position.x, "y": position.y, "consumable": consumable.duplicate(true)})
-		run_state["inventory_consumables"] = inventory
-		run_state["floor_consumable_drops"] = drops
-		if extraction_ticket_mode and extraction_ticket_source == "inventory" and extraction_ticket_id == consumable_id:
-			extraction_ticket_mode = false
-			extraction_ticket_id = ""
-		_show_deck()
-		return
-
-
-func _move_floor_consumable_to_inventory(consumable_id: String) -> void:
-	if _inventory_space_available() <= 0:
-		notice = "인벤토리가 가득 찼습니다."
-		_show_deck()
-		return
-	var position: Vector2i = run_state["position"]
-	var drops: Array = run_state.get("floor_consumable_drops", [])
-	for index in range(drops.size()):
-		var drop: Dictionary = drops[index]
-		if int(drop.get("x", -1)) != position.x or int(drop.get("y", -1)) != position.y:
-			continue
-		var consumable: Dictionary = drop.get("consumable", {})
-		if str(consumable.get("id", "")) != consumable_id:
-			continue
-		drops.remove_at(index)
-		var inventory: Array = run_state.get("inventory_consumables", [])
-		inventory.append(consumable.duplicate(true))
-		run_state["floor_consumable_drops"] = drops
-		run_state["inventory_consumables"] = inventory
-		if extraction_ticket_mode and extraction_ticket_source == "floor" and extraction_ticket_id == consumable_id:
-			extraction_ticket_mode = false
-			extraction_ticket_id = ""
-		_show_deck()
-		return
-
-
-func _restore_pending_deck_card(card_id: int) -> void:
-	for index in range(deck_editor_pending_removals.size()):
-		var pending: Dictionary = deck_editor_pending_removals[index]
-		var card: Dictionary = pending.get("card", {})
-		if int(card.get("id", -1)) != card_id:
-			continue
-		var deck_id := str(pending.get("deck_id", ""))
-		var deck_cards: Array = []
-		var capacity := 0
-		var rare_capacity := 0
-		for deck in run_state.get("owned_decks", []):
-			if str(deck.get("id", "")) == deck_id:
-				deck_cards = deck.get("cards", [])
-				capacity = int(deck.get("capacity", 0))
-				rare_capacity = DeckEditions.rare_slot_capacity(deck)
-				break
-		if deck_cards.size() >= capacity:
-			notice = "덱 용량이 가득 차 제거 예약을 취소할 수 없습니다."
-			_show_deck()
-			return
-		if _is_rare_slot_card(card):
-			var rare_count := 0
-			for existing in deck_cards:
-				if _is_rare_slot_card(existing):
-					rare_count += 1
-			if rare_count >= rare_capacity:
-				notice = "희귀 슬롯이 가득 차 제거 예약을 취소할 수 없습니다."
-				_show_deck()
-				return
-		deck_editor_pending_removals.remove_at(index)
-		if deck_id == str(run_state.get("active_deck_id", "starter")):
-			run_state["deck"].append(card.duplicate(true))
-			_sync_active_deck()
-		else:
-			var decks: Array = run_state.get("owned_decks", [])
-			for deck_index in range(decks.size()):
-				if str(decks[deck_index].get("id", "")) != deck_id:
-					continue
-				var updated: Dictionary = decks[deck_index].duplicate(true)
-				var cards: Array = updated.get("cards", [])
-				cards.append(card.duplicate(true))
-				updated["cards"] = cards
-				decks[deck_index] = updated
-				run_state["owned_decks"] = decks
-				break
-		notice = "%s 제거 예약을 취소했습니다." % str(card.get("name", "카드"))
-		_show_deck()
-		return
-
-
-func _move_deck_card_to_inventory(card_id: int, requested_deck_id: String = "") -> void:
-	_begin_deck_editor_session()
-	var safe_area: bool = MapRules.is_safe_area_tile(run_state["map"], run_state["position"]) \
-		or run_state.get("blessings", []).has("forbiddenKnowledge")
-	var source_deck_id := requested_deck_id if requested_deck_id != "" else str(run_state.get("active_deck_id", "starter"))
-	safe_area = safe_area or _deck_allows_free_edit(source_deck_id)
-	var source_deck: Dictionary = {}
-	for deck in run_state.get("owned_decks", []):
-		if str(deck.get("id", "")) == source_deck_id:
-			source_deck = deck
-			break
-	if source_deck.is_empty():
-		return
-	var cards: Array = run_state.get("deck", []) if source_deck_id == str(run_state.get("active_deck_id", "starter")) else source_deck.get("cards", [])
-	for index in range(cards.size()):
-		var card: Dictionary = cards[index]
-		if int(card.get("id", -1)) != card_id:
-			continue
-		if not _can_remove_deck_card(card, safe_area, source_deck_id):
-			notice = "현재 위치에서는 편집 시작 당시의 원래 덱으로만 되돌릴 수 있습니다."
-			_show_deck()
-			return
-		var return_area := str(deck_editor_high_rarity_return_area_by_card_id.get(card_id, ""))
-		var original_deck_id := _origin_deck_id_for_card(card_id)
-		if not safe_area and ((_is_rare_slot_card(card) and return_area != "inventory") \
-				or (not _is_rare_slot_card(card) and original_deck_id != "")):
-			notice = "현재 위치에서는 이 카드를 인벤토리로 옮길 수 없습니다."
-			_show_deck()
-			return
-		if _inventory_space_available() <= 0:
-			notice = "인벤토리가 가득 찼습니다."
-			_show_deck()
-			return
-		cards.remove_at(index)
-		_set_owned_deck_cards(source_deck_id, cards)
-		var inventory: Array = run_state.get("inventory_cards", [])
-		inventory.append(card.duplicate(true))
-		run_state["inventory_cards"] = inventory
-		notice = "%s을(를) 인벤토리로 옮겼습니다." % str(card.get("name", "카드"))
-		deck_editor_high_rarity_return_area_by_card_id.erase(card_id)
-		_show_deck()
-		return
-
-
-func _move_card_between_decks(card_id: int, source_deck_id: String, target_selector: OptionButton) -> void:
-	var target_index := target_selector.selected
-	if target_index < 0:
-		return
-	var target_deck_id := str(target_selector.get_item_metadata(target_index))
-	_move_card_between_decks_by_id(card_id, source_deck_id, target_deck_id)
-
-
-func _move_card_between_decks_by_id(card_id: int, source_deck_id: String, target_deck_id: String) -> void:
-	var safe_area := MapRules.is_safe_area_tile(run_state["map"], run_state["position"])
-	if target_deck_id == source_deck_id:
-		return
-	var source_cards: Array = []
-	var card: Dictionary = {}
-	for deck in run_state.get("owned_decks", []):
-		if str(deck.get("id", "")) != source_deck_id:
-			continue
-		source_cards = run_state.get("deck", []) if source_deck_id == str(run_state.get("active_deck_id", "starter")) else deck.get("cards", [])
-		break
-	for source_card in source_cards:
-		if int(source_card.get("id", -1)) == card_id:
-			card = source_card
-			break
-	if card.is_empty():
-		return
-	if not _can_transfer_deck_card(card, safe_area, source_deck_id):
-		notice = "안전 구역에서는 자유롭게 옮길 수 있고, 그 외 지역에서는 덱 밖에서 들어온 일반 카드만 옮길 수 있습니다."
-		_show_deck()
-		return
-	var error := _deck_add_error(card, target_deck_id)
-	if error != "":
-		notice = "대상 덱 용량이 가득 찼습니다." if error == "deck-full" else "대상 덱의 희귀 슬롯이 가득 찼습니다."
-		_show_deck()
-		return
-	source_cards = source_cards.duplicate(true)
-	for index in range(source_cards.size()):
-		if int(source_cards[index].get("id", -1)) == card_id:
-			source_cards.remove_at(index)
-			break
-	var target_cards: Array = []
-	for deck in run_state.get("owned_decks", []):
-		if str(deck.get("id", "")) == target_deck_id:
-			target_cards = run_state.get("deck", []) if target_deck_id == str(run_state.get("active_deck_id", "starter")) else deck.get("cards", [])
-			break
-	target_cards = target_cards.duplicate(true)
-	target_cards.append(card.duplicate(true))
-	_set_owned_deck_cards(source_deck_id, source_cards)
-	_set_owned_deck_cards(target_deck_id, target_cards)
-	deck_editor_selected_deck_id = target_deck_id
-	notice = "%s을(를) 다른 덱으로 옮겼습니다." % str(card.get("name", "카드"))
-	_show_deck()
+func _apply_pending_deck_add_effect(view: Control, card_ids: Array) -> void:
+	DeckEditorView._apply_pending_deck_add_effect(self, view, card_ids)
 
 
 func _configure_run_card_drag(widget: Control, card: Dictionary, source_area: String,
-			source_deck_id: String = "", target_area: String = "", target_deck_id: String = "") -> void:
-	if DeckEditorRules.is_bound(card):
-		return
-	widget.mouse_filter = Control.MOUSE_FILTER_STOP
-	widget.set("run_drag_payload", {
-		"kind": "run-card",
-		"card_id": int(card.get("id", -1)),
-		"card_name": str(card.get("name", "카드")),
-		"source_area": source_area,
-		"source_deck_id": source_deck_id,
-	})
-	if target_area.is_empty():
-		return
-	widget.set("run_drop_target", {"area": target_area, "deck_id": target_deck_id})
-	widget.set("run_drop_callback", Callable(self, "_on_run_card_dropped"))
+		source_deck_id: String = "", target_area: String = "", target_deck_id: String = "") -> void:
+	DeckEditorView.configure_run_card_drag(self, widget, card, source_area, source_deck_id, target_area, target_deck_id)
 
 
-func _configure_deck_card_ticket_drop(widget: Control, deck_id: String, card: Dictionary) -> void:
-	widget.set("ticket_drop_target", {
-		"action": "extract-deck-card",
-		"deck_id": deck_id,
-		"card_id": int(card.get("id", -1)),
-	})
-	widget.set("ticket_drop_callback", Callable(self, "_on_run_ticket_dropped"))
-	widget.set("ticket_can_drop_callback", Callable(self, "_can_drop_extract_ticket"))
+func _deck_add_error(card: Dictionary, deck_id: String) -> String:
+	return DeckStorageService.deck_add_error(run_state, card, deck_id)
 
 
-func _run_card_drop_zone(message: String, target_area: String, target_deck_id: String = "") -> Control:
-	var zone = BattleCardDragSourceScript.new()
-	zone.custom_minimum_size = Vector2(210, 56)
-	zone.size_flags_horizontal = Control.SIZE_EXPAND_FILL
-	zone.mouse_filter = Control.MOUSE_FILTER_STOP
-	zone.set("run_drop_target", {"area": target_area, "deck_id": target_deck_id})
-	zone.set("run_drop_callback", Callable(self, "_on_run_card_dropped"))
-	var style := StyleBoxFlat.new()
-	style.bg_color = Color("#171918")
-	style.border_color = Color("#706b5e")
-	style.set_border_width_all(1)
-	style.set_corner_radius_all(4)
-	zone.add_theme_stylebox_override("panel", style)
-	var label := _label(message, 13, COLOR_MUTED)
-	label.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
-	label.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
-	label.mouse_filter = Control.MOUSE_FILTER_PASS
-	zone.add_child(label)
-	return zone
+func _can_remove_deck_card(card: Dictionary, safe_area: bool, deck_id: String = "") -> bool:
+	return DeckStorageService.can_remove_deck_card(self, card, safe_area, deck_id)
+
+
+func _can_transfer_deck_card(card: Dictionary, safe_area: bool, deck_id: String = "") -> bool:
+	return DeckStorageService.can_transfer_deck_card(self, card, safe_area, deck_id)
+
+
+func _move_floor_card_to_deck(card_id: int, deck_id: String = "") -> void:
+	DeckStorageService.move_external_card_to_deck(self, card_id, "floor", deck_id)
+
+
+func _move_external_card_to_deck(card_id: int, source_area: String, requested_deck_id: String) -> void:
+	DeckStorageService.move_external_card_to_deck(self, card_id, source_area, requested_deck_id)
+
+
+func _move_inventory_card_to_floor(card_id: int) -> void:
+	DeckStorageService.move_inventory_card_to_floor(self, card_id)
+
+
+func _move_floor_card_to_inventory(card_id: int) -> void:
+	DeckStorageService.move_floor_card_to_inventory(self, card_id)
+
+
+func _move_deck_card_to_floor(card_id: int, source_deck_id: String) -> void:
+	DeckStorageService.move_deck_card_to_floor(self, card_id, source_deck_id)
+
+
+func _move_inventory_consumable_to_floor(consumable_id: String) -> void:
+	DeckStorageService.move_inventory_consumable_to_floor(self, consumable_id)
+
+
+func _move_floor_consumable_to_inventory(consumable_id: String) -> void:
+	DeckStorageService.move_floor_consumable_to_inventory(self, consumable_id)
+
+
+func _move_deck_card_to_inventory(card_id: int, requested_deck_id: String = "") -> void:
+	DeckStorageService.move_deck_card_to_inventory(self, card_id, requested_deck_id)
 
 
 func _on_run_card_dropped(target: Dictionary, data: Dictionary) -> void:
-	var card_id := int(data.get("card_id", -1))
-	var source_area := str(data.get("source_area", ""))
-	var target_area := str(target.get("area", ""))
-	if str(data.get("kind", "")) == "run-ticket":
-		var ticket_id := str(data.get("ticket_id", ""))
-		if source_area == "floor" and target_area == "inventory":
-			_move_floor_consumable_to_inventory(ticket_id)
-		elif source_area == "inventory" and target_area == "floor":
-			_move_inventory_consumable_to_floor(ticket_id)
-		return
-	if target_area == "deck":
-		var target_deck_id := str(target.get("deck_id", ""))
-		if source_area == "pendingRemoval" and str(data.get("source_deck_id", "")) == target_deck_id:
-			_restore_pending_deck_card(card_id)
-		elif source_area == "deck":
-			_move_card_between_decks_by_id(card_id, str(data.get("source_deck_id", "")), target_deck_id)
-		elif source_area in ["inventory", "floor"]:
-			_move_external_card_to_deck(card_id, source_area, target_deck_id)
-		return
-	if target_area == "inventory":
-		if source_area == "deck":
-			_move_deck_card_to_inventory(card_id, str(data.get("source_deck_id", "")))
-		elif source_area == "floor":
-			_move_floor_card_to_inventory(card_id)
-		return
-	if target_area == "floor" and source_area == "inventory":
-		_move_inventory_card_to_floor(card_id)
-	elif target_area == "floor" and source_area == "deck":
-		_move_deck_card_to_floor(card_id, str(data.get("source_deck_id", "")))
+	DeckStorageService.on_run_card_dropped(target, data, self)
 
 
-func _on_deck_case_dropped(target: Dictionary, data: Dictionary) -> void:
-	if str(data.get("kind", "")) != "deck-case":
-		return
-	var deck_id := str(data.get("deck_id", ""))
-	match str(target.get("area", "")):
-		"owned":
-			_swap_owned_decks(deck_id, str(target.get("deck_id", "")))
-		"emptyOwned":
-			_pick_up_floor_deck(deck_id)
-		"floor":
-			_drop_owned_deck(deck_id)
-
-
-func _swap_owned_decks(source_id: String, target_id: String) -> void:
-	if source_id.is_empty() or target_id.is_empty() or source_id == target_id:
-		return
-	var decks: Array = run_state.get("owned_decks", []).duplicate(true)
-	var source_index := -1
-	var target_index := -1
-	for index in range(decks.size()):
-		var deck_id := str(decks[index].get("id", ""))
-		if deck_id == source_id:
-			source_index = index
-		elif deck_id == target_id:
-			target_index = index
-	if source_index < 0 or target_index < 0:
-		return
-	var source_deck: Dictionary = decks[source_index]
-	decks[source_index] = decks[target_index]
-	decks[target_index] = source_deck
-	run_state["owned_decks"] = decks
-	_sync_active_deck()
-	notice = "덱 순서를 바꿨습니다."
-	_save_run()
-	_show_deck()
+func _move_card_between_decks_by_id(card_id: int, source_deck_id: String, target_deck_id: String) -> void:
+	DeckStorageService.move_card_between_decks_by_id(self, card_id, source_deck_id, target_deck_id)
 
 
 func _owned_deck_limit() -> int:
-	return DEBUG_MAX_OWNED_DECKS if map_debug_controller.session.active else MAX_OWNED_DECKS
+	return DeckStorageService.owned_deck_limit(self)
 
 
 func _pick_up_floor_deck(deck_id: String) -> void:
-	var decks: Array = run_state.get("owned_decks", []).duplicate(true)
-	if decks.size() >= _owned_deck_limit():
-		notice = "덱은 최대 %d개까지 보유할 수 있습니다." % _owned_deck_limit()
-		_show_deck()
-		return
-	var position: Vector2i = run_state.get("position", Vector2i.ZERO)
-	var floor_drops: Array = run_state.get("floor_deck_drops", []).duplicate(true)
-	for index in range(floor_drops.size()):
-		var drop: Dictionary = floor_drops[index]
-		if int(drop.get("x", -1)) != position.x or int(drop.get("y", -1)) != position.y:
-			continue
-		var floor_deck: Dictionary = drop.get("deck", {})
-		if str(floor_deck.get("id", "")) != deck_id:
-			continue
-		decks.append(floor_deck.duplicate(true))
-		_register_acquired_deck_origins(floor_deck)
-		floor_drops.remove_at(index)
-		run_state["owned_decks"] = decks
-		run_state["floor_deck_drops"] = floor_drops
-		notice = "덱 「%s」을(를) 주웠습니다. 보유 덱 %d / %d" % [
-			str(floor_deck.get("name", "금고 덱")), decks.size(), _owned_deck_limit()]
-		_save_run()
-		_show_deck()
-		return
+	DeckStorageService.pick_up_floor_deck(self, deck_id)
 
 
 func _drop_owned_deck(deck_id: String) -> void:
-	var decks: Array = run_state.get("owned_decks", []).duplicate(true)
-	var deck_index := -1
-	for index in range(decks.size()):
-		if str(decks[index].get("id", "")) == deck_id:
-			deck_index = index
-			break
-	if deck_index < 0:
-		return
-	var dropped_deck: Dictionary = decks[deck_index]
-	decks.remove_at(deck_index)
-	run_state["owned_decks"] = decks
-	if str(run_state.get("active_deck_id", "")) == deck_id:
-		if decks.is_empty():
-			run_state["active_deck_id"] = ""
-			run_state["deck"] = []
-		else:
-			run_state["active_deck_id"] = str(decks[0].get("id", ""))
-			run_state["deck"] = decks[0].get("cards", []).duplicate(true)
-	var position: Vector2i = run_state.get("position", Vector2i.ZERO)
-	var floor_drops: Array = run_state.get("floor_deck_drops", []).duplicate(true)
-	floor_drops.append({"x": position.x, "y": position.y, "deck": dropped_deck})
-	run_state["floor_deck_drops"] = floor_drops
-	_sync_active_deck()
-	notice = "덱 「%s」을(를) 현재 타일에 놓았습니다." % str(dropped_deck.get("name", "덱"))
-	_save_run()
-	_show_deck()
-
-
-func _on_owned_deck_header_gui_input(event: InputEvent, deck_id: String) -> void:
-	var click := event as InputEventMouseButton
-	if click == null or click.pressed or click.button_index != MOUSE_BUTTON_RIGHT:
-		return
-	_drop_owned_deck(deck_id)
-	get_viewport().set_input_as_handled()
+	DeckStorageService.drop_owned_deck(self, deck_id)
 
 
 func _can_drop_extract_ticket(target: Dictionary, data: Dictionary) -> bool:
-	if str(data.get("kind", "")) != "run-ticket" or str(data.get("ticket_type", "")) != "extractTicket":
-		return false
-	var ticket_id := str(data.get("ticket_id", ""))
-	var source_area := str(data.get("source_area", ""))
-	if ticket_id.is_empty() or source_area not in ["inventory", "floor"]:
-		return false
-	var ticket_exists := false
-	if source_area == "inventory":
-		for ticket in run_state.get("inventory_consumables", []):
-			if str(ticket.get("id", "")) == ticket_id and str(ticket.get("type", "")) == "extractTicket":
-				ticket_exists = true
-				break
-	else:
-		var position: Vector2i = run_state.get("position", Vector2i.ZERO)
-		for drop in run_state.get("floor_consumable_drops", []):
-			if int(drop.get("x", -1)) != position.x or int(drop.get("y", -1)) != position.y:
-				continue
-			var ticket: Dictionary = drop.get("consumable", {})
-			if str(ticket.get("id", "")) == ticket_id and str(ticket.get("type", "")) == "extractTicket":
-				ticket_exists = true
-				break
-	if not ticket_exists:
-		return false
-	var card_id := int(target.get("card_id", -1))
-	var deck_id := str(target.get("deck_id", ""))
-	if card_id < 0 or deck_id.is_empty() or not deck_editor_origins_by_card_id.has(card_id):
-		return false
-	if _origin_deck_id_for_card(card_id) != deck_id:
-		return false
-	for deck in run_state.get("owned_decks", []):
-		if str(deck.get("id", "")) != deck_id:
-			continue
-		var cards: Array = run_state.get("deck", []) if deck_id == str(run_state.get("active_deck_id", "starter")) else deck.get("cards", [])
-		for card in cards:
-			if int(card.get("id", -1)) == card_id:
-				return not DeckEditorRules.is_bound(card)
-	return false
-
-
-func _on_run_ticket_dropped(target: Dictionary, data: Dictionary) -> void:
-	if not _can_drop_extract_ticket(target, data):
-		return
-	extraction_ticket_mode = true
-	extraction_ticket_source = str(data.get("source_area", ""))
-	extraction_ticket_id = str(data.get("ticket_id", ""))
-	_extract_owned_deck_card(str(target.get("deck_id", "")), int(target.get("card_id", -1)))
+	return DeckStorageService.can_drop_extract_ticket(target, data, self)
 
 
 func _extract_owned_deck_card(deck_id: String, card_id: int) -> void:
-	if not extraction_ticket_mode:
-		return
-	if not deck_editor_origins_by_card_id.has(card_id) or _origin_deck_id_for_card(card_id) != deck_id:
-		notice = "추출 티켓은 편집을 시작할 때 해당 덱에 있던 카드에만 사용할 수 있습니다."
-		_show_deck()
-		return
-	var tickets: Array = run_state.get("inventory_consumables", [])
-	var floor_ticket_drops: Array = run_state.get("floor_consumable_drops", [])
-	var ticket_index := -1
-	if extraction_ticket_source == "inventory":
-		for index in range(tickets.size()):
-			if str(tickets[index].get("type", "")) == "extractTicket" \
-				and (extraction_ticket_id == "" or str(tickets[index].get("id", "")) == extraction_ticket_id):
-				ticket_index = index
-				break
-	else:
-		var ticket_position: Vector2i = run_state["position"]
-		for index in range(floor_ticket_drops.size()):
-			var drop: Dictionary = floor_ticket_drops[index]
-			if int(drop.get("x", -1)) != ticket_position.x or int(drop.get("y", -1)) != ticket_position.y:
-				continue
-			var ticket: Dictionary = drop.get("consumable", {})
-			if str(ticket.get("type", "")) == "extractTicket" \
-				and (extraction_ticket_id == "" or str(ticket.get("id", "")) == extraction_ticket_id):
-				ticket_index = index
-				break
-	if ticket_index < 0:
-		extraction_ticket_mode = false
-		extraction_ticket_id = ""
-		notice = "추출 티켓이 없습니다."
-		_show_deck()
-		return
-	var decks: Array = run_state.get("owned_decks", [])
-	for deck_index in range(decks.size()):
-		var deck: Dictionary = decks[deck_index].duplicate(true)
-		if str(deck.get("id", "")) != deck_id:
-			continue
-		var cards: Array = deck.get("cards", [])
-		for card_index in range(cards.size()):
-			var card: Dictionary = cards[card_index]
-			if int(card.get("id", -1)) != card_id:
-				continue
-			if DeckEditorRules.is_bound(card):
-				notice = "에디션에 귀속된 카드는 추출할 수 없습니다."
-				return
-			cards.remove_at(card_index)
-			deck["cards"] = cards
-			decks[deck_index] = deck
-			run_state["owned_decks"] = decks
-			if deck_id == str(run_state.get("active_deck_id", "starter")):
-				run_state["deck"] = cards.duplicate(true)
-				_sync_active_deck()
-			var inventory: Array = run_state.get("inventory_cards", [])
-			var floor_cards: Array = run_state.get("floor_cards", [])
-			var ticket_frees_slot := extraction_ticket_source == "inventory"
-			var projected_inventory_count := _inventory_item_count() - (1 if ticket_frees_slot else 0)
-			var dropped_to_floor := projected_inventory_count >= INVENTORY_CAPACITY
-			if dropped_to_floor:
-				var position: Vector2i = run_state["position"]
-				floor_cards.append({"x": position.x, "y": position.y, "card": card.duplicate(true)})
-				run_state["floor_cards"] = floor_cards
-			else:
-				inventory.append(card.duplicate(true))
-				run_state["inventory_cards"] = inventory
-			deck_editor_origins_by_card_id[card_id] = null
-			deck_editor_high_rarity_return_area_by_card_id.erase(card_id)
-			if extraction_ticket_source == "inventory":
-				tickets.remove_at(ticket_index)
-				run_state["inventory_consumables"] = tickets
-			else:
-				floor_ticket_drops.remove_at(ticket_index)
-				run_state["floor_consumable_drops"] = floor_ticket_drops
-			extraction_ticket_mode = false
-			extraction_ticket_id = ""
-			notice = "%s을(를) 추출 티켓으로 덱에서 꺼냈습니다." % str(card.get("name", "카드"))
-			if dropped_to_floor:
-				notice += " 인벤토리가 가득 차 현재 타일에 떨어졌습니다."
-			_show_deck()
-			return
-	extraction_ticket_mode = false
-	extraction_ticket_id = ""
-	notice = "추출할 카드를 찾지 못했습니다."
-	_show_deck()
+	DeckStorageService.extract_owned_deck_card(self, deck_id, card_id)
 
 
 func _show_deck() -> void:
-	if screen_name != "deck" or deck_editor_effect_started_usec < 0:
-		deck_editor_effect_started_usec = Time.get_ticks_usec()
-	_clear_map_vault_preview()
-	_hide_card_hover_preview()
-	auto_travel_active = false
-	auto_travel_path.clear()
-	_sync_active_deck()
-	_begin_deck_editor_session()
-	screen_name = "deck"
-	if deck_editor_overlay != null and is_instance_valid(deck_editor_overlay):
-		remove_child(deck_editor_overlay)
-		deck_editor_overlay.queue_free()
-	deck_editor_overlay = Control.new()
-	deck_editor_overlay.z_index = 100
-	deck_editor_overlay.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
-	deck_editor_overlay.mouse_filter = Control.MOUSE_FILTER_STOP
-	add_child(deck_editor_overlay)
-	var backdrop := ColorRect.new()
-	backdrop.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
-	backdrop.color = Color(4.0 / 255.0, 8.0 / 255.0, 7.0 / 255.0, 0.72)
-	backdrop.mouse_filter = Control.MOUSE_FILTER_STOP
-	backdrop.gui_input.connect(_on_deck_editor_backdrop_input)
-	deck_editor_overlay.add_child(backdrop)
-	var modal_margin := MarginContainer.new()
-	modal_margin.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
-	modal_margin.mouse_filter = Control.MOUSE_FILTER_IGNORE
-	modal_margin.add_theme_constant_override("margin_left", 14)
-	modal_margin.add_theme_constant_override("margin_top", 14)
-	modal_margin.add_theme_constant_override("margin_right", 14)
-	modal_margin.add_theme_constant_override("margin_bottom", 14)
-	deck_editor_overlay.add_child(modal_margin)
-	var modal_panel := PanelContainer.new()
-	modal_panel.size_flags_horizontal = Control.SIZE_EXPAND_FILL
-	modal_panel.size_flags_vertical = Control.SIZE_SHRINK_CENTER
-	var modal_style := StyleBoxEmpty.new()
-	modal_style.content_margin_left = 0
-	modal_style.content_margin_top = 0
-	modal_style.content_margin_right = 0
-	modal_style.content_margin_bottom = 0
-	modal_panel.add_theme_stylebox_override("panel", modal_style)
-	modal_margin.add_child(modal_panel)
-	var page := VBoxContainer.new()
-	page.add_theme_constant_override("separation", 9)
-	page.size_flags_horizontal = Control.SIZE_EXPAND_FILL
-	page.size_flags_vertical = Control.SIZE_EXPAND_FILL
-	modal_panel.add_child(page)
-	var can_change_deck := MapRules.is_safe_area_tile(run_state["map"], run_state["position"])
-	var animate_safe_area_unlock: bool = safe_area_unlock_pending_animation and can_change_deck \
-		and not run_state.get("blessings", []).has("forbiddenKnowledge")
-	safe_area_unlock_pending_animation = false
-	if extraction_ticket_mode:
-		page.add_child(_label("추출할 덱 카드를 선택하세요.", 12, COLOR_GOLD))
-	var editor_board := VBoxContainer.new()
-	editor_board.size_flags_horizontal = Control.SIZE_EXPAND_FILL
-	editor_board.size_flags_vertical = Control.SIZE_EXPAND_FILL
-	editor_board.add_theme_constant_override("separation", 0)
-	page.add_child(editor_board)
-	var inventory_cards: Array = run_state.get("inventory_cards", [])
-	var inventory_consumables: Array = run_state.get("inventory_consumables", [])
-	var inventory_row := _new_deck_editor_row(104.0,
-		Color("#3a3025", 0.80), Color("#3a3025", 0.40), Color("#a08d6c", 0.60), 5,
-		Color("#a08d6c", 0.60))
-	var inventory_header: VBoxContainer = inventory_row["header"]
-	inventory_header.add_child(_deck_editor_label("인벤토리", 15, COLOR_TEXT))
-	inventory_header.add_child(_deck_editor_label("%d / %d" % [_inventory_item_count(), INVENTORY_CAPACITY], 12, COLOR_MUTED))
-	var inventory_card_list: HBoxContainer = inventory_row["cards"]
-	inventory_card_list.set_script(RunCardDropAreaScript)
-	inventory_card_list.set("run_drop_target", {"area": "inventory"})
-	inventory_card_list.set("run_drop_callback", Callable(self, "_on_run_card_dropped"))
-	var inventory_leading_space := Control.new()
-	inventory_leading_space.custom_minimum_size = Vector2(8, 1)
-	inventory_leading_space.size_flags_vertical = Control.SIZE_SHRINK_CENTER
-	inventory_leading_space.mouse_filter = Control.MOUSE_FILTER_IGNORE
-	inventory_card_list.add_child(inventory_leading_space)
-	for group in _group_deck_editor_cards(inventory_cards):
-		var card := _deck_editor_group_representative(group)
-		var card_ids: Array = group["ids"]
-		var inventory_card_widget := _deck_editor_card_widget(card, card_ids.size())
-		_configure_run_card_drag(inventory_card_widget, card, "inventory", "", "inventory")
-		inventory_card_widget.gui_input.connect(_on_inventory_card_gui_input.bind(card.duplicate(true)))
-		_add_deck_editor_card(inventory_card_list, inventory_card_widget, card_ids.size())
-	for group in _group_deck_editor_consumables(inventory_consumables):
-		var consumable := _deck_editor_group_representative(group)
-		var consumable_ids: Array = group["ids"]
-		inventory_card_list.add_child(_deck_editor_consumable_widget(consumable, "inventory", consumable_ids.size()))
-	for _empty_slot_index in range(maxi(0, INVENTORY_CAPACITY - _inventory_item_count())):
-		inventory_card_list.add_child(_deck_editor_empty_slot("normal"))
-	editor_board.add_child(inventory_row["panel"])
-	var inventory_deck_gap := Control.new()
-	inventory_deck_gap.custom_minimum_size.y = 32.0
-	inventory_deck_gap.mouse_filter = Control.MOUSE_FILTER_IGNORE
-	editor_board.add_child(inventory_deck_gap)
-
-	var display_decks: Array = run_state.get("owned_decks", []).duplicate()
-	var active_deck_id := str(run_state.get("active_deck_id", "starter"))
-	var deck_rows := VBoxContainer.new()
-	deck_rows.size_flags_horizontal = Control.SIZE_EXPAND_FILL
-	deck_rows.size_flags_vertical = Control.SIZE_EXPAND_FILL
-	deck_rows.add_theme_constant_override("separation", 10)
-	if display_decks.size() > MAX_OWNED_DECKS or (_owned_deck_limit() > MAX_OWNED_DECKS and display_decks.size() >= MAX_OWNED_DECKS):
-		var deck_scroll := ScrollContainer.new()
-		deck_scroll.name = "ExtraDecksScroll"
-		deck_scroll.custom_minimum_size.y = 330.0
-		deck_scroll.size_flags_horizontal = Control.SIZE_EXPAND_FILL
-		deck_scroll.size_flags_vertical = Control.SIZE_EXPAND_FILL
-		deck_scroll.horizontal_scroll_mode = ScrollContainer.SCROLL_MODE_DISABLED
-		deck_scroll.vertical_scroll_mode = ScrollContainer.SCROLL_MODE_AUTO
-		deck_scroll.add_child(deck_rows)
-		editor_board.add_child(deck_scroll)
-	else:
-		editor_board.add_child(deck_rows)
-	for deck in display_decks:
-		var deck_id := str(deck.get("id", ""))
-		var deck_name := str(deck.get("name", "덱"))
-		var active := deck_id == active_deck_id
-		var deck_cards: Array = run_state.get("deck", []) if active else deck.get("cards", [])
-		var deck_rare_count := 0
-		for card in deck_cards:
-			if _is_rare_slot_card(card):
-				deck_rare_count += 1
-		var deck_capacity := int(deck.get("capacity", 25))
-		var rare_slot_capacity := maxi(DeckEditions.rare_slot_capacity(deck), deck_rare_count)
-		var deck_row := _new_deck_editor_row(104.0, Color("#0c0d0c", 0.85),
-			Color("#0c0d0c", 0.80), Color("#db8a3d"), 5, Color("#db8a3d"))
-		var deck_drop_area: Control = deck_row["panel"]
-		deck_drop_area.set_script(DeckCaseDropAreaScript)
-		deck_drop_area.set("deck_drop_target", {"area": "owned", "deck_id": deck_id})
-		deck_drop_area.set("deck_drop_callback", Callable(self, "_on_deck_case_dropped"))
-		var deck_header: VBoxContainer = deck_row["header"]
-		var deck_heading_panel: PanelContainer = deck_row["heading_panel"]
-		var deck_heading_style := deck_heading_panel.get_theme_stylebox("panel").duplicate() as StyleBoxFlat
-		deck_heading_style.content_margin_left = 0
-		deck_heading_style.content_margin_top = 0
-		deck_heading_style.content_margin_right = 0
-		deck_heading_style.content_margin_bottom = 0
-		deck_heading_panel.add_theme_stylebox_override("panel", deck_heading_style)
-		var select_deck := _button(deck_name, Callable(self, "_select_deck_editor_target").bind(deck_id), Vector2(154, 34))
-		select_deck.set_script(DeckCaseDragButtonScript)
-		select_deck.set("deck_drag_payload", {"kind": "deck-case", "source_area": "owned", "deck_id": deck_id})
-		select_deck.set("deck_preview_data", {"name": deck_name, "editions": deck.get("editions", []),
-			"count": deck_cards.size(), "capacity": deck_capacity, "show_icon": true})
-		select_deck.disabled = false
-		select_deck.add_theme_font_override("font", DeckEditorHeadingFont)
-		select_deck.add_theme_font_size_override("font_size", 15)
-		select_deck.custom_minimum_size = Vector2.ZERO
-		select_deck.size_flags_horizontal = Control.SIZE_EXPAND_FILL
-		select_deck.size_flags_vertical = Control.SIZE_EXPAND_FILL
-		var heading_button_style := StyleBoxFlat.new()
-		heading_button_style.bg_color = Color("#0c0d0c", 0.85)
-		heading_button_style.set_border_width_all(0)
-		heading_button_style.corner_radius_top_left = 3
-		heading_button_style.corner_radius_bottom_left = 3
-		heading_button_style.corner_radius_top_right = 0
-		heading_button_style.corner_radius_bottom_right = 0
-		heading_button_style.content_margin_left = 0
-		heading_button_style.content_margin_top = 0
-		heading_button_style.content_margin_right = 0
-		heading_button_style.content_margin_bottom = 0
-		for style_name in ["normal", "hover", "pressed", "hover_pressed", "disabled", "focus"]:
-			select_deck.add_theme_stylebox_override(style_name, heading_button_style)
-		for color_name in ["font_color", "font_hover_color", "font_pressed_color",
-				"font_hover_pressed_color", "font_disabled_color", "font_focus_color", "font_outline_color"]:
-			select_deck.add_theme_color_override(color_name, Color(1.0, 1.0, 1.0, 0.0))
-		select_deck.add_theme_constant_override("outline_size", 0)
-		var heading_visual := DeckCaseHeadingScript.new()
-		var deck_can_edit := can_change_deck or _deck_allows_free_edit(deck_id)
-		heading_visual.configure(deck_name, deck.get("editions", []), deck_cards.size(), deck_capacity,
-			deck_can_edit, animate_safe_area_unlock and not _deck_allows_free_edit(deck_id), true, false, true)
-		select_deck.add_child(heading_visual)
-		select_deck.gui_input.connect(_on_owned_deck_header_gui_input.bind(deck_id))
-		deck_header.add_child(select_deck)
-		var deck_card_list: HBoxContainer = deck_row["cards"]
-		deck_card_list.set_script(RunCardDropAreaScript)
-		deck_card_list.set("run_drop_target", {"area": "deck", "deck_id": deck_id})
-		deck_card_list.set("run_drop_callback", Callable(self, "_on_run_card_dropped"))
-		var deck_scroll_leading_space := Control.new()
-		deck_scroll_leading_space.custom_minimum_size = Vector2(8, 1)
-		deck_scroll_leading_space.size_flags_vertical = Control.SIZE_SHRINK_CENTER
-		deck_scroll_leading_space.mouse_filter = Control.MOUSE_FILTER_IGNORE
-		deck_card_list.add_child(deck_scroll_leading_space)
-		var rare_card_groups: Array[Dictionary] = []
-		var normal_card_groups: Array[Dictionary] = []
-		var royal: bool = deck.get("editions", []).has("royal")
-		for group in _group_deck_editor_cards(deck_cards):
-			var grouped_card := _deck_editor_group_representative(group)
-			if royal or _is_rare_slot_card(grouped_card):
-				rare_card_groups.append(group)
-			else:
-				normal_card_groups.append(group)
-		for group in rare_card_groups:
-			var card := _deck_editor_group_representative(group)
-			var card_ids: Array = group["ids"]
-			var deck_card_widget := _deck_editor_card_widget(card, card_ids.size())
-			_apply_pending_deck_add_effect(deck_card_widget, card_ids)
-			_configure_deck_card_ticket_drop(deck_card_widget, deck_id, card)
-			if not extraction_ticket_mode:
-				_configure_run_card_drag(deck_card_widget, card, "deck", deck_id, "deck", deck_id)
-			else:
-				deck_card_widget.mouse_filter = Control.MOUSE_FILTER_STOP
-			deck_card_widget.gui_input.connect(_on_owned_deck_card_gui_input.bind(deck_id, card.duplicate(true), deck_can_edit))
-			_add_deck_editor_card(deck_card_list, deck_card_widget, card_ids.size())
-		for _empty_rare_slot in range(maxi(0, rare_slot_capacity - (deck_cards.size() if royal else deck_rare_count))):
-			deck_card_list.add_child(_deck_editor_empty_slot("rare"))
-		if rare_slot_capacity > 0 and not royal:
-			deck_card_list.add_child(_deck_editor_empty_slot("divider"))
-		for group in normal_card_groups:
-			var card := _deck_editor_group_representative(group)
-			var card_ids: Array = group["ids"]
-			var deck_card_widget := _deck_editor_card_widget(card, card_ids.size())
-			_apply_pending_deck_add_effect(deck_card_widget, card_ids)
-			_configure_deck_card_ticket_drop(deck_card_widget, deck_id, card)
-			if not extraction_ticket_mode:
-				_configure_run_card_drag(deck_card_widget, card, "deck", deck_id, "deck", deck_id)
-			else:
-				deck_card_widget.mouse_filter = Control.MOUSE_FILTER_STOP
-			deck_card_widget.gui_input.connect(_on_owned_deck_card_gui_input.bind(deck_id, card.duplicate(true), deck_can_edit))
-			_add_deck_editor_card(deck_card_list, deck_card_widget, card_ids.size())
-		var normal_card_count := deck_cards.size() - deck_rare_count
-		var normal_slot_capacity := maxi(0, deck_capacity - rare_slot_capacity)
-		for _empty_normal_slot in range(maxi(0, normal_slot_capacity - normal_card_count)):
-			deck_card_list.add_child(_deck_editor_empty_slot("normal"))
-		var deck_scroll_trailing_space := Control.new()
-		deck_scroll_trailing_space.custom_minimum_size = Vector2(416, 1)
-		deck_scroll_trailing_space.size_flags_vertical = Control.SIZE_SHRINK_CENTER
-		deck_scroll_trailing_space.mouse_filter = Control.MOUSE_FILTER_IGNORE
-		deck_card_list.add_child(deck_scroll_trailing_space)
-		deck_rows.add_child(deck_row["panel"])
-	var visible_slot_count := mini(_owned_deck_limit(), maxi(MAX_OWNED_DECKS, display_decks.size() + 1))
-	for empty_slot_index in range(display_decks.size(), visible_slot_count):
-		var empty_drop_area := Control.new()
-		empty_drop_area.custom_minimum_size.y = 104.0
-		empty_drop_area.size_flags_horizontal = Control.SIZE_EXPAND_FILL
-		empty_drop_area.set_script(DeckCaseDropAreaScript)
-		empty_drop_area.set("deck_drop_target", {"area": "emptyOwned", "slot": empty_slot_index})
-		empty_drop_area.set("deck_drop_callback", Callable(self, "_on_deck_case_dropped"))
-		deck_rows.add_child(empty_drop_area)
-	var current_position: Vector2i = run_state["position"]
-	var cards_on_tile: Array = []
-	var consumables_on_tile: Array = []
-	var decks_on_tile: Array = []
-	for drop in run_state.get("floor_cards", []):
-		if int(drop.get("x", -1)) == current_position.x and int(drop.get("y", -1)) == current_position.y:
-			cards_on_tile.append(drop)
-	for drop in run_state.get("floor_consumable_drops", []):
-		if int(drop.get("x", -1)) == current_position.x and int(drop.get("y", -1)) == current_position.y:
-			consumables_on_tile.append(drop)
-	for drop in run_state.get("floor_deck_drops", []):
-		if int(drop.get("x", -1)) == current_position.x and int(drop.get("y", -1)) == current_position.y:
-			decks_on_tile.append(drop)
-	var floor_row := _new_deck_editor_row(104.0,
-		Color("#26333e", 0.80), Color("#26333e", 0.40), Color("#6f879a", 0.60), 5,
-		Color("#6f879a", 0.60))
-	var floor_header: VBoxContainer = floor_row["header"]
-	floor_header.add_child(_deck_editor_label("바닥", 15, COLOR_TEXT))
-	var floor_card_list: HBoxContainer = floor_row["cards"]
-	floor_card_list.set_script(RunCardDropAreaScript)
-	floor_card_list.set("run_drop_target", {"area": "floor"})
-	floor_card_list.set("run_drop_callback", Callable(self, "_on_run_card_dropped"))
-	var floor_drop_area: Control = floor_row["panel"]
-	floor_drop_area.set_script(DeckCaseDropAreaScript)
-	floor_drop_area.set("deck_drop_target", {"area": "floor"})
-	floor_drop_area.set("deck_drop_callback", Callable(self, "_on_deck_case_dropped"))
-	var floor_leading_space := Control.new()
-	floor_leading_space.custom_minimum_size = Vector2(8, 1)
-	floor_leading_space.size_flags_vertical = Control.SIZE_SHRINK_CENTER
-	floor_leading_space.mouse_filter = Control.MOUSE_FILTER_IGNORE
-	floor_card_list.add_child(floor_leading_space)
-	# Web displays removal candidates in the existing floor row.
-	for pending in deck_editor_pending_removals:
-		var pending_card: Dictionary = pending.get("card", {})
-		var pending_view := _deck_editor_card_widget(pending_card)
-		var removal_effect = PendingRemovalEffectScript.new()
-		pending_view.add_child(removal_effect)
-		removal_effect.configure(pending_view, deck_editor_effect_started_usec,
-			DisplayServer.accessibility_should_reduce_animation() == 1)
-		_configure_run_card_drag(pending_view, pending_card, "pendingRemoval", str(pending.get("deck_id", "")))
-		pending_view.gui_input.connect(_on_pending_deck_card_gui_input.bind(pending_card.duplicate(true)))
-		_add_deck_editor_card(floor_card_list, pending_view)
-	var floor_cards: Array = []
-	for drop in cards_on_tile:
-		floor_cards.append(drop.get("card", {}))
-	for group in _group_deck_editor_cards(floor_cards):
-		var floor_card := _deck_editor_group_representative(group)
-		var floor_card_ids: Array = group["ids"]
-		var floor_card_widget := _deck_editor_card_widget(floor_card, floor_card_ids.size())
-		_configure_run_card_drag(floor_card_widget, floor_card, "floor")
-		floor_card_widget.gui_input.connect(_on_floor_card_gui_input.bind(floor_card.duplicate(true)))
-		_add_deck_editor_card(floor_card_list, floor_card_widget, floor_card_ids.size())
-	var floor_consumables: Array = []
-	for drop in consumables_on_tile:
-		floor_consumables.append(drop.get("consumable", {}))
-	for group in _group_deck_editor_consumables(floor_consumables):
-		var floor_consumable := _deck_editor_group_representative(group)
-		var floor_consumable_ids: Array = group["ids"]
-		floor_card_list.add_child(_deck_editor_consumable_widget(floor_consumable, "floor", floor_consumable_ids.size()))
-	for drop in decks_on_tile:
-		var floor_deck: Dictionary = drop.get("deck", {})
-		if floor_deck.is_empty():
-			continue
-		var floor_deck_id := str(floor_deck.get("id", ""))
-		var floor_deck_button := DeckCaseDragButtonScript.new() as Button
-		floor_deck_button.custom_minimum_size = Vector2(190, 100)
-		floor_deck_button.size_flags_vertical = Control.SIZE_SHRINK_CENTER
-		var floor_deck_style := StyleBoxFlat.new()
-		floor_deck_style.bg_color = Color("#0c0d0c", 0.85)
-		floor_deck_style.border_color = Color("#db8a3d")
-		floor_deck_style.set_border_width_all(2)
-		floor_deck_style.set_corner_radius_all(5)
-		for style_name in ["normal", "hover", "pressed", "hover_pressed", "disabled", "focus"]:
-			floor_deck_button.add_theme_stylebox_override(style_name, floor_deck_style)
-		var floor_heading := DeckCaseHeadingScript.new()
-		floor_heading.configure(str(floor_deck.get("name", "금고 덱")), floor_deck.get("editions", []),
-			floor_deck.get("cards", []).size(), int(floor_deck.get("capacity", 25)), false, false, false, true, true)
-		floor_deck_button.add_child(floor_heading)
-		floor_deck_button.set("deck_drag_payload", {
-			"kind": "deck-case", "source_area": "floor", "deck_id": floor_deck_id,
-		})
-		floor_deck_button.set("deck_preview_data", {"name": floor_deck.get("name", "금고 덱"),
-			"editions": floor_deck.get("editions", []), "count": floor_deck.get("cards", []).size(),
-			"capacity": int(floor_deck.get("capacity", 25)), "show_icon": true})
-		floor_deck_button.pressed.connect(_pick_up_floor_deck.bind(floor_deck_id))
-		floor_card_list.add_child(floor_deck_button)
-	var deck_floor_gap := Control.new()
-	deck_floor_gap.custom_minimum_size.y = 32.0
-	deck_floor_gap.mouse_filter = Control.MOUSE_FILTER_IGNORE
-	editor_board.add_child(deck_floor_gap)
-	editor_board.add_child(floor_row["panel"])
-
-
-func _new_deck_editor_row(row_height: float, header_color: Color,
-		row_color: Color = Color("#171b18"), border_color: Color = Color("#676a5a"),
-		corner_radius: int = 4, header_border_color: Color = Color("#676a5a")) -> Dictionary:
-	var panel := PanelContainer.new()
-	panel.custom_minimum_size.y = row_height
-	panel.size_flags_horizontal = Control.SIZE_EXPAND_FILL
-	var row_style := StyleBoxFlat.new()
-	row_style.bg_color = row_color
-	row_style.border_color = border_color
-	row_style.set_border_width_all(2)
-	row_style.set_corner_radius_all(corner_radius)
-	# Keep child panels inside the 2px outer border so their fills cannot cover it.
-	row_style.content_margin_left = 2
-	row_style.content_margin_top = 2
-	row_style.content_margin_right = 2
-	row_style.content_margin_bottom = 2
-	panel.add_theme_stylebox_override("panel", row_style)
-	var row := HBoxContainer.new()
-	row.add_theme_constant_override("separation", 0)
-	panel.add_child(row)
-	var heading_panel := PanelContainer.new()
-	heading_panel.custom_minimum_size = Vector2(190, row_height)
-	var heading_style := StyleBoxFlat.new()
-	heading_style.bg_color = header_color
-	heading_style.border_color = header_border_color
-	heading_style.corner_radius_top_left = maxi(0, corner_radius - 2)
-	heading_style.corner_radius_bottom_left = maxi(0, corner_radius - 2)
-	heading_style.set_border_width_all(0)
-	heading_style.border_width_right = 0 if header_border_color == Color("#db8a3d") else 1
-	heading_style.content_margin_left = 12
-	heading_style.content_margin_top = 9
-	heading_style.content_margin_right = 12
-	heading_style.content_margin_bottom = 9
-	heading_panel.add_theme_stylebox_override("panel", heading_style)
-	var header := VBoxContainer.new()
-	header.add_theme_constant_override("separation", 3)
-	header.alignment = BoxContainer.ALIGNMENT_CENTER
-	heading_panel.add_child(header)
-	row.add_child(heading_panel)
-	var scroll := ScrollContainer.new()
-	scroll.custom_minimum_size.y = row_height
-	scroll.size_flags_horizontal = Control.SIZE_EXPAND_FILL
-	# Match the browser's hidden scrollbar while retaining horizontal scrolling.
-	scroll.horizontal_scroll_mode = ScrollContainer.SCROLL_MODE_SHOW_NEVER
-	scroll.vertical_scroll_mode = ScrollContainer.SCROLL_MODE_DISABLED
-	var cards := HBoxContainer.new()
-	cards.custom_minimum_size.y = row_height
-	cards.size_flags_horizontal = Control.SIZE_EXPAND_FILL
-	cards.add_theme_constant_override("separation", 8)
-	scroll.add_child(cards)
-	row.add_child(scroll)
-	return {"panel": panel, "heading_panel": heading_panel, "header": header, "cards": cards}
-
-
-func _deck_editor_empty_slot(kind: String) -> Control:
-	var slot := DeckEditorEmptySlotScript.new() as Control
-	slot.call("configure", kind)
-	slot.size_flags_vertical = Control.SIZE_SHRINK_CENTER
-	return slot
+	DeckEditorView.show(self)
 
 
 func _group_deck_editor_cards(cards: Array) -> Array[Dictionary]:
-	var groups: Array[Dictionary] = []
-	var group_index_by_key: Dictionary = {}
-	for source_index in range(cards.size()):
-		var card = cards[source_index]
-		if not card is Dictionary:
-			continue
-		var sticker_key := JSON.stringify(CardStickers.card_sticker_ids(card))
-		var key_parts := [
-			str(card.get("name", "")),
-			str(card.get("effect", "")),
-			str(card.get("damageType", card.get("damage_type", ""))),
-			str(card.get("cost", "")),
-			str(card.get("value", "")),
-			str(card.get("rarity", "")),
-			sticker_key,
-			"forged" if bool(card.get("forged", false)) else "normal",
-			"token" if bool(card.get("enemyToken", card.get("enemy_token", false))) else "card",
-			JSON.stringify(card.get("forgeCostsCompleted", card.get("forge_costs_completed", []))),
-		]
-		var group_key := JSON.stringify(key_parts)
-		if group_index_by_key.has(group_key):
-			var existing: Dictionary = groups[int(group_index_by_key[group_key])]
-			var ids: Array = existing["ids"]
-			ids.append(int(card.get("id", -1)))
-			existing["ids"] = ids
-		else:
-			group_index_by_key[group_key] = groups.size()
-			groups.append({"card": card, "ids": [int(card.get("id", -1))], "source_index": source_index})
-	groups.sort_custom(DeckVaultCardView._card_group_less)
-	return groups
-
-
-func _group_deck_editor_consumables(consumables: Array) -> Array[Dictionary]:
-	var groups: Array[Dictionary] = []
-	var group_index_by_key: Dictionary = {}
-	for consumable in consumables:
-		if not consumable is Dictionary:
-			continue
-		var key := JSON.stringify([
-			str(consumable.get("name", "")),
-			str(consumable.get("type", "")),
-			str(consumable.get("description", "")),
-		])
-		if group_index_by_key.has(key):
-			var existing: Dictionary = groups[int(group_index_by_key[key])]
-			var ids: Array = existing["ids"]
-			ids.append(str(consumable.get("id", "")))
-			existing["ids"] = ids
-		else:
-			group_index_by_key[key] = groups.size()
-			groups.append({"card": consumable, "ids": [str(consumable.get("id", ""))]})
-	return groups
+	return DeckStorageService.group_cards(cards)
 
 
 func _deck_editor_group_representative(group: Dictionary) -> Dictionary:
-	var representative: Dictionary = group.get("card", {}).duplicate(true)
-	var ids: Array = group.get("ids", [])
-	if not ids.is_empty():
-		representative["id"] = ids.back()
-	return representative
-
-
-func _deck_editor_count_badge(count: int) -> Label:
-	var badge := _label("x%d" % count, 12, Color("#ffda52"))
-	badge.horizontal_alignment = HORIZONTAL_ALIGNMENT_RIGHT
-	badge.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
-	badge.add_theme_color_override("font_outline_color", Color("#10192c"))
-	badge.add_theme_constant_override("outline_size", 3)
-	badge.mouse_filter = Control.MOUSE_FILTER_PASS
-	return badge
+	return DeckStorageService.group_representative(group)
 
 
 func _deck_editor_consumable_widget(consumable: Dictionary, area: String, count: int = 1) -> Control:
-	var stack_root := Control.new()
-	var item_view := BattleCardDragSourceScript.new()
-	item_view.size_flags_vertical = Control.SIZE_SHRINK_CENTER
-	var consumable_id := str(consumable.get("id", ""))
-	var is_selected := extraction_ticket_mode and extraction_ticket_source == area \
-		and extraction_ticket_id == consumable_id
-	ConsumableTicketVisual.configure_compact(stack_root, item_view, consumable, count, is_selected)
-	if area == "inventory":
-		item_view.set("run_drop_target", {"area": "inventory", "deck_id": ""})
-		item_view.set("run_drop_callback", Callable(self, "_on_run_card_dropped"))
-	item_view.set("run_drag_payload", {
-		"kind": "run-ticket",
-		"ticket_id": consumable_id,
-		"ticket_type": str(consumable.get("type", "")),
-		"source_area": area,
-	})
-	var item_name := str(consumable.get("name", "아이템"))
-	item_view.gui_input.connect(_on_deck_editor_consumable_gui_input.bind(consumable.duplicate(true), area))
-	return stack_root
-
-
-func _add_deck_editor_card(row: HBoxContainer, card_view: Control, count: int = 1) -> void:
-	var layers := mini(5, maxi(0, count - 1))
-	if layers == 0:
-		row.add_child(card_view)
-		return
-	# Reserve CSS margin-left without enlarging the card's hover/drop/drag area.
-	var stack_margin := MarginContainer.new()
-	stack_margin.mouse_filter = Control.MOUSE_FILTER_IGNORE
-	stack_margin.size_flags_vertical = Control.SIZE_SHRINK_CENTER
-	stack_margin.add_theme_constant_override("margin_left", layers * 7)
-	stack_margin.add_child(card_view)
-	row.add_child(stack_margin)
-
-
-func _deck_editor_label(text: String, font_size: int, color: Color) -> Label:
-	var label := _label(text, font_size, color)
-	label.add_theme_font_override("font", DeckEditorHeadingFont)
-	return label
+	return DeckEditorView.consumable_widget(self, consumable, area, count)
 
 
 func _deck_editor_card_widget(card: Dictionary, count: int = 1) -> BattleCardDragSourceScript:
-	var card_view := CompactCardView.create(
-		card,
-		count,
-		Callable(self, "_show_card_hover_preview"),
-		Callable(self, "_hide_card_hover_preview"),
-		Callable(self, "_hide_card_hover_preview"),
-		blue_tooltip_theme
-	) as BattleCardDragSourceScript
-	card_view.size_flags_vertical = Control.SIZE_SHRINK_CENTER
-	return card_view
+	return DeckEditorView.card_widget(self, card, count)
 
 
 func _show_card_hover_preview(source: Control, card: Dictionary) -> void:
@@ -5721,732 +3946,6 @@ func _tooltip_preview_card(section: Dictionary) -> Control:
 	if str(section.get("preview", "")) == "radiance":
 		return _card_widget(CardCatalog.create_radiance_card(-1), false, false, false, false)
 	return null
-
-
-func _on_deck_editor_backdrop_input(event: InputEvent) -> void:
-	var click := event as InputEventMouseButton
-	if click != null and click.pressed and click.button_index == MOUSE_BUTTON_LEFT:
-		get_viewport().set_input_as_handled()
-		_show_map()
-
-
-func _on_inventory_card_gui_input(event: InputEvent, card: Dictionary) -> void:
-	var click := event as InputEventMouseButton
-	if click == null or click.pressed:
-		return
-	var card_id := int(card.get("id", -1))
-	if click.button_index == MOUSE_BUTTON_RIGHT:
-		_move_inventory_card_to_floor(card_id)
-		get_viewport().set_input_as_handled()
-	elif click.button_index == MOUSE_BUTTON_LEFT and not extraction_ticket_mode:
-		_move_external_card_to_deck(card_id, "inventory", str(run_state.get("active_deck_id", "starter")))
-		get_viewport().set_input_as_handled()
-
-
-func _on_floor_card_gui_input(event: InputEvent, card: Dictionary) -> void:
-	var click := event as InputEventMouseButton
-	if click == null or click.pressed:
-		return
-	if click.button_index == MOUSE_BUTTON_LEFT and not extraction_ticket_mode:
-		_move_floor_card_to_inventory(int(card.get("id", -1)))
-		get_viewport().set_input_as_handled()
-
-
-func _on_deck_editor_consumable_gui_input(event: InputEvent, consumable: Dictionary, area: String) -> void:
-	var click := event as InputEventMouseButton
-	if click == null or click.pressed:
-		return
-	var consumable_id := str(consumable.get("id", ""))
-	var consumable_type := str(consumable.get("type", ""))
-	if click.button_index == MOUSE_BUTTON_RIGHT and area == "inventory":
-		_move_inventory_consumable_to_floor(consumable_id)
-		get_viewport().set_input_as_handled()
-	elif click.button_index == MOUSE_BUTTON_LEFT:
-		if area == "floor" and consumable_type != "extractTicket":
-			_move_floor_consumable_to_inventory(consumable_id)
-			get_viewport().set_input_as_handled()
-		elif consumable_type == "extractTicket":
-			if extraction_ticket_mode and extraction_ticket_source == area and extraction_ticket_id == consumable_id:
-				extraction_ticket_mode = false
-				extraction_ticket_id = ""
-			else:
-				extraction_ticket_mode = true
-				extraction_ticket_source = area
-				extraction_ticket_id = consumable_id
-			_show_deck()
-			get_viewport().set_input_as_handled()
-
-
-func _on_owned_deck_card_gui_input(event: InputEvent, deck_id: String, card: Dictionary, can_change_deck: bool) -> void:
-	var click := event as InputEventMouseButton
-	if click == null or click.pressed:
-		return
-	var card_id := int(card.get("id", -1))
-	if extraction_ticket_mode and click.button_index == MOUSE_BUTTON_LEFT:
-		_extract_owned_deck_card(deck_id, card_id)
-		get_viewport().set_input_as_handled()
-	elif not extraction_ticket_mode and click.button_index == MOUSE_BUTTON_RIGHT \
-		and _can_remove_deck_card(card, can_change_deck, deck_id):
-		# Browser context-menu removal chooses a destination explicitly.
-		if _is_rare_slot_card(card) or not can_change_deck or _inventory_space_available() <= 0:
-			_move_deck_card_to_floor(card_id, deck_id)
-		else:
-			_move_deck_card_to_inventory(card_id, deck_id)
-		get_viewport().set_input_as_handled()
-
-
-func _on_pending_deck_card_gui_input(event: InputEvent, card: Dictionary) -> void:
-	var click := event as InputEventMouseButton
-	if click == null or click.pressed or click.button_index not in [MOUSE_BUTTON_LEFT, MOUSE_BUTTON_RIGHT]:
-		return
-	_restore_pending_deck_card(int(card.get("id", -1)))
-	get_viewport().set_input_as_handled()
-
-
-func _open_sticker_service(kind: String, position: Vector2i) -> void:
-	active_service_kind = kind
-	active_service_position = position
-	service_selected_card_ids.clear()
-	service_transmuter_preview = {}
-	service_preview_elapsed = 0.0
-	service_feedback = ""
-	_show_sticker_service()
-
-
-func _show_sticker_service() -> void:
-	_clear_map_vault_preview()
-	screen_name = "stickerService"
-	service_preview_host = null
-	service_apply_button = null
-	var fixed_sticker := StickerServices.tinkerer_sticker_at(active_service_position, int(run_state.get("map_seed", 0))) if active_service_kind == "tinkerer" else ""
-	var uses := _sticker_service_uses()
-	var price := StickerServices.service_price(active_service_kind, uses, fixed_sticker)
-	var viewport_size := get_viewport_rect().size
-	var modal_width := 1540.0 if active_service_kind == "stickerAltar" else 1040.0
-	var modal := _create_sticker_service_overlay(modal_width, viewport_size.y * 0.9)
-	var page := VBoxContainer.new()
-	page.add_theme_constant_override("separation", 9)
-	page.size_flags_horizontal = Control.SIZE_EXPAND_FILL
-	page.size_flags_vertical = Control.SIZE_EXPAND_FILL
-	modal.add_child(page)
-	var heading := HBoxContainer.new()
-	heading.add_theme_constant_override("separation", 12)
-	heading.add_child(_sticker_service_label(_room_name(active_service_kind), 30, COLOR_TEXT, 800))
-	var header_spacer := Control.new()
-	header_spacer.size_flags_horizontal = Control.SIZE_EXPAND_FILL
-	heading.add_child(header_spacer)
-	heading.add_child(_sticker_service_label("$%d 보유" % int(run_state.get("gold", 0)), 20, COLOR_GOLD, 700))
-	var close_button := _button("나가기", Callable(self, "_show_map"), Vector2(92, 40))
-	_style_sticker_service_button(close_button, 14, 600)
-	heading.add_child(close_button)
-	page.add_child(heading)
-	page.add_child(HSeparator.new())
-	var instruction := HBoxContainer.new()
-	instruction.add_theme_constant_override("separation", 4)
-	if active_service_kind == "tinkerer":
-		instruction.add_child(_sticker_service_label("$를 소모하여 카드 한 장에", 15, COLOR_TEXT))
-		instruction.add_child(_sticker_icon(fixed_sticker, 28))
-		instruction.add_child(_sticker_service_label("를 부여합니다.", 15, COLOR_TEXT))
-	elif active_service_kind == "stickerAltar":
-		instruction.add_child(_sticker_service_label("$를 소모하여 제물 카드의 스티커를 대상 카드에 붙입니다.", 15, COLOR_TEXT))
-	else:
-		instruction.add_child(_sticker_service_label("$를 소모하여 같은 희귀도의 다른 카드로 변환합니다.", 15, COLOR_TEXT))
-	page.add_child(instruction)
-	var content := HBoxContainer.new()
-	content.size_flags_vertical = Control.SIZE_EXPAND_FILL
-	content.add_theme_constant_override("separation", 18)
-	page.add_child(content)
-	var list_scroll := ScrollContainer.new()
-	list_scroll.set_script(ServiceCardRemovalDropAreaScript)
-	list_scroll.connect("service_card_removed", _on_service_card_removed)
-	list_scroll.size_flags_horizontal = Control.SIZE_EXPAND_FILL
-	list_scroll.size_flags_vertical = Control.SIZE_EXPAND_FILL
-	list_scroll.horizontal_scroll_mode = ScrollContainer.SCROLL_MODE_DISABLED
-	list_scroll.vertical_scroll_mode = ScrollContainer.SCROLL_MODE_AUTO
-	content.add_child(list_scroll)
-	var groups := VBoxContainer.new()
-	groups.add_theme_constant_override("separation", 14)
-	groups.size_flags_horizontal = Control.SIZE_EXPAND_FILL
-	list_scroll.add_child(groups)
-	var card_group_count := _add_sticker_service_card_group(groups, "인벤토리", run_state.get("inventory_cards", []))
-	var active_deck_id := str(run_state.get("active_deck_id", "starter"))
-	for deck in run_state.get("owned_decks", []):
-		var deck_id := str(deck.get("id", ""))
-		var deck_cards: Array = run_state.get("deck", []) if deck_id == active_deck_id else deck.get("cards", [])
-		card_group_count += _add_sticker_service_card_group(groups, "덱 「%s」%s" % [
-			str(deck.get("name", "덱")), " · 사용 중" if deck_id == active_deck_id else ""], deck_cards)
-	if card_group_count == 0:
-		groups.add_child(_sticker_service_label("선택할 카드가 없습니다.", 15, COLOR_MUTED))
-	var details := VBoxContainer.new()
-	var operation_width := 660.0 if active_service_kind == "stickerAltar" else 430.0 if active_service_kind == "cardTransmuter" else 340.0
-	details.custom_minimum_size = Vector2(operation_width, 0)
-	details.add_theme_constant_override("separation", 12)
-	content.add_child(details)
-	service_preview_host = VBoxContainer.new()
-	service_preview_host.add_theme_constant_override("separation", 8)
-	details.add_child(service_preview_host)
-	_render_sticker_service_preview()
-	if not service_feedback.is_empty():
-		details.add_child(_sticker_service_label(service_feedback, 14, COLOR_RED))
-	service_apply_button = _button("$%d" % price, Callable(self, "_apply_sticker_service"), Vector2(210, 48))
-	_style_sticker_service_button(service_apply_button, 17, 800)
-	service_apply_button.disabled = not _service_selection_is_complete() or int(run_state.get("gold", 0)) < price
-	details.add_child(service_apply_button)
-
-
-func _render_sticker_service_preview() -> void:
-	if not is_instance_valid(service_preview_host):
-		return
-	for child in service_preview_host.get_children():
-		service_preview_host.remove_child(child)
-		child.queue_free()
-	if active_service_kind == "stickerAltar":
-		var row := HBoxContainer.new()
-		row.add_theme_constant_override("separation", 20)
-		var both_cards_present := service_selected_card_ids.size() >= 2 \
-			and not _run_card_by_id(int(service_selected_card_ids[0])).is_empty() \
-			and not _run_card_by_id(int(service_selected_card_ids[1])).is_empty()
-		for slot_index in range(3):
-			if slot_index == 1:
-				var plus := _label("+", 24, Color("#ffc400"))
-				plus.custom_minimum_size = Vector2(40, 40)
-				plus.size_flags_horizontal = Control.SIZE_SHRINK_CENTER
-				plus.size_flags_vertical = Control.SIZE_SHRINK_CENTER
-				plus.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
-				plus.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
-				row.add_child(plus)
-			elif slot_index == 2:
-				var arrow := ResultArrowScript.new()
-				arrow.custom_minimum_size = Vector2(76, 38)
-				arrow.size_flags_horizontal = Control.SIZE_SHRINK_CENTER
-				arrow.size_flags_vertical = Control.SIZE_SHRINK_CENTER
-				arrow.arrow_color = Color("#ffc400")
-				row.add_child(arrow)
-			var slot_column := CenterContainer.new()
-			if slot_index < 2:
-				var selected_card_id := int(service_selected_card_ids[slot_index]) if slot_index < service_selected_card_ids.size() else -1
-				var selected_card := _run_card_by_id(selected_card_id) if selected_card_id >= 0 else {}
-				if not selected_card.is_empty():
-					var selected_preview := _service_selection_card_widget(selected_card)
-					if slot_index == 0 and both_cards_present:
-						slot_column.add_child(_altar_sacrifice_preview(selected_preview))
-					else:
-						slot_column.add_child(selected_preview)
-				else:
-					var slot := _service_slot("", slot_index)
-					slot.card_dropped.connect(_on_service_slot_card_dropped)
-					slot_column.add_child(slot)
-			else:
-				var offering_id := int(service_selected_card_ids[0]) if service_selected_card_ids.size() > 0 else -1
-				var target_id := int(service_selected_card_ids[1]) if service_selected_card_ids.size() > 1 else -1
-				var offering := _run_card_by_id(offering_id) if offering_id >= 0 else {}
-				var target := _run_card_by_id(target_id) if target_id >= 0 else {}
-				var result_card: Dictionary = {}
-				var offering_stickers: Array[String] = []
-				if not offering.is_empty():
-					offering_stickers = CardStickers.card_sticker_ids(offering)
-				if not target.is_empty() and offering_stickers.size() == 1:
-					var result_stickers := CardStickers.card_sticker_ids(target)
-					if not result_stickers.has(offering_stickers[0]):
-						result_stickers.append(offering_stickers[0])
-						result_card = CardStickers.with_card_stickers(target, result_stickers)
-				if result_card.is_empty():
-					slot_column.add_child(_service_result_placeholder())
-				else:
-					var result_preview := _card_widget(result_card, false, false, false)
-					result_preview.mouse_filter = Control.MOUSE_FILTER_IGNORE
-					slot_column.add_child(result_preview)
-					_blink_service_sticker_preview(result_preview, str(offering_stickers[0]))
-			row.add_child(slot_column)
-		service_preview_host.add_child(row)
-		return
-	if service_selected_card_ids.is_empty():
-		var slot := _service_slot("", 0)
-		slot.card_dropped.connect(_on_service_slot_card_dropped)
-		service_preview_host.add_child(slot)
-		return
-	var source_id := int(service_selected_card_ids[0])
-	var source := _run_card_by_id(source_id) if source_id >= 0 else {}
-	if source.is_empty():
-		return
-	var after: Dictionary = {}
-	var fixed_sticker := ""
-	if active_service_kind == "tinkerer":
-		var ids := CardStickers.card_sticker_ids(source)
-		fixed_sticker = StickerServices.tinkerer_sticker_at(active_service_position, int(run_state.get("map_seed", 0)))
-		ids.append(fixed_sticker)
-		after = CardStickers.with_card_stickers(source, ids)
-	else:
-		after = service_transmuter_preview
-	if after.is_empty():
-		service_preview_host.add_child(_sticker_service_label("표시할 변환 카드가 없습니다.", 14, COLOR_MUTED))
-		return
-	var preview_card := _service_selection_card_widget(after) if active_service_kind == "tinkerer" \
-		else _card_widget(after, false, false, false)
-	if active_service_kind == "cardTransmuter":
-		preview_card.mouse_filter = Control.MOUSE_FILTER_IGNORE
-	if active_service_kind == "cardTransmuter":
-		var pair := HBoxContainer.new()
-		pair.add_theme_constant_override("separation", 12)
-		pair.alignment = BoxContainer.ALIGNMENT_CENTER
-		var source_preview := _service_selection_card_widget(source)
-		pair.add_child(source_preview)
-		var arrow := ResultArrowScript.new()
-		arrow.custom_minimum_size = Vector2(56, 28)
-		arrow.size_flags_horizontal = Control.SIZE_SHRINK_CENTER
-		arrow.size_flags_vertical = Control.SIZE_SHRINK_CENTER
-		arrow.arrow_color = Color("#ffc400")
-		pair.add_child(arrow)
-		pair.add_child(preview_card)
-		service_preview_host.add_child(pair)
-	else:
-		service_preview_host.add_child(preview_card)
-	if active_service_kind == "tinkerer":
-		_blink_service_sticker_preview(preview_card, fixed_sticker)
-
-
-func _altar_sacrifice_preview(card_preview: Control) -> Control:
-	var wrapper := Control.new()
-	wrapper.name = "AltarOfferingPreview"
-	wrapper.custom_minimum_size = card_preview.custom_minimum_size
-	wrapper.mouse_filter = Control.MOUSE_FILTER_IGNORE
-	var filter := CanvasGroup.new()
-	filter.name = "AltarSacrificeFilter"
-	var grayscale := ShaderMaterial.new()
-	grayscale.shader = preload("res://shaders/pending_removal_filter.gdshader")
-	grayscale.set_shader_parameter("saturation", 0.0)
-	filter.material = grayscale
-	wrapper.add_child(filter)
-	filter.add_child(card_preview)
-	card_preview.size = card_preview.custom_minimum_size
-	return wrapper
-
-
-func _blink_service_sticker_preview(card_preview: Control, sticker_id: String) -> void:
-	var sticker_icon := _find_service_sticker_icon(card_preview, sticker_id)
-	if sticker_icon == null:
-		return
-	sticker_icon.modulate.a = 0.45
-	var preview_flash := create_tween().bind_node(card_preview).set_loops()
-	preview_flash.set_trans(Tween.TRANS_SINE).set_ease(Tween.EASE_IN_OUT)
-	preview_flash.tween_property(sticker_icon, "modulate:a", 1.0, 0.425)
-	preview_flash.tween_property(sticker_icon, "modulate:a", 0.45, 0.425)
-
-
-func _find_service_sticker_icon(node: Node, sticker_id: String) -> Control:
-	if node is Control and str(node.get_meta("card_sticker_id", "")) == sticker_id:
-		return node as Control
-	for child in node.get_children():
-		var icon := _find_service_sticker_icon(child, sticker_id)
-		if icon != null:
-			return icon
-	return null
-
-
-func _service_selection_card_widget(card: Dictionary) -> Control:
-	var widget := _card_widget(card, false)
-	_set_child_controls_mouse_ignored(widget)
-	widget.mouse_filter = Control.MOUSE_FILTER_STOP
-	widget.set("drag_payload", {
-		"kind": "service-card",
-		"action": "remove",
-		"card_id": int(card.get("id", -1)),
-		"card_name": str(card.get("name", "카드")),
-	})
-	widget.gui_input.connect(_on_service_selection_card_gui_input.bind(int(card.get("id", -1))))
-	return widget
-
-
-func _add_sticker_service_card_group(parent: VBoxContainer, title: String, cards: Array) -> int:
-	if cards.is_empty():
-		return 0
-	parent.add_child(_sticker_service_label("%s · %d장" % [title, cards.size()], 18, COLOR_TEXT, 700))
-	var card_flow := HFlowContainer.new()
-	card_flow.size_flags_horizontal = Control.SIZE_EXPAND_FILL
-	card_flow.add_theme_constant_override("h_separation", 8)
-	card_flow.add_theme_constant_override("v_separation", 8)
-	parent.add_child(card_flow)
-	for card_value in cards:
-		var card: Dictionary = card_value
-		var card_slot := Control.new()
-		card_slot.custom_minimum_size = CompactCardView.CARD_SIZE
-		card_slot.mouse_filter = Control.MOUSE_FILTER_IGNORE
-		var card_panel := CompactCardView.create(card, 1,
-			Callable(self, "_show_card_hover_preview"), Callable(self, "_hide_card_hover_preview"),
-			Callable(self, "_hide_card_hover_preview"), blue_tooltip_theme, true)
-		card_panel.pivot_offset = Vector2.ZERO
-		card_panel.set("drag_payload", {
-			"kind": "service-card",
-			"action": "remove" if service_selected_card_ids.has(int(card.get("id", -1))) else "select",
-			"card_id": int(card.get("id", -1)),
-			"card_name": str(card.get("name", "카드")),
-		})
-		card_panel.set("accepts_service_removal", true)
-		card_panel.connect("service_card_removed", _on_service_card_removed)
-		card_panel.gui_input.connect(_on_service_collection_card_gui_input.bind(int(card.get("id", -1)), card_panel))
-		if service_selected_card_ids.has(int(card.get("id", -1))):
-			var selected_style := card_panel.get_theme_stylebox("panel").duplicate() as StyleBoxFlat
-			selected_style.border_color = COLOR_ORANGE
-			selected_style.set_border_width_all(3)
-			card_panel.add_theme_stylebox_override("panel", selected_style)
-		_set_child_controls_mouse_ignored(card_panel)
-		card_panel.mouse_filter = Control.MOUSE_FILTER_STOP
-		card_slot.add_child(card_panel)
-		card_flow.add_child(card_slot)
-	return cards.size()
-
-
-func _on_service_collection_card_gui_input(event: InputEvent, card_id: int, widget: Control) -> void:
-	var mouse_event := event as InputEventMouseButton
-	if mouse_event == null:
-		return
-	if mouse_event.button_index == MOUSE_BUTTON_RIGHT and not mouse_event.pressed:
-		_remove_service_selection(card_id)
-		get_viewport().set_input_as_handled()
-	elif mouse_event.button_index == MOUSE_BUTTON_LEFT:
-		if mouse_event.pressed:
-			widget.set_meta("service_press_position", get_global_mouse_position())
-		elif widget.has_meta("service_press_position"):
-			var press_position: Vector2 = widget.get_meta("service_press_position")
-			widget.remove_meta("service_press_position")
-			if press_position.distance_to(get_global_mouse_position()) < 6.0:
-				if service_selected_card_ids.has(card_id):
-					_remove_service_selection(card_id)
-				else:
-					_add_service_selection(card_id)
-				get_viewport().set_input_as_handled()
-
-
-func _add_service_selection(card_id: int, requested_slot := -1) -> void:
-	if card_id < 0 or _run_card_by_id(card_id).is_empty():
-		return
-	if service_selected_card_ids.has(card_id):
-		return
-	var limit := 2 if active_service_kind == "stickerAltar" else 1
-	var slot_index := requested_slot
-	if slot_index < 0:
-		if active_service_kind == "stickerAltar":
-			slot_index = 0 if CardStickers.card_sticker_ids(_run_card_by_id(card_id)).size() == 1 else 1
-		else:
-			slot_index = 0
-	if slot_index < 0 or slot_index >= limit:
-		service_feedback = "제단에는 카드 두 장만 놓을 수 있습니다."
-		_show_sticker_service()
-		return
-	if not _can_service_card_fill_slot(card_id, slot_index):
-		service_feedback = _service_slot_rejection_message(slot_index)
-		_show_sticker_service()
-		return
-	while service_selected_card_ids.size() <= slot_index:
-		service_selected_card_ids.append(-1)
-	service_selected_card_ids[slot_index] = card_id
-	service_feedback = ""
-	service_transmuter_preview = {}
-	service_preview_elapsed = 0.0
-	_show_sticker_service()
-
-
-func _can_drop_service_card_to_slot(card_id: int, slot_index: int) -> bool:
-	return _can_service_card_fill_slot(card_id, slot_index)
-
-
-func _can_service_card_fill_slot(card_id: int, slot_index: int) -> bool:
-	var card := _run_card_by_id(card_id)
-	if card.is_empty():
-		return false
-	if active_service_kind != "stickerAltar":
-		if slot_index != 0:
-			return false
-		if active_service_kind == "tinkerer":
-			var fixed_sticker := StickerServices.tinkerer_sticker_at(active_service_position, int(run_state.get("map_seed", 0)))
-			return not CardStickers.card_sticker_ids(card).has(fixed_sticker) \
-				and CardStickers.compatible_stickers(card).has(fixed_sticker)
-		if active_service_kind == "cardTransmuter":
-			return not StickerServices.transmuter_candidates(card).is_empty()
-		return false
-	var stickers := CardStickers.card_sticker_ids(card)
-	if slot_index == 0:
-		if stickers.size() != 1 or DeckEditorRules.is_bound(card):
-			return false
-		if service_selected_card_ids.size() > 1 and int(service_selected_card_ids[1]) >= 0:
-			return StickerServices.can_altar_transfer(card, _run_card_by_id(int(service_selected_card_ids[1])))
-		return true
-	if slot_index != 1:
-		return false
-	if not service_selected_card_ids.is_empty() and int(service_selected_card_ids[0]) >= 0:
-		return StickerServices.can_altar_transfer(_run_card_by_id(int(service_selected_card_ids[0])), card)
-	for possible_donor in _all_run_cards():
-		if int(possible_donor.get("id", -1)) == card_id:
-			continue
-		if CardStickers.card_sticker_ids(possible_donor).size() == 1 and StickerServices.can_altar_transfer(possible_donor, card):
-			return true
-	return false
-
-
-func _service_slot_rejection_message(slot_index: int) -> String:
-	if active_service_kind == "stickerAltar":
-		return "스티커가 하나 붙은 카드만 제물로 놓을 수 있습니다." if slot_index == 0 \
-			else "제물의 스티커를 받을 수 있는 카드만 놓을 수 있습니다."
-	if active_service_kind == "tinkerer":
-		return "이 카드는 해당 스티커를 받을 수 없습니다."
-	if active_service_kind == "cardTransmuter":
-		return "같은 희귀도의 다른 카드가 없어 변환할 수 없습니다."
-	return "이 슬롯에 놓을 수 없는 카드입니다."
-
-
-func _remove_service_selection(card_id: int) -> void:
-	var index := service_selected_card_ids.find(card_id)
-	if index < 0:
-		return
-	service_selected_card_ids[index] = -1
-	while not service_selected_card_ids.is_empty() and int(service_selected_card_ids.back()) < 0:
-		service_selected_card_ids.pop_back()
-	service_feedback = ""
-	service_transmuter_preview = {}
-	service_preview_elapsed = 0.0
-	_show_sticker_service()
-
-
-func _on_service_card_removed(card_id: int) -> void:
-	_remove_service_selection(card_id)
-
-
-func _on_service_selection_card_gui_input(event: InputEvent, card_id: int) -> void:
-	var mouse_event := event as InputEventMouseButton
-	if mouse_event == null or mouse_event.pressed or mouse_event.button_index != MOUSE_BUTTON_RIGHT:
-		return
-	_remove_service_selection(card_id)
-	get_viewport().set_input_as_handled()
-
-
-func _on_service_slot_card_dropped(card_id: int, slot_index: int) -> void:
-	_add_service_selection(card_id, slot_index)
-
-
-func _service_selected_count() -> int:
-	var count := 0
-	for card_id in service_selected_card_ids:
-		if int(card_id) >= 0:
-			count += 1
-	return count
-
-
-func _service_selection_is_complete() -> bool:
-	var limit := 2 if active_service_kind == "stickerAltar" else 1
-	if service_selected_card_ids.size() != limit:
-		return false
-	for card_id in service_selected_card_ids:
-		if int(card_id) < 0:
-			return false
-	return true
-
-
-func _apply_sticker_service() -> void:
-	if not _service_selection_is_complete():
-		return
-	var primary_id := service_selected_card_ids[0] if not service_selected_card_ids.is_empty() else -1
-	var secondary_id := -1
-	if active_service_kind == "stickerAltar" and service_selected_card_ids.size() == 2:
-		secondary_id = service_selected_card_ids[1]
-	var fixed_sticker := StickerServices.tinkerer_sticker_at(active_service_position, int(run_state.get("map_seed", 0))) if active_service_kind == "tinkerer" else ""
-	var random := RandomNumberGenerator.new()
-	random.randomize()
-	var result := StickerServices.resolve(
-		active_service_kind,
-		_all_run_cards(),
-		primary_id,
-		secondary_id,
-		fixed_sticker,
-		_sticker_service_uses(),
-		random
-	)
-	if not bool(result.get("ok", false)):
-		service_feedback = str(result.get("message", "카드를 처리하지 못했습니다."))
-		_show_sticker_service()
-		return
-	var price := int(result.get("price", 0))
-	if int(run_state.get("gold", 0)) < price:
-		service_feedback = "$%d가 부족합니다." % (price - int(run_state.get("gold", 0)))
-		_show_sticker_service()
-		return
-	run_state["inventory_cards"] = _apply_sticker_service_cards(run_state.get("inventory_cards", []), result)
-	var active_deck_id := str(run_state.get("active_deck_id", "starter"))
-	var decks: Array = run_state.get("owned_decks", [])
-	for deck_index in range(decks.size()):
-		var deck: Dictionary = decks[deck_index].duplicate(true)
-		deck["cards"] = _apply_sticker_service_cards(deck.get("cards", []), result)
-		decks[deck_index] = deck
-	run_state["owned_decks"] = decks
-	for deck in decks:
-		if str(deck.get("id", "")) == active_deck_id:
-			run_state["deck"] = deck.get("cards", []).duplicate(true)
-			break
-	run_state["gold"] = int(run_state.get("gold", 0)) - price
-	var use_counts: Dictionary = run_state.get("sticker_service_uses", {})
-	var use_key := "%d,%d" % [active_service_position.x, active_service_position.y]
-	use_counts[use_key] = _sticker_service_uses() + 1
-	run_state["sticker_service_uses"] = use_counts
-	_save_run()
-	_show_sticker_service_result(result)
-
-
-func _show_sticker_service_result(result: Dictionary) -> void:
-	screen_name = "stickerServiceResult"
-	service_preview_host = null
-	service_apply_button = null
-	var modal := _create_sticker_service_overlay(760.0, minf(320.0, get_viewport_rect().size.y * 0.8))
-	var result_panel_style := modal.get_theme_stylebox("panel").duplicate() as StyleBoxFlat
-	result_panel_style.content_margin_left = 24
-	result_panel_style.content_margin_top = 26
-	result_panel_style.content_margin_right = 24
-	result_panel_style.content_margin_bottom = 26
-	modal.add_theme_stylebox_override("panel", result_panel_style)
-	var cards_margin := MarginContainer.new()
-	cards_margin.add_theme_constant_override("margin_left", 0)
-	cards_margin.add_theme_constant_override("margin_top", 14)
-	cards_margin.add_theme_constant_override("margin_right", 0)
-	cards_margin.add_theme_constant_override("margin_bottom", 14)
-	cards_margin.size_flags_horizontal = Control.SIZE_EXPAND_FILL
-	cards_margin.size_flags_vertical = Control.SIZE_EXPAND_FILL
-	modal.add_child(cards_margin)
-	var cards := HBoxContainer.new()
-	cards.add_theme_constant_override("separation", 30)
-	cards.mouse_filter = Control.MOUSE_FILTER_STOP
-	cards.alignment = BoxContainer.ALIGNMENT_CENTER
-	cards.size_flags_horizontal = Control.SIZE_EXPAND_FILL
-	cards.size_flags_vertical = Control.SIZE_EXPAND_FILL
-	cards_margin.add_child(cards)
-	var before_card := _card_widget(result.get("before", {}), false, false)
-	before_card.mouse_filter = Control.MOUSE_FILTER_STOP
-	cards.add_child(before_card)
-	var arrow := ResultArrowScript.new()
-	arrow.custom_minimum_size = Vector2(104, 52)
-	arrow.size_flags_horizontal = Control.SIZE_SHRINK_CENTER
-	arrow.size_flags_vertical = Control.SIZE_SHRINK_CENTER
-	arrow.arrow_color = Color("#ff9900")
-	cards.add_child(arrow)
-	var after_card := _card_widget(result.get("after", {}), false, false)
-	after_card.mouse_filter = Control.MOUSE_FILTER_STOP
-	cards.add_child(after_card)
-
-
-func _create_sticker_service_overlay(max_width: float, max_height: float) -> PanelContainer:
-	if sticker_service_overlay != null and is_instance_valid(sticker_service_overlay):
-		remove_child(sticker_service_overlay)
-		sticker_service_overlay.queue_free()
-	sticker_service_overlay = Control.new()
-	sticker_service_overlay.z_index = 100
-	sticker_service_overlay.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
-	sticker_service_overlay.mouse_filter = Control.MOUSE_FILTER_STOP
-	add_child(sticker_service_overlay)
-	var backdrop := ColorRect.new()
-	backdrop.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
-	backdrop.color = Color(0.0, 0.0, 0.0, 0.76)
-	backdrop.mouse_filter = Control.MOUSE_FILTER_STOP
-	backdrop.gui_input.connect(_on_sticker_service_result_background_input)
-	sticker_service_overlay.add_child(backdrop)
-	var center := CenterContainer.new()
-	center.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
-	center.mouse_filter = Control.MOUSE_FILTER_IGNORE
-	sticker_service_overlay.add_child(center)
-	var viewport_size := get_viewport_rect().size
-	var panel := PanelContainer.new()
-	panel.custom_minimum_size = Vector2(
-		minf(max_width, maxf(280.0, viewport_size.x - 28.0)),
-		minf(max_height, maxf(240.0, viewport_size.y - 28.0)))
-	panel.size_flags_horizontal = Control.SIZE_SHRINK_CENTER
-	panel.size_flags_vertical = Control.SIZE_SHRINK_CENTER
-	var panel_style := _button_style(Color("#0c0e0d"), Color("#c18435"))
-	panel_style.content_margin_left = 16
-	panel_style.content_margin_top = 13
-	panel_style.content_margin_right = 16
-	panel_style.content_margin_bottom = 13
-	panel.add_theme_stylebox_override("panel", panel_style)
-	center.add_child(panel)
-	return panel
-
-
-func _on_sticker_service_result_background_input(event: InputEvent) -> void:
-	if event is InputEventMouseButton and event.pressed and event.button_index == MOUSE_BUTTON_LEFT:
-		_show_map()
-
-
-func _all_run_cards() -> Array:
-	var cards: Array = run_state.get("inventory_cards", []).duplicate(true)
-	for deck in run_state.get("owned_decks", []):
-		cards.append_array(deck.get("cards", []).duplicate(true))
-	return cards
-
-
-func _run_card_by_id(card_id: int) -> Dictionary:
-	for card in run_state.get("inventory_cards", []):
-		if int(card.get("id", -1)) == card_id:
-			return card
-	for deck in run_state.get("owned_decks", []):
-		for card in deck.get("cards", []):
-			if int(card.get("id", -1)) == card_id:
-				return card
-	for card in run_state.get("deck", []):
-		if int(card.get("id", -1)) == card_id:
-			return card
-	return {}
-
-
-func _apply_sticker_service_cards(cards: Array, result: Dictionary) -> Array:
-	var updated: Array = []
-	var destroyed_id := int(result.get("destroyed_id", -1))
-	var after: Dictionary = result.get("after", {})
-	var after_id := int(after.get("id", -1))
-	for card in cards:
-		var card_id := int(card.get("id", -1))
-		if card_id == destroyed_id:
-			continue
-		updated.append(after.duplicate(true) if card_id == after_id else card)
-	return updated
-
-
-func _sticker_service_uses() -> int:
-	var use_counts: Dictionary = run_state.get("sticker_service_uses", {})
-	var use_key := "%d,%d" % [active_service_position.x, active_service_position.y]
-	return int(use_counts.get(use_key, 0))
-
-
-func _service_slot(label_text: String, slot_index := 0) -> StickerServiceSlotDropTarget:
-	var panel := StickerServiceSlotDropTarget.new()
-	panel.slot_index = slot_index
-	panel.card_validator = Callable(self, "_can_drop_service_card_to_slot").bind(slot_index)
-	panel.custom_minimum_size = Vector2(149.6, 210.1)
-	panel.add_theme_stylebox_override("panel", _button_style(COLOR_PANEL, COLOR_BORDER))
-	var label := _label("+" if label_text.is_empty() else "+\n" + label_text, 16, COLOR_GOLD)
-	label.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
-	label.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
-	label.mouse_filter = Control.MOUSE_FILTER_IGNORE
-	panel.add_child(label)
-	return panel
-
-
-func _service_result_placeholder() -> Control:
-	var panel := PanelContainer.new()
-	panel.custom_minimum_size = Vector2(149.6, 210.1)
-	panel.mouse_filter = Control.MOUSE_FILTER_IGNORE
-	panel.add_theme_stylebox_override("panel", _button_style(COLOR_PANEL, COLOR_BORDER))
-	var plus := _label("+", 34, COLOR_GOLD)
-	plus.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
-	plus.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
-	plus.size_flags_horizontal = Control.SIZE_EXPAND_FILL
-	plus.size_flags_vertical = Control.SIZE_EXPAND_FILL
-	panel.add_child(plus)
-	return panel
-
-
-func _sticker_icon(sticker_id: String, icon_size: float) -> Control:
-	var icon = StickerArtScript.new()
-	icon.configure(sticker_id, icon_size)
-	icon.set_meta("card_sticker_id", sticker_id)
-	icon.theme = blue_tooltip_theme
-	if CardStickers.STICKERS.has(sticker_id):
-		TooltipBindings.bind_sticker(icon, sticker_id)
-	return icon
 
 
 func _set_child_controls_mouse_ignored(parent: Control) -> void:
@@ -6591,6 +4090,14 @@ func _bind_battle_player_effects(player_panel: Control) -> void:
 	if future_draws > 0:
 		effects.append({"kind": "status", "payload": {"name": "예지", "icon_id": "rule",
 			"description": "다음 턴 시작 시 카드를 %d장 뽑습니다." % future_draws}})
+	var future_battery := int(battle_state.get("pending_battery_energy", 0))
+	if future_battery > 0:
+		effects.append({"kind": "status", "payload": {"name": "축전지", "icon_id": "rule",
+			"description": "다음 턴 시작 시 에너지를 %d 얻습니다." % future_battery}})
+	var extra_turns := int(battle_state.get("pending_extra_turns", 0))
+	if extra_turns > 0:
+		effects.append({"kind": "status", "payload": {"name": "호롤로지움", "icon_id": "rule",
+			"description": "이 턴이 끝나면 추가 턴을 %d번 얻습니다." % extra_turns}})
 	for pending in battle_state.get("pending_iron_song", []):
 		effects.append({"kind": "status", "payload": {"name": "철의 노래", "icon_id": "rule",
 			"description": "앞으로 %d번의 내 턴 시작 시 방어를 %d 얻습니다." % [pending.get("turns", 0), pending.get("amount", 0)]}})
@@ -6704,28 +4211,18 @@ func _room_name(room_type: String) -> String:
 
 
 func _deck_edition_labels(editions: Array) -> String:
-	var labels: Array[String] = []
+	var labels := PackedStringArray()
 	for edition in editions:
 		labels.append(DeckEditions.label(str(edition)))
-	var joined := ""
-	for label_text in labels:
-		if joined != "":
-			joined += " · "
-		joined += label_text
-	return joined
+	return " · ".join(labels)
 
 
 func _deck_edition_tooltip(editions: Array) -> String:
-	var descriptions: Array[String] = []
+	var descriptions := PackedStringArray()
 	for edition in editions:
 		var edition_id := str(edition)
 		descriptions.append("%s: %s" % [DeckEditions.label(edition_id), DeckEditions.description(edition_id)])
-	var tooltip := ""
-	for description_text in descriptions:
-		if tooltip != "":
-			tooltip += "\n"
-		tooltip += description_text
-	return tooltip
+	return "\n".join(descriptions)
 
 
 func _label(text: String, size: int, color: Color) -> Label:
@@ -6734,25 +4231,6 @@ func _label(text: String, size: int, color: Color) -> Label:
 	label.add_theme_font_size_override("font_size", size)
 	label.add_theme_color_override("font_color", color)
 	return label
-
-
-func _sticker_service_label(text: String, size: int, color: Color, weight := 400) -> Label:
-	var label := _label(text, size, color)
-	label.add_theme_font_override("font", _sticker_service_font(weight))
-	return label
-
-
-func _style_sticker_service_button(button: Button, size: int, weight: int) -> void:
-	button.add_theme_font_size_override("font_size", size)
-	button.add_theme_font_override("font", _sticker_service_font(weight))
-
-
-func _sticker_service_font(weight: int) -> FontVariation:
-	var font := FontVariation.new()
-	font.base_font = STICKER_SERVICE_FONT
-	var weight_axis := TextServerManager.get_primary_interface().name_to_tag("wght")
-	font.variation_opentype = {weight_axis: float(weight)}
-	return font
 
 
 func _button(text: String, callback: Callable, minimum_size: Vector2 = Vector2(140, 44)) -> Button:
@@ -6953,9 +4431,7 @@ func _clear_screen() -> void:
 	map_settings_overlay = null
 	player_name_setup_overlay = null
 	deck_editor_overlay = null
-	sticker_service_overlay = null
-	service_preview_host = null
-	service_apply_button = null
+	sticker_service_controller.on_view_cleared()
 	for child in get_children():
 		if map_debug_controller.owns_persistent_control(child):
 			continue

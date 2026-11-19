@@ -75,5 +75,14 @@ func _initialize() -> void:
 	assert(state.strength == 2 and state.agility == 2)
 	state = Rules.end_turn(state)
 	assert(state.strength == 2 and state.agility == 2)
+	# Negative agility after book removal never reduces existing block or grants negative block.
+	state = fresh()
+	state.agility = -8
+	state.player_block = 5
+	block = card("defend")
+	state.hand = [block]
+	assert(Preview.describe(block, block.description, state).contains("방어를 0 얻습니다."))
+	state = Rules.play_card(state, block.id)
+	assert(state.player_block == 5)
 	print("PASS: real held stats stack once, draw/file/discard update stats, pending defense and weakness use totals, discard gains persist, retained books do not accumulate")
 	quit()

@@ -19,7 +19,7 @@ func _run() -> void:
 		{"kind": "debuff", "payload": {"name": "취약 3", "description": "받는 공격 피해가 50% 증가합니다.", "icon_id": "vulnerable"}},
 		{"kind": "status", "payload": {"name": "힘 2", "description": "공격의 각 타격에 피해를 2만큼 추가합니다. 직접 카드를 낼 때만 적용됩니다.", "icon_id": "buff"}},
 		{"kind": "status", "payload": {"name": "강인함 2", "description": "방어를 얻을 때 2만큼 추가로 얻습니다. 직접 카드를 낼 때만 적용됩니다.", "icon_id": "shield"}},
-		{"kind": "rule", "payload": {"name": "사서의 특권", "description": "룰. 턴 시작 시 원하는 파일에서 카드를 1장 뽑습니다.", "icon_id": "rule"}},
+		{"kind": "rule", "payload": {"name": "사서의 특권", "description": "룰. 턴 시작 시 카드를 1장 뽑습니다.", "icon_id": "rule"}},
 	]
 	for viewport in [Vector2i(1280, 850), Vector2i(1050, 480)]:
 		root.size = viewport

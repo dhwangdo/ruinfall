@@ -385,11 +385,11 @@ func _forged_card() -> Dictionary:
 		result["value"] = after
 		description = description.replace("%d[%d]" % [before, after], str(after))
 	if str(result.get("effect", "")) == "obsidian_dagger":
-		var target := _find_forge_target(result)
-		var added_damage := int(target.get("value", 0))
-		var damage := int(result.get("value", 1)) + added_damage
-		result["value"] = damage
-		description = description.replace("피해를 1 줍니다.", "피해를 %d 줍니다." % damage)
+		var completed_forges: Array = result.get("forge_costs_completed", []).duplicate()
+		completed_forges.append(completed_forges.size() + 1)
+		result["forge_costs_completed"] = completed_forges
+	elif str(result.get("effect", "")) == "spinning_slash":
+		result["use_mode"] = "untargeted"
 	result["description"] = description
 	result["forged"] = true
 	return result

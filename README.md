@@ -15,10 +15,8 @@ RUINFALL은 덱을 구성해 지도를 탐험하고, 적과 솔리테어 방식�
 - `docs/GAME_DESIGN.md`: 현행 게임 규칙
 - `docs/CODE_GUIDE.md`: Godot 코드 구조 안내
 - `docs/HANDOFF.md`: 현재 개발 상태와 작업 시 참고사항
-- `docs/archive/porting/`: 포팅 과정의 체크리스트와 작업 기록
-- `archive/legacy-web/`: 포팅 전 웹 구현과 그 실행·검사 도구를 보존한 과거 자료
 
-구형 웹 코드는 현재 게임을 빌드하거나 배포하지 않습니다. 포팅 비교 기록을 찾을 때만 `archive/legacy-web/`을 참고하세요.
+이전 React/Electron 웹 구현과 포팅 문서는 Git 히스토리(`legacy-web-archive` 태그)에 보존되어 있으며 현재 작업 트리에서는 분리했습니다.
 
 ## 웹 배포
 

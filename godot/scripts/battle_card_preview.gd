@@ -2,10 +2,8 @@ extends RefCounted
 class_name PortBattleCardPreview
 
 const BattleRules = preload("res://scripts/battle_rules.gd")
+const CardUse = preload("res://scripts/card_use.gd")
 
-const ATTACK_EFFECTS := [
-	"radiance", "sweep", "double_hit", "iron_rampage", "magic_strike", "shockwave", "meteor", "hydra",
-]
 const DEFENSE_EFFECTS := [
 	"defend", "scale_armor", "deflect", "star_guard",
 	"iron_wave", "iron_song", "water_wave", "iron_rampage",
@@ -22,7 +20,7 @@ const FIXED_DEFENSE_VALUES := {
 static func describe(card: Dictionary, source: String, state: Dictionary) -> String:
 	var result := source
 	var effect := str(card.get("effect", ""))
-	if (str(card.get("kind", "")) == "strike" or ATTACK_EFFECTS.has(effect)) and result.contains("피해를"):
+	if CardUse.is_attack(card) and result.contains("피해를"):
 		result = _preview_attack_text(card, result, state)
 	if (DEFENSE_EFFECTS.has(effect) or bool(card.get("grants_block", false))) and result.contains("방어"):
 		result = _preview_defense_text(card, result, state)
@@ -30,7 +28,16 @@ static func describe(card: Dictionary, source: String, state: Dictionary) -> Str
 
 
 static func _preview_attack_text(card: Dictionary, source: String, state: Dictionary) -> String:
+	var effect := str(card.get("effect", ""))
+	if effect == "exploit_opening":
+		var base_val := int(card.get("value", 11))
+		var normal_damage := _damage_per_hit_for_base(card, state, base_val)
+		var bonus_damage := _damage_per_hit_for_base(card, state, base_val * 2)
+		var result := source.replace("피해를 %d 줍니다." % base_val, "피해를 %d 줍니다." % normal_damage)
+		return result.replace("피해를 %d 줍니다." % (base_val * 2), "피해를 %d 줍니다." % bonus_damage)
 	var damage := _damage_per_hit(card, state)
+	if effect == "shield_bash":
+		return source.replace("현재 방어만큼 피해를 줍니다.", "현재 방어만큼 피해를 줍니다. (피해를 %d 줍니다.)" % damage)
 	var pattern := RegEx.new()
 	pattern.compile("피해를\\s*\\d+")
 	return pattern.sub(source, "피해를 %d" % damage, false)
@@ -43,6 +50,14 @@ static func _damage_per_hit(card: Dictionary, state: Dictionary) -> int:
 	var base_damage := int(card.get("value", 0))
 	if effect == "radiance":
 		base_damage = 4 + maxi(0, int(state.get("radiance_played_this_turn", 0))) * 4 + (3 if state.get("deck_editions", []).has("sharpLight") else 0)
+	elif effect == "shield_bash":
+		base_damage = maxi(0, int(state.get("player_block", 0)))
+	return _damage_per_hit_for_base(card, state, base_damage)
+
+
+static func _damage_per_hit_for_base(card: Dictionary, state: Dictionary, base_damage: int) -> int:
+	state = state.duplicate()
+	BattleRules.sync_hand_stats(state)
 	var strength := int(state.get("strength", 0))
 	var selected_index := int(state.get("preview_target_enemy_index", -1))
 	var enemies: Array = state.get("enemies", [])
@@ -70,7 +85,7 @@ static func _preview_defense_text(card: Dictionary, source: String, state: Dicti
 		return source
 	var multiplier := float(state.get("defense_multiplier", 1.0))
 	var agility := int(state.get("agility", 0))
-	var defense := int(floor(float(base_value + agility) * multiplier))
+	var defense := maxi(0, int(floor(float(base_value + agility) * multiplier)))
 	var pattern := RegEx.new()
 	pattern.compile("(방어를)\\s*\\d+")
 	var matches := pattern.search_all(source)

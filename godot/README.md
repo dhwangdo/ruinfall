@@ -29,8 +29,6 @@ RUINFALL의 현행 게임 프로젝트다. Windows와 공개 웹판 모두 이 G
 - 포함 자산과 폰트: `assets/`
 - 셰이더: `shaders/`
 - Godot 검사 probe: `tests/`
-- Web·Windows 프리셋: `export_presets.cfg`
-
-포팅 당시의 길고 상세한 체크리스트 설명은 [보관본](../docs/archive/porting/GODOT_README_PRE_CLEANUP.md)에 보존되어 있다. 현행 규칙 문서로 사용하지 않는다.
+- `export_presets.cfg`의 `Web`·`Windows Desktop` 프리셋을 사용한다.
 
 모바일 웹 텍스트 입력은 Web preset의 `html/experimental_virtual_keyboard=true`를 사용한다. 디버그 지역·생성 개수 입력은 숫자 키패드를 요청하며, 입력 도중 값을 강제로 정수화하지 않고 생성 시 검증한다.
