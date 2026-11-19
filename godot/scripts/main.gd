@@ -2260,6 +2260,30 @@ func _finish_map_encounter(enemy_position: Vector2i, generation: int) -> void:
 	_start_battle_now(enemy_position)
 
 
+func _deterministic_battle_seed(enemy_position: Vector2i, encounter_index: int) -> int:
+	var map_data: Dictionary = run_state.get("map", {})
+	var map_seed := int(run_state.get("map_seed", map_data.get("seed", 0)))
+	var region_number := int(run_state.get("region_number", map_data.get("region_number", 1)))
+	var enemy_slot_index := -1
+	var enemy_positions: Array = map_data.get("enemy_positions", [])
+	var enemy_states: Array = map_data.get("enemy_states", [])
+	for index in range(enemy_positions.size()):
+		var defeated := index < enemy_states.size() and bool(enemy_states[index].get("defeated", false))
+		if not defeated and enemy_positions[index] == enemy_position:
+			enemy_slot_index = index
+			break
+	var slot_key := enemy_slot_index if enemy_slot_index >= 0 else (enemy_position.x * 73856093 ^ enemy_position.y * 19349663)
+	var seed_rng := RandomNumberGenerator.new()
+	seed_rng.seed = (
+		map_seed * 1000003
+		+ region_number * 9176
+		+ slot_key * 104729
+		+ encounter_index * 7919
+		+ int(run_state.get("region_battle_wins", 0)) * 65537
+	) & 0x7fffffffffffffff
+	return int(seed_rng.randi())
+
+
 func _start_battle_now(enemy_position: Vector2i) -> void:
 	battle_session_generation += 1
 	battle_card_presentation.invalidate()
@@ -2273,7 +2297,10 @@ func _start_battle_now(enemy_position: Vector2i) -> void:
 			break
 	var active_editions: Array = active_deck.get("editions", [])
 	var active_capacity := int(active_deck.get("capacity", run_state["deck"].size()))
-	var encounter := EnemyCatalog.create_encounter(encounter_index)
+	var battle_seed := _deterministic_battle_seed(enemy_position, encounter_index)
+	var encounter_rng := RandomNumberGenerator.new()
+	encounter_rng.seed = battle_seed ^ 0x5f3759df
+	var encounter := EnemyCatalog.create_encounter(encounter_index, encounter_rng)
 	var karma_stage := KarmaRules.stage_for_wins(int(run_state.get("region_battle_wins", 0)))
 	var lament_charges := int(run_state.get("gods_lament_charges", 0))
 	var prepared := BattleSetup.prepare_encounter(encounter, karma_stage, lament_charges)
@@ -2282,7 +2309,7 @@ func _start_battle_now(enemy_position: Vector2i) -> void:
 	var initial_draw_view: Dictionary = {}
 	var final_state := BattleRules.start_battle(
 		run_state["deck"], int(run_state["player_hp"]), encounter,
-		int(run_state["max_hp"]), active_editions, active_capacity, initial_draw_view
+		int(run_state["max_hp"]), active_editions, active_capacity, initial_draw_view, battle_seed
 	)
 	selected_source = {}
 	if active_deck.is_empty():

@@ -15,9 +15,14 @@ const SolitaireRules = preload("res://scripts/solitaire_rules.gd")
 
 
 static func start_battle(deck: Array, player_hp: int, encounter: Dictionary = {}, max_player_hp: int = -1,
-		deck_editions: Array = [], deck_capacity: int = -1, initial_draw_view: Variant = null) -> Dictionary:
+		deck_editions: Array = [], deck_capacity: int = -1, initial_draw_view: Variant = null,
+		supplied_seed: int = -1) -> Dictionary:
 	var random := RandomNumberGenerator.new()
-	random.randomize()
+	if supplied_seed >= 0:
+		random.seed = supplied_seed
+	else:
+		random.randomize()
+	var battle_seed := supplied_seed if supplied_seed >= 0 else int(random.randi())
 	var cards: Array = deck.duplicate(true)
 	var editions: Array = deck_editions.duplicate()
 	var cards_per_file := 4 if editions.has("fantastic") else CARDS_PER_FILE
@@ -48,10 +53,10 @@ static func start_battle(deck: Array, player_hp: int, encounter: Dictionary = {}
 		var pile_index := mini(int(card_index / cards_per_file), pile_count - 1)
 		piles[pile_index].append(cards[card_index])
 
-	var enemy := encounter.duplicate(true) if not encounter.is_empty() else EnemyCatalog.create_encounter()
+	var enemy := encounter.duplicate(true) if not encounter.is_empty() else EnemyCatalog.create_encounter(1, random)
 	var enemies: Array = enemy.get("enemies", [enemy]).duplicate(true)
 	if enemies.is_empty():
-		enemies.append(EnemyCatalog.create_encounter())
+		enemies.append(EnemyCatalog.create_encounter(1, random))
 	var primary_enemy: Dictionary = enemies[0]
 	var state := {
 		"enemies": enemies,
@@ -81,7 +86,7 @@ static func start_battle(deck: Array, player_hp: int, encounter: Dictionary = {}
 		"enemy_attack": 0,
 		"enemy_intent": "",
 		"enemy_trait": str(primary_enemy.get("trait", "")),
-		"battle_seed": random.randi(),
+		"battle_seed": battle_seed,
 		"player_hp": player_hp,
 		"max_player_hp": maxi(player_hp, max_player_hp) if max_player_hp >= 0 else player_hp,
 		"player_block": 0,
@@ -121,6 +126,7 @@ static func start_battle(deck: Array, player_hp: int, encounter: Dictionary = {}
 		"pending_iron_song": [],
 		"preserve_block_on_turn_end": false,
 		"random_draw_sequence": 0,
+		"reshuffle_count": 0,
 		# Generated hand cards must not collide with the -1 "no card" sentinel.
 		"next_generated_card_id": 2000000000,
 		"forge_count": quick_hammer_forged,
@@ -1801,8 +1807,10 @@ static func _draw_from_files(state: Dictionary, draw_view: Variant = null) -> vo
 			var cleared: Dictionary = state.duplicate(true)
 			_refresh_enemy_intent(cleared)
 			draw_view["cleared"] = cleared
+		var reshuffle_count := int(state.get("reshuffle_count", 0)) + 1
+		state["reshuffle_count"] = reshuffle_count
 		var random := RandomNumberGenerator.new()
-		random.randomize()
+		random.seed = int(state.get("battle_seed", 0)) + reshuffle_count * 104729 + int(state.get("turn", 1)) * 7919
 		_reshuffle_discard_into_files(state, random)
 		if draw_view is Dictionary:
 			var refill_before: Dictionary = state.duplicate(true)
