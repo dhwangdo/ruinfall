@@ -5,7 +5,7 @@ const MapRules = preload("res://scripts/map_rules.gd")
 const TileAppearance = preload("res://scripts/map_tile_appearance.gd")
 
 var map_data: Dictionary = {}
-var region := 1
+var region := 0
 var target := Vector2i.ZERO
 var player := Vector2i.ZERO
 var marker_id := "outline"
@@ -35,9 +35,9 @@ func _draw() -> void:
 	draw_rect(background, TileAppearance.MINIMAP_BACKGROUND)
 	# Keep the entire border inside this clipped control, including its bottom edge.
 	draw_rect(background.grow(-0.5), Color("#52615b"), false, 1.0)
-	if map_data.is_empty() or region < 1 or region > MapRules.REGION_COUNT:
+	if map_data.is_empty() or region < 0 or region >= MapRules.REGION_COUNT:
 		return
-	var region_index := region - 1
+	var region_index := region
 	var region_top := region_index * MapRules.REGION_STRIDE
 	var region_bottom := region_top + MapRules.REGION_HEIGHT - 1
 	var min_x := target.x

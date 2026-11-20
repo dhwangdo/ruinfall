@@ -30,7 +30,7 @@ signal ping_requested(position: Vector2i, label: String)
 var entries: Array[Dictionary] = []
 var run_state: Dictionary = {}
 var selected_kind := "deck"
-var selected_region := 0
+var selected_region := SearchRules.ALL_REGIONS
 var selected_entry_key := ""
 var search_input: LineEdit
 var region_picker: OptionButton
@@ -139,16 +139,19 @@ func _build() -> void:
 	region_picker = OptionButton.new()
 	region_picker.custom_minimum_size = Vector2(120, 40)
 	region_picker.add_item("모든 지역", 0)
-	region_ids = [selected_region]
+	region_ids = []
+	if selected_region >= 0:
+		region_ids.append(selected_region)
 	for entry in entries:
-		var entry_region := int(entry.get("region", 0))
-		if entry_region > 0 and not region_ids.has(entry_region):
+		var entry_region := int(entry.get("region", SearchRules.ALL_REGIONS))
+		if entry_region >= 0 and not region_ids.has(entry_region):
 			region_ids.append(entry_region)
 	region_ids.sort()
 	for region_number in region_ids:
-		region_picker.add_item("%d지역" % region_number, region_number)
+		region_picker.add_item("%d지역" % region_number, region_number + 1)
+	var target_picker_id := 0 if selected_region < 0 else selected_region + 1
 	for option_index in range(region_picker.item_count):
-		if region_picker.get_item_id(option_index) == selected_region:
+		if region_picker.get_item_id(option_index) == target_picker_id:
 			region_picker.select(option_index)
 			break
 	region_picker.item_selected.connect(_on_region_selected)
@@ -655,7 +658,8 @@ func _on_kind_selected(kind: String) -> void:
 
 
 func _on_region_selected(index: int) -> void:
-	selected_region = region_picker.get_item_id(index)
+	var picked_id := region_picker.get_item_id(index)
+	selected_region = SearchRules.ALL_REGIONS if picked_id <= 0 else picked_id - 1
 	selected_entry_key = ""
 	_refresh_results()
 

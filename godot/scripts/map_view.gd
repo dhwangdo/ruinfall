@@ -14,7 +14,8 @@ const WEB_MAP_FONT: FontFile = preload("res://assets/fonts/PretendardVariable.wo
 const ROOM_BADGES := TileAppearance.ROOM_BADGES
 const MAP_TILE_SIZE_DEFAULT := 85.0
 const MAP_TILE_SIZE_MIN := 25.5
-const MAP_TILE_SIZE_DEBUG_MIN := 8.5 # 136px × browser debug minimum zoom .0625
+const MAP_TILE_SIZE_DEBUG_MIN := 5.5 # Allows inspecting an entire 212x47 region at 60 FPS in debug mode.
+const DEBUG_FAST_TILE_SIZE_THRESHOLD := 14.0
 const MAP_TILE_SIZE_MAX := 119.0
 const MAP_TILE_SIZE_STEP := 5.44 # 136px web tile × 0.04 zoom step
 const MAP_WHEEL_ZOOM_SENSITIVITY := 1.5
@@ -65,12 +66,26 @@ var _enemy_state_font: Font
 var _enemy_name_font: Font
 var _motion: RefCounted
 var _camera_duration_ms := 0.0
+var _debug_terrain_layer: Node2D
+var _debug_terrain_image: Image
+var _debug_terrain_texture: ImageTexture
+var _debug_terrain_seed := -1
+var _debug_terrain_regions_mask := 0
+var _debug_terrain_vault_count := -1
+var _debug_fast_draw_active := false
+var _debug_fast_viewport := Rect2i()
+var _debug_fast_enemy_positions: Array[Vector2i] = []
 
 
 func _ready() -> void:
 	mouse_exited.connect(_clear_deck_vault_hover)
 	_enemy_state_font = _web_map_font(900)
 	_enemy_name_font = _web_map_font(700)
+	_debug_terrain_layer = Node2D.new()
+	_debug_terrain_layer.name = "DebugTerrainLayer"
+	_debug_terrain_layer.texture_filter = CanvasItem.TEXTURE_FILTER_NEAREST
+	_debug_terrain_layer.draw.connect(_draw_debug_terrain_fast)
+	add_child(_debug_terrain_layer)
 	_future_vault_layer = Node2D.new()
 	_future_vault_layer.name = "FutureVaultBackgrounds"
 	_future_vault_layer.material = DeckIconArt.future_material()
@@ -165,6 +180,10 @@ func _draw() -> void:
 	_player_sprite_draw.clear()
 	if is_instance_valid(_enemy_sprite_layer):
 		_enemy_sprite_layer.queue_redraw()
+	_debug_fast_draw_active = false
+	_debug_fast_enemy_positions.clear()
+	if is_instance_valid(_debug_terrain_layer):
+		_debug_terrain_layer.queue_redraw()
 	draw_rect(Rect2(Vector2.ZERO, size), Color("#0e1210"))
 	if map_data.is_empty() or tile_size <= 0.0:
 		return
@@ -173,31 +192,48 @@ func _draw() -> void:
 	var last_x := ceili(camera_center.x + half_tiles.x) + 1
 	var first_y := floori(camera_center.y - half_tiles.y) - 1
 	var last_y := ceili(camera_center.y + half_tiles.y) + 1
-	var visibility := MapRules.display_visibility(map_data, player_position, debug_mode)
-	var seen: Dictionary = visibility.seen
-	var visible_now: Dictionary = visibility.visible_now
+	if debug_mode and tile_size < DEBUG_FAST_TILE_SIZE_THRESHOLD:
+		_ensure_debug_terrain_texture()
+		_debug_fast_draw_active = true
+		_debug_fast_viewport = Rect2i(first_x, first_y, last_x - first_x + 1, last_y - first_y + 1)
+		var enemy_positions_fast: Array = map_data.get("enemy_positions", [])
+		var enemy_states_fast: Array = map_data.get("enemy_states", [])
+		for enemy_index in range(enemy_positions_fast.size()):
+			var ep: Vector2i = enemy_positions_fast[enemy_index]
+			if ep.x < first_x or ep.x > last_x or ep.y < first_y or ep.y > last_y:
+				continue
+			var is_defeated := defeated_enemies.has(ep)
+			if enemy_index < enemy_states_fast.size():
+				is_defeated = is_defeated or bool(enemy_states_fast[enemy_index].get("defeated", false))
+			if not is_defeated:
+				_debug_fast_enemy_positions.append(ep)
+		return
+	var seen: Dictionary = map_data.get("seen", {})
+	var visible_now: Dictionary = map_data.get("visible_now", {})
 	var visible_enemy_cells: Dictionary = {}
 	var remembered_enemy_cells: Dictionary = {}
 	var visible_floor_card_cells: Dictionary = {}
 	var visible_floor_deck_cells: Dictionary = {}
 	var visible_floor_consumable_cells: Dictionary = {}
 	for drop_position in floor_card_positions.keys():
-		if seen.has(drop_position):
+		if debug_mode or seen.has(drop_position):
 			visible_floor_card_cells[drop_position] = true
 	for drop_position in floor_deck_positions.keys():
-		if seen.has(drop_position):
+		if debug_mode or seen.has(drop_position):
 			visible_floor_deck_cells[drop_position] = true
 	for drop_position in floor_consumable_positions.keys():
-		if seen.has(drop_position):
+		if debug_mode or seen.has(drop_position):
 			visible_floor_consumable_cells[drop_position] = true
 	var enemy_positions: Array = map_data.get("enemy_positions", [])
 	var enemy_states: Array = map_data.get("enemy_states", [])
 	for enemy_index in range(enemy_positions.size()):
 		var enemy_position: Vector2i = enemy_positions[enemy_index]
+		if enemy_position.x < first_x or enemy_position.x > last_x or enemy_position.y < first_y or enemy_position.y > last_y:
+			continue
 		var is_defeated := defeated_enemies.has(enemy_position)
 		if enemy_index < enemy_states.size():
 			is_defeated = is_defeated or bool(enemy_states[enemy_index].get("defeated", false))
-		if not is_defeated and visible_now.has(enemy_position):
+		if not is_defeated and (debug_mode or visible_now.has(enemy_position)):
 			var visible_state: Dictionary = enemy_states[enemy_index].duplicate(true) if enemy_index < enemy_states.size() else {}
 			visible_state["_visual_enemy_id"] = enemy_index
 			visible_enemy_cells[enemy_position] = visible_state
@@ -221,8 +257,10 @@ func _draw() -> void:
 			var position := Vector2i(x, y)
 			var rect := _cell_rect(position)
 			var room_type := MapRules.room_type_at(map_data, position)
-			if room_type == "void" or not seen.has(position):
+			var cell_seen := MapRules.is_in_map_bounds(position) if debug_mode else seen.has(position)
+			if room_type == "void" or not cell_seen:
 				continue
+			var cell_visible := true if debug_mode else visible_now.has(position)
 			var has_enemy := visible_enemy_cells.has(position) or remembered_enemy_cells.has(position)
 			var tile_color_type := "boss" if has_enemy else room_type
 			var fill := TileAppearance.full_map_fill(position, tile_color_type, MapRules.region_index_at(position))
@@ -234,7 +272,7 @@ func _draw() -> void:
 			if is_player_tile and tile_size < 14.0:
 				fill = Color("#f0f0f0")
 				edge = Color("#a8a8a8")
-			elif not is_player_tile and not visible_now.has(position):
+			elif not is_player_tile and not cell_visible:
 				fill = TileAppearance.out_of_vision_color(fill, tile_color_type)
 				edge = TileAppearance.out_of_vision_color(edge, tile_color_type)
 			var is_safe_tile := MapRules.is_safe_area_tile(map_data, position)
@@ -243,7 +281,7 @@ func _draw() -> void:
 				draw_rect(rect, edge, false, 1.0)
 			var safe_area_active := player_in_safe_area and MapRules.region_index_at(position) == player_region
 			var safe_lock_color := Color("#dba534") if safe_area_active \
-				else fill.lerp(Color("#8c877c"), 0.50) if visible_now.has(position) \
+				else fill.lerp(Color("#8c877c"), 0.50) if cell_visible \
 				else fill.lerp(Color("#6b675f"), 0.30)
 			if is_safe_tile and tile_size >= 14.0 and not TileAppearance.ROOM_TEXTURES.has(room_type):
 				TileAppearance.draw_safe_area_padlock(self, rect, safe_lock_color)
@@ -327,7 +365,7 @@ func _motion_is_animating() -> bool:
 
 func _update_motion_visible_enemies() -> void:
 	var visible_positions: Dictionary = {}
-	var visible_now: Dictionary = MapRules.display_visibility(map_data, player_position, debug_mode).visible_now
+	var visible_now: Dictionary = map_data.get("visible_now", {})
 	var enemy_positions: Array = map_data.get("enemy_positions", [])
 	var enemy_states: Array = map_data.get("enemy_states", [])
 	for enemy_index in range(enemy_positions.size()):
@@ -335,9 +373,100 @@ func _update_motion_visible_enemies() -> void:
 		var is_defeated := defeated_enemies.has(position)
 		if enemy_index < enemy_states.size():
 			is_defeated = is_defeated or bool(enemy_states[enemy_index].get("defeated", false))
-		if not is_defeated and visible_now.has(position):
+		if not is_defeated and (debug_mode or visible_now.has(position)):
 			visible_positions[enemy_index] = Vector2(position)
 	_motion.call("update_visible_enemies", visible_positions)
+
+
+func _ensure_debug_terrain_texture() -> void:
+	var cur_seed := int(map_data.get("seed", 0))
+	var gen_regions: Dictionary = map_data.get("generated_regions", {})
+	var mask := 0
+	for r in range(MapRules.REGION_COUNT):
+		if gen_regions.is_empty() or bool(gen_regions.get(r, false)):
+			mask |= (1 << r)
+	var opened_count := (map_data.get("opened_deck_vaults", {}) as Dictionary).size()
+	var total_h := MapRules.HEIGHT + MapRules.ROCK_BARRIER_HEIGHT
+	var full_rebuild := _debug_terrain_image == null \
+		or _debug_terrain_seed != cur_seed \
+		or _debug_terrain_vault_count != opened_count \
+		or (_debug_terrain_regions_mask & ~mask) != 0
+	var dirty_mask := mask if full_rebuild else (mask & ~_debug_terrain_regions_mask)
+	if not full_rebuild and dirty_mask == 0:
+		return
+	if full_rebuild:
+		_debug_terrain_image = Image.create(MapRules.WIDTH, total_h, false, Image.FORMAT_RGBA8)
+		_debug_terrain_image.fill(Color(0.0, 0.0, 0.0, 0.0))
+		# Top barrier strip (y = -ROCK_BARRIER_HEIGHT .. -1).
+		for y in range(-MapRules.ROCK_BARRIER_HEIGHT, 0):
+			var img_y := y + MapRules.ROCK_BARRIER_HEIGHT
+			for x in range(MapRules.WIDTH):
+				var pos := Vector2i(x, y)
+				var rt := MapRules.room_type_at(map_data, pos)
+				if rt != "void":
+					_debug_terrain_image.set_pixel(x, img_y, TileAppearance.full_map_fill(pos, rt, -1))
+	for r in range(MapRules.REGION_COUNT):
+		if (dirty_mask & (1 << r)) == 0:
+			continue
+		var y_start := r * MapRules.REGION_STRIDE
+		var y_end := mini(MapRules.HEIGHT, y_start + MapRules.REGION_STRIDE)
+		for y in range(y_start, y_end):
+			var img_y := y + MapRules.ROCK_BARRIER_HEIGHT
+			var reg := MapRules.region_index_at(Vector2i(0, y))
+			for x in range(MapRules.WIDTH):
+				var pos := Vector2i(x, y)
+				var rt := MapRules.room_type_at(map_data, pos)
+				if rt == "void":
+					continue
+				var fill := TileAppearance.full_map_fill(pos, rt, reg)
+				if rt == "deckVault" and VaultRules.region_offset(map_data, pos) > 0:
+					fill = Color("#101a32")
+				_debug_terrain_image.set_pixel(x, img_y, fill)
+	if _debug_terrain_texture == null or full_rebuild:
+		_debug_terrain_texture = ImageTexture.create_from_image(_debug_terrain_image)
+	else:
+		_debug_terrain_texture.update(_debug_terrain_image)
+	_debug_terrain_seed = cur_seed
+	_debug_terrain_regions_mask = mask
+	_debug_terrain_vault_count = opened_count
+
+
+func _draw_debug_terrain_fast() -> void:
+	if not _debug_fast_draw_active or _debug_terrain_texture == null:
+		return
+	var top_left := size * 0.5 + (Vector2(0.0, float(-MapRules.ROCK_BARRIER_HEIGHT)) - camera_center) * tile_size
+	var tex_size := Vector2(float(MapRules.WIDTH), float(MapRules.HEIGHT + MapRules.ROCK_BARRIER_HEIGHT)) * tile_size
+	_debug_terrain_layer.draw_texture_rect(_debug_terrain_texture, Rect2(top_left, tex_size), false)
+
+	var vp := _debug_fast_viewport
+	var enemy_fill := TileAppearance.full_map_fill(Vector2i.ZERO, "boss", 0)
+	for ep in _debug_fast_enemy_positions:
+		_debug_terrain_layer.draw_rect(_cell_rect(ep), enemy_fill)
+	for raw_pos in floor_deck_positions.keys():
+		var pos: Vector2i = raw_pos
+		if vp.has_point(pos):
+			_debug_terrain_layer.draw_rect(_cell_rect(pos).grow(-tile_size * 0.14), VAULT_COLOR)
+	for raw_pos in floor_card_positions.keys():
+		var pos: Vector2i = raw_pos
+		if vp.has_point(pos):
+			_debug_terrain_layer.draw_rect(_cell_rect(pos).grow(-tile_size * 0.22), Color("#e5dcc6"))
+	for raw_pos in floor_consumable_positions.keys():
+		var pos: Vector2i = raw_pos
+		if vp.has_point(pos):
+			_debug_terrain_layer.draw_rect(_cell_rect(pos).grow(-tile_size * 0.22), Color("#7ad6cf"))
+	var gold_piles: Dictionary = map_data.get("gold_piles", {})
+	for raw_pos in gold_piles.keys():
+		var pos: Vector2i = raw_pos
+		if int(gold_piles[raw_pos]) > 0 and vp.has_point(pos):
+			_debug_terrain_layer.draw_rect(_cell_rect(pos).grow(-tile_size * 0.30), Color("#e5b842"))
+	if vp.has_point(player_position):
+		var player_rect := _cell_rect(player_position)
+		_debug_terrain_layer.draw_rect(player_rect, Color("#f0f0f0"))
+		_debug_terrain_layer.draw_rect(player_rect, Color("#111111"), false, 1.0)
+	if _has_ping():
+		var ping_rect := _cell_rect(ping_position)
+		if Rect2(Vector2.ZERO, size).intersects(ping_rect):
+			_debug_terrain_layer.draw_rect(ping_rect, Color("#ff334b"), false, maxf(1.5, tile_size * 0.14))
 
 
 func _has_ping() -> bool:
@@ -747,13 +876,13 @@ func _cell_rect(position: Vector2i) -> Rect2:
 
 func _update_deck_vault_hover(point: Vector2) -> void:
 	var position := _world_position(point)
-	var seen: Dictionary = MapRules.display_visibility(map_data, player_position, debug_mode).seen
+	var is_seen := MapRules.is_cell_seen_for_display(map_data, position, debug_mode)
 	var room_key := "%d,%d" % [position.x, position.y]
 	var opened_vaults: Dictionary = map_data.get("opened_deck_vaults", {})
 	var has_floor_deck := floor_deck_positions.has(position)
 	var has_unopened_vault := MapRules.room_type_at(map_data, position) == "deckVault" \
 		and not bool(opened_vaults.get(room_key, false))
-	if not seen.has(position) or (not has_floor_deck and not has_unopened_vault):
+	if not is_seen or (not has_floor_deck and not has_unopened_vault):
 		_clear_deck_vault_hover()
 		return
 	if _hovered_deck_vault_position == position:

@@ -155,9 +155,13 @@ var active_map_wait_button: Button
 var active_map_search_button: Button
 var active_map_wait_notice: Control
 var active_vault_release_notice: Control
+const MAP_VAULT_PREVIEW_HOVER_DELAY := 0.5
 var active_map_vault_preview: Control
 var map_vault_preview_position := Vector2i(-1, -1)
 var map_vault_preview_anchor := Rect2()
+var pending_map_vault_preview_position := Vector2i(-1, -1)
+var pending_map_vault_preview_anchor := Rect2()
+var map_vault_preview_hover_remaining := -1.0
 var pointer_position := Vector2.ZERO
 var map_encounter_generation := 0
 var active_map_minimap: Control
@@ -456,6 +460,10 @@ func _input(event: InputEvent) -> void:
 				_show_deck()
 				get_viewport().set_input_as_handled()
 				return
+	if event is InputEventMouseButton and event.pressed:
+		if not is_instance_valid(active_map_vault_preview) \
+			or not active_map_vault_preview.contains_global_point(event.position):
+			_cancel_pending_map_vault_preview()
 	if is_instance_valid(active_map_vault_preview):
 		if event is InputEventMouseMotion:
 			_request_map_vault_preview_clear()
@@ -664,6 +672,7 @@ func _process(delta: float) -> void:
 		return
 	_update_map_wait_notice()
 	_update_map_deck_selector_host()
+	_tick_map_vault_preview_hover(delta)
 	sticker_service_controller.tick(self, delta)
 	if screen_name != "map" or run_state.is_empty() or is_instance_valid(player_name_setup_overlay):
 		_finish_auto_explore_capture("map_unavailable")
@@ -1628,7 +1637,7 @@ func _show_map() -> void:
 	map_view.floor_items_pressed.connect(_quick_pick_up_floor_items)
 	map_view.camera_changed.connect(_on_map_camera_changed)
 	map_view.ping_clear_requested.connect(_clear_map_ping)
-	map_view.deck_vault_preview_requested.connect(_show_map_vault_preview)
+	map_view.deck_vault_preview_requested.connect(_schedule_map_vault_preview)
 	map_view.deck_vault_preview_clear_requested.connect(_request_map_vault_preview_clear)
 	map_viewport.add_child(map_view)
 	var minimap := MapMinimap.new()
@@ -1869,6 +1878,43 @@ func _on_map_camera_changed(center: Vector2, zoom: float) -> void:
 	map_zoom = zoom
 
 
+func _schedule_map_vault_preview(position: Vector2i, anchor: Rect2) -> void:
+	if screen_name != "map" or auto_travel_active or map_travel_active \
+		or is_instance_valid(player_name_setup_overlay) or is_instance_valid(map_settings_overlay):
+		_cancel_pending_map_vault_preview()
+		return
+	if is_instance_valid(active_map_vault_preview) and position == map_vault_preview_position:
+		_cancel_pending_map_vault_preview()
+		return
+	if is_instance_valid(active_map_vault_preview):
+		_clear_map_vault_preview()
+	pending_map_vault_preview_position = position
+	pending_map_vault_preview_anchor = anchor
+	map_vault_preview_hover_remaining = MAP_VAULT_PREVIEW_HOVER_DELAY
+
+
+func _cancel_pending_map_vault_preview() -> void:
+	pending_map_vault_preview_position = Vector2i(-1, -1)
+	pending_map_vault_preview_anchor = Rect2()
+	map_vault_preview_hover_remaining = -1.0
+
+
+func _tick_map_vault_preview_hover(delta: float) -> void:
+	if map_vault_preview_hover_remaining < 0.0:
+		return
+	if screen_name != "map" or auto_travel_active or map_travel_active \
+		or is_instance_valid(player_name_setup_overlay) or is_instance_valid(map_settings_overlay) \
+		or not pending_map_vault_preview_anchor.has_point(pointer_position):
+		_cancel_pending_map_vault_preview()
+		return
+	map_vault_preview_hover_remaining -= delta
+	if map_vault_preview_hover_remaining <= 0.0:
+		var pos := pending_map_vault_preview_position
+		var anchor := pending_map_vault_preview_anchor
+		_cancel_pending_map_vault_preview()
+		_show_map_vault_preview(pos, anchor)
+
+
 func _show_map_vault_preview(position: Vector2i, anchor: Rect2) -> void:
 	if screen_name != "map" or auto_travel_active or map_travel_active \
 		or is_instance_valid(player_name_setup_overlay) or is_instance_valid(map_settings_overlay):
@@ -1893,6 +1939,7 @@ func _show_map_vault_preview(position: Vector2i, anchor: Rect2) -> void:
 
 
 func _request_map_vault_preview_clear() -> void:
+	_cancel_pending_map_vault_preview()
 	# Mouse exit precedes entry into the adjoining panel. Check after dispatch.
 	_close_map_vault_preview_if_outside.call_deferred()
 
@@ -1909,6 +1956,7 @@ func _close_map_vault_preview_if_outside() -> void:
 
 
 func _clear_map_vault_preview() -> void:
+	_cancel_pending_map_vault_preview()
 	if not is_instance_valid(active_map_vault_preview):
 		return
 	_hide_card_hover_preview()
@@ -2685,10 +2733,47 @@ func _show_battle_deck_check() -> void:
 	center.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	overlay.add_child(center)
 
+	var owned_decks: Array = run_state.get("owned_decks", [])
+	var pending_deck_exists := false
+	var active_deck_exists := false
+	var active_deck_id := str(run_state.get("active_deck_id", ""))
+	for deck in owned_decks:
+		var deck_id := str(deck.get("id", ""))
+		pending_deck_exists = pending_deck_exists or deck_id == pending_battle_deck_id
+		active_deck_exists = active_deck_exists or deck_id == active_deck_id
+	if not pending_deck_exists and not owned_decks.is_empty():
+		pending_battle_deck_id = active_deck_id if active_deck_exists else str(owned_decks[0].get("id", ""))
+	var selected_deck: Dictionary = {}
+	for deck in owned_decks:
+		if str(deck.get("id", "")) == pending_battle_deck_id:
+			selected_deck = deck
+			break
+	if selected_deck.is_empty() and not owned_decks.is_empty():
+		selected_deck = owned_decks[0]
+		pending_battle_deck_id = str(selected_deck.get("id", ""))
+
+	var grouped_cards := _group_deck_editor_cards(selected_deck.get("cards", []))
+	grouped_cards.sort_custom(Callable(self, "_battle_deck_check_group_less"))
+
 	var viewport_size := get_viewport_rect().size
-	var panel_size := Vector2(minf(760.0, viewport_size.x - 48.0), minf(460.0, viewport_size.y - 48.0))
+	var panel_width := minf(780.0, viewport_size.x - 48.0)
+	var avail_cards_w := maxf(240.0, panel_width - 48.0)
+	var card_rows := 1
+	var row_x := 0.0
+	for group in grouped_cards:
+		var cnt := (group.get("ids", []) as Array).size()
+		var card_w := float(82 + mini(5, maxi(0, cnt - 1)) * 7)
+		if row_x > 0.0 and row_x + 8.0 + card_w > avail_cards_w:
+			card_rows += 1
+			row_x = card_w
+		else:
+			row_x = card_w if row_x == 0.0 else row_x + 8.0 + card_w
+	var cards_needed_h := float(card_rows) * 82.0 + float(maxi(0, card_rows - 1)) * 8.0 + 10.0
+	var max_cards_h := maxf(120.0, viewport_size.y - 48.0 - 270.0)
+	var needs_card_scroll := cards_needed_h > max_cards_h
+
 	var panel := PanelContainer.new()
-	panel.custom_minimum_size = panel_size
+	panel.custom_minimum_size = Vector2(panel_width, 0.0)
 	panel.mouse_filter = Control.MOUSE_FILTER_STOP
 	var panel_style := StyleBoxFlat.new()
 	panel_style.bg_color = Color("#0c0d0c")
@@ -2735,29 +2820,25 @@ func _show_battle_deck_check() -> void:
 	body_margin.add_child(body)
 	column.add_child(body_margin)
 
-	var deck_choices := HFlowContainer.new()
-	deck_choices.alignment = FlowContainer.ALIGNMENT_CENTER
-	deck_choices.add_theme_constant_override("h_separation", 12)
-	deck_choices.add_theme_constant_override("v_separation", 8)
+	var deck_choices: Container
+	if owned_decks.size() <= 3:
+		var deck_row := HBoxContainer.new()
+		deck_row.alignment = BoxContainer.ALIGNMENT_CENTER
+		deck_row.add_theme_constant_override("separation", 12)
+		deck_choices = deck_row
+	else:
+		var deck_flow := HFlowContainer.new()
+		deck_flow.alignment = FlowContainer.ALIGNMENT_CENTER
+		deck_flow.add_theme_constant_override("h_separation", 12)
+		deck_flow.add_theme_constant_override("v_separation", 8)
+		deck_choices = deck_flow
 	body.add_child(deck_choices)
-	var owned_decks: Array = run_state.get("owned_decks", [])
-	var pending_deck_exists := false
-	var active_deck_exists := false
-	var active_deck_id := str(run_state.get("active_deck_id", ""))
+	var deck_btn_w := minf(226.0, floorf((panel_width - 44.0 - 24.0) / 3.0))
 	for deck in owned_decks:
 		var deck_id := str(deck.get("id", ""))
-		pending_deck_exists = pending_deck_exists or deck_id == pending_battle_deck_id
-		active_deck_exists = active_deck_exists or deck_id == active_deck_id
-	if not pending_deck_exists and not owned_decks.is_empty():
-		pending_battle_deck_id = active_deck_id if active_deck_exists else str(owned_decks[0].get("id", ""))
-	var selected_deck: Dictionary = {}
-	for deck in owned_decks:
-		var deck_id := str(deck.get("id", ""))
-		if deck_id == pending_battle_deck_id:
-			selected_deck = deck
 		var deck_cards: Array = deck.get("cards", [])
 		var deck_button := _button("",
-			Callable(self, "_select_battle_deck_preview").bind(deck_id), Vector2(232, 78))
+			Callable(self, "_select_battle_deck_preview").bind(deck_id), Vector2(deck_btn_w, 78))
 		var deck_button_content := VBoxContainer.new()
 		deck_button_content.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
 		deck_button_content.offset_left = 10
@@ -2794,18 +2875,17 @@ func _show_battle_deck_check() -> void:
 		deck_button.add_theme_stylebox_override("hover", btn_hover)
 		deck_button.add_theme_stylebox_override("pressed", btn_hover)
 		deck_choices.add_child(deck_button)
-	if selected_deck.is_empty() and not owned_decks.is_empty():
-		selected_deck = owned_decks[0]
-		pending_battle_deck_id = str(selected_deck.get("id", ""))
 
 	var selected_name := _label("덱 「%s」 구성" % str(selected_deck.get("name", "덱")), 15, Color("#e4dfd5"))
 	selected_name.add_theme_font_override("font", DeckEditorHeadingFont)
 	body.add_child(selected_name)
 
 	var cards_scroll := ScrollContainer.new()
+	cards_scroll.custom_minimum_size.y = minf(cards_needed_h, max_cards_h)
 	cards_scroll.size_flags_vertical = Control.SIZE_EXPAND_FILL
 	cards_scroll.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	cards_scroll.horizontal_scroll_mode = ScrollContainer.SCROLL_MODE_DISABLED
+	cards_scroll.vertical_scroll_mode = ScrollContainer.SCROLL_MODE_AUTO if needs_card_scroll else ScrollContainer.SCROLL_MODE_DISABLED
 	body.add_child(cards_scroll)
 	var card_flow := HFlowContainer.new()
 	card_flow.size_flags_horizontal = Control.SIZE_EXPAND_FILL
@@ -2813,8 +2893,6 @@ func _show_battle_deck_check() -> void:
 	card_flow.add_theme_constant_override("v_separation", 8)
 	card_flow.alignment = FlowContainer.ALIGNMENT_CENTER
 	cards_scroll.add_child(card_flow)
-	var grouped_cards := _group_deck_editor_cards(selected_deck.get("cards", []))
-	grouped_cards.sort_custom(Callable(self, "_battle_deck_check_group_less"))
 	for group in grouped_cards:
 		var card: Dictionary = _deck_editor_group_representative(group)
 		var group_ids: Array = group.get("ids", [])

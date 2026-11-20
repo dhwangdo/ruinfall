@@ -9,6 +9,7 @@ const DeckVaultCardView = preload("res://scripts/deck_vault_card_view.gd")
 const VaultPreview = preload("res://scripts/map_vault_preview_data.gd")
 
 const CARD_RARITY_ORDER := {"legendary": 0, "rare": 1, "special": 2, "basic": 3, "starter": 4, "status": 5}
+const ALL_REGIONS := -1
 
 const ROOM_LABELS := {
 	"safeArea": "안전 구역",
@@ -129,7 +130,7 @@ static func filter_entries(entries: Array[Dictionary], kind: String, region: int
 	for entry in entries:
 		if str(entry["kind"]) != kind:
 			continue
-		if region > 0 and int(entry["region"]) != region:
+		if region >= 0 and int(entry["region"]) != region:
 			continue
 		var search_text := str(entry["search_text"])
 		var matches_query := true
@@ -158,7 +159,7 @@ static func filter_entries(entries: Array[Dictionary], kind: String, region: int
 static func _add_entry(entries: Array[Dictionary], kind: String, label: String, region: int,
 	position: Vector2i, search_text: String, rarity_order: int = 999, detail: String = "", sticker_id: String = "",
 	payload: Dictionary = {}) -> void:
-	if region <= 0:
+	if region < 0:
 		return
 	entries.append({
 		"search_entry_key": str(entries.size()),

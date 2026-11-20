@@ -72,7 +72,7 @@ func _draw() -> void:
 	var center := Vector2(player_position) + view_offset
 	var first_x := floori(center.x) - floori(float(columns) * 0.5)
 	var first_y := floori(center.y) - floori(float(rows) * 0.5)
-	var seen: Dictionary = MapRules.display_visibility(map_data, player_position, debug_mode).seen
+	var seen: Dictionary = map_data.get("seen", {})
 	var visible_now: Dictionary = map_data.get("visible_now", {})
 	var enemies: Dictionary = {}
 	var enemy_positions: Array = map_data.get("enemy_positions", [])
@@ -82,17 +82,18 @@ func _draw() -> void:
 		var defeated := false
 		if enemy_index < enemy_states.size():
 			defeated = bool(enemy_states[enemy_index].get("defeated", false))
-		if not defeated and visible_now.has(enemy_position):
+		if not defeated and (debug_mode or visible_now.has(enemy_position)):
 			enemies[enemy_position] = true
-	for remembered_position in map_data.get("enemy_memory", {}).values():
-		var last_position: Vector2i = remembered_position
-		if seen.has(last_position) and not visible_now.has(last_position):
-			enemies[last_position] = false
+	if not debug_mode:
+		for remembered_position in map_data.get("enemy_memory", {}).values():
+			var last_position: Vector2i = remembered_position
+			if seen.has(last_position) and not visible_now.has(last_position):
+				enemies[last_position] = false
 
 	for row in range(rows):
 		for column in range(columns):
 			var position := Vector2i(first_x + column, first_y + row)
-			if not seen.has(position):
+			if not (MapRules.is_in_map_bounds(position) if debug_mode else seen.has(position)):
 				continue
 			var rect := Rect2(origin + Vector2(column, row) * tile_pixels, Vector2.ONE * tile_pixels)
 			var room_type := MapRules.room_type_at(map_data, position)

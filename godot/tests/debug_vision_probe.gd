@@ -44,15 +44,18 @@ func _initialize() -> void:
 	view.debug_mode = true
 	view._motion = motion
 	view._update_motion_visible_enemies()
-	assert(motion.visible.has(0) and not motion.visible.has(1))
+	assert(motion.visible.has(0) and motion.visible.has(1))
 	view.debug_mode = false
 	view._update_motion_visible_enemies()
 	assert(motion.visible.is_empty())
 	view.free()
 	var state := {"map": map, "position": player}
 	assert(Preview.resolve(state, near, true).id == "near")
-	assert(Preview.resolve(state, far, true).is_empty())
+	assert(Preview.resolve(state, far, true).id == "far")
 	assert(Preview.resolve(state, near, false).is_empty())
+	assert(Rules.is_cell_seen_for_display(map, far, true))
+	assert(not Rules.is_cell_seen_for_display(map, far, false))
+	assert(not Rules.is_cell_seen_for_display(map, Vector2i(-1, 0), true))
 	assert(Editions.description("legendCassiopeia") == "이 덱은 카시오페이아를 가집니다.")
-	print("PASS: 37x37 square, wall transparency, bounds/movement, no saved reveal, enemy/preview visibility, concise edition text")
+	print("PASS: full-map zero-alloc debug vision, wall transparency, bounds/movement, no saved reveal, enemy/preview visibility, concise edition text")
 	quit()
