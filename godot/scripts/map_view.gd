@@ -223,8 +223,10 @@ func _draw() -> void:
 			var room_type := MapRules.room_type_at(map_data, position)
 			if room_type == "void" or not seen.has(position):
 				continue
-			var fill := TileAppearance.full_map_fill(position, room_type, MapRules.region_index_at(position))
-			var edge := TileAppearance.full_map_edge(room_type)
+			var has_enemy := visible_enemy_cells.has(position) or remembered_enemy_cells.has(position)
+			var tile_color_type := "boss" if has_enemy else room_type
+			var fill := TileAppearance.full_map_fill(position, tile_color_type, MapRules.region_index_at(position))
+			var edge := TileAppearance.full_map_edge(tile_color_type)
 			if room_type == "deckVault" and VaultRules.region_offset(map_data, position) > 0:
 				fill = Color("#101a32")
 				edge = Color("#eed079")
@@ -233,8 +235,8 @@ func _draw() -> void:
 				fill = Color("#f0f0f0")
 				edge = Color("#a8a8a8")
 			elif not is_player_tile and not visible_now.has(position):
-				fill = TileAppearance.out_of_vision_color(fill, room_type)
-				edge = TileAppearance.out_of_vision_color(edge, room_type)
+				fill = TileAppearance.out_of_vision_color(fill, tile_color_type)
+				edge = TileAppearance.out_of_vision_color(edge, tile_color_type)
 			var is_safe_tile := MapRules.is_safe_area_tile(map_data, position)
 			draw_rect(rect, fill)
 			if tile_size >= 9.0 and not is_safe_tile:
@@ -748,8 +750,10 @@ func _update_deck_vault_hover(point: Vector2) -> void:
 	var seen: Dictionary = MapRules.display_visibility(map_data, player_position, debug_mode).seen
 	var room_key := "%d,%d" % [position.x, position.y]
 	var opened_vaults: Dictionary = map_data.get("opened_deck_vaults", {})
-	if not seen.has(position) or MapRules.room_type_at(map_data, position) != "deckVault" \
-		or bool(opened_vaults.get(room_key, false)):
+	var has_floor_deck := floor_deck_positions.has(position)
+	var has_unopened_vault := MapRules.room_type_at(map_data, position) == "deckVault" \
+		and not bool(opened_vaults.get(room_key, false))
+	if not seen.has(position) or (not has_floor_deck and not has_unopened_vault):
 		_clear_deck_vault_hover()
 		return
 	if _hovered_deck_vault_position == position:

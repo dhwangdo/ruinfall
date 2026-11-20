@@ -221,6 +221,7 @@ const VaultRules = preload("res://scripts/deck_vault_rules.gd")
 const SafeAreaLockBadge = preload("res://scripts/safe_area_lock_badge.gd")
 const PlayerTileArt = preload("res://scripts/player_tile_art.gd")
 var active_portal_warning_modal: Control
+var active_battle_deck_check_modal: Control
 var pending_safe_leave_confirmed := false
 
 
@@ -651,6 +652,7 @@ func _sort_battle_hand_by_cost() -> void:
 
 
 func _process(delta: float) -> void:
+	_poll_background_map_generation()
 	battle_play_queue.tick(self)
 	map_debug_controller.sync_toolbar(self)
 	card_info_tooltip.refresh_position()
@@ -972,14 +974,12 @@ func _show_title() -> void:
 func _start_run() -> void:
 	if screen_name == "runLoading":
 		return
+	_stop_background_map_generation()
 	_reset_auto_explore_capture()
-	screen_name = "runLoading"
 	map_debug_controller.reset()
 	map_visual_motion_seed = -1
 	pending_map_camera_duration_ms = 0.0
 	battle_session_generation += 1
-	var run_generation := battle_session_generation
-	var run_tree := get_tree()
 	battle_turn_resolving = false
 	map_ping_position = Vector2i(-1, -1)
 	map_ping_label = ""
@@ -996,6 +996,9 @@ func _start_run() -> void:
 	starter_rng.seed = map_seed ^ 0x2b7e1516
 	var starter_deck := CardCatalog.create_starter_deck(starter_rng)
 	var starter_deck_name := _random_deck_name(20)
+	var initial_map := MapRules.create_empty_map(map_seed)
+	MapRules.generate_region(initial_map, 0, map_seed)
+	MapRules.finish_map(initial_map)
 	var next_run_state := {
 		"position": MapRules.START,
 		"map_seed": map_seed,
@@ -1016,46 +1019,16 @@ func _start_run() -> void:
 		"floor_consumable_drops": [],
 		"deck": starter_deck,
 		"owned_decks": [{"id": "starter", "name": starter_deck_name, "capacity": 20,
-			"rare_slot_capacity": 1, "cards": starter_deck.duplicate(true), "editions": []}],
+			"rare_slot_capacity": 0, "cards": starter_deck.duplicate(true), "editions": []}],
 		"active_deck_id": "starter",
 		"next_card_id": starter_deck.size() + 1,
 		"next_consumable_id": 1,
 		"sticker_service_uses": {},
-		"map": {},
+		"map": initial_map,
 		"defeated_enemies": [],
 	}
-	var loading_progress := _show_run_loading()
-	var job := preload("res://scripts/run_map_generation_job.gd").new()
-	run_map_generation_job = job
-	var start_error: Error = job.start(map_seed)
-	if start_error != OK:
-		run_map_generation_job = null
-		notice = "지도 생성을 시작하지 못했습니다. 다시 시도하세요."
-		_show_title()
-		return
-	# Web advances cooperatively; native builds report worker progress and join after completion.
-	var loading_heading := loading_progress.get_parent().get_child(0) as Label
-	while job.is_alive():
-		if not is_inside_tree() or run_generation != battle_session_generation:
-			job.cancel_and_wait()
-			if run_map_generation_job == job:
-				run_map_generation_job = null
-			return
-		job.advance()
-		loading_progress.text = "지역 %d / %d" % [job.completed_regions(), MapRules.REGION_COUNT]
-		loading_heading.text = "지도를 불러오는 중" + ".".repeat(1 + int(Time.get_ticks_msec() / 350) % 3)
-		await run_tree.process_frame
-	var generated_map: Dictionary = job.take_result()
-	run_map_generation_job = null
-	if generated_map.is_empty():
-		return
-	next_run_state["map"] = generated_map
-	loading_progress.text = "지역 %d / %d" % [MapRules.REGION_COUNT, MapRules.REGION_COUNT]
-	await run_tree.process_frame
-	await run_tree.process_frame
-	if not is_inside_tree() or run_generation != battle_session_generation:
-		return
 	run_state = next_run_state
+	_materialize_pending_floor_decks()
 	safe_area_unlock_pending_animation = false
 	battle_state = {}
 	map_camera_center = Vector2(MapRules.START) + Vector2(0.5, 0.5)
@@ -1068,6 +1041,131 @@ func _start_run() -> void:
 	_show_map()
 	call_deferred("_focus_map_on_player")
 	_open_player_name_setup()
+	_start_background_map_generation(map_seed, 1)
+
+
+func _stop_background_map_generation() -> void:
+	if run_map_generation_job != null:
+		run_map_generation_job.cancel_and_wait()
+		run_map_generation_job = null
+
+
+func _start_background_map_generation(map_seed: int, start_region: int) -> void:
+	_stop_background_map_generation()
+	if start_region < 0 or start_region >= MapRules.REGION_COUNT:
+		return
+	var job := preload("res://scripts/run_map_generation_job.gd").new()
+	if job.start(map_seed, start_region) == OK:
+		run_map_generation_job = job
+
+
+func _materialize_pending_floor_decks() -> bool:
+	if MapRules.DECK_VAULTS_ENABLED or run_state.is_empty():
+		return false
+	var map_data: Dictionary = run_state.get("map", {})
+	var spawns: Array = map_data.get("floor_deck_spawn_positions", [])
+	if spawns.is_empty():
+		return false
+	if not map_data.has("spawned_floor_deck_positions"):
+		map_data["spawned_floor_deck_positions"] = {}
+	var spawned: Dictionary = map_data["spawned_floor_deck_positions"]
+	var pregen: Dictionary = map_data.get("pregenerated_floor_decks", {})
+	var floor_decks: Array = run_state.get("floor_deck_drops", [])
+	var next_card_id := int(run_state.get("next_card_id", run_state.get("deck", []).size() + 1))
+	var added := false
+	for raw_pos in spawns:
+		if not (raw_pos is Vector2i):
+			continue
+		var pos: Vector2i = raw_pos
+		var key := "%d,%d" % [pos.x, pos.y]
+		if bool(spawned.get(key, false)):
+			continue
+		var deck: Dictionary
+		if pregen.has(key):
+			deck = pregen[key]
+			pregen.erase(key)
+			for card in deck.get("cards", []):
+				card["id"] = next_card_id
+				next_card_id += 1
+		else:
+			var generated := VaultRules.generate(map_data, pos, next_card_id)
+			deck = generated["deck"]
+			next_card_id = int(generated["next_card_id"])
+		deck.erase("vault_key_cost")
+		deck.erase("vault_region_offset")
+		floor_decks.append({"x": pos.x, "y": pos.y, "deck": deck})
+		spawned[key] = true
+		added = true
+	if added:
+		run_state["floor_deck_drops"] = floor_decks
+		run_state["next_card_id"] = next_card_id
+	return added
+
+
+func _poll_background_map_generation() -> void:
+	if run_map_generation_job == null or run_state.is_empty():
+		return
+	var map_data: Dictionary = run_state.get("map", {})
+	if map_data.is_empty():
+		return
+	if run_map_generation_job.is_cooperative() and screen_name == "map" \
+			and not map_travel_active and not auto_travel_active:
+		run_map_generation_job.advance()
+	var chunks: Array[Dictionary] = run_map_generation_job.poll_ready_chunks()
+	for item in chunks:
+		MapRules.merge_region_chunk(map_data, item["chunk"], int(item["region"]))
+	var spawned_decks := _materialize_pending_floor_decks()
+	if run_map_generation_job.is_finished():
+		run_map_generation_job.finish_if_done()
+		run_map_generation_job = null
+		_save_run()
+	elif not chunks.is_empty() or spawned_decks:
+		_save_run()
+
+
+func _wait_for_region_and_enter_portal(target_region: int) -> void:
+	if screen_name == "runLoading" or run_state.is_empty():
+		return
+	var wait_generation := battle_session_generation
+	var run_tree := get_tree()
+	var map_data: Dictionary = run_state["map"]
+	if run_map_generation_job == null:
+		var next_missing := MapRules.next_ungenerated_region(map_data)
+		if next_missing >= 0:
+			_start_background_map_generation(int(run_state.get("map_seed", 0)), next_missing)
+	screen_name = "runLoading"
+	var loading_progress := _show_run_loading()
+	var loading_heading := loading_progress.get_parent().get_child(0) as Label
+	while not MapRules.is_region_generated(run_state["map"], target_region):
+		if not is_inside_tree() or wait_generation != battle_session_generation:
+			return
+		if run_map_generation_job != null and run_map_generation_job.is_cooperative():
+			run_map_generation_job.advance()
+		_poll_background_map_generation()
+		if MapRules.is_region_generated(run_state["map"], target_region):
+			break
+		if run_map_generation_job == null:
+			var missing := MapRules.next_ungenerated_region(run_state["map"])
+			if missing >= 0:
+				MapRules.generate_region(run_state["map"], missing, int(run_state.get("map_seed", 0)))
+				MapRules.ensure_enemy_states(run_state["map"])
+				_materialize_pending_floor_decks()
+		loading_heading.text = "지역 %d 준비 중" % target_region + ".".repeat(1 + int(Time.get_ticks_msec() / 350) % 3)
+		loading_progress.text = "지역 %d / %d" % [mini(target_region, MapRules.REGION_COUNT), MapRules.REGION_COUNT]
+		await run_tree.process_frame
+	if not is_inside_tree() or wait_generation != battle_session_generation:
+		return
+	run_state["position"] = Vector2i(MapRules.START.x, target_region * MapRules.REGION_STRIDE)
+	safe_area_unlock_pending_animation = false
+	run_state["gods_lament_charges"] = 3
+	run_state["region_battle_wins"] = 0
+	notice = "지역 %d에 도착했습니다." % target_region
+	MapRules.reveal_visible(run_state["map"], run_state["position"])
+	map_camera_center = Vector2(run_state["position"]) + Vector2(0.5, 0.5)
+	pending_map_camera_duration_ms = 0.0
+	screen_name = "map"
+	_save_run()
+	_show_map()
 
 
 func _show_run_loading() -> Label:
@@ -1234,6 +1332,7 @@ func _random_deck_name(capacity: int) -> String:
 
 
 func _load_saved_run() -> void:
+	_stop_background_map_generation()
 	var loaded := RunSave.read_saved_run(RUN_SAVE_PATH)
 	if not bool(loaded.get("ok", false)):
 		_clear_run_save()
@@ -1250,6 +1349,10 @@ func _load_saved_run() -> void:
 	deck_editor_high_rarity_return_area_by_card_id.clear()
 	deck_editor_pending_removals.clear()
 	RunSave.normalize_loaded_run(run_state, Callable(self, "_random_player_name"))
+	_materialize_pending_floor_decks()
+	var next_ungenerated := MapRules.next_ungenerated_region(run_state["map"])
+	if next_ungenerated >= 0:
+		_start_background_map_generation(int(run_state.get("map_seed", 0)), next_ungenerated)
 	map_camera_center = Vector2(run_state["position"]) + Vector2(0.5, 0.5)
 	battle_state = {}
 	notice = "저장한 탐험을 이어갑니다."
@@ -1440,11 +1543,18 @@ func _show_map() -> void:
 	currencies.add_theme_constant_override("separation", 18)
 	var gold_label := _label("$ %d" % int(run_state["gold"]), 18, Color("#f2cf69"))
 	gold_label.add_theme_font_override("font", map_currency_font)
+	if not MapRules.DECK_VAULTS_ENABLED:
+		gold_label.mouse_filter = Control.MOUSE_FILTER_STOP
+		gold_label.gui_input.connect(func(event: InputEvent) -> void:
+			if event is InputEventMouseButton and event.button_index == MOUSE_BUTTON_LEFT and event.pressed:
+				map_debug_controller.count_activation(self)
+		)
 	var key_label := Button.new()
 	_map_hud = {"hp": health_bar, "hp_text": health_label, "gold": gold_label,
 		"keys": key_label, "layout_key": _map_layout_key()}
 	key_label.name = "MapKeyCurrency"
 	key_label.text = "열쇠 %d" % int(run_state.get("keys", 0))
+	key_label.visible = MapRules.DECK_VAULTS_ENABLED
 	key_label.focus_mode = Control.FOCUS_NONE
 	key_label.add_theme_font_size_override("font_size", 18)
 	for state in ["normal", "hover", "pressed", "focus", "disabled"]:
@@ -1551,7 +1661,7 @@ func _show_map() -> void:
 	bottom_left_badges.offset_bottom = -20.0
 	if MapRules.is_safe_area_tile(run_state["map"], current_position):
 		var lock_badge := SafeAreaLockBadge.new()
-		lock_badge.configure("safe_area", 0, "덱 편집 제한 해제", "안전 구역에서는 덱을 자유롭게 편집할 수 있습니다.")
+		lock_badge.configure("safe_area", 0, "덱 편집 제한 해제", "현재 위치에서는 덱을 자유롭게 편집할 수 있습니다.")
 		bottom_left_badges.add_child(lock_badge)
 	var lament_charges := int(run_state.get("gods_lament_charges", 0))
 	if lament_charges > 0:
@@ -1646,11 +1756,13 @@ func _show_inventory() -> void:
 	screen_name = "inventory"
 	_clear_screen()
 	var page := _new_page("인벤토리", "%d / %d 사용 중" % [_inventory_item_count(), INVENTORY_CAPACITY])
-	var status := _status_row([
+	var inv_items: Array[String] = [
 		"체력 %d / %d" % [run_state.get("player_hp", 0), run_state.get("max_hp", 0)],
 		"골드 $%d" % run_state.get("gold", 0),
-		"열쇠 %d개" % run_state.get("keys", 0),
-	])
+	]
+	if MapRules.DECK_VAULTS_ENABLED:
+		inv_items.append("열쇠 %d개" % run_state.get("keys", 0))
+	var status := _status_row(inv_items)
 	page.add_child(status)
 	var content := ScrollContainer.new()
 	content.size_flags_vertical = Control.SIZE_EXPAND_FILL
@@ -2037,7 +2149,7 @@ func _use_current_map_tile() -> void:
 	var map_data: Dictionary = run_state["map"]
 	var room_type := MapRules.room_type_at(map_data, current)
 	var region_index := MapRules.region_index_at(current)
-	if room_type in ["portal", "safePortal"] and int(run_state.get("keys", 0)) > 0:
+	if MapRules.DECK_VAULTS_ENABLED and room_type in ["portal", "safePortal"] and int(run_state.get("keys", 0)) > 0:
 		if bool(run_state.get("skip_portal_key_warning", false)):
 			run_state["keys"] = 0
 		else:
@@ -2081,11 +2193,16 @@ func _use_current_map_tile() -> void:
 			notice = "마지막 지역입니다."
 			_show_map()
 			return
-		run_state["position"] = Vector2i(MapRules.START.x, (region_index + 1) * MapRules.REGION_STRIDE)
+		_poll_background_map_generation()
+		var target_region := region_index + 1
+		if not MapRules.is_region_generated(map_data, target_region):
+			_wait_for_region_and_enter_portal(target_region)
+			return
+		run_state["position"] = Vector2i(MapRules.START.x, target_region * MapRules.REGION_STRIDE)
 		safe_area_unlock_pending_animation = false
 		run_state["gods_lament_charges"] = 3
 		run_state["region_battle_wins"] = 0
-		notice = "지역 %d에 도착했습니다." % (region_index + 1)
+		notice = "지역 %d에 도착했습니다." % target_region
 	else:
 		notice = "이 타일은 아직 상호작용할 수 없습니다."
 		_show_map()
@@ -2538,34 +2655,90 @@ func _start_battle_now(enemy_position: Vector2i) -> void:
 	battle_draw_presentation.begin_initial(self, initial_draw_view["before"], final_state)
 
 
+func _close_battle_deck_check_modal() -> void:
+	if is_instance_valid(active_battle_deck_check_modal):
+		active_battle_deck_check_modal.queue_free()
+		active_battle_deck_check_modal = null
+
+
 func _show_battle_deck_check() -> void:
+	_close_battle_deck_check_modal()
+	_clear_map_vault_preview()
+	_hide_card_hover_preview()
 	screen_name = "battleDeckCheck"
-	_clear_screen()
+	var overlay := Control.new()
+	overlay.name = "BattleDeckCheckModal"
+	overlay.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
+	overlay.mouse_filter = Control.MOUSE_FILTER_STOP
+	overlay.z_index = 120
+	active_battle_deck_check_modal = overlay
+	add_child(overlay)
+
 	var backdrop := ColorRect.new()
-	backdrop.color = Color(0.0, 0.0, 0.0, 0.68)
+	backdrop.color = Color(4.0 / 255.0, 8.0 / 255.0, 7.0 / 255.0, 0.72)
 	backdrop.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
 	backdrop.mouse_filter = Control.MOUSE_FILTER_STOP
-	add_child(backdrop)
+	overlay.add_child(backdrop)
+
 	var center := CenterContainer.new()
 	center.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
 	center.mouse_filter = Control.MOUSE_FILTER_IGNORE
-	add_child(center)
+	overlay.add_child(center)
+
 	var viewport_size := get_viewport_rect().size
-	var panel_size := Vector2(minf(1080.0, viewport_size.x - 40.0), minf(780.0, viewport_size.y - 40.0))
-	var panel := _panel(panel_size)
+	var panel_size := Vector2(minf(760.0, viewport_size.x - 48.0), minf(460.0, viewport_size.y - 48.0))
+	var panel := PanelContainer.new()
+	panel.custom_minimum_size = panel_size
+	panel.mouse_filter = Control.MOUSE_FILTER_STOP
+	var panel_style := StyleBoxFlat.new()
+	panel_style.bg_color = Color("#0c0d0c")
+	panel_style.border_color = Color("#db8a3d")
+	panel_style.set_border_width_all(1)
+	panel_style.set_corner_radius_all(6)
+	panel_style.shadow_color = Color(0.0, 0.0, 0.0, 0.45)
+	panel_style.shadow_size = 20
+	panel_style.shadow_offset = Vector2(0, 6)
+	panel.add_theme_stylebox_override("panel", panel_style)
 	center.add_child(panel)
-	var body := VBoxContainer.new()
-	body.add_theme_constant_override("separation", 12)
-	panel.add_child(body)
-	var title := _label("잠깐! 올바른 덱을 선택하셨나요?", 24, COLOR_TEXT)
+
+	var column := VBoxContainer.new()
+	column.add_theme_constant_override("separation", 0)
+	panel.add_child(column)
+
+	# Header
+	var header_margin := MarginContainer.new()
+	for m in ["margin_left", "margin_right"]:
+		header_margin.add_theme_constant_override(m, 20)
+	for m in ["margin_top", "margin_bottom"]:
+		header_margin.add_theme_constant_override(m, 12)
+	var title := _label("덱 선택", 20, Color("#f3ece0"))
+	title.add_theme_font_override("font", DeckEditorHeadingFont)
 	title.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
-	body.add_child(title)
-	var subtitle := _label("이번 전투에서 사용할 덱을 선택하세요.", 14, COLOR_MUTED)
-	subtitle.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
-	body.add_child(subtitle)
-	var deck_choices := HBoxContainer.new()
-	deck_choices.alignment = BoxContainer.ALIGNMENT_CENTER
-	deck_choices.add_theme_constant_override("separation", 10)
+	header_margin.add_child(title)
+	column.add_child(header_margin)
+
+	var divider_top := ColorRect.new()
+	divider_top.custom_minimum_size.y = 1
+	divider_top.color = Color("#4c4538")
+	column.add_child(divider_top)
+
+	# Body
+	var body_margin := MarginContainer.new()
+	body_margin.size_flags_vertical = Control.SIZE_EXPAND_FILL
+	for m in ["margin_left", "margin_right"]:
+		body_margin.add_theme_constant_override(m, 20)
+	for m in ["margin_top", "margin_bottom"]:
+		body_margin.add_theme_constant_override(m, 14)
+	var body := VBoxContainer.new()
+	body.size_flags_vertical = Control.SIZE_EXPAND_FILL
+	body.add_theme_constant_override("separation", 12)
+	body_margin.add_child(body)
+	column.add_child(body_margin)
+
+	var deck_choices := HFlowContainer.new()
+	deck_choices.alignment = FlowContainer.ALIGNMENT_CENTER
+	deck_choices.add_theme_constant_override("h_separation", 12)
+	deck_choices.add_theme_constant_override("v_separation", 8)
 	body.add_child(deck_choices)
 	var owned_decks: Array = run_state.get("owned_decks", [])
 	var pending_deck_exists := false
@@ -2584,52 +2757,60 @@ func _show_battle_deck_check() -> void:
 			selected_deck = deck
 		var deck_cards: Array = deck.get("cards", [])
 		var deck_button := _button("",
-			Callable(self, "_select_battle_deck_preview").bind(deck_id), Vector2(230, 76))
-		deck_button.add_theme_font_size_override("font_size", 13)
+			Callable(self, "_select_battle_deck_preview").bind(deck_id), Vector2(232, 78))
 		var deck_button_content := VBoxContainer.new()
 		deck_button_content.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
-		deck_button_content.offset_left = 6
-		deck_button_content.offset_right = -6
-		deck_button_content.offset_top = 4
-		deck_button_content.offset_bottom = -4
-		deck_button_content.add_theme_constant_override("separation", 0)
+		deck_button_content.offset_left = 10
+		deck_button_content.offset_right = -10
+		deck_button_content.offset_top = 6
+		deck_button_content.offset_bottom = -6
+		deck_button_content.add_theme_constant_override("separation", 2)
 		deck_button_content.alignment = BoxContainer.ALIGNMENT_CENTER
 		deck_button_content.mouse_filter = Control.MOUSE_FILTER_PASS
 		deck_button.add_child(deck_button_content)
-		var deck_name := _label("덱 「%s」" % str(deck.get("name", "덱")), 13, COLOR_TEXT)
+		var deck_name := _label("덱 「%s」" % str(deck.get("name", "덱")), 15, Color("#f3ece0"))
 		deck_name.add_theme_font_override("font", DeckEditorHeadingFont)
 		deck_name.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 		deck_name.mouse_filter = Control.MOUSE_FILTER_IGNORE
 		deck_button_content.add_child(deck_name)
 		if not (deck.get("editions", []) as Array).is_empty():
-			var editions := DeckEditionList.build(deck.get("editions", []), deck.get("edition_colors", {}), DeckEditorHeadingFont, 13)
+			var editions := DeckEditionList.build(deck.get("editions", []), deck.get("edition_colors", {}), DeckEditorHeadingFont, 13, Color("#d7caa8"), 5)
 			editions.alignment = FlowContainer.ALIGNMENT_CENTER
 			deck_button_content.add_child(editions)
-		var deck_count := _label("%d / %d장" % [deck_cards.size(), int(deck.get("capacity", 25))], 13, COLOR_TEXT)
+		var deck_count := _label("%d / %d장" % [deck_cards.size(), int(deck.get("capacity", 25))], 13, Color("#c7bfb0"))
 		deck_count.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 		deck_count.mouse_filter = Control.MOUSE_FILTER_IGNORE
 		deck_button_content.add_child(deck_count)
 		var is_selected := deck_id == pending_battle_deck_id
-		deck_button.add_theme_stylebox_override("normal", _button_style(
-			Color("#403428") if is_selected else Color("#202522"),
-			Color("#e0a448") if is_selected else COLOR_BORDER))
-		deck_button.add_theme_stylebox_override("hover", _button_style(Color("#403b30"), Color("#e0a448")))
+		var btn_style := StyleBoxFlat.new()
+		btn_style.bg_color = Color("#3a2716") if is_selected else Color("#181917")
+		btn_style.border_color = Color("#db8a3d") if is_selected else Color("#4c4538")
+		btn_style.set_border_width_all(2 if is_selected else 1)
+		btn_style.set_corner_radius_all(4)
+		var btn_hover := btn_style.duplicate() as StyleBoxFlat
+		btn_hover.bg_color = Color("#4a321b") if is_selected else Color("#242420")
+		btn_hover.border_color = Color("#db8a3d")
+		deck_button.add_theme_stylebox_override("normal", btn_style)
+		deck_button.add_theme_stylebox_override("hover", btn_hover)
+		deck_button.add_theme_stylebox_override("pressed", btn_hover)
 		deck_choices.add_child(deck_button)
 	if selected_deck.is_empty() and not owned_decks.is_empty():
 		selected_deck = owned_decks[0]
 		pending_battle_deck_id = str(selected_deck.get("id", ""))
-	var selected_name := _label("%s 구성" % str(selected_deck.get("name", "덱")), 17, COLOR_TEXT)
+
+	var selected_name := _label("덱 「%s」 구성" % str(selected_deck.get("name", "덱")), 15, Color("#e4dfd5"))
+	selected_name.add_theme_font_override("font", DeckEditorHeadingFont)
 	body.add_child(selected_name)
+
 	var cards_scroll := ScrollContainer.new()
 	cards_scroll.size_flags_vertical = Control.SIZE_EXPAND_FILL
 	cards_scroll.size_flags_horizontal = Control.SIZE_EXPAND_FILL
-	cards_scroll.custom_minimum_size.y = maxf(180.0, panel_size.y - 250.0)
 	cards_scroll.horizontal_scroll_mode = ScrollContainer.SCROLL_MODE_DISABLED
 	body.add_child(cards_scroll)
 	var card_flow := HFlowContainer.new()
 	card_flow.size_flags_horizontal = Control.SIZE_EXPAND_FILL
-	card_flow.add_theme_constant_override("h_separation", 6)
-	card_flow.add_theme_constant_override("v_separation", 6)
+	card_flow.add_theme_constant_override("h_separation", 8)
+	card_flow.add_theme_constant_override("v_separation", 8)
 	card_flow.alignment = FlowContainer.ALIGNMENT_CENTER
 	cards_scroll.add_child(card_flow)
 	var grouped_cards := _group_deck_editor_cards(selected_deck.get("cards", []))
@@ -2639,10 +2820,37 @@ func _show_battle_deck_check() -> void:
 		var group_ids: Array = group.get("ids", [])
 		var count := group_ids.size()
 		card_flow.add_child(_battle_deck_check_card_widget(card, count))
-	var confirm := _button("이 덱으로 전투 시작", Callable(self, "_confirm_battle_deck"), Vector2(260, 48))
-	confirm.size_flags_horizontal = Control.SIZE_SHRINK_CENTER
+
+	var divider_bottom := ColorRect.new()
+	divider_bottom.custom_minimum_size.y = 1
+	divider_bottom.color = Color("#4c4538")
+	column.add_child(divider_bottom)
+
+	# Footer
+	var footer_margin := MarginContainer.new()
+	for m in ["margin_left", "margin_right"]:
+		footer_margin.add_theme_constant_override(m, 20)
+	for m in ["margin_top", "margin_bottom"]:
+		footer_margin.add_theme_constant_override(m, 12)
+	var footer_row := CenterContainer.new()
+	var confirm := _button("전투 시작", Callable(self, "_confirm_battle_deck"), Vector2(180, 42))
 	confirm.disabled = selected_deck.is_empty()
-	body.add_child(confirm)
+	var confirm_style := StyleBoxFlat.new()
+	confirm_style.bg_color = Color("#6e4219")
+	confirm_style.border_color = Color("#db8a3d")
+	confirm_style.set_border_width_all(1)
+	confirm_style.set_corner_radius_all(4)
+	var confirm_hover := confirm_style.duplicate() as StyleBoxFlat
+	confirm_hover.bg_color = Color("#875220")
+	confirm.add_theme_stylebox_override("normal", confirm_style)
+	confirm.add_theme_stylebox_override("hover", confirm_hover)
+	confirm.add_theme_stylebox_override("pressed", confirm_hover)
+	confirm.add_theme_color_override("font_color", Color("#fff5e6"))
+	confirm.add_theme_font_override("font", DeckEditorHeadingFont)
+	confirm.add_theme_font_size_override("font_size", 16)
+	footer_row.add_child(confirm)
+	footer_margin.add_child(footer_row)
+	column.add_child(footer_margin)
 
 
 func _select_battle_deck_preview(deck_id: String) -> void:
@@ -2679,6 +2887,7 @@ func _battle_deck_check_card_widget(card: Dictionary, count: int) -> Control:
 
 
 func _confirm_battle_deck() -> void:
+	_close_battle_deck_check_modal()
 	_sync_active_deck()
 	var selected_deck: Dictionary = {}
 	for deck in run_state.get("owned_decks", []):
@@ -3893,7 +4102,8 @@ func _finish_battle_win() -> void:
 				run_state["rare_card_drop_chance"] = 0.05
 			else:
 				run_state["rare_card_drop_chance"] = minf(1.0, rare_chance + 0.02)
-			run_state["keys"] = int(run_state.get("keys", 0)) + 1
+			if MapRules.DECK_VAULTS_ENABLED:
+				run_state["keys"] = int(run_state.get("keys", 0)) + 1
 	screen_name = "reward"
 	var backdrop := ColorRect.new()
 	backdrop.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
@@ -3930,7 +4140,7 @@ func _finish_battle_win() -> void:
 	title.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 	title.add_theme_font_override("font", DeckEditorHeadingFont)
 	body.add_child(title)
-	if not bool(battle_state.get("enemy_is_boss", false)):
+	if MapRules.DECK_VAULTS_ENABLED and not bool(battle_state.get("enemy_is_boss", false)):
 		var key_spacer := Control.new()
 		key_spacer.custom_minimum_size.y = 12
 		body.add_child(key_spacer)
@@ -3939,7 +4149,7 @@ func _finish_battle_win() -> void:
 		key_reward.add_theme_font_override("font", DeckEditorHeadingFont)
 		body.add_child(key_reward)
 	var card_spacer := Control.new()
-	card_spacer.custom_minimum_size.y = 17 if not bool(battle_state.get("enemy_is_boss", false)) else 29
+	card_spacer.custom_minimum_size.y = 17 if (MapRules.DECK_VAULTS_ENABLED and not bool(battle_state.get("enemy_is_boss", false))) else 29
 	body.add_child(card_spacer)
 	var card_row := HBoxContainer.new()
 	card_row.add_theme_constant_override("separation", 22)

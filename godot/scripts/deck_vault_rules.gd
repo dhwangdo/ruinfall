@@ -6,7 +6,7 @@ const Catalog = preload("res://scripts/card_catalog.gd")
 
 
 static func region_offset(map_data: Dictionary, position: Vector2i) -> int:
-	if MapRules.region_index_at(position) == 0:
+	if not MapRules.FUTURE_VAULTS_ENABLED or MapRules.region_index_at(position) == 0:
 		return 0
 	var key := "%d,%d" % [position.x, position.y]
 	var vaults: Dictionary = map_data.get("deck_vaults", {})

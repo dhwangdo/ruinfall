@@ -136,8 +136,8 @@ func configure(deck_name: String, editions: Array, card_count: int, capacity: in
 	lock_hitbox.mouse_entered.connect(_on_lock_tooltip_mouse_entered)
 	lock_hitbox.mouse_exited.connect(_on_lock_tooltip_mouse_exited)
 	var tooltip_title := "덱 편집 제한 해제" if can_edit else "덱 편집 제한"
-	var tooltip_description := "자유 편집: 안전 구역 밖에서도 이 덱을 자유롭게 편집할 수 있습니다." if editions.has("freeEdit") else "안전 구역에서 덱을 자유롭게 편집할 수 있습니다." if can_edit \
-		else "덱 자유 편집은 안전 구역에서 가능합니다."
+	var tooltip_description := "자유 편집: 안전 구역 밖에서도 이 덱을 자유롭게 편집할 수 있습니다." if editions.has("freeEdit") else "현재 위치에서는 덱을 자유롭게 편집할 수 있습니다." if can_edit \
+		else "현재 위치에서는 덱을 자유롭게 편집할 수 없습니다."
 	TooltipBindings.bind_status(lock_hitbox, tooltip_title, tooltip_description)
 	add_child(lock_hitbox)
 	set_meta("deck_case_can_edit", can_edit)

@@ -36,7 +36,7 @@ const STARTER_CARDS: Array[Dictionary] = [
 		"description": "피해를 6 줍니다.",
 	},
 	{
-		"name": "방어",
+		"name": "수비",
 		"kind": "skill",
 		"effect": "defend", "use_mode": "untargeted",
 		"rarity": "starter",
@@ -195,20 +195,11 @@ const LEGENDARY_CARDS: Array[Dictionary] = [
 ]
 
 
-static func create_starter_deck(random: RandomNumberGenerator = null) -> Array[Dictionary]:
-	var rng := random
-	if rng == null:
-		rng = RandomNumberGenerator.new()
-		rng.randomize()
+static func create_starter_deck(_random: RandomNumberGenerator = null) -> Array[Dictionary]:
 	var deck: Array[Dictionary] = []
 	for blueprint in STARTER_CARDS:
-		for _copy_index in range(5):
+		for _copy_index in range(8):
 			deck.append(_make_card(blueprint, deck.size() + 1))
-	var basic_pool := BASIC_CARDS.duplicate()
-	var basic_count := mini(6, basic_pool.size())
-	for _pick in range(basic_count):
-		var index := rng.randi_range(0, basic_pool.size() - 1)
-		deck.append(_make_card(basic_pool.pop_at(index), deck.size() + 1))
 	return deck
 
 
@@ -321,56 +312,29 @@ static func roll_region_shape(region_number: int, random: RandomNumberGenerator)
 
 
 static func create_region_zero_deck(preset: int, first_id: int, random: RandomNumberGenerator) -> Dictionary:
-	var capacity := 20
-	var filled_rares := 0
-	var empty_rares := 0
-	var sticker_count := 0
-	var editions: Array[String] = []
-	match preset:
-		0:
-			# Edition-focused: 20 capacity, 0 rare slots, 1 tier-1 edition.
-			var tier_one: Array[String] = ["roomy", "firstSolitaire", "quickHammer", "sharpLight", "cycle", "metallurgy"]
-			editions = [tier_one[random.randi_range(0, tier_one.size() - 1)]]
-		1:
-			# Rare-focused: 20 capacity, 3 rare slots (2 filled + 1 empty).
-			filled_rares = 2
-			empty_rares = 1
-		_:
-			# Capacity + stickers: 25 capacity, 1 filled rare slot, 2 random stickers.
-			capacity = 25
-			filled_rares = 1
-			sticker_count = 2
-	var rare_slots := filled_rares + empty_rares
+	var capacity := 25 if preset == 0 else 20
+	var rare_slots := 1 if preset == 0 else 0
+	var starter_copies := 5 if preset == 0 else 4
+	var basic_count := 3 if preset == 0 else 6
+	var special_count := 0 if preset == 0 else 2
 	var cards: Array[Dictionary] = []
 	var next_id := first_id
-	var rare_bag := RARE_CARDS.duplicate()
-	for _slot in range(filled_rares):
-		if rare_bag.is_empty():
-			rare_bag = RARE_CARDS.duplicate()
-		cards.append(_make_card(rare_bag.pop_at(random.randi_range(0, rare_bag.size() - 1)), next_id))
+	for blueprint in STARTER_CARDS:
+		for _copy in range(starter_copies):
+			cards.append(_make_card(blueprint, next_id))
+			next_id += 1
+	var basic_pool := BASIC_CARDS.duplicate()
+	for _i in range(basic_count):
+		if basic_pool.is_empty():
+			basic_pool = BASIC_CARDS.duplicate()
+		cards.append(_make_card(basic_pool.pop_at(random.randi_range(0, basic_pool.size() - 1)), next_id))
 		next_id += 1
-	for _slot in range(capacity - rare_slots):
-		var filler_kind := random.randi_range(0, 3)
-		if filler_kind == 0:
-			continue
-		var pool: Array = STARTER_CARDS if filler_kind == 1 else BASIC_CARDS if filler_kind == 2 else SPECIAL_CARDS
-		cards.append(_make_card(pool[random.randi_range(0, pool.size() - 1)], next_id))
+	var special_pool := SPECIAL_CARDS.duplicate()
+	for _i in range(special_count):
+		if special_pool.is_empty():
+			special_pool = SPECIAL_CARDS.duplicate()
+		cards.append(_make_card(special_pool.pop_at(random.randi_range(0, special_pool.size() - 1)), next_id))
 		next_id += 1
-	var sticker_candidates: Array[int] = []
-	for index in range(cards.size()):
-		if not CardStickers.compatible_stickers(cards[index]).is_empty():
-			sticker_candidates.append(index)
-	while sticker_candidates.size() < sticker_count and cards.size() < capacity - empty_rares:
-		var blueprint: Dictionary = BASIC_CARDS[random.randi_range(0, BASIC_CARDS.size() - 1)]
-		var extra := _make_card(blueprint, next_id)
-		if CardStickers.compatible_stickers(extra).is_empty():
-			continue
-		sticker_candidates.append(cards.size())
-		cards.append(extra)
-		next_id += 1
-	for _sticker in range(mini(sticker_count, sticker_candidates.size())):
-		var index: int = sticker_candidates.pop_at(random.randi_range(0, sticker_candidates.size() - 1))
-		cards[index] = CardStickers.with_random_sticker(cards[index], 1.0, random)
 	return {
 		"deck": {
 			"id": "found-r0-%d" % first_id,
@@ -378,7 +342,7 @@ static func create_region_zero_deck(preset: int, first_id: int, random: RandomNu
 			"capacity": capacity,
 			"rare_slot_capacity": rare_slots,
 			"cards": cards,
-			"editions": editions,
+			"editions": [],
 			"vault_region_offset": 0,
 			"vault_key_cost": 1,
 		},

@@ -203,6 +203,11 @@ static func _single_encounter_blueprints(encounter_index: int) -> Array[Dictiona
 				{"name": "방어 태세", "block_gain": 8, "strength_gain": 2, "cycle": true},
 				{"name": "강타", "damage": 12, "cycle": true},
 			], {"is_boss": true, "fixed_max_hp": true, "tutorial_skip_enabled": true})]
+		92:
+			var trio_rats: Array[Dictionary] = []
+			for _rat_index in range(3):
+				trio_rats.append(_enemy("쥐", 15, [{"name": "물기", "damage": 5, "cycle": true}], {"tutorial_skip_enabled": true}))
+			return trio_rats
 		_:
 			return []
 

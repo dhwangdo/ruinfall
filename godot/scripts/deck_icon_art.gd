@@ -55,7 +55,7 @@ static func draw_vault(canvas: CanvasItem, cell: Rect2, border: Color = DECK_COL
 
 
 static func floor_rect(cell: Rect2) -> Rect2:
-	return Rect2(cell.position + cell.size * 0.36, cell.size * 0.60)
+	return Rect2(cell.get_center() - cell.size * 0.36, cell.size * 0.72)
 
 
 static func palette_material(color: Color = DECK_COLOR) -> ShaderMaterial:

@@ -8,7 +8,12 @@ const ROCK_BARRIER_HEIGHT := 5
 const REGION_STRIDE := REGION_HEIGHT + ROCK_BARRIER_HEIGHT
 const HEIGHT := REGION_COUNT * REGION_HEIGHT + (REGION_COUNT - 1) * ROCK_BARRIER_HEIGHT
 const START := Vector2i(106, 23)
-const MAP_VERSION := 19
+const MAP_VERSION := 23
+const DECK_VAULTS_ENABLED := false
+const FUTURE_VAULTS_ENABLED := false
+const START_COMPONENT_MIN_TILES := 30
+const START_COMPONENT_MAX_TILES := 75
+const REGION_COMPONENT_MAX_TILES := 85
 const PLAYER_VISION_RADIUS := 6
 const DEBUG_VISION_RADIUS := 18 # Player-centered 37x37 square; walls do not occlude it.
 const ENEMY_DETECTION_ONE_TILE_CHANCE := 1.0
@@ -54,6 +59,10 @@ static func create_empty_map(seed_value: int) -> Dictionary:
 		"safe_area_entries": {},
 		"safe_portals": {},
 		"region_zero_vault_presets": {},
+		"floor_deck_spawn_positions": [],
+		"pregenerated_floor_decks": {},
+		"spawned_floor_deck_positions": {},
+		"generated_regions": {},
 		"seen": {},
 		"visible_now": {},
 		"enemy_memory": {},
@@ -66,9 +75,64 @@ static func finish_map(map_data: Dictionary) -> void:
 	reveal_visible(map_data, START)
 
 
+static func is_region_generated(map_data: Dictionary, region_index: int) -> bool:
+	if region_index < 0 or region_index >= REGION_COUNT:
+		return false
+	if not map_data.has("generated_regions"):
+		return true
+	return bool(map_data["generated_regions"].get(region_index, false))
+
+
+static func next_ungenerated_region(map_data: Dictionary) -> int:
+	if not map_data.has("generated_regions"):
+		return -1
+	var generated: Dictionary = map_data["generated_regions"]
+	for region_index in range(REGION_COUNT):
+		if not bool(generated.get(region_index, false)):
+			return region_index
+	return -1
+
+
+static func merge_region_chunk(target_map: Dictionary, chunk: Dictionary, region_index: int) -> void:
+	if is_region_generated(target_map, region_index):
+		return
+	for dict_key in ["walkable", "room_types", "protected_cells", "gold_piles",
+			"enemy_encounters", "safe_area_entries", "safe_portals", "region_zero_vault_presets"]:
+		if not target_map.has(dict_key):
+			target_map[dict_key] = {}
+		var dst: Dictionary = target_map[dict_key]
+		var src: Dictionary = chunk.get(dict_key, {})
+		for k in src.keys():
+			dst[k] = src[k]
+	var dst_portals: Array = target_map.get("portal_positions", [])
+	for p in chunk.get("portal_positions", []):
+		dst_portals.append(p)
+	target_map["portal_positions"] = dst_portals
+	var dst_enemies: Array = target_map.get("enemy_positions", [])
+	for ep in chunk.get("enemy_positions", []):
+		dst_enemies.append(ep)
+	target_map["enemy_positions"] = dst_enemies
+	var dst_floor_decks: Array = target_map.get("floor_deck_spawn_positions", [])
+	for dp in chunk.get("floor_deck_spawn_positions", []):
+		dst_floor_decks.append(dp)
+	target_map["floor_deck_spawn_positions"] = dst_floor_decks
+	var dst_pregen: Dictionary = target_map.get("pregenerated_floor_decks", {})
+	var src_pregen: Dictionary = chunk.get("pregenerated_floor_decks", {})
+	for pk in src_pregen.keys():
+		dst_pregen[pk] = src_pregen[pk]
+	target_map["pregenerated_floor_decks"] = dst_pregen
+	if not target_map.has("generated_regions"):
+		target_map["generated_regions"] = {}
+	target_map["generated_regions"][region_index] = true
+	ensure_enemy_states(target_map)
+
+
 static func generate_region(map_data: Dictionary, region_index: int, map_seed: int) -> void:
 	if region_index == 0:
 		_generate_region_zero(map_data, map_seed)
+		if not map_data.has("generated_regions"):
+			map_data["generated_regions"] = {}
+		map_data["generated_regions"][0] = true
 		return
 	var content_region := region_index - 1
 	var start_y := region_index * REGION_STRIDE
@@ -163,69 +227,93 @@ static func generate_region(map_data: Dictionary, region_index: int, map_seed: i
 		var boss_position := Vector2i(safe_center_x - 7, safe_center_y)
 		map_data["enemy_positions"].append(boss_position)
 		map_data["enemy_encounters"][boss_position] = 14 + content_region
+	if not DECK_VAULTS_ENABLED:
+		var floor_spawns: Array = map_data.get("floor_deck_spawn_positions", [])
+		for local_index in ordinary_locations.keys():
+			if str(ordinary_locations[local_index]) == "deckVault":
+				var idx := int(local_index)
+				var pos := Vector2i(idx % WIDTH, start_y + floori(float(idx) / WIDTH))
+				map_data["room_types"].erase(pos)
+				floor_spawns.append(pos)
+		map_data["floor_deck_spawn_positions"] = floor_spawns
+	if not map_data.has("generated_regions"):
+		map_data["generated_regions"] = {}
+	map_data["generated_regions"][region_index] = true
 
 
 static func _generate_region_zero(map_data: Dictionary, map_seed: int) -> void:
 	var cy := START.y
-	# Starting room (x = 104..107, y = cy-1..cy+1)
+	# Starting room (3x3: x = 105..107, y = cy-1..cy+1, centered on START)
 	for y in range(cy - 1, cy + 2):
-		for x in range(104, 108):
+		for x in range(105, 108):
 			_add_floor(map_data, Vector2i(x, y))
-	# Mandatory 1-tile chokepoint corridor (x = 108..110, y = cy)
+	# Corridor 1 (x = 108..110, y = cy): Battle 1 (2 rats)
 	for x in range(108, 111):
 		_add_floor(map_data, Vector2i(x, cy))
-	var mandatory_enemy := Vector2i(109, cy)
-	map_data["enemy_positions"].append(mandatory_enemy)
-	map_data["enemy_encounters"][mandatory_enemy] = 90
-	# Deck vault room (x = 111..115, y = cy-2..cy+2) with 3 vaults (1 key each, no future vaults) and portal
-	for y in range(cy - 2, cy + 3):
-		for x in range(111, 116):
+	var first_enemy := Vector2i(109, cy)
+	map_data["enemy_positions"].append(first_enemy)
+	map_data["enemy_encounters"][first_enemy] = 90
+	# Deck room (3x3: x = 111..113, y = cy-1..cy+1) at the corner of the ㄱ layout
+	for y in range(cy - 1, cy + 2):
+		for x in range(111, 114):
 			_add_floor(map_data, Vector2i(x, y))
-	var vault_positions: Array[Vector2i] = [Vector2i(113, cy - 2), Vector2i(113, cy), Vector2i(113, cy + 2)]
-	var presets: Array[int] = [0, 1, 2]
+	var deck_positions: Array[Vector2i] = [Vector2i(112, cy - 1), Vector2i(113, cy)]
+	var presets: Array[int] = [0, 1]
 	var preset_rng := RandomNumberGenerator.new()
 	preset_rng.seed = map_seed ^ 0x4a3b2c1d
-	for i in range(presets.size() - 1, 0, -1):
-		var j := preset_rng.randi_range(0, i)
-		var tmp := presets[i]
-		presets[i] = presets[j]
-		presets[j] = tmp
+	if preset_rng.randi_range(0, 1) == 1:
+		presets = [1, 0]
 	var preset_map: Dictionary = map_data.get("region_zero_vault_presets", {})
-	for idx in range(vault_positions.size()):
-		var vpos := vault_positions[idx]
-		map_data["room_types"][vpos] = "deckVault"
+	var zero_floor_spawns: Array = map_data.get("floor_deck_spawn_positions", [])
+	for idx in range(deck_positions.size()):
+		var vpos := deck_positions[idx]
+		if DECK_VAULTS_ENABLED:
+			map_data["room_types"][vpos] = "deckVault"
+		else:
+			zero_floor_spawns.append(vpos)
 		preset_map["%d,%d" % [vpos.x, vpos.y]] = presets[idx]
 	map_data["region_zero_vault_presets"] = preset_map
-	var portal_pos := Vector2i(115, cy)
+	map_data["floor_deck_spawn_positions"] = zero_floor_spawns
+	# Corridor 2 (vertical downward, x = 112, y = cy+2..cy+4): Battle 2 (3 rats)
+	for y in range(cy + 2, cy + 5):
+		_add_floor(map_data, Vector2i(112, y))
+	var second_enemy := Vector2i(112, cy + 3)
+	map_data["enemy_positions"].append(second_enemy)
+	map_data["enemy_encounters"][second_enemy] = 92
+	# Portal room (3x3: x = 111..113, y = cy+5..cy+7)
+	for y in range(cy + 5, cy + 8):
+		for x in range(111, 114):
+			_add_floor(map_data, Vector2i(x, y))
+	var portal_pos := Vector2i(112, cy + 6)
 	map_data["room_types"][portal_pos] = "portal"
 	map_data["portal_positions"].append(portal_pos)
 
 	# Region 0 gateway chamber (관문): 3x3 safeArea - 9-tile corridor (partialHeal at start, boss in center) - 3x3 heal - portal
-	var safe_entry := Vector2i(129, cy)
+	var safe_entry := Vector2i(133, cy)
 	map_data["safe_area_entries"][0] = safe_entry
 	_add_floor(map_data, safe_entry)
 	map_data["room_types"][safe_entry] = "safeEntry"
 	for dy in range(-1, 2):
-		for x in range(130, 133):
+		for x in range(134, 137):
 			var safe_pos := Vector2i(x, cy + dy)
 			_add_floor(map_data, safe_pos)
 			map_data["room_types"][safe_pos] = "safeArea"
-	for x in range(133, 142):
+	for x in range(137, 146):
 		var corridor_pos := Vector2i(x, cy)
 		_add_floor(map_data, corridor_pos)
 		map_data["room_types"][corridor_pos] = "empty"
-	map_data["room_types"][Vector2i(133, cy)] = "partialHeal"
-	var boss_pos := Vector2i(137, cy)
+	map_data["room_types"][Vector2i(137, cy)] = "partialHeal"
+	var boss_pos := Vector2i(141, cy)
 	map_data["room_types"][boss_pos] = "boss"
 	map_data["enemy_positions"].append(boss_pos)
 	map_data["enemy_encounters"][boss_pos] = 91
 	for dy in range(-1, 2):
-		for x in range(142, 145):
+		for x in range(146, 149):
 			var right_pos := Vector2i(x, cy + dy)
 			_add_floor(map_data, right_pos)
 			map_data["room_types"][right_pos] = "empty"
-	map_data["room_types"][Vector2i(143, cy)] = "heal"
-	var safe_portal := Vector2i(145, cy)
+	map_data["room_types"][Vector2i(147, cy)] = "heal"
+	var safe_portal := Vector2i(149, cy)
 	_add_floor(map_data, safe_portal)
 	map_data["room_types"][safe_portal] = "safePortal"
 	map_data["safe_portals"][0] = safe_portal
@@ -237,64 +325,246 @@ static func _place_region_enemy_positions(
 	main_floor: PackedByteArray,
 	start_y: int
 ) -> Array[Vector2i]:
-	var candidates: Array[Vector2i] = []
 	var room_types: Dictionary = map_data["room_types"]
 	var walkable: Dictionary = map_data["walkable"]
 	var safe_start := Vector2i(START.x, start_y)
+	var region_cells: Dictionary = {}
+	var eligible_chokepoints: Dictionary = {}
+	var chokepoint_patterns: Dictionary = {}
 	for local_y in range(REGION_HEIGHT):
 		for x in range(WIDTH):
-			var index := local_y * WIDTH + x
 			var position := Vector2i(x, start_y + local_y)
-			if index >= main_floor.size() or not main_floor[index] or not walkable.has(position) \
+			if not walkable.has(position) or is_gateway_tile(map_data, position):
+				continue
+			region_cells[position] = true
+			var index := local_y * WIDTH + x
+			if index >= main_floor.size() or not main_floor[index] \
 				or (room_types.has(position) and str(room_types[position]) != "vaultInterior"):
 				continue
 			if maxi(absi(position.x - safe_start.x), absi(position.y - safe_start.y)) <= ENEMY_START_SAFE_RADIUS:
 				continue
-			candidates.append(position)
-	if candidates.is_empty():
+			if _is_local_enemy_chokepoint(map_data, position, chokepoint_patterns):
+				eligible_chokepoints[position] = true
+	if region_cells.is_empty() or eligible_chokepoints.is_empty():
 		return []
 
-	# Mirror the browser's 4.5% target, slight count jitter, and distance-weighted sampling.
-	var browser_anchor := Vector2i(candidates[0].x - START.x, candidates[0].y)
-	var expected_count := float(candidates.size()) * MAP_ENEMY_SPAWN_CHANCE
-	var spread := minf(expected_count * 0.1, sqrt(expected_count * (1.0 - MAP_ENEMY_SPAWN_CHANCE)))
-	var target_count := clampf(expected_count + spread * (
-		MapGenerationRules.seeded_roll(browser_anchor, map_seed, 2901)
-		- MapGenerationRules.seeded_roll(browser_anchor, map_seed, 2902)
-	), 0.0, float(candidates.size()))
-	var whole_count := floori(target_count)
-	var enemy_count := whole_count + (1 if MapGenerationRules.seeded_roll(browser_anchor, map_seed, 3001) < target_count - whole_count else 0)
-
-	var remaining: Array[Dictionary] = []
-	var chokepoint_patterns: Dictionary = {}
-	for position in candidates:
-		if not _is_local_enemy_chokepoint(map_data, position, chokepoint_patterns):
-			continue
-		remaining.append({"position": position, "distance": INF, "base_weight": 1.0, "weight": 1.0})
-	if remaining.is_empty():
-		return []
-	enemy_count = mini(enemy_count, remaining.size())
+	var placed: Dictionary = {}
 	var selected: Array[Vector2i] = []
-	for selected_index in range(enemy_count):
-		var total_weight := 0.0
-		for candidate in remaining:
-			total_weight += float(candidate["weight"])
-		var roll := MapGenerationRules.seeded_roll(browser_anchor, map_seed, 3003 + selected_index) * total_weight
-		var chosen_index := remaining.size() - 1
-		for index in range(remaining.size()):
-			roll -= float(remaining[index]["weight"])
-			if roll < 0.0:
-				chosen_index = index
-				break
-		var chosen: Dictionary = remaining.pop_at(chosen_index)
-		var chosen_position: Vector2i = chosen["position"]
-		selected.append(chosen_position)
-		for candidate in remaining:
-			var candidate_position: Vector2i = candidate["position"]
-			var distance := maxi(absi(candidate_position.x - chosen_position.x), absi(candidate_position.y - chosen_position.y))
-			candidate["distance"] = minf(float(candidate["distance"]), float(distance))
-			candidate["weight"] = float(candidate["base_weight"]) * minf(1.0, pow((float(candidate["distance"]) + 0.25) / 5.0, 2.5))
+	var unsplitable_markers: Dictionary = {}
+	var max_iterations := mini(240, eligible_chokepoints.size())
+	for _iter in range(max_iterations):
+		var visited: Dictionary = {}
+		var target_comp: Array[Vector2i] = []
+		var target_is_start := false
+		var target_has_portal := false
+		var best_priority := -1
+
+		for raw_cell in region_cells.keys():
+			var cell: Vector2i = raw_cell
+			if visited.has(cell) or placed.has(cell):
+				continue
+			var comp: Array[Vector2i] = []
+			var queue: Array[Vector2i] = [cell]
+			visited[cell] = true
+			var qi := 0
+			var has_start := false
+			var has_portal := false
+			var marker := cell
+			while qi < queue.size():
+				var cur: Vector2i = queue[qi]
+				qi += 1
+				comp.append(cur)
+				if cur == safe_start:
+					has_start = true
+				if str(room_types.get(cur, "")) == "portal":
+					has_portal = true
+				if cur.y < marker.y or (cur.y == marker.y and cur.x < marker.x):
+					marker = cur
+				for dir in [Vector2i(1, 0), Vector2i(-1, 0), Vector2i(0, 1), Vector2i(0, -1)]:
+					var nxt: Vector2i = cur + dir
+					if not visited.has(nxt) and not placed.has(nxt) and region_cells.has(nxt):
+						visited[nxt] = true
+						queue.append(nxt)
+			var marker_key := "%d,%d:%d" % [marker.x, marker.y, comp.size()]
+			if unsplitable_markers.has(marker_key):
+				continue
+			var priority := -1
+			if has_start:
+				if has_portal:
+					priority = 1000000 + comp.size()
+				elif comp.size() > START_COMPONENT_MAX_TILES:
+					priority = 500000 + comp.size()
+			elif comp.size() > REGION_COMPONENT_MAX_TILES:
+				priority = comp.size()
+			if priority > best_priority:
+				best_priority = priority
+				target_comp = comp
+				target_is_start = has_start
+				target_has_portal = has_portal
+
+		if target_comp.is_empty():
+			break
+
+		var cut := _pick_component_split_chokepoint(
+			target_comp, safe_start, target_is_start, target_has_portal,
+			eligible_chokepoints, placed, room_types, map_seed
+		)
+		if cut.x < 0:
+			var marker := target_comp[0]
+			for c in target_comp:
+				if c.y < marker.y or (c.y == marker.y and c.x < marker.x):
+					marker = c
+			unsplitable_markers["%d,%d:%d" % [marker.x, marker.y, target_comp.size()]] = true
+			continue
+		placed[cut] = true
+		selected.append(cut)
 	return selected
+
+
+static func _pick_component_split_chokepoint(
+	comp: Array[Vector2i],
+	safe_start: Vector2i,
+	is_start: bool,
+	has_portal: bool,
+	eligible_chokepoints: Dictionary,
+	placed: Dictionary,
+	room_types: Dictionary,
+	map_seed: int
+) -> Vector2i:
+	var n := comp.size()
+	var comp_set: Dictionary = {}
+	var idx_of: Dictionary = {}
+	for i in range(n):
+		comp_set[comp[i]] = true
+		idx_of[comp[i]] = i
+
+	var root_idx := int(idx_of.get(safe_start, 0)) if is_start else 0
+	# Iterative Tarjan DFS for articulation points, subtree sizes, and portal containment.
+	var disc := PackedInt32Array()
+	disc.resize(n)
+	disc.fill(-1)
+	var low := PackedInt32Array()
+	low.resize(n)
+	low.fill(0)
+	var parent := PackedInt32Array()
+	parent.resize(n)
+	parent.fill(-1)
+	var sub_size := PackedInt32Array()
+	sub_size.resize(n)
+	sub_size.fill(1)
+	var sub_portals := PackedInt32Array()
+	sub_portals.resize(n)
+	for i in range(n):
+		sub_portals[i] = 1 if str(room_types.get(comp[i], "")) == "portal" else 0
+	var adj: Array = []
+	adj.resize(n)
+	for i in range(n):
+		var nbrs: Array[int] = []
+		var pos := comp[i]
+		for dir in [Vector2i(1, 0), Vector2i(-1, 0), Vector2i(0, 1), Vector2i(0, -1)]:
+			var nxt: Vector2i = pos + dir
+			if idx_of.has(nxt):
+				nbrs.append(int(idx_of[nxt]))
+		adj[i] = nbrs
+
+	var next_edge := PackedInt32Array()
+	next_edge.resize(n)
+	next_edge.fill(0)
+	var detached_sum := PackedInt32Array()
+	detached_sum.resize(n)
+	detached_sum.fill(0)
+	var max_detached := PackedInt32Array()
+	max_detached.resize(n)
+	max_detached.fill(0)
+	var detached_portals := PackedInt32Array()
+	detached_portals.resize(n)
+	detached_portals.fill(0)
+
+	var timer := 0
+	disc[root_idx] = 0
+	low[root_idx] = 0
+	timer = 1
+	var stack: Array[int] = [root_idx]
+	while not stack.is_empty():
+		var u: int = stack[stack.size() - 1]
+		var nbrs: Array = adj[u]
+		var ei := next_edge[u]
+		if ei < nbrs.size():
+			next_edge[u] = ei + 1
+			var v: int = nbrs[ei]
+			if disc[v] == -1:
+				parent[v] = u
+				disc[v] = timer
+				low[v] = timer
+				timer += 1
+				stack.append(v)
+			elif v != parent[u]:
+				if disc[v] < low[u]:
+					low[u] = disc[v]
+		else:
+			stack.pop_back()
+			var p := parent[u]
+			if p != -1:
+				sub_size[p] += sub_size[u]
+				sub_portals[p] += sub_portals[u]
+				if low[u] < low[p]:
+					low[p] = low[u]
+				if low[u] >= disc[p]:
+					detached_sum[p] += sub_size[u]
+					if sub_size[u] > max_detached[p]:
+						max_detached[p] = sub_size[u]
+					detached_portals[p] += sub_portals[u]
+
+	var best_cut := Vector2i(-1, -1)
+	var best_score := -1.0
+	var fallback_loop_cut := Vector2i(-1, -1)
+	var fallback_loop_score := -1.0
+
+	for i in range(n):
+		if i == root_idx:
+			continue
+		var pos := comp[i]
+		if not eligible_chokepoints.has(pos):
+			continue
+		var adj_enemy := false
+		for dir in [Vector2i(1, 0), Vector2i(-1, 0), Vector2i(0, 1), Vector2i(0, -1)]:
+			if placed.has(pos + dir):
+				adj_enemy = true
+				break
+		var jitter := MapGenerationRules.seeded_roll(pos, map_seed, 3107) * 0.5
+		var root_side := n - 1 - detached_sum[i]
+		if is_start and root_side < START_COMPONENT_MIN_TILES:
+			continue
+
+		if max_detached[i] >= 4:
+			var split_score := float(mini(root_side, max_detached[i])) + jitter
+			if is_start:
+				# Prefer keeping the starting component comfortably in [30..70] and blocking any portal.
+				var portal_bonus := 5000.0 * float(detached_portals[i]) if has_portal else 0.0
+				var target_fit := 120.0 - absf(float(root_side) - 48.0)
+				split_score = portal_bonus + target_fit + minf(float(max_detached[i]), 80.0) * 0.4 + jitter
+			if adj_enemy:
+				split_score -= 18.0
+			if split_score > best_score:
+				best_score = split_score
+				best_cut = pos
+		else:
+			# Candidate for breaking a cycle so the next iteration can split cleanly.
+			var loop_score := 50.0 + jitter
+			if is_start:
+				var dist := absi(pos.x - safe_start.x) + absi(pos.y - safe_start.y)
+				if dist < 6:
+					continue
+				loop_score = 100.0 - absf(float(dist) - 10.0) + jitter
+			else:
+				loop_score = float(mini(sub_size[i], n - sub_size[i])) + jitter
+			if adj_enemy:
+				loop_score -= 30.0
+			if loop_score > fallback_loop_score:
+				fallback_loop_score = loop_score
+				fallback_loop_cut = pos
+
+	return best_cut if best_cut.x >= 0 else fallback_loop_cut
 
 
 static func _is_local_enemy_chokepoint(map_data: Dictionary, position: Vector2i, pattern_cache: Dictionary = {}) -> bool:

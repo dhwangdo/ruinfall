@@ -16,7 +16,7 @@ const KARMA_HOVER := Color("#eabfff")
 var _kind := "safe_area"
 var _count := 0
 var _tooltip_title := "덱 편집 제한 해제"
-var _tooltip_description := "안전 구역에서는 덱을 자유롭게 편집할 수 있습니다."
+var _tooltip_description := "현재 위치에서는 덱을 자유롭게 편집할 수 있습니다."
 var _hovered := false
 
 

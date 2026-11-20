@@ -47,7 +47,7 @@ static func normalize_loaded_run(run_state: Dictionary, random_player_name: Call
 	if not run_state.has("owned_decks") or typeof(run_state["owned_decks"]) != TYPE_ARRAY:
 		run_state["active_deck_id"] = "starter"
 		run_state["owned_decks"] = [{"id": "starter", "name": "시작 덱", "capacity": 20,
-			"rare_slot_capacity": 1, "cards": run_state["deck"].duplicate(true), "editions": []}]
+			"rare_slot_capacity": 0, "cards": run_state["deck"].duplicate(true), "editions": []}]
 	elif run_state["owned_decks"].is_empty():
 		# An intentionally empty collection is valid after dropping the last deck.
 		run_state["active_deck_id"] = ""
@@ -65,7 +65,7 @@ static func normalize_loaded_run(run_state: Dictionary, random_player_name: Call
 			run_state["deck"] = fallback_deck.get("cards", []).duplicate(true)
 	for deck in run_state.get("owned_decks", []):
 		if str(deck.get("id", "")) == "starter":
-			deck["rare_slot_capacity"] = 1
+			deck["rare_slot_capacity"] = 0
 	var highest_id := highest_saved_card_id(run_state)
 	run_state["next_card_id"] = maxi(int(run_state.get("next_card_id", 1)), highest_id + 1)
 	MapRules.ensure_enemy_states(run_state["map"], run_state.get("defeated_enemies", []))

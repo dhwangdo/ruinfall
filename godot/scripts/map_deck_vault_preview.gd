@@ -8,6 +8,7 @@ const DeckEditionList = preload("res://scripts/deck_edition_list.gd")
 const GameFonts = preload("res://scripts/game_fonts.gd")
 const DECK_VAULT_KEY_COST := 3
 const VaultRules = preload("res://scripts/deck_vault_rules.gd")
+const MapRules = preload("res://scripts/map_rules.gd")
 const PREVIEW_MAX_WIDTH := 820.0
 const VIEWPORT_MARGIN := 12.0
 const ANCHOR_GAP := 11.0
@@ -93,7 +94,10 @@ func _build_header(deck: Dictionary) -> Control:
 	var cards: Array = deck.get("cards", [])
 	var capacity := int(deck.get("capacity", 0))
 	var summary := Label.new()
-	summary.text = "%d / %d장 · 열쇠 %d개로 개방" % [cards.size(), capacity, VaultRules.key_cost(deck)]
+	if MapRules.DECK_VAULTS_ENABLED:
+		summary.text = "%d / %d장 · 열쇠 %d개로 개방" % [cards.size(), capacity, VaultRules.key_cost(deck)]
+	else:
+		summary.text = "%d / %d장" % [cards.size(), capacity]
 	summary.add_theme_font_override("font", GameFonts.make(500))
 	summary.add_theme_font_size_override("font_size", 16)
 	summary.add_theme_color_override("font_color", Color("#f0eee7"))

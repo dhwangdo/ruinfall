@@ -65,7 +65,9 @@ static func roll_region_location_counts(seed_value: int, region_index: int) -> D
 	# The paused shop quotas still consume their draws, matching the browser sequence.
 	next_random(rng)
 	next_random(rng)
-	var portal := 8 + floori(next_random(rng) * 5.0)
+	# Preserve RNG draw order while fixing region portal count to 4.
+	next_random(rng)
+	var portal := 4
 	next_random(rng)
 	next_random(rng)
 	next_random(rng)
