@@ -1093,6 +1093,9 @@ func _materialize_pending_floor_decks() -> bool:
 		if pregen.has(key):
 			deck = pregen[key]
 			pregen.erase(key)
+			var deck_first_id := next_card_id
+			var region_index := MapRules.region_index_at(pos)
+			deck["id"] = "found-r%d-%d-%d-%d" % [maxi(0, region_index), pos.x, pos.y, deck_first_id]
 			for card in deck.get("cards", []):
 				card["id"] = next_card_id
 				next_card_id += 1

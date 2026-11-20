@@ -158,5 +158,8 @@ func _pregenerate_chunk_floor_decks(chunk: Dictionary) -> void:
 		if raw_pos is Vector2i:
 			var pos: Vector2i = raw_pos
 			var gen := VaultRules.generate(chunk, pos, 1)
-			pregen["%d,%d" % [pos.x, pos.y]] = gen["deck"]
+			var pregen_deck: Dictionary = gen["deck"]
+			var region_index := MapRules.region_index_at(pos)
+			pregen_deck["id"] = "found-r%d-%d-%d" % [maxi(0, region_index), pos.x, pos.y]
+			pregen["%d,%d" % [pos.x, pos.y]] = pregen_deck
 	chunk["pregenerated_floor_decks"] = pregen

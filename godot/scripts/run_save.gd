@@ -66,10 +66,45 @@ static func normalize_loaded_run(run_state: Dictionary, random_player_name: Call
 	for deck in run_state.get("owned_decks", []):
 		if str(deck.get("id", "")) == "starter":
 			deck["rare_slot_capacity"] = 0
+	deduplicate_deck_ids(run_state)
 	var highest_id := highest_saved_card_id(run_state)
 	run_state["next_card_id"] = maxi(int(run_state.get("next_card_id", 1)), highest_id + 1)
 	MapRules.ensure_enemy_states(run_state["map"], run_state.get("defeated_enemies", []))
 	MapRules.reveal_visible(run_state["map"], run_state["position"])
+
+
+static func deduplicate_deck_ids(run_state: Dictionary) -> void:
+	var seen_ids: Dictionary = {}
+	for deck in run_state.get("owned_decks", []):
+		if typeof(deck) == TYPE_DICTIONARY:
+			_assign_unique_deck_id(deck, seen_ids)
+	for drop in run_state.get("floor_deck_drops", []):
+		if typeof(drop) == TYPE_DICTIONARY and typeof(drop.get("deck", null)) == TYPE_DICTIONARY:
+			_assign_unique_deck_id(drop["deck"], seen_ids)
+	var saved_map: Variant = run_state.get("map", null)
+	if typeof(saved_map) == TYPE_DICTIONARY:
+		var pregen: Variant = saved_map.get("pregenerated_floor_decks", null)
+		if typeof(pregen) == TYPE_DICTIONARY:
+			for deck in (pregen as Dictionary).values():
+				if typeof(deck) == TYPE_DICTIONARY:
+					_assign_unique_deck_id(deck, seen_ids)
+
+
+static func _assign_unique_deck_id(deck: Dictionary, seen_ids: Dictionary) -> void:
+	var base_id := str(deck.get("id", "")).strip_edges()
+	if base_id.is_empty():
+		base_id = "deck"
+	if not seen_ids.has(base_id):
+		deck["id"] = base_id
+		seen_ids[base_id] = true
+		return
+	var suffix := 2
+	var candidate := "%s-dup%d" % [base_id, suffix]
+	while seen_ids.has(candidate):
+		suffix += 1
+		candidate = "%s-dup%d" % [base_id, suffix]
+	deck["id"] = candidate
+	seen_ids[candidate] = true
 
 
 static func highest_saved_card_id(saved: Dictionary) -> int:
