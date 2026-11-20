@@ -32,9 +32,8 @@ static func create(visual: Control, selected_card_size: Vector2, preview_name: S
 	visual.self_modulate = Color.WHITE
 	visual.custom_minimum_size = visual_size
 	visual.size = visual_size
-	# Horizontal grab stays centered; vertical grab is two-thirds down the first
-	# selected card, matching a 2:1 top-to-bottom hotspot split.
-	visual.position = Vector2(-selected_card_size.x * 0.5, -selected_card_size.y * (2.0 / 3.0))
+	# Grab the exact center of the first selected card.
+	visual.position = Vector2(-selected_card_size.x * 0.5, -selected_card_size.y * 0.5)
 	wrapper.set_meta("drag_target_offset", visual.position)
 	_ignore_pointer(visual)
 	wrapper.add_child(visual)

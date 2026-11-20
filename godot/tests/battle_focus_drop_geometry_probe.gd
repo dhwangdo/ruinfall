@@ -23,31 +23,70 @@ func _run_probe() -> void:
 	file.drop_exclusion_controls = [hand_card]
 	assert(not file.contains_battle_drop_local_point(Vector2(95, 120)),
 		"file drop region must stay closed outside a drag")
-	file.force_drag({"kind": "battle-card", "source": "hand"}, Control.new())
+	file.force_drag({"kind": "battle-card", "source": "file", "source_index": 1}, Control.new())
 	assert(get_root().gui_is_dragging(), "probe did not start a battle-card drag")
 	assert(file.contains_battle_drop_local_point(Vector2(95, 120)),
-		"the 48px extra file target area should accept points below the button")
+		"the 48px extra file target area should accept file-to-file points below the button")
 	assert(not file.contains_battle_drop_local_point(Vector2(20, 120)),
 		"extra file target area must not overlap the hand card")
 	assert(not file.contains_battle_drop_local_point(Vector2(20, 149)),
 		"extra file target area must stop at 48px")
-	var accepted := BattleFreePlayDrop.can_drop(Vector2(95, 120), Control.new(), [file],
-		{"kind": "battle-card", "source": "hand"}, _valid_drop)
-	assert(not accepted, "valid extended file target must take priority over outside-hand play")
 	get_root().gui_cancel_drag()
+	file.force_drag({"kind": "battle-card", "source": "hand"}, Control.new())
+	file.notification(Control.NOTIFICATION_DRAG_BEGIN)
+	assert(not file.contains_battle_drop_local_point(Vector2(95, 120)),
+		"hand drags must not be snagged by the invisible 48px bottom extension")
+	var free_play_hand := Control.new()
+	free_play_hand.position = Vector2(0, 300)
+	free_play_hand.size = Vector2(640, 180)
+	root.add_child(free_play_hand)
+	var accepted_early := BattleFreePlayDrop.can_drop(Vector2(50, 50), free_play_hand, [file],
+		{"kind": "battle-card", "source": "hand"}, _valid_drop)
+	assert(accepted_early, "during first 0.20s of hand drag, outside-hand play must win over file")
+	file._process(0.21)
+	var accepted_armed := BattleFreePlayDrop.can_drop(Vector2(50, 50), free_play_hand, [file],
+		{"kind": "battle-card", "source": "hand"}, _valid_drop)
+	assert(not accepted_armed, "after 0.20s of hand drag, armed top-card file target must take priority")
+	free_play_hand.queue_free()
+	get_root().gui_cancel_drag()
+	var other_file := BattleDropButton.new()
+	other_file.size = Vector2(100, 100)
+	other_file.accepts_battle_drops = true
+	root.add_child(other_file)
+	file._apply_drop_guide("forge", false)
+	other_file._apply_drop_guide("solitaire", false)
+	assert(file._drop_guide_layers["forge_glow_inner"].visible
+		and other_file._drop_guide_layers["solitaire_glow_inner"].visible,
+		"when no file is hovered, all valid files should show their neon glow")
 	file._apply_drop_guide("forge", true)
 	assert(not file._drop_guide_layers["guide_outline"].visible,
-		"forge target should retain its orange glow without the thin orange border")
-	assert(file._drop_guide_layers["forge_glow_inner"].visible,
-		"forge target should keep its orange glow")
+		"hovered forge target should not show cyan border")
+	assert(file._drop_guide_layers["hover_forge_glow"].visible
+		and not file._drop_guide_layers["hover_use_glow"].visible
+		and not file._drop_guide_layers["forge_glow_inner"].visible,
+		"hovered forge target file should display the orange variant of the use glow effect")
+	assert(not other_file._drop_guide_layers["solitaire_glow_inner"].visible,
+		"non-hovered files must turn off neon while another file is hovered")
+	assert(not file._drop_guide_layers["hover_outline"].visible,
+		"drag hover must not show the pale-yellow hover border")
 	assert(is_equal_approx(file._drop_guide_layers["guide_outline"].offset_bottom, 2.0),
 		"cyan/yellow guides must keep the original card bottom, not include the 48px hit extension")
 	assert(is_equal_approx(file._drop_guide_layers["hover_outline"].offset_bottom, 4.0),
 		"yellow hover guide must keep the original slot bounds")
+	file._apply_drop_guide("solitaire", false)
+	assert(file._drop_guide_layers["solitaire_glow_inner"].visible
+		and other_file._drop_guide_layers["solitaire_glow_inner"].visible
+		and not file._drop_guide_layers["hover_use_glow"].visible,
+		"leaving hovered file must restore neon on all valid files")
 	file._apply_drop_guide("solitaire", true)
-	assert(file._drop_guide_layers["guide_outline"].visible
-		and file._drop_guide_layers["hover_outline"].visible,
-		"cyan target and yellow hover guides should remain visible")
+	assert(file._drop_guide_layers["hover_use_glow"].visible
+		and not file._drop_guide_layers["solitaire_glow_inner"].visible
+		and not other_file._drop_guide_layers["solitaire_glow_inner"].visible
+		and not file._drop_guide_layers["hover_outline"].visible,
+		"hovering solitaire file must show only the center-card use glow effect on that file")
+	file._apply_drop_guide("none", false)
+	other_file._apply_drop_guide("none", false)
+	other_file.queue_free()
 	var piles_row := HBoxContainer.new()
 	piles_row.position = Vector2(640, 0)
 	piles_row.size = Vector2(500, 300)

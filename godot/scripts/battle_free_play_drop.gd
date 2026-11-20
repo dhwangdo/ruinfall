@@ -32,11 +32,14 @@ static func can_drop(point: Vector2, hand: Control, files: Array[Control], paylo
 		or not in_play_band(hand, point) \
 		or not bool(validator.call(payload, "center", -1)):
 		return false
-	# A valid solitaire destination always wins over the outside-hand action.
+	# A valid solitaire destination wins over outside-hand play only when armed.
 	for index in range(files.size()):
 		var file := files[index]
 		if is_instance_valid(file) and contains_point(file, point) \
 			and bool(validator.call(payload, "file", index)):
+			if file.has_method("is_guarded_file_drop_armed") \
+				and not bool(file.call("is_guarded_file_drop_armed", payload, point)):
+				continue
 			return false
 	for control in blocked_controls:
 		if contains_point(control, point):
