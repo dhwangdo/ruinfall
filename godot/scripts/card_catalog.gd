@@ -140,7 +140,7 @@ const SPECIAL_CARDS: Array[Dictionary] = [
 	{"name": "진압", "kind": "strike", "effect": "suppression", "use_mode": "targeted", "rarity": "special", "cost": 3, "value": 12, "playable": true, "description": "피해를 12 줍니다.\n준 피해만큼 방어를 얻습니다."},
 	{"name": "사서의 특권", "kind": "skill", "effect": "librarians_privilege", "use_mode": "untargeted", "rarity": "special", "cost": 2, "value": 1, "exhaust": true, "rule": true, "playable": true, "description": "룰. 턴 시작 시 카드를 1장 뽑습니다."},
 	{"name": "질주", "kind": "skill", "effect": "dash", "use_mode": "untargeted", "rarity": "special", "cost": 1, "value": 0, "forge_cost": 3, "playable": true, "description": "카드를 무작위로 2[3]장 뽑습니다.\n재련: [3코스트]"},
-	{"name": "치환 합금", "kind": "strike", "effect": "exchange", "use_mode": "targeted", "rarity": "special", "cost": 3, "value": 15, "forge_any": true, "playable": true, "description": "피해를 15 줍니다.\n재련: [아무거나]"},
+	{"name": "치환 합금", "kind": "strike", "effect": "exchange", "use_mode": "targeted", "rarity": "special", "cost": 3, "value": 15, "forge_any": true, "playable": true, "description": "피해를 15 줍니다.\n[밑패와 비용을 교환합니다.]\n재련: [아무거나]"},
 	{"name": "늑대 부적", "kind": "skill", "effect": "wolf_talisman", "use_mode": "unplayable", "rarity": "special", "value": 1, "playable": false, "description": "사용 불가.\n전투 덱에 있는 동안 힘을 1 얻습니다."},
 	{"name": "거북이 부적", "kind": "skill", "effect": "turtle_talisman", "use_mode": "unplayable", "rarity": "special", "value": 1, "playable": false, "description": "사용 불가.\n전투 덱에 있는 동안 강인함을 1 얻습니다."},
 	{"name": "가호", "kind": "skill", "effect": "blessing", "use_mode": "untargeted", "rarity": "special", "cost": 1, "temporary_magic_resistance": 2, "description": "이번 턴 동안 마법 저항을 2 얻습니다."},

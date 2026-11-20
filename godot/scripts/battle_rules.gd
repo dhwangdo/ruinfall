@@ -2134,10 +2134,12 @@ static func _apply_turn_start_effects(state: Dictionary) -> void:
 
 
 static func _calculate_attack_damage(damage: int, weakness_turns: int = 0, vulnerable_turns: int = 0) -> int:
-	var weakness_modifier := -50 if weakness_turns > 0 else 0
-	var vulnerable_modifier := 50 if vulnerable_turns > 0 else 0
-	var combined_percent := 100 + weakness_modifier + vulnerable_modifier
-	return maxi(0, int(floor(float(damage) * combined_percent / 100.0)))
+	var multiplier := 1.0
+	if weakness_turns > 0:
+		multiplier *= 0.5
+	if vulnerable_turns > 0:
+		multiplier *= 1.5
+	return maxi(0, int(floor(float(damage) * multiplier)))
 
 
 static func _decay_status(value: int) -> int:

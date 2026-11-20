@@ -10,9 +10,9 @@ static func format(card: Dictionary, battle_state: Dictionary = {}, use_battle_c
 	var description := str(card.get("description", ""))
 	# Saved cards can retain old copy, so current catalog descriptions are normalized below.
 	var effect := str(card.get("effect", ""))
-	if effect in ["strategy_book", "obsidian_dagger", "dash", "combat_manual"]:
+	if effect in ["strategy_book", "obsidian_dagger", "dash", "combat_manual", "exchange"]:
 		var source_cards: Array = CardCatalog.RARE_CARDS
-		if effect == "dash":
+		if effect in ["dash", "exchange"]:
 			source_cards = CardCatalog.SPECIAL_CARDS
 		elif effect == "combat_manual":
 			source_cards = CardCatalog.BASIC_CARDS
@@ -40,6 +40,8 @@ static func format(card: Dictionary, battle_state: Dictionary = {}, use_battle_c
 			description = description.replace("[한 번 더 공격합니다.]", "한 번 더 공격합니다.")
 		elif effect == "spinning_slash":
 			description = description.replace("[모든 적을 공격합니다.]", "모든 적을 공격합니다.")
+		elif effect == "exchange":
+			description = description.replace("\n[밑패와 비용을 교환합니다.]", "").replace("[밑패와 비용을 교환합니다.]", "")
 		if card.has("upgraded_value"):
 			var base_value := int(card.get("value", 0))
 			var forged_value := int(card.get("upgraded_value", base_value))

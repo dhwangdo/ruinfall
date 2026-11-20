@@ -267,7 +267,8 @@ static func _append_deck_card_groups(host: Node, deck_card_list: HBoxContainer, 
 		var card := DeckStorageService.group_representative(group)
 		var card_ids: Array = group["ids"]
 		var deck_card_widget := card_widget(host, card, card_ids.size())
-		_apply_pending_deck_add_effect(host, deck_card_widget, card_ids)
+		if not deck_can_edit:
+			_apply_pending_deck_add_effect(host, deck_card_widget, card_ids)
 		_configure_deck_card_ticket_drop(host, deck_card_widget, deck_id, card)
 		if not host.extraction_ticket_mode:
 			configure_run_card_drag(host, deck_card_widget, card, "deck", deck_id, "deck", deck_id)

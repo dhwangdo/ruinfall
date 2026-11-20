@@ -63,7 +63,7 @@ func _check_weakness_paths(game, strike: Dictionary) -> void:
 				state.player_weak = weak
 				state.strength = strength
 				var ordinary := floori(float(6 + strength) * (0.5 if weak > 0 else 1.0))
-				var targeted := floori(float(6 + strength) * (1.0 - (0.5 if weak > 0 else 0.0) + (0.5 if vulnerable > 0 else 0.0)))
+				var targeted := floori(float(6 + strength) * (0.5 if weak > 0 else 1.0) * (1.5 if vulnerable > 0 else 1.0))
 				game.battle_state = state
 				var source: String = strike.description
 				var targeted_state: Dictionary = state.duplicate(true)

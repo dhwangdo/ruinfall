@@ -200,7 +200,7 @@ static func _single_encounter_blueprints(encounter_index: int) -> Array[Dictiona
 		91:
 			return [_enemy("문지기 골렘", 60, [
 				{"name": "내려치기", "damage": 10, "cycle": true},
-				{"name": "방어 태세", "block_gain": 8, "strength_gain": 2, "cycle": true},
+				{"name": "힘 모으기", "strength_gain": 3, "cycle": true},
 				{"name": "강타", "damage": 12, "cycle": true},
 			], {"is_boss": true, "fixed_max_hp": true, "tutorial_skip_enabled": true})]
 		92:
@@ -341,9 +341,12 @@ static func intent_text(enemy: Dictionary, player_energy: int = 3, hand_count: i
 	var damage := int(action.get("damage", 0)) + int(enemy.get("strength", 0)) + temporary_strength if int(action.get("damage", 0)) > 0 else 0
 	if damage > 0:
 		var hits := maxi(1, int(action.get("hits", 1)))
-		var outgoing_modifier := -50 if int(enemy.get("weak", 0)) > 0 else 0
-		var incoming_modifier := 50 if int(enemy.get("player_vulnerable", 0)) > 0 else 0
-		var total_damage := maxi(0, int(floor(float(damage) * (100 + outgoing_modifier + incoming_modifier) / 100.0))) * hits
+		var multiplier := 1.0
+		if int(enemy.get("weak", 0)) > 0:
+			multiplier *= 0.5
+		if int(enemy.get("player_vulnerable", 0)) > 0:
+			multiplier *= 1.5
+		var total_damage := maxi(0, int(floor(float(damage) * multiplier))) * hits
 		result += " · %s %d" % ["피해", total_damage]
 		if hits > 1:
 			result += " ×%d" % hits
