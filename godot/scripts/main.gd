@@ -1090,12 +1090,11 @@ func _materialize_pending_floor_decks() -> bool:
 		if bool(spawned.get(key, false)):
 			continue
 		var deck: Dictionary
+		var deck_first_id := next_card_id
+		var region_index := MapRules.region_index_at(pos)
 		if pregen.has(key):
 			deck = pregen[key]
 			pregen.erase(key)
-			var deck_first_id := next_card_id
-			var region_index := MapRules.region_index_at(pos)
-			deck["id"] = "found-r%d-%d-%d-%d" % [maxi(0, region_index), pos.x, pos.y, deck_first_id]
 			for card in deck.get("cards", []):
 				card["id"] = next_card_id
 				next_card_id += 1
@@ -1103,6 +1102,7 @@ func _materialize_pending_floor_decks() -> bool:
 			var generated := VaultRules.generate(map_data, pos, next_card_id)
 			deck = generated["deck"]
 			next_card_id = int(generated["next_card_id"])
+		deck["id"] = "found-r%d-%d-%d-%d" % [maxi(0, region_index), pos.x, pos.y, deck_first_id]
 		deck.erase("vault_key_cost")
 		deck.erase("vault_region_offset")
 		floor_decks.append({"x": pos.x, "y": pos.y, "deck": deck})
@@ -3669,17 +3669,20 @@ func _on_battle_card_dropped(payload: Dictionary, target_kind: String, target_in
 			battle_state = next_state
 			_show_battle(true)
 			var landing_card: Control = battle_pile_widgets[target_index].drag_preview_widget
-			landing_card.modulate.a = 0.0
-			var layout_ticket := battle_draw_presentation.generation
-			await get_tree().process_frame
-			await get_tree().process_frame
-			if screen_name != "battle" or layout_ticket != battle_draw_presentation.generation \
-					or not is_instance_valid(landing_card):
-				return
-			var destination := landing_card.get_global_rect()
-			var ticket := await battle_draw_presentation.play_departures(self, items, next_state, "place", destination)
-			if ticket < 0:
-				return
+			if is_instance_valid(landing_card):
+				landing_card.modulate.a = 0.0
+				var layout_ticket := battle_draw_presentation.generation
+				await get_tree().process_frame
+				await get_tree().process_frame
+				if screen_name != "battle" or layout_ticket != battle_draw_presentation.generation \
+						or not is_instance_valid(landing_card):
+					return
+				var destination := landing_card.get_global_rect()
+				var ticket := await battle_draw_presentation.play_departures(self, items, next_state, "place", destination)
+				if ticket < 0:
+					return
+			else:
+				battle_draw_presentation.active = false
 		battle_state = next_state
 	elif target_kind == "enemy" and source == "hand":
 		battle_play_queue.submit(self, card_id, target_index, payload.get("held_origin", {}))

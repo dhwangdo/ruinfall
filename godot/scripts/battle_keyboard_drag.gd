@@ -212,11 +212,19 @@ func _commit_or_cancel(game: Control, point: Vector2) -> void:
 		return
 	if not destination.is_empty():
 		payload["held_origin"] = capture_origin(game)
+		var target_control: Control = destination["control"]
+		var target_local: Vector2 = destination["local"]
+		var was_file_armed := str(destination.get("kind", "")) == "file" \
+			and bool(target_control.get("_file_drag_armed"))
 		_clear_keyboard_grace()
 		viewport.gui_cancel_drag()
 		card_id = -1
 		held_key = 0
-		destination["control"].call("_drop_data", destination["local"], payload)
+		pointer_drag = false
+		lift_hold_armed = false
+		if was_file_armed:
+			target_control.set("_file_drag_armed", true)
+		target_control.call("_drop_data", target_local, payload)
 		return
 	_cancel(game)
 
