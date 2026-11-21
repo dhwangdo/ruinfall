@@ -172,7 +172,7 @@ var active_restart_progress: Control
 var player_name_setup_overlay: Control
 var deck_editor_overlay: Control
 var gold_popup_pending := 0
-const AUTO_TRAVEL_MAX_STEPS_PER_FRAME := 32
+const AUTO_TRAVEL_MAX_STEPS_PER_FRAME := 1
 const AUTO_TRAVEL_FRAME_BUDGET_USEC := 10000
 var auto_travel_active := false
 var auto_travel_elapsed := 0.0
@@ -192,7 +192,7 @@ var auto_explore_capture_written := false
 var auto_explore_capture_path := "user://auto_explore_cross_session_capture.save"
 var map_travel_active := false
 var map_travel_elapsed := 0.0
-var map_travel_step_interval := 0.14
+var map_travel_step_interval := 0.0
 var map_travel_path: Array[Vector2i] = []
 var map_travel_target := Vector2i(-1, -1)
 var map_travel_step_in_progress := false
@@ -680,6 +680,7 @@ func _process(delta: float) -> void:
 	sticker_service_controller.tick(self, delta)
 	if screen_name != "map" or run_state.is_empty() or is_instance_valid(player_name_setup_overlay):
 		_finish_auto_explore_capture("map_unavailable")
+		auto_travel_dirty_save = false
 		map_travel_active = false
 		map_travel_path.clear()
 		return
@@ -757,13 +758,13 @@ func _flush_auto_travel_save() -> void:
 
 func _start_auto_travel() -> void:
 	_ensure_auto_explore_capture_seed()
+	_flush_auto_travel_save()
 	map_travel_active = false
 	map_travel_path.clear()
 	map_travel_target = Vector2i(-1, -1)
 	auto_travel_active = true
 	auto_travel_elapsed = 0.0
 	auto_travel_step_interval = 0.0
-	auto_travel_dirty_save = false
 	auto_travel_path.clear()
 	auto_travel_progress = MapTravel.create_auto_explore_progress()
 	# Keep surveys across O sessions and interruptions; routes and threats are fresh.
@@ -915,36 +916,85 @@ func _auto_travel_revealed_special_terrain(seen_before: Dictionary) -> bool:
 	return false
 
 
-func _process_map_travel(delta: float) -> void:
-	map_travel_elapsed += delta
-	if map_travel_elapsed < map_travel_step_interval:
-		return
-	map_travel_elapsed = 0.0
-	var current: Vector2i = run_state["position"]
-	if current == map_travel_target:
-		map_travel_active = false
-		map_travel_path.clear()
-		map_travel_target = Vector2i(-1, -1)
-		_refresh_map_travel_controls()
-		return
-	map_travel_path = MapTravel.find_enemy_avoiding_route(
-		run_state["map"], current, map_travel_target, run_state.get("defeated_enemies", [])
-	)
-	if map_travel_path.size() < 2:
-		map_travel_active = false
-		map_travel_path.clear()
-		map_travel_target = Vector2i(-1, -1)
-		notice = "현재 발견한 지형으로 목적지에 닿을 경로가 없습니다."
+func _map_travel_route_still_valid(current: Vector2i) -> bool:
+	if map_travel_path.size() < 2 or map_travel_path[0] != current or map_travel_path.back() != map_travel_target:
+		return false
+	var map_data: Dictionary = run_state.get("map", {})
+	var seen: Dictionary = map_data.get("seen", {})
+	var defeated: Array = run_state.get("defeated_enemies", [])
+	var known_enemies: Dictionary = {}
+	for enemy_pos in MapTravel._known_travel_enemy_positions(map_data, defeated):
+		known_enemies[enemy_pos] = true
+	for index in range(1, map_travel_path.size()):
+		var cell: Vector2i = map_travel_path[index]
+		if not seen.has(cell) or not MapRules.is_walkable(map_data, cell):
+			return false
+		if index < map_travel_path.size() - 1 and known_enemies.has(cell):
+			return false
+	return true
+
+
+func _process_map_travel(_delta: float) -> void:
+	var start_usec := Time.get_ticks_usec()
+	var steps_this_frame := 0
+	var moved_this_frame := false
+	while map_travel_active and steps_this_frame < AUTO_TRAVEL_MAX_STEPS_PER_FRAME:
+		if steps_this_frame > 0 and Time.get_ticks_usec() - start_usec >= AUTO_TRAVEL_FRAME_BUDGET_USEC:
+			break
+		var current: Vector2i = run_state["position"]
+		if current == map_travel_target:
+			map_travel_active = false
+			map_travel_path.clear()
+			map_travel_target = Vector2i(-1, -1)
+			_flush_auto_travel_save()
+			if moved_this_frame and screen_name == "map":
+				_refresh_map_after_turn()
+				call_deferred("_focus_map_on_player")
+			else:
+				_refresh_map_travel_controls()
+			return
+		if not _map_travel_route_still_valid(current):
+			map_travel_path = MapTravel.find_enemy_avoiding_route(
+				run_state["map"], current, map_travel_target, run_state.get("defeated_enemies", [])
+			)
+		if map_travel_path.size() < 2:
+			map_travel_active = false
+			map_travel_path.clear()
+			map_travel_target = Vector2i(-1, -1)
+			notice = "현재 발견한 지형으로 목적지에 닿을 경로가 없습니다."
+			_flush_auto_travel_save()
+			_refresh_map_after_turn()
+			return
+		var next_position: Vector2i = map_travel_path[1]
+		map_travel_path.pop_front()
+		map_travel_step_in_progress = true
+		auto_travel_defer_commit = true
+		_try_move(next_position)
+		auto_travel_defer_commit = false
+		map_travel_step_in_progress = false
+		steps_this_frame += 1
+		if run_state.get("position") != current:
+			moved_this_frame = true
+		if screen_name != "map":
+			map_travel_active = false
+			map_travel_path.clear()
+			map_travel_target = Vector2i(-1, -1)
+			auto_travel_dirty_save = false
+			_refresh_map_travel_controls()
+			return
+		if run_state["position"] == map_travel_target:
+			map_travel_active = false
+			map_travel_path.clear()
+			map_travel_target = Vector2i(-1, -1)
+			_flush_auto_travel_save()
+			_refresh_map_after_turn()
+			call_deferred("_focus_map_on_player")
+			return
+		if run_state.get("position") == current:
+			break
+	if moved_this_frame and screen_name == "map":
 		_refresh_map_after_turn()
-		return
-	map_travel_step_in_progress = true
-	_try_move(map_travel_path[1])
-	map_travel_step_in_progress = false
-	if screen_name != "map" or run_state["position"] == map_travel_target:
-		map_travel_active = false
-		map_travel_path.clear()
-		map_travel_target = Vector2i(-1, -1)
-		_refresh_map_travel_controls()
+		call_deferred("_focus_map_on_player")
 
 
 func _refresh_map_travel_controls() -> void:
@@ -2134,9 +2184,7 @@ func _try_move(destination: Vector2i) -> void:
 		map_travel_elapsed = 0.0
 		map_travel_path = route
 		map_travel_target = destination
-		var travel_steps := maxi(route.size() - 1, 1)
-		var step_ms := maxi(70, int(round(140.0 / sqrt(float(travel_steps)))))
-		map_travel_step_interval = float(step_ms) / 1000.0
+		map_travel_step_interval = 0.0
 		notice = "적과의 거리와 경로를 고려해 이동 중 · 방향키로 취소"
 		_refresh_map_after_turn()
 		return
