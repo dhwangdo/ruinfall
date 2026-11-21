@@ -265,6 +265,13 @@ func _draw() -> void:
 func _has_point(point: Vector2) -> bool:
 	if target_kind == "enemy":
 		return EnemyTargetArea.local_rect(self).has_point(point)
+	if target_kind == "center":
+		if not _battle_card_drag_active():
+			return false
+		var payload: Variant = get_viewport().gui_get_drag_data()
+		if not (payload is Dictionary) or not _passes_drop_validator(payload):
+			return false
+		return Rect2(Vector2.ZERO, size).has_point(point)
 	if target_kind == "file" and _is_guarded_hand_drag():
 		return _top_card_local_rect().has_point(point)
 	var extension := drop_extension_bottom if _battle_card_drag_active() else 0.0

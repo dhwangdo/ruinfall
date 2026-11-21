@@ -243,12 +243,37 @@ func capture_origin(game: Control) -> Dictionary:
 func drop_destination(game: Control, point: Vector2, payload: Dictionary) -> Dictionary:
 	var viewport := game.get_viewport()
 	var target: Control = viewport.gui_get_hovered_control()
+	var hovered_dest: Dictionary = {}
 	while is_instance_valid(target):
 		var local := target.get_global_transform_with_canvas().affine_inverse() * point
 		if target.has_method("_can_drop_data") and bool(target.call("_can_drop_data", local, payload)):
-			return {"control": target, "local": local,
+			hovered_dest = {"control": target, "local": local,
 				"kind": "center" if target == game else str(target.get("target_kind"))}
+			break
 		target = target.get_parent() as Control
+	if not hovered_dest.is_empty() and str(hovered_dest.get("kind", "")) in ["file", "enemy"]:
+		return hovered_dest
+	if str(payload.get("source", "")) == "hand":
+		var enemy_dest := _enemy_drop_at(game, point, payload)
+		if not enemy_dest.is_empty():
+			return enemy_dest
+	return hovered_dest
+
+
+func _enemy_drop_at(game: Control, point: Vector2, payload: Dictionary) -> Dictionary:
+	var widgets: Variant = game.get("battle_enemy_widgets")
+	if not (widgets is Dictionary):
+		return {}
+	for enemy_widget in (widgets as Dictionary).values():
+		if not (enemy_widget is Control) or not is_instance_valid(enemy_widget) \
+				or not (enemy_widget as Control).is_visible_in_tree() \
+				or bool(enemy_widget.get("disabled")):
+			continue
+		var local: Vector2 = (enemy_widget as Control).get_global_transform_with_canvas().affine_inverse() * point
+		if enemy_widget.has_method("_has_point") and not bool(enemy_widget.call("_has_point", local)):
+			continue
+		if enemy_widget.has_method("_can_drop_data") and bool(enemy_widget.call("_can_drop_data", local, payload)):
+			return {"control": enemy_widget, "local": local, "kind": "enemy"}
 	return {}
 
 

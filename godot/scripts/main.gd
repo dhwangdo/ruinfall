@@ -3045,9 +3045,6 @@ func _show_battle(keep_draw_phase: bool = false) -> void:
 	center_files.size_flags_vertical = Control.SIZE_EXPAND_FILL
 	center_files.add_theme_constant_override("separation", 4)
 	files_margin.add_child(center_files)
-	var enemy_column := BattleEnemyLayout.new()
-	board.add_child(enemy_column)
-	board.enemies = enemy_column
 	var center_drop = BattleDropButtonScript.new()
 	_style_button(center_drop, "", Callable(), Vector2(0, 112))
 	center_drop.size_flags_horizontal = Control.SIZE_EXPAND_FILL
@@ -3066,6 +3063,11 @@ func _show_battle(keep_draw_phase: bool = false) -> void:
 	center_drop_style.content_margin_bottom = 0
 	for style_name in ["normal", "hover", "pressed", "disabled", "focus"]:
 		center_drop.add_theme_stylebox_override(style_name, center_drop_style)
+	board.add_child(center_drop)
+	board.center = center_drop
+	var enemy_column := BattleEnemyLayout.new()
+	board.add_child(enemy_column)
+	board.enemies = enemy_column
 	var resource_cluster := _battle_resource_cluster()
 	battle_hud_overlay.add_child(resource_cluster)
 	resource_cluster.set_anchors_and_offsets_preset(Control.PRESET_BOTTOM_RIGHT)
@@ -3073,8 +3075,6 @@ func _show_battle(keep_draw_phase: bool = false) -> void:
 	resource_cluster.offset_top = -224
 	resource_cluster.offset_right = -44
 	resource_cluster.offset_bottom = -100
-	board.add_child(center_drop)
-	board.center = center_drop
 	var player_panel := VBoxContainer.new()
 	player_panel.name = "BattlePlayerPanel"
 	player_panel.mouse_filter = Control.MOUSE_FILTER_IGNORE
@@ -3110,6 +3110,8 @@ func _show_battle(keep_draw_phase: bool = false) -> void:
 			target_button.drop_validator = Callable(self, "_is_valid_battle_drop")
 			target_button.card_dropped.connect(_on_battle_card_dropped)
 			target_button.disabled = int(enemy.get("hp", 0)) <= 0
+			if target_button.disabled:
+				target_button.mouse_filter = Control.MOUSE_FILTER_IGNORE
 			enemy_column.add_child(target_button)
 			battle_enemy_widgets[enemy_index] = target_button
 	_bind_battle_player_effects(player_panel)
