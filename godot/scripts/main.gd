@@ -172,12 +172,16 @@ var active_restart_progress: Control
 var player_name_setup_overlay: Control
 var deck_editor_overlay: Control
 var gold_popup_pending := 0
+const AUTO_TRAVEL_MAX_STEPS_PER_FRAME := 32
+const AUTO_TRAVEL_FRAME_BUDGET_USEC := 10000
 var auto_travel_active := false
 var auto_travel_elapsed := 0.0
-var auto_travel_step_interval := 0.023
+var auto_travel_step_interval := 0.0
 var auto_travel_path: Array[Vector2i] = []
 var auto_travel_route_needs_refresh := false
 var auto_travel_step_in_progress := false
+var auto_travel_defer_commit := false
+var auto_travel_dirty_save := false
 var auto_travel_progress: Dictionary = {}
 var auto_explore_surveyed_rooms: Dictionary = {}
 var auto_explore_capture_history: Array[Dictionary] = []
@@ -684,53 +688,71 @@ func _process(delta: float) -> void:
 		return
 	if not auto_travel_active:
 		return
-	auto_travel_elapsed += delta
-	if auto_travel_path.is_empty() or auto_travel_route_needs_refresh:
-		var begins_route := auto_travel_path.is_empty()
-		auto_travel_path = MapTravel.find_safe_path(
-			run_state["map"], run_state["position"], run_state.get("defeated_enemies", []), auto_travel_progress
-		)
-		auto_travel_route_needs_refresh = false
-		if auto_travel_path.is_empty():
-			var stop_reason := str(auto_travel_progress.get("stop_reason", "complete"))
-			if stop_reason == "blocked":
-				_stop_auto_travel("남은 탐사 경로가 적의 인식 범위와 겹쳐 자동 탐사를 멈췄습니다.")
-			elif stop_reason == "unsafe":
-				_stop_auto_travel("현재 위치가 안전하지 않아 자동 탐사를 멈췄습니다.")
-			else:
-				_stop_auto_travel("안전하게 탐사할 수 있는 곳과 골드를 모두 확인했습니다.")
+	_process_auto_travel()
+
+
+func _process_auto_travel() -> void:
+	var start_usec := Time.get_ticks_usec()
+	var steps_this_frame := 0
+	var moved_this_frame := false
+	while auto_travel_active and steps_this_frame < AUTO_TRAVEL_MAX_STEPS_PER_FRAME:
+		if steps_this_frame > 0 and Time.get_ticks_usec() - start_usec >= AUTO_TRAVEL_FRAME_BUDGET_USEC:
+			break
+		if auto_travel_path.is_empty() or auto_travel_route_needs_refresh:
+			auto_travel_path = MapTravel.find_safe_path(
+				run_state["map"], run_state["position"], run_state.get("defeated_enemies", []), auto_travel_progress
+			)
+			auto_travel_route_needs_refresh = false
+			if auto_travel_path.is_empty():
+				var stop_reason := str(auto_travel_progress.get("stop_reason", "complete"))
+				if stop_reason == "blocked":
+					_stop_auto_travel("남은 탐사 경로가 적의 인식 범위와 겹쳐 자동 탐사를 멈췄습니다.")
+				elif stop_reason == "unsafe":
+					_stop_auto_travel("현재 위치가 안전하지 않아 자동 탐사를 멈췄습니다.")
+				else:
+					_stop_auto_travel("안전하게 탐사할 수 있는 곳과 골드를 모두 확인했습니다.")
+				return
+		var current: Vector2i = run_state["position"]
+		var next_position: Vector2i = auto_travel_path[0]
+		if not MapTravel.is_safe_known_tile(run_state["map"], next_position, current,
+			run_state.get("defeated_enemies", []), auto_travel_progress):
+			auto_travel_path.clear()
+			steps_this_frame += 1
+			continue
+		var unseen_special := _capture_unseen_special_terrain_nearby(run_state["map"], next_position)
+		auto_travel_path.pop_front()
+		auto_travel_step_in_progress = true
+		auto_travel_defer_commit = true
+		_try_move(next_position)
+		auto_travel_defer_commit = false
+		auto_travel_step_in_progress = false
+		steps_this_frame += 1
+		if run_state.get("position") != current:
+			moved_this_frame = true
+			if not auto_explore_capture_session.is_empty():
+				auto_explore_capture_steps += 1
+		# The browser refreshes progress at every step, even along a committed route.
+		# Keep that route in progress, but record the new position and retire stale goals.
+		auto_travel_route_needs_refresh = true
+		if screen_name != "map":
+			_finish_auto_explore_capture("left_map")
+			auto_travel_active = false
+			auto_travel_dirty_save = false
+			auto_travel_path.clear()
 			return
-		if begins_route:
-			var steps_remaining := maxi(auto_travel_path.size(), 1)
-			var base_step_ms: float = round(70.0 / sqrt(float(steps_remaining)))
-			var step_interval_ms := maxi(1, int(round(maxf(45.0, base_step_ms) / 2.0)))
-			auto_travel_step_interval = float(step_interval_ms) / 1000.0
-	if auto_travel_elapsed < auto_travel_step_interval:
+		if run_state.get("position") != current and _auto_travel_revealed_unseen_special(unseen_special):
+			_stop_auto_travel("새로운 특수 지형을 발견해 자동 탐사를 멈췄습니다.")
+			return
+	if moved_this_frame and screen_name == "map":
+		_refresh_map_after_turn()
+		call_deferred("_focus_map_on_player")
+
+
+func _flush_auto_travel_save() -> void:
+	if not auto_travel_dirty_save:
 		return
-	auto_travel_elapsed = 0.0
-	var current: Vector2i = run_state["position"]
-	var next_position: Vector2i = auto_travel_path[0]
-	if not MapTravel.is_safe_known_tile(run_state["map"], next_position, current,
-		run_state.get("defeated_enemies", []), auto_travel_progress):
-		auto_travel_path.clear()
-		auto_travel_elapsed = 0.0
-		return
-	var seen_before: Dictionary = run_state["map"].get("seen", {}).duplicate()
-	auto_travel_path.pop_front()
-	auto_travel_step_in_progress = true
-	_try_move(next_position)
-	auto_travel_step_in_progress = false
-	if run_state.get("position") != current and not auto_explore_capture_session.is_empty():
-		auto_explore_capture_steps += 1
-	# The browser refreshes progress at every step, even along a committed route.
-	# Keep that route in progress, but record the new position and retire stale goals.
-	auto_travel_route_needs_refresh = true
-	if screen_name != "map":
-		_finish_auto_explore_capture("left_map")
-		auto_travel_active = false
-		auto_travel_path.clear()
-	elif run_state.get("position") != current and _auto_travel_revealed_special_terrain(seen_before):
-		_stop_auto_travel("새로운 특수 지형을 발견해 자동 탐사를 멈췄습니다.")
+	auto_travel_dirty_save = false
+	_save_run()
 
 
 func _start_auto_travel() -> void:
@@ -740,6 +762,8 @@ func _start_auto_travel() -> void:
 	map_travel_target = Vector2i(-1, -1)
 	auto_travel_active = true
 	auto_travel_elapsed = 0.0
+	auto_travel_step_interval = 0.0
+	auto_travel_dirty_save = false
 	auto_travel_path.clear()
 	auto_travel_progress = MapTravel.create_auto_explore_progress()
 	# Keep surveys across O sessions and interruptions; routes and threats are fresh.
@@ -767,7 +791,11 @@ func _stop_auto_travel(message: String) -> void:
 	map_travel_target = Vector2i(-1, -1)
 	notice = message
 	if screen_name == "map":
+		_flush_auto_travel_save()
 		_refresh_map_after_turn()
+		call_deferred("_focus_map_on_player")
+	else:
+		auto_travel_dirty_save = false
 
 
 func _ensure_auto_explore_capture_seed() -> void:
@@ -846,6 +874,31 @@ func _auto_explore_capture_has_stall_cycle() -> bool:
 			and cycle_first.get("end") == cycle_third.get("end") \
 			and cycle_first.get("end") == cycle_second.get("start") \
 			and cycle_second.get("end") == cycle_third.get("start"):
+			return true
+	return false
+
+
+func _capture_unseen_special_terrain_nearby(map_data: Dictionary, center: Vector2i) -> Dictionary:
+	var seen: Dictionary = map_data.get("seen", {})
+	var unseen_special: Dictionary = {}
+	var radius := MapRules.PLAYER_VISION_RADIUS
+	for y in range(center.y - radius, center.y + radius + 1):
+		for x in range(center.x - radius, center.x + radius + 1):
+			var position := Vector2i(x, y)
+			if seen.has(position):
+				continue
+			var room_type := MapRules.room_type_at(map_data, position)
+			if not ["empty", "rock", "void"].has(room_type):
+				unseen_special[position] = true
+	return unseen_special
+
+
+func _auto_travel_revealed_unseen_special(unseen_special: Dictionary) -> bool:
+	if unseen_special.is_empty():
+		return false
+	var visible_now: Dictionary = run_state.get("map", {}).get("visible_now", {})
+	for position in unseen_special.keys():
+		if visible_now.has(position):
 			return true
 	return false
 
@@ -2056,6 +2109,7 @@ func _try_move(destination: Vector2i) -> void:
 	if not auto_travel_step_in_progress and not map_travel_step_in_progress:
 		auto_travel_active = false
 		auto_travel_path.clear()
+		_flush_auto_travel_save()
 		map_travel_active = false
 		map_travel_path.clear()
 		map_travel_target = Vector2i(-1, -1)
@@ -2105,7 +2159,7 @@ func _try_move(destination: Vector2i) -> void:
 		var amount := int(gold_piles[destination])
 		run_state["gold"] = int(run_state["gold"]) + amount
 		gold_piles.erase(destination)
-		gold_popup_pending = amount
+		gold_popup_pending += amount
 		notice = "+$%d 골드" % amount
 	else:
 		notice = ""
@@ -2128,6 +2182,9 @@ func _try_move(destination: Vector2i) -> void:
 	var room_type := MapRules.room_type_at(map_data, destination)
 	if room_type == "portal" or room_type == "safePortal":
 		notice = "포탈 위에 있습니다. Enter를 눌러 이동하세요."
+	if auto_travel_defer_commit:
+		auto_travel_dirty_save = true
+		return
 	_save_run()
 	_refresh_map_after_turn()
 	call_deferred("_focus_map_on_player")
@@ -2196,6 +2253,7 @@ func _use_current_map_tile() -> void:
 		return
 	auto_travel_active = false
 	auto_travel_path.clear()
+	_flush_auto_travel_save()
 	var current: Vector2i = run_state["position"]
 	var map_data: Dictionary = run_state["map"]
 	var room_type := MapRules.room_type_at(map_data, current)

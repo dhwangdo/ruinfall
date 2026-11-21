@@ -1563,39 +1563,49 @@ static func refresh_enemy_memory(map_data: Dictionary) -> void:
 	var visible_now: Dictionary = map_data.get("visible_now", {})
 	var enemy_positions: Array = map_data.get("enemy_positions", [])
 	var enemy_states := ensure_enemy_states(map_data)
-	var memory: Dictionary = map_data.get("enemy_memory", {}).duplicate()
-	var memory_states: Dictionary = map_data.get("enemy_memory_states", {}).duplicate(true)
-	for enemy_index in range(enemy_positions.size()):
-		var enemy_id := str(enemy_index)
-		if bool(enemy_states[enemy_index].get("defeated", false)):
+	var memory: Dictionary = map_data.get("enemy_memory", {})
+	if not map_data.has("enemy_memory"):
+		map_data["enemy_memory"] = memory
+	var memory_states: Dictionary = map_data.get("enemy_memory_states", {})
+	if not map_data.has("enemy_memory_states"):
+		map_data["enemy_memory_states"] = memory_states
+	for enemy_id in memory.keys():
+		var index := int(enemy_id)
+		var last_position: Vector2i = memory[enemy_id]
+		if index < 0 or index >= enemy_positions.size() \
+			or bool(enemy_states[index].get("defeated", false)) \
+			or (visible_now.has(last_position) and enemy_positions[index] != last_position):
 			memory.erase(enemy_id)
 			memory_states.erase(enemy_id)
-			continue
+	for enemy_index in range(enemy_positions.size()):
 		var position: Vector2i = enemy_positions[enemy_index]
-		if visible_now.has(position):
-			memory[enemy_id] = position
-			var state: Dictionary = enemy_states[enemy_index]
-			memory_states[enemy_id] = {
-				"awareness": str(state.get("awareness", "sleeping")),
-				"is_boss": bool(state.get("is_boss", false)),
-				"permanent_sleep": bool(state.get("permanent_sleep", false)),
-			}
-	for enemy_id in memory.keys():
-		var last_position: Vector2i = memory[enemy_id]
-		if visible_now.has(last_position):
-			var index := int(enemy_id)
-			if index < 0 or index >= enemy_positions.size() or enemy_positions[index] != last_position:
-				memory.erase(enemy_id)
-				memory_states.erase(enemy_id)
-	map_data["enemy_memory"] = memory
-	map_data["enemy_memory_states"] = memory_states
+		if not visible_now.has(position):
+			continue
+		if bool(enemy_states[enemy_index].get("defeated", false)):
+			continue
+		var enemy_id := str(enemy_index)
+		memory[enemy_id] = position
+		var state: Dictionary = enemy_states[enemy_index]
+		memory_states[enemy_id] = {
+			"awareness": str(state.get("awareness", "sleeping")),
+			"is_boss": bool(state.get("is_boss", false)),
+			"permanent_sleep": bool(state.get("permanent_sleep", false)),
+		}
 
 
 static func ensure_enemy_states(map_data: Dictionary, defeated_positions: Array = []) -> Array:
-	var raw_states = map_data.get("enemy_states", [])
-	var states: Array = raw_states.duplicate(true) if typeof(raw_states) == TYPE_ARRAY else []
+	var raw_states = map_data.get("enemy_states", null)
+	var states: Array = raw_states if typeof(raw_states) == TYPE_ARRAY else []
+	if typeof(raw_states) != TYPE_ARRAY:
+		map_data["enemy_states"] = states
 	var enemy_positions: Array = map_data.get("enemy_positions", [])
+	if defeated_positions.is_empty() and states.size() == enemy_positions.size() \
+		and (states.is_empty() or (states[0].size() >= 5 and states[states.size() - 1].size() >= 5)):
+		return states
 	var encounters: Dictionary = map_data.get("enemy_encounters", {})
+	var defeated_lookup: Dictionary = {}
+	for defeated_pos in defeated_positions:
+		defeated_lookup[defeated_pos] = true
 	while states.size() < enemy_positions.size():
 		var enemy_index := states.size()
 		var position: Vector2i = enemy_positions[enemy_index]
@@ -1605,27 +1615,26 @@ static func ensure_enemy_states(map_data: Dictionary, defeated_positions: Array 
 			"awareness": "sleeping",
 			"is_boss": [14, 15, 16, 91].has(encounter_index),
 			"permanent_sleep": false,
-			"defeated": defeated_positions.has(position),
+			"defeated": defeated_lookup.has(position),
 		})
-	for enemy_index in range(states.size()):
-		if enemy_index >= enemy_positions.size():
-			break
+	var check_count := mini(states.size(), enemy_positions.size())
+	var has_defeated := not defeated_lookup.is_empty()
+	for enemy_index in range(check_count):
 		var state: Dictionary = states[enemy_index]
 		var position: Vector2i = enemy_positions[enemy_index]
-		if not state.has("encounter_index"):
-			state["encounter_index"] = int(encounters.get(position, 0))
-		if not state.has("awareness"):
-			state["awareness"] = "sleeping"
-		if not state.has("is_boss"):
-			state["is_boss"] = [14, 15, 16, 91].has(int(state["encounter_index"]))
-		if not state.has("permanent_sleep"):
-			state["permanent_sleep"] = false
-		if defeated_positions.has(position):
+		if state.size() < 5:
+			if not state.has("encounter_index"):
+				state["encounter_index"] = int(encounters.get(position, 0))
+			if not state.has("awareness"):
+				state["awareness"] = "sleeping"
+			if not state.has("is_boss"):
+				state["is_boss"] = [14, 15, 16, 91].has(int(state["encounter_index"]))
+			if not state.has("permanent_sleep"):
+				state["permanent_sleep"] = false
+			if not state.has("defeated"):
+				state["defeated"] = false
+		if has_defeated and defeated_lookup.has(position):
 			state["defeated"] = true
-		elif not state.has("defeated"):
-			state["defeated"] = false
-		states[enemy_index] = state
-	map_data["enemy_states"] = states
 	return states
 
 

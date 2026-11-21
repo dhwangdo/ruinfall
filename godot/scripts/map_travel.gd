@@ -305,11 +305,16 @@ static func _update_avoided_rooms(map_data: Dictionary, progress: Dictionary, de
 	var memory: Dictionary = map_data.get("enemy_memory", {})
 	var memory_states: Dictionary = map_data.get("enemy_memory_states", {})
 	var active_ids: Dictionary = {}
-	var history: Dictionary = progress.get("threat_history", {}).duplicate(true)
+	var defeated_lookup: Dictionary = {}
+	for defeated_pos in defeated_enemies:
+		defeated_lookup[defeated_pos] = true
+	var history: Dictionary = progress.get("threat_history", {})
+	if not progress.has("threat_history"):
+		progress["threat_history"] = history
 	for enemy_id_value in memory.keys():
 		var enemy_id := str(enemy_id_value)
 		var position: Vector2i = memory[enemy_id_value]
-		if defeated_enemies.has(position):
+		if defeated_lookup.has(position):
 			continue
 		active_ids[enemy_id] = true
 		var state: Dictionary = memory_states.get(enemy_id, {})
@@ -318,24 +323,23 @@ static func _update_avoided_rooms(map_data: Dictionary, progress: Dictionary, de
 		var boss := bool(state.get("is_boss", false))
 		var permanent_sleep := bool(state.get("permanent_sleep", false))
 		var snapshot_key := "%s:%d:%d:%s:%s" % [enemy_id, position.x, position.y, awareness, str(boss or permanent_sleep)]
-		history[snapshot_key] = {
-			"id": enemy_id,
-			"position": position,
-			"awareness": awareness,
-			"is_boss": boss,
-			"permanent_sleep": permanent_sleep,
-		}
+		if not history.has(snapshot_key):
+			history[snapshot_key] = {
+				"id": enemy_id,
+				"position": position,
+				"awareness": awareness,
+				"is_boss": boss,
+				"permanent_sleep": permanent_sleep,
+			}
 	for snapshot_key in history.keys():
 		if not active_ids.has(str(history[snapshot_key].get("id", ""))):
 			history.erase(snapshot_key)
-	progress["threat_history"] = history
 
 	var blocked := _blocked_rooms_from_history(map_data, history)
 	# Rebuild from the currently remembered threats. Keeping cells from a defeated
 	# enemy in this set would make later O-routes avoid safe areas forever.
-	var avoided: Dictionary = blocked.duplicate()
-	progress["avoided_rooms"] = avoided
-	return avoided
+	progress["avoided_rooms"] = blocked
+	return blocked
 
 
 static func _blocked_rooms_from_history(_map_data: Dictionary, history: Dictionary) -> Dictionary:
